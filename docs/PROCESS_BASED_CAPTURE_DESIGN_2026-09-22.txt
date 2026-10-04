@@ -1,0 +1,282 @@
+================================================================================
+PROCESS-ALAPÚ KÉPERNYŐ-CAPTURE — TERVEZÉSI DOKUMENTUM — 2026-09-22
+================================================================================
+IMPLEMENTÁCIÓS ÁLLAPOT (frissítve 2026-09-22):
+  1–3. fázis elkészült és offline tesztelt. A runtime-integráció opt-in:
+  AIPC_CAPTURE_PROCESS=1. A 4. fázis, az élő összehasonlító Hz/safety mérés
+  még nincs validálva, ezért ez az út nem alapértelmezett.
+
+  Az implementáció közben két Windows-specifikus helyességi javítás került
+  be a terven felül:
+  - a slot_size explicit fejlécmező, mert attach után a mapping .size értéke
+    lapméretre kerekített lehet;
+  - a seqlock már a data-slot írása ELŐTT odd állapotba kerül, így a három
+    slot körbefordulásakor sem fogadható el tépett frame.
+  A ProcessCaptureClient publication-sequence dedupe-ot is használ, ezért
+  egy stalled, de élő worker régi frame-je nem számít új telemetrynek.
+
+Előzmény: lásd docs/HZ_PERFORMANCE_INVESTIGATION_2026-09-22.txt, 8. pont.
+Rövid összefoglaló: a capture-szál (aipc-pixel-sensor) saját mérése szerint
+gyors (poll_ms 4-9ms), de a VALÓDI áteresztőképessége összeomlik hosszú
+szakaszokra (~15 valós másodperc alatt csak 4 capture attempt) — ez klasszikus
+GIL-éhezés tünete: a fő agent-szál (tick()) annyira sokáig tartja a GIL-t,
+hogy a capture-szál (és a Tkinter GUI-szál) nem kap elég processzoridőt, még
+akkor sem, ha a saját munkájuk gyors lenne.
+
+CÉL: a képernyő-rögzítést egy KÜLÖN OS-processzbe tenni, ami teljesen
+kikerüli a GIL-t — a fő processz (agent+GUI+vision+world-model) semmilyen
+hatással nincs a capture-processz futási sebességére, és fordítva.
+
+================================================================================
+1. JELENLEGI ARCHITEKTÚRA (szál-modell)
+================================================================================
+Egy Python processz, 4 szál:
+  - main thread (Tkinter mainloop) — GUI, root.after(250, update)
+  - aipc-agent (AgentRuntime.run) — a fő tick()-hurok, EZ a CPU-intenzív
+  - aipc-pixel-sensor (BufferedPixelSensor._run) — screen capture + pixel-
+    strip dekódolás + PacketAssembler
+  - aipc-status-writer — agent_status.json periodikus kiírása
+
+Mind a 4 szál UGYANAZT a GIL-t osztja meg. Az aipc-agent szál CPU-intenzív
+munkája (JSON-szerializálás, dict-bejárás, stb. — a ma javított dolgok egy
+része) éheztetheti a másik három szálat.
+
+Érintett fájlok:
+  src/wowbot/agent/runtime.py       (AgentRuntime, szál-indítás)
+  src/wowbot/agent/sensor.py        (PixelSensor, BufferedPixelSensor)
+  src/wowbot/agent/dxgi_capture.py  (DxgiClientCapture — a tényleges grab)
+  src/wowbot/agent/windows_input.py (ClientCapture — GDI fallback, ua. minta)
+  src/adapters/pixel_bridge.py      (decode_payload_from_bgra — pixel-strip dekódolás)
+  src/adapters/telemetry_packets.py (PacketAssembler — lapozott csomag-összerakás)
+
+================================================================================
+2. JAVASOLT ARCHITEKTÚRA
+================================================================================
+Két OS-processz:
+
+  [FŐ PROCESSZ]                          [CAPTURE-PROCESSZ]
+  Tkinter GUI                            capture_worker.py main loop
+  AgentRuntime (tick, world, vision)     - ClientCapture VAGY
+  PixelSensor.poll() -> ProcessCapture-    DxgiClientCapture (VÁLTOZATLAN,
+    Client.capture() olvas a megosztott    újrafelhasznált osztályok)
+    memóriából                           - minden sikeres grab után írás a
+  decode_payload_from_bgra (VÁLTOZATLAN)   megosztott memória puffer-gyűrűbe
+  PacketAssembler (VÁLTOZATLAN)          - control-csatornán fogadja: cél PID,
+                                            backend választás, stop parancs
+        <---- megosztott memória (SharedMemory, körkörös puffer) ---->
+        <---- control Queue (kicsi, ritka üzenetek) ---->
+
+KULCS-DÖNTÉS: a pixel-strip DEKÓDOLÁS és a World3D vision-elemzés MARAD a fő
+processzben — csak maga a nyers képernyő-GRAB kerül át. Ez azért jó választás:
+  - A ténylegesen diagnosztizált probléma (capture_attempts összeomlása,
+    poll_ms alacsony de ritkán fut) KIFEJEZETTEN a grab-hívás körüli
+    szál-ütemezésről szól, nem a dekódolásról vagy a vision-ről.
+  - A decode_payload_from_bgra/PacketAssembler/PerceptionWorker teljesen
+    VÁLTOZATLAN marad — nulla kockázat ezekre a már alaposan tesztelt
+    komponensekre nézve.
+  - A ClientCapture/DxgiClientCapture osztályok VÁLTOZATLANUL újrafelhasz-
+    nálhatók a capture-processzben — csak máshonnan hívjuk őket.
+
+================================================================================
+3. RÉSZLETES KOMPONENS-TERV
+================================================================================
+
+3.1 Megosztott memória réteg (ÚJ, önállóan tesztelhető modul)
+--------------------------------------------------------------
+Fájl: src/wowbot/agent/shared_frame_buffer.py (új)
+
+  class SharedFrameRingBuffer:
+      """3 slotos, író/olvasó közötti tépés (tearing) elleni védelemmel."""
+
+  Írói oldal (capture-processz):
+    write(raw_bytes: bytes, width: int, height: int, status: str, at: float)
+    - a KÖVETKEZŐ slotba ír (nem a jelenleg "latest"-ként jelölt slotba)
+    - írás UTÁN atomikusan frissíti a fejléc-blokkban: sequence++, slot_index,
+      width, height, status (fix hosszra vágott string), captured_at
+
+  Olvasói oldal (fő processz, ProcessCaptureClient):
+    read() -> (bytes, width, height, status, at) | None
+    - elolvassa a fejlécet (sequence, slot_index, ...)
+    - kimásolja a slot bájtjait EGY ÚJ bytes objektumba (nem tart élő
+      memoryview-t a megosztott memóriára a hívás után)
+    - ÚJRA elolvassa a sequence-t; ha változott közben (az író felülírta,
+      miközben olvastunk), eldobja és None-t ad vissza (a KÖVETKEZŐ hívás
+      úgyis friss slotot fog találni) — ez egy egyszerű "seqlock" mintázat,
+      nem kell zár, csak egy retry a ritka tépés esetére.
+
+  Fejléc-blokk: multiprocessing.shared_memory.SharedMemory, kis fix méret
+    (pár száz bájt: 3x sequence(int64) + latest_slot_index(int32) +
+    width/height(int32) + status(128 byte, nullterminated) + captured_at
+    (float64)). Nincs szükség Lock-ra a fejlécen — az olvasó-írás mintázat
+    eleve lock-mentesre (wait-free) van tervezve a fenti seqlock-trükkel.
+
+  Adat-blokk: 3× SharedMemory, egyenként max_width*max_height*4 bájt méretű
+    (a TÉNYLEGES kliens-felbontásból számolva induláskor + kis tartalék;
+    ha a kliens átméreteződik, a fő processz újra létrehozza mindkét oldalon
+    a megosztott memóriát — ritka esemény, elfogadható egy rövid
+    kimaradással).
+
+3.2 A capture-processz (ÚJ)
+--------------------------------------------------------------
+Fájl: src/wowbot/agent/capture_worker.py (új)
+
+  def run_capture_worker(pid: int, backend_name: str, shm_names: dict,
+                          control_queue, interval: float) -> None:
+      """multiprocessing.Process target. Nem importál Tkinter-t, nem tud a
+      GUI-ról vagy a WorldModel-ről — teljesen független, önálló hurok."""
+      capture = (DxgiClientCapture(pid, backend) if backend_name == "dxgi"
+                 else ClientCapture(pid, backend))  # VÁLTOZATLAN osztályok
+      ring = SharedFrameRingBuffer.attach(shm_names)
+      while True:
+          if not control_queue.empty():
+              msg = control_queue.get_nowait()
+              if msg == "STOP": break
+          started = time.monotonic()
+          frame = capture.capture()
+          if frame is not None:
+              raw, width, height = frame
+              ring.write(raw, width, height, capture.last_capture_status, started)
+          else:
+              ring.write_status_only(capture.last_capture_status, started)
+          time.sleep(max(0., interval-(time.monotonic()-started)))
+
+  Ez a folyamat SAJÁT GIL-jével fut — semmi köze a fő processz terheléséhez.
+  A `backend` (windows_input.Backend, ami a billentyű/egér-inputot és a
+  foreground-ellenőrzést adja) EBBEN a processzben ÚJRA létre kell hozni
+  (nem szálbiztos/processz-biztos objektum átadás), de csak OLVASÁSRA
+  használja (is_selected_foreground) — nem küld inputot, tehát nem ütközik
+  a fő processz InputExecutor-jával.
+
+3.3 A fő processz oldali kliens (ÚJ, drop-in csere)
+--------------------------------------------------------------
+Fájl: src/wowbot/agent/capture_worker.py (ugyanitt, vagy külön client.py)
+
+  class ProcessCaptureClient:
+      """Ugyanaz az interfész, mint ClientCapture/DxgiClientCapture:
+      .capture() -> (bytes, width, height) | None, .last_capture_status"""
+
+      def __init__(self, process_handle, ring: SharedFrameRingBuffer):
+          self._process, self._ring = process_handle, ring
+          self.last_capture_status = "waiting_for_capture_process"
+
+      def capture(self):
+          if not self._process.is_alive():
+              self.last_capture_status = "capture_process_died"
+              return None
+          result = self._ring.read()
+          if result is None:
+              return None
+          raw, width, height, status, at = result
+          self.last_capture_status = status
+          if status != "captured":
+              return None
+          return raw, width, height
+
+  FONTOS: ez az osztály a MEGLÉVŐ `PixelSensor(capture)` konstruktorba
+  illeszkedik VÁLTOZATLANUL — a PixelSensor, BufferedPixelSensor,
+  decode_payload_from_bgra, PacketAssembler egyetlen sora sem változik.
+  Csak azt cseréljük ki, HONNAN jön a `capture` objektum.
+
+3.4 Bekötés az AgentRuntime-ba
+--------------------------------------------------------------
+Fájl: src/wowbot/agent/runtime.py
+
+  Új, alapból KIKAPCSOLT opt-in env var (ugyanaz a minta, mint az
+  AIPC_CAPTURE_BACKEND=dxgi esetén):
+    AIPC_CAPTURE_PROCESS=1
+
+  AgentRuntime.__init__-ben, a jelenlegi capture-backend-választó blokk
+  mellé (runtime.py ~59-72. sor körül):
+    if os.environ.get("AIPC_CAPTURE_PROCESS", "").strip() == "1":
+        capture_client, capture_process = start_capture_process(pid, backend_name)
+        buffered_sensor = BufferedPixelSensor(PixelSensor(capture_client), ...)
+        self._capture_process = capture_process  # életciklus-kezeléshez
+    else:
+        ... (MEGLÉVŐ, VÁLTOZATLAN ág)
+
+  AgentRuntime.close()-ban: ha self._capture_process létezik, control_queue
+  "STOP" küldése, .join(timeout=2.0), sikertelen esetén .terminate(), majd
+  a SharedMemory blokkok .close()+.unlink() a fő processz oldalán.
+
+================================================================================
+4. KOMPATIBILITÁS ÉS KOCKÁZAT-CSÖKKENTÉS
+================================================================================
+- Alapból KIKAPCSOLVA (env var opt-in) — pontosan úgy, ahogy a DXGI backend
+  is bevezetésre került annak idején. Nulla viselkedésváltozás, amíg valaki
+  explicit be nem kapcsolja.
+- A ClientCapture/DxgiClientCapture/decode_payload_from_bgra/PacketAssembler/
+  PixelSensor/BufferedPixelSensor egyike sem változik — csak egy ÚJ,
+  alternatív "capture" objektumot kap a PixelSensor, ami ugyanazt az
+  interfészt adja.
+- Windows-specifikus multiprocessing részlet: a "spawn" indítási módszer
+  (Windows alapértelmezett) újraimportálja a fő modult a gyerek-processzben
+  — a tools/run_agent.py már rendelkezik `if __name__ == "__main__":`
+  védelemmel (ellenőrizve), tehát ez nem okoz gondot, de a capture_worker
+  target függvénynek KERÜLNIE kell bármilyen Tkinter/GUI importot a modul
+  tetején (csak a hívott függvényen belül importáljon, ha egyáltalán).
+- Gyerek-processz összeomlás: a ProcessCaptureClient minden capture()
+  hívásnál ellenőrzi is_alive()-ot; ha meghalt, world.fresh() magától
+  False-ra vált (a mailbox nem kap új adatot), a MEGLÉVŐ freshness-gate és
+  MANUAL-visszaesési logika (runtime.py) változatlanul kezeli ezt —
+  nem kell új hibaágat írni, csak egy tisztább diagnosztikai stringet.
+  (Opcionális, később hozzáadható: EGYSZERI automatikus újraindítási
+  kísérlet, ha a gyerek-processz váratlanul meghal.)
+
+================================================================================
+5. TESZTELÉSI TERV
+================================================================================
+1. tests/test_shared_frame_buffer.py (ÚJ) — tisztán a gyűrűspuffer logika,
+   valódi képernyő/processz nélkül: két szál (nem is processz szükséges a
+   teszthez) ír/olvas egyidejűleg fake bájtokat, ellenőrizve hogy sosem
+   kap tépett/inkonzisztens adatot, és hogy a legfrissebb slot mindig
+   elérhető.
+2. tests/test_process_capture_client.py (ÚJ) — egy FAKE (nem valódi OS-
+   processz, csak egy szimulált) "gyerek" ír a megosztott memóriába, a
+   ProcessCaptureClient helyesen olvassa vissza, és helyesen jelez
+   capture_process_died állapotot, ha a folyamat "meghal".
+3. Meglévő tests/test_capture_backend_selection.py, test_agent_buffered_
+   sensor.py, test_live_capture.py — VÁLTOZATLANUL kell maradniuk zöldnek,
+   hiszen a PixelSensor/BufferedPixelSensor nem változik.
+4. Élő smoke teszt (a felhasználóval, AIPC_CAPTURE_PROCESS=1 mellett):
+   - poll_ms és a TÉNYLEGES capture_attempts/decoded_packet_hz összevetése
+     a mostani (in-process) móddal ugyanabban a helyzetben (FULL_AI indítás,
+     SEEK_VISUAL_CUE hurok).
+   - GUI-válaszkészség szubjektív + objektív (pl. gomb-kattintás késleltetés)
+     összevetése.
+
+================================================================================
+6. FÁZISOK ÉS BECSÜLT KOCKÁZAT/MUNKA
+================================================================================
+  1. fázis (KIS kockázat, önálló, tesztelhető modul nélkül élő kapcsolat):
+     SharedFrameRingBuffer megírása + unit tesztek. ~1 munkamenet.
+  2. fázis (KIS-KÖZEPES kockázat): capture_worker.py + ProcessCaptureClient,
+     fake/szimulált teszttel. Még NINCS bekötve az AgentRuntime-ba, tehát
+     a meglévő működés érintetlen. ~1 munkamenet.
+  3. fázis (KÖZEPES kockázat, itt lép életbe ténylegesen): AgentRuntime
+     bekötés env var mögött, életciklus-kezelés (indítás/leállítás).
+     ~1 munkamenet.
+  4. fázis: élő smoke teszt a felhasználóval, mérések összevetése.
+
+================================================================================
+7. AMIT EZ MEGOLD, ÉS AMIT NEM (ŐSZINTÉN)
+================================================================================
+MEGOLDJA (nagy valószínűséggel, a diagnosztizált mechanizmus alapján):
+  - A capture-szál GIL-éhezését -> a "pixel strip nem látható"/"PID not
+    foreground" hamis riasztások és az elhúzódó FULL_AI-indítás, amíg a
+    capture ténylegesen éhezik.
+  - Közvetve enyhíti a GUI-szaggatást is, mert eggyel kevesebb GIL-versengő
+    marad a fő processzben.
+
+NEM OLDJA MEG TELJESEN (őszinte figyelmeztetés):
+  - A GUI-szaggatás ELSŐDLEGES forrása valószínűleg maga az agent-szál
+    (tick()) CPU-intenzív munkája, ami TOVÁBBRA IS a fő processzben, a
+    Tkinter-szállal EGY GIL alatt fut. Ez a terv NEM mozgatja ki a tick()-et
+    külön processzbe — az egy sokkal nagyobb, kockázatosabb átalakítás
+    lenne (a teljes WorldModel/vision/tervező állapotot kellene
+    processz-határon átvinni). Ha a GUI-szaggatás a capture-javítás UTÁN is
+    fennáll, az megerősítené, hogy a tick() maga a domináns ok, és a
+    következő lépés vagy további tick()-CPU-csökkentés, vagy a GIL
+    explicit átadási pontok (pl. `time.sleep(0)` stratégiai helyeken a
+    tick()-en belül) lenne — ez utóbbi jóval kisebb, gyorsabban
+    kipróbálható lépés, mielőtt bármi ennél nagyobbba fognánk.
+================================================================================

@@ -1,0 +1,3157 @@
+WORLD OF WARCRAFT AUTONOMOUS CLIENT AGENT
+TELJES FUNKCIONÁLIS TERVEZÉSI SPECIFIKÁCIÓ
+DESIGN SPECIFICATION – V1
+============================================================
+
+DOKUMENTUM CÉLJA
+================
+
+Ez a dokumentum NEM implementációs prompt és NEM kész kód.
+
+A célja a meglévő autonóm World of Warcraft kliens-agent teljes funkcionális megtervezése úgy, hogy a rendszer minden fontos részegységéről egyértelmű legyen:
+
+- MI a feladata;
+- MI NEM a feladata;
+- KI birtokolja az adott state-et;
+- MILYEN adatot kap;
+- MILYEN adatot ad vissza;
+- MILYEN publikus funkciókat kell biztosítania;
+- MILYEN belső állapotokkal működik;
+- MILYEN eseményeket fogad;
+- MILYEN eseményeket bocsát ki;
+- MILYEN hibákat kezel lokálisan;
+- MIKOR kér magasabb szintű újratervezést;
+- MILYEN fallbackeket használ;
+- MILYEN időzítéssel fusson;
+- MILYEN tesztekkel igazolható a helyes működés;
+- HOGYAN kapcsolódik a többi komponenshez.
+
+A dokumentum a jelenlegi repositoryban látható konkrét modulokból indul ki, többek között:
+
+wowbot.agent.engine
+wowbot.agent.autonomy_loop
+wowbot.agent.planner
+wowbot.agent.goal_manager
+wowbot.agent.world
+wowbot.agent.quest_model
+wowbot.agent.quest_semantics
+wowbot.agent.skills
+wowbot.agent.skill_lifecycle
+wowbot.agent.movement_controller
+wowbot.agent.navigation
+wowbot.agent.combat_controller
+wowbot.agent.visual_approach
+wowbot.agent.vision_seek
+wowbot.agent.perception
+wowbot.agent.executor
+wowbot.agent.memory
+
+wowbot.navigation.*
+wowbot.vision.*
+wowbot.vision.world3d.*
+wowbot.vision.fusion.*
+
+A jelenlegi modulnevek NEM kötelezőek a végállapotban.
+A felelősségi határok viszont kötelezőek.
+
+A terv a modern WoW questelési működéséből indul ki:
+
+- Quest Tracker / Quest Log;
+- World Map;
+- quest- és turn-in markerek;
+- supertracking / navigation cue, amikor elérhető;
+- Minimap;
+- 3D világ;
+- Interact Key / interakciós kiemelés;
+- target frame / nameplate / tooltip;
+- quest tool button;
+- gossip / quest offer / quest complete / reward UI;
+- Extra Action Button;
+- vehicle / override UI;
+- loading / cinematic / phasing;
+- több lépcsős quest objective-ek.
+
+ALAPELV:
+
+A quest objective NEM köteles a kamera előtt lenni.
+
+A helyes quest végrehajtási modell:
+
+QUEST STATE
+→ OBJECTIVE CLASSIFICATION
+→ OBJECTIVE LOCALIZATION
+→ GLOBAL / REGIONAL / LOCAL / IMMEDIATE NAVIGATION
+→ TARGET OR MECHANIC ACQUISITION
+→ DETERMINISTIC SKILL EXECUTION
+→ ACTION VERIFICATION
+→ QUEST CREDIT VERIFICATION
+→ QUEST STATE RE-READ
+→ NEXT STAGE / TURN-IN
+
+
+============================================================
+1. RENDSZERSZINTŰ ARCHITEKTÚRA
+============================================================
+
+A végállapot logikai rétegei:
+
+1. INPUT/CAPTURE LAYER
+2. SENSOR/PERCEPTION LAYER
+3. OBSERVATION NORMALIZATION
+4. WORLD MODEL
+5. WORLD QUERY
+6. QUEST STATE MODEL
+7. GOAL/SUPERVISOR
+8. OBJECTIVE CLASSIFIER
+9. OBJECTIVE LOCATOR
+10. PLANNER
+11. ACTIVE SKILL RUNTIME
+12. SKILL STATE MACHINES
+13. DOMAIN SERVICES
+14. EXECUTOR
+15. VERIFICATION
+16. MEMORY / LEARNING
+17. EVENT BUS
+18. REPLAY / DIAGNOSTICS
+19. GUI / DEBUG VIEW
+
+Függési irány:
+
+Capture
+  ↓
+Perception
+  ↓
+Observations
+  ↓
+WorldModel
+  ↓
+WorldQuery
+  ↓
+Quest/Supervisor/Planner
+  ↓
+SkillIntent
+  ↓
+ActiveSkillRuntime
+  ↓
+Skill
+  ↓
+Navigation / Combat / Interaction services
+  ↓
+Command
+  ↓
+Executor
+  ↓
+WoW Client
+
+Verifier oldalsó szolgáltatás:
+Skill + baseline/current state → VerificationResult
+
+EventBus:
+minden réteg közti fontos state-változás explicit eseményként.
+
+Memory:
+WorldModel / Navigation / Quest számára történeti evidence, NEM közvetlen authority.
+
+
+============================================================
+2. GLOBÁLIS ARCHITEKTURÁLIS INVARIÁNSOK
+============================================================
+
+INV-01
+Egyszerre pontosan 0 vagy 1 aktív Skill lehet.
+
+INV-02
+A Planner nem küld közvetlen billentyűt/egérinputot.
+
+INV-03
+A WorldModel nem indít skillt.
+
+INV-04
+Az Executor nem tud quest objective-ről.
+
+INV-05
+A Verifier nem hajt végre actiont.
+
+INV-06
+A NavigationService az egyetlen navigációs authority.
+
+INV-07
+A StuckDetector az egyetlen stuck authority.
+
+INV-08
+A QuestProgressVerifier az egyetlen komponens, amely quest-credit sikert mondhat ki.
+
+INV-09
+Skill success != quest success.
+
+INV-10
+Quest stage változás invalidálja a régi objective localization state-et.
+
+INV-11
+Loading/teleport/phasing invalidálja a lokális screen-space és route state-et.
+
+INV-12
+Cancel/fatal után nincs lenyomva maradt billentyű.
+
+INV-13
+Nincs végtelen retry.
+
+INV-14
+Nincs végtelen local search.
+
+INV-15
+Ugyanaz a non-retryable planner-döntés új evidence nélkül nem ismételhető korlátlanul.
+
+INV-16
+Minden coordinate object explicit coordinate_space-et hordoz.
+
+INV-17
+Egy adatmezőnek egyetlen writer-owner komponense lehet.
+
+INV-18
+Raw detector output nem folyhat közvetlenül a Plannerbe; normalizálás/fusion szükséges.
+
+INV-19
+Quest objective hiánya a 3D képen nem jelent "objective not found"-ot.
+
+INV-20
+A rendszer képes koordináta nélküli cue-based navigációra is.
+
+
+============================================================
+3. KÖZÖS ADATMODELL
+============================================================
+
+3.1 Evidence
+------------
+
+Feladat:
+egy megfigyelés eredetének, megbízhatóságának és frissességének reprezentálása.
+
+Mezők:
+
+Evidence {
+    evidence_id
+    source
+    kind
+    value
+    confidence
+    observed_at
+    expires_at?
+    related_entity?
+    related_quest?
+    related_objective?
+}
+
+Publikus funkciók:
+
+is_fresh(now) -> bool
+age_ms(now) -> int
+effective_confidence(now) -> float
+
+Tulajdonos:
+WorldModel / evidence subsystem.
+
+Nem feladata:
+action indítása.
+
+
+3.2 Observation
+---------------
+
+Observation {
+    observation_id
+    sensor
+    type
+    payload
+    timestamp
+    confidence
+    frame_id?
+    coordinate_space?
+}
+
+
+3.3 Belief
+----------
+
+Belief {
+    key
+    value
+    confidence
+    evidence_refs[]
+    first_seen
+    last_updated
+    expires_at?
+    contradictions[]
+}
+
+
+3.4 WorldSnapshot
+-----------------
+
+WorldSnapshot {
+    snapshot_id
+    sequence
+    monotonic_timestamp
+    player_state
+    target_state
+    combat_state
+    ui_context
+    quest_state_refs
+    map_state
+    minimap_state
+    entity_beliefs
+    navigation_context
+}
+
+
+3.5 SkillIntent
+---------------
+
+SkillIntent {
+    intent_id
+    skill_type
+    target_ref?
+    destination?
+    expected_result?
+    priority
+    created_by
+    created_at
+    metadata
+}
+
+
+3.6 SkillResult
+---------------
+
+SkillResult {
+    status
+    reason?
+    retryable
+    replan_required
+    evidence[]
+    emitted_events[]
+    commands[]
+    metadata
+}
+
+
+3.7 FailureReason
+-----------------
+
+Típusos enum/hierarchia.
+
+PERCEPTION
+NAVIGATION
+TARGETING
+INTERACTION
+COMBAT
+LOOT
+QUEST
+UI
+SYSTEM
+
+
+============================================================
+4. EVENT BUS TERV
+============================================================
+
+Feladat:
+explicit, sorrendezhető, replayelhető kommunikáció a komponensek között.
+
+RuntimeEvent:
+
+RuntimeEvent {
+    event_id
+    sequence_no
+    monotonic_ms
+    source
+    type
+    correlation_id?
+    skill_runtime_id?
+    payload
+}
+
+Funkciók:
+
+publish(event)
+consume_until(sequence?)
+subscribe(event_type, consumer)
+dedupe(event_id)
+snapshot_queue()
+flush_replay()
+
+Eseménycsoportok:
+
+SYSTEM:
+RUNTIME_STARTED
+RUNTIME_STOPPING
+FATAL_ERROR
+INPUT_FAILURE
+
+WORLD:
+WORLD_CONTEXT_CHANGED
+MAP_CONTEXT_CHANGED
+PLAYER_POSITION_CHANGED
+
+PLAYER:
+PLAYER_DEAD
+PLAYER_ALIVE
+PLAYER_MOVING
+PLAYER_STOPPED
+
+COMBAT:
+COMBAT_STARTED
+COMBAT_ENDED
+TARGET_ACQUIRED
+TARGET_LOST
+TARGET_DEAD
+
+QUEST:
+QUEST_ACCEPTED
+QUEST_OBJECTIVE_UPDATED
+QUEST_CREDIT_CONFIRMED
+QUEST_READY_FOR_TURN_IN
+QUEST_COMPLETED
+
+UI:
+UI_CONTEXT_CHANGED
+LOADING_STARTED
+LOADING_ENDED
+CINEMATIC_STARTED
+CINEMATIC_ENDED
+
+SKILL:
+SKILL_STARTED
+SKILL_PHASE_CHANGED
+SKILL_SUCCEEDED
+SKILL_FAILED
+SKILL_CANCELLED
+
+NAV:
+NAVIGATION_STARTED
+NAVIGATION_PROGRESS
+ARRIVED
+NAVIGATION_STUCK
+NAVIGATION_FAILED
+
+Prioritás:
+
+1. fatal/system blocking
+2. death/loading/cinematic
+3. world observation update
+4. skill-local outcome
+5. quest-credit update
+6. supervisor decision
+7. new skill dispatch
+
+Idempotencia:
+azonos event_id egyszer dolgozható fel.
+
+
+============================================================
+5. SENSOR / CAPTURE RÉTEG
+============================================================
+
+Jelenlegi releváns modulok:
+dxgi_capture.py
+sensor.py
+live_capture.py
+windows_processes.py
+pixel_bridge.py
+
+Cél:
+egységes SensorHub.
+
+
+5.1 FrameCapture
+----------------
+
+Funkció:
+capture_frame(client_id) -> Frame
+
+Kimenet:
+- frame_id
+- pixels
+- timestamp
+- client_rect
+- scale info
+
+Hibák:
+CAPTURE_UNAVAILABLE
+WINDOW_NOT_FOUND
+STALE_FRAME
+DEVICE_RESET
+
+Fallback:
+DXGI → existing safe alternative, ha van.
+
+Nem feladata:
+sem quest, sem entity felismerés.
+
+
+5.2 SensorHub
+-------------
+
+Funkciók:
+
+start()
+stop()
+poll_latest()
+publish_frame(frame)
+sensor_health()
+set_rate(sensor, hz)
+mark_sensor_failure(sensor, reason)
+
+Tulajdon:
+sensor scheduling és freshness.
+
+
+5.3 Buffered sensor
+-------------------
+
+A legfrissebb érték dominál.
+
+Ne legyen korlátlan frame queue.
+
+Policy:
+stale frame drop.
+
+
+============================================================
+6. PERCEPTION ORCHESTRATOR
+============================================================
+
+Jelenlegi:
+PerceptionWorker
+PerceptionFusion
+LocalWorldProjector
+
+Cél:
+PerceptionPipeline.
+
+Funkciók:
+
+process_frame(frame) -> PerceptionBatch
+process_minimap(crop)
+process_world_map(crop)
+process_world3d(roi)
+process_ui(frame)
+fuse(batch) -> normalized observations
+publish(observations)
+
+Scheduling:
+world3d gyorsabb;
+map csak map-open event alatt;
+OCR event/ROI driven;
+quest text változáskor.
+
+
+============================================================
+7. WORLD 3D PERCEPTION TERV
+============================================================
+
+Jelenlegi:
+world3d/candidates.py
+v2.py
+v3.py
+v4.py
+tracking.py
+ocr.py
+scene.py
+validation.py
+
+Végleges logikai komponensek:
+
+WorldSceneExtractor
+WorldCandidateDetector
+WorldCandidateTracker
+SemanticFusion
+TargetedOCR
+World3DValidator
+
+
+7.1 WorldSceneExtractor
+-----------------------
+
+Funkció:
+extract(frame) -> WorldSceneROI
+
+Feladata:
+- UI régiók kizárása;
+- releváns 3D viewport definiálása;
+- screen-space coordinate metadata.
+
+
+7.2 WorldCandidateDetector
+--------------------------
+
+detect(scene) -> list[WorldCandidate]
+
+Candidate típus belief:
+NPC
+HOSTILE
+NEUTRAL
+CORPSE
+OBJECT
+QUEST_OBJECT
+NAMEPLATE
+QUEST_BADGE
+ENTRANCE
+UNKNOWN
+
+
+7.3 WorldCandidateTracker
+-------------------------
+
+Funkciók:
+
+update(candidates, timestamp)
+get_track(track_id)
+recent_tracks()
+lost_tracks()
+invalidate_all(reason)
+
+Track:
+- position history
+- bbox history
+- velocity estimate
+- appearance signature
+- confidence
+- lost_since
+
+
+7.4 SemanticFusion
+------------------
+
+Vizual + tooltip + target + quest context összevonás.
+
+Funkció:
+enrich(track, world_context) -> EntityObservation
+
+
+7.5 TargetedOCR
+---------------
+
+Nem teljes frame OCR.
+
+interest_regions(state)
+read(region)
+normalize_text(text)
+
+ROI:
+- tooltip
+- target name
+- quest tracker
+- gossip
+- quest title/objective
+
+Hiba:
+LOW_OCR_CONFIDENCE.
+
+Fallback:
+structure/icon/context.
+
+
+============================================================
+8. MINIMAP PERCEPTION TERV
+============================================================
+
+Jelenlegi:
+vision/adapters/minimap.py
+minimap_geometry.py
+adapters/minimap.py
+
+Komponensek:
+
+MinimapDetector
+MinimapGeometry
+MinimapTracker
+MinimapResolver
+
+
+8.1 detect_minimap(frame)
+-------------------------
+
+Kimenet:
+MinimapObservation.
+
+Tartalom:
+- minimap rect/center/radius
+- orientation belief
+- markers
+- quest markers
+- objective cue
+- turn-in cue
+- direction arrows
+- target indicator
+
+
+8.2 Marker model
+----------------
+
+MinimapMarker {
+    marker_id
+    type_belief
+    position
+    space=MINIMAP_POLAR or MINIMAP_NORMALIZED_XY
+    angle?
+    radial_distance?
+    edge_clamped
+    confidence
+    first_seen
+    last_seen
+}
+
+
+8.3 MinimapTracker
+------------------
+
+update_markers()
+associate_across_frames()
+trend(marker_id)
+invalidate_on_context_change()
+
+
+8.4 MinimapResolver
+-------------------
+
+Funkciók:
+
+best_quest_cue(objective)
+best_turnin_cue(quest)
+local_direction(cue)
+cue_progress(cue)
+cue_disappeared_interpretation()
+
+Szabály:
+marker eltűnése NEM automatikus hiba.
+
+
+============================================================
+9. WORLD MAP PERCEPTION TERV
+============================================================
+
+Jelenlegi:
+vision/adapters/world_map.py
+world_map_calibration.py
+world_map_raster.py
+world_map_graph_vision.py
+map_mouseover.py
+adapters/world_map.py
+
+Komponensek:
+
+WorldMapStateDetector
+WorldMapMarkerDetector
+WorldMapCalibration
+MapContextResolver
+MapMouseoverResolver
+WorldMapResolver
+
+
+9.1 Map state
+-------------
+
+MapState {
+    is_open
+    map_context
+    parent_map?
+    zoom_level?
+    player_marker?
+    quest_markers[]
+    turnin_markers[]
+    objective_areas[]
+    supertrack_target?
+    confidence
+}
+
+
+9.2 WorldMapResolver funkciók
+-----------------------------
+
+open_map_request()
+close_map_request()
+resolve_context()
+find_quest_location(quest/objective)
+find_turnin_location(quest)
+find_parent_zone_location()
+resolve_wrong_zoom()
+resolve_map_mouseover()
+select_best_map_evidence()
+
+Nem feladata:
+W/A/S/D steering.
+
+
+9.3 Map zoom fallback
+---------------------
+
+Ha nincs marker:
+1. valid tracked quest?
+2. current map context?
+3. parent map?
+4. zoom out?
+5. quest list/map focus?
+6. UNKNOWN.
+
+"marker absent" != "quest location absent".
+
+
+============================================================
+10. CROSS-VIEW FUSION
+============================================================
+
+Jelenlegi:
+cross_view.py
+mouseover_association.py
+world_point_memory.py
+local_world_bridge.py
+
+Cél:
+CrossViewResolver.
+
+Feladat:
+ugyanazt a célt összekapcsolni:
+
+World Map
+↕
+Minimap
+↕
+3D entity/object
+↕
+Tooltip/target
+
+Funkciók:
+
+associate_map_to_minimap()
+associate_minimap_to_world3d()
+associate_tooltip_to_track()
+associate_target_to_entity()
+resolve_conflicts()
+get_best_entity_identity()
+
+Kimenet:
+CrossViewHypothesis.
+
+
+============================================================
+11. WORLD MODEL
+============================================================
+
+Jelenlegi:
+world.py nagy komponens.
+
+Cél:
+WorldModel maradjon adat/evidence authority,
+de végrehajtási logic nélkül.
+
+Funkciók:
+
+ingest(observation)
+ingest_batch(observations)
+add_evidence()
+expire_evidence(now)
+update_belief()
+invalidate(policy_event)
+snapshot()
+record_relation()
+record_prediction()
+resolve_contradiction()
+emit_derived_event()
+
+Nem:
+plan()
+move()
+interact()
+combat()
+
+
+============================================================
+12. WORLD QUERY API
+============================================================
+
+Jelenlegi WorldQuery jó irány.
+
+Tervezett publikus queryk:
+
+player()
+target()
+combat()
+ui_context()
+current_quest()
+active_quests()
+current_objective()
+entity(ref)
+find_entities(query)
+entity_location(ref)
+entity_roles(ref)
+recent_visual_tracks()
+world_map_state()
+minimap_state()
+best_local_quest_target()
+best_search_region()
+recent_failures()
+sensor_health()
+navigation_context()
+uncertainties()
+
+A Query read-only.
+
+
+============================================================
+13. PLAYER STATE
+============================================================
+
+PlayerState:
+
+alive
+health
+resource
+in_combat
+moving
+casting
+mounted
+vehicle
+position?
+heading?
+map_context
+subzone?
+control_mode
+
+Writer:
+WorldModel projection.
+
+Felhasználók:
+Supervisor
+CombatSkill
+Navigation
+QuestRuntime.
+
+
+============================================================
+14. UI CONTEXT RESOLVER
+============================================================
+
+UiContext:
+
+primary_panel:
+WORLD
+MAP
+QUEST_LOG
+GOSSIP
+QUEST_OFFER
+QUEST_COMPLETE
+QUEST_REWARD
+LOOT
+VENDOR
+DIALOG
+SPECIAL_UI
+UNKNOWN
+
+blocking:
+NONE
+LOADING
+CINEMATIC
+DEAD
+DISCONNECTED
+VEHICLE_OVERRIDE
+SCRIPTED_LOCK
+
+overlays:
+QUEST_TOOL
+EXTRA_ACTION
+FIELD_TURN_IN
+CONFIRMATION
+TUTORIAL
+
+Funkciók:
+
+resolve(observations)
+is_blocking()
+stable_for(ms)
+can_accept_quest()
+can_turnin()
+can_interact_world()
+invalidate()
+
+State-transition sanity check szükséges.
+
+
+============================================================
+15. QUEST STATE NORMALIZER
+============================================================
+
+Jelenlegi:
+quest_model.py
+quest_semantics.py
+
+Cél:
+QuestStateNormalizer + QuestGraph.
+
+QuestState:
+
+quest_ref
+title
+classification
+tracked
+focused
+completed
+ready_for_turn_in
+objectives[]
+source evidence
+timestamp
+
+QuestObjective:
+
+objective_ref
+text
+current_count?
+required_count?
+complete
+type_belief
+target_hint?
+location_hint?
+credit_history
+confidence
+
+Funkciók:
+
+ingest_tracker()
+ingest_quest_log()
+merge_quest_state()
+detect_stage_change()
+detect_ready_turnin()
+detect_completed()
+objective_signature()
+invalidate_objective_context()
+
+
+============================================================
+16. QUEST OBJECTIVE CLASSIFIER
+============================================================
+
+Típusok:
+
+SPEAK
+INTERACT_NPC
+KILL
+KILL_NAMED
+COLLECT
+LOOT
+INTERACT_OBJECT
+USE_ITEM
+USE_ITEM_ON_TARGET
+TRAVEL
+REACH_AREA
+FOLLOW
+ESCORT
+DEFEND
+WAIT
+EMOTE
+GOSSIP_CHOICE
+QUEST_TOOL
+EXTRA_ACTION
+VEHICLE
+FIELD_TURN_IN
+SPECIAL_UI
+SCRIPTED_EVENT
+MULTI_STAGE
+UNKNOWN
+
+Funkció:
+
+classify(quest, objective, context) -> ObjectiveClassification
+
+Kimenet:
+type
+confidence
+evidence
+required_capabilities
+possible_strategies
+
+Szabály:
+UNKNOWN legitim eredmény.
+
+
+============================================================
+17. OBJECTIVE LOCATOR
+============================================================
+
+Ez az M1 egyik legfontosabb komponense.
+
+Funkció:
+
+locate(objective, world) -> ObjectiveLocationResult
+
+Prioritás:
+
+1. validated local entity/object
+2. minimap/navigation cue
+3. world map area/marker
+4. reliable memory
+5. contextual text hint
+6. search area
+7. transition required
+8. unknown
+
+Publikus funkciók:
+
+locate()
+locate_local()
+locate_from_minimap()
+locate_from_world_map()
+locate_from_memory()
+build_search_area()
+needs_transition()
+invalidate(stage_change)
+
+Kimenet:
+LOCAL_ENTITY
+LOCAL_OBJECT
+LOCAL_MARKER
+WORLD_MAP_LOCATION
+KNOWN_LOCATION
+SEARCH_AREA
+TRANSITION_REQUIRED
+UNKNOWN
+
+
+============================================================
+18. GOAL MANAGER
+============================================================
+
+Jelenlegi:
+goal_manager.py
+
+Feladat:
+magas szintű user goal és quest goal életciklus.
+
+Goal típus:
+
+COMPLETE_CURRENT_QUEST
+FOLLOW_MAIN_CAMPAIGN
+REACH_LOCATION
+INTERACT_TARGET
+KILL_TARGET
+COLLECT_RESOURCE
+CUSTOM
+
+Funkciók:
+
+set_goal()
+current_goal()
+suspend_goal()
+resume_goal()
+complete_goal()
+fail_goal()
+set_primary_quest()
+snapshot()
+
+Nem feladata:
+skill steering.
+
+
+============================================================
+19. SUPERVISOR
+============================================================
+
+A Supervisor a runtime karmestere.
+
+Funkciók:
+
+handle_events()
+handle_interrupts()
+consume_skill_result()
+decide_replan()
+decide_resume()
+decide_cancel()
+next_intent()
+apply_priority_matrix()
+handle_world_context_change()
+handle_player_death()
+handle_blocking_ui()
+
+Prioritás:
+
+FATAL
+DISCONNECT
+DEATH
+LOADING/CINEMATIC
+SURVIVAL COMBAT
+ACTIVE SKILL
+QUEST STAGE
+NORMAL GOAL
+
+
+============================================================
+20. PLANNER
+============================================================
+
+Jelenlegi planner.py túl sok domainnel rendelkezik.
+
+Cél:
+Planner csak magas szintű intentet válasszon.
+
+Funkció:
+
+plan(world, goal, quest_state) -> SkillIntent | PlanStep
+
+Példa jó:
+INTERACT(entity_42)
+
+Példa rossz:
+press W 1 sec then turn 20 degrees.
+
+Al-plannerek:
+
+QuestPlanner
+RecoveryPlanner
+NavigationGoalPlanner
+ResourcePlanner később.
+
+Anti-loop:
+
+DecisionFingerprint.
+
+same decision + same target + same strategy
+non-retryable failure után
+csak new evidence mellett.
+
+
+============================================================
+21. ACTIVE SKILL RUNTIME
+============================================================
+
+Authoritative owner.
+
+Funkciók:
+
+start(intent)
+tick(world, now)
+cancel(reason)
+finalize(result)
+current()
+is_active()
+snapshot()
+
+Tárol:
+
+skill_runtime_id
+intent
+skill instance
+phase
+timestamps
+attempt
+retry state
+baseline snapshot
+correlation ids
+
+
+============================================================
+22. SKILL BASE CONTRACT
+============================================================
+
+Minden skill:
+
+start(context, world)
+tick(context, world, now)
+cancel(context, reason)
+on_enter(state)
+on_exit(state)
+snapshot()
+
+Kimenet:
+SkillResult.
+
+State transition:
+explicit.
+
+
+============================================================
+23. TARGET SKILL TERV
+============================================================
+
+State-ek:
+
+ACQUIRE_CANDIDATES
+VALIDATE_IDENTITY
+SELECT
+APPLY_TARGET
+VERIFY_TARGET
+SUCCESS
+FAILURE
+
+Funkciók:
+
+build_candidate_query()
+collect_candidates()
+score_candidate()
+validate_identity()
+select_best()
+apply_target()
+verify_target()
+
+Evidence prioritás:
+tooltip/target/name
+structured context
+nameplate
+visual.
+
+Hibák:
+NO_CANDIDATE
+LOW_CONFIDENCE
+WRONG_TARGET
+TARGET_LOST.
+
+
+============================================================
+24. FACE CONTROLLER
+============================================================
+
+Közös Interact + Combat primitive.
+
+Funkciók:
+
+begin(target)
+estimate_error(target)
+turn_command(error)
+is_aligned()
+tick()
+cancel()
+
+Hysteresis:
+enter alignment threshold
+exit threshold.
+
+Nem flappelhet.
+
+
+============================================================
+25. MOVEMENT SKILL
+============================================================
+
+State:
+
+INIT
+RESOLVE_DESTINATION
+PLAN
+MOVE
+MONITOR
+CORRECT
+VERIFY_ARRIVAL
+RECOVER
+SUCCESS
+FAILURE
+
+Funkciók:
+
+resolve_destination()
+request_navigation()
+monitor_progress()
+detect_arrival()
+request_recovery()
+cancel_navigation()
+
+Nem saját steering stack.
+
+
+============================================================
+26. NAVIGATION SERVICE
+============================================================
+
+Egyetlen authority.
+
+Publikus funkciók:
+
+start_to_location(location)
+start_to_area(area)
+start_to_entity(entity)
+follow_minimap_cue(cue)
+update(world)
+stop()
+face(entity)
+progress()
+result()
+recover_stuck()
+invalidate_context()
+
+Belső:
+
+GlobalNavigator
+LocalNavigator
+RoutePlanner
+ProgressMonitor
+ArrivalVerifier
+StuckDetector
+TransitionResolver
+
+
+============================================================
+27. GLOBAL NAVIGATOR
+============================================================
+
+Feladat:
+nagy léptékű cél felé haladás.
+
+Input:
+map location / known coord / route.
+
+Funkciók:
+
+resolve_global_route()
+choose_waypoint()
+advance_waypoint()
+replan_if_required()
+detect_map_context_change()
+
+
+============================================================
+28. LOCAL NAVIGATOR
+============================================================
+
+Feladat:
+minimap/3D közeli steering.
+
+Input:
+bearing / entity / local destination.
+
+Funkciók:
+
+compute_local_intent()
+correct_heading()
+approach_target()
+avoid_immediate_obstacle()
+stop_at_range()
+
+
+============================================================
+29. ROUTE PLANNER
+============================================================
+
+Jelenlegi graph/planner modulok felhasználhatók.
+
+Funkciók:
+
+plan(start, goal, context)
+plan_between_nodes()
+score_edges()
+apply_memory_cost()
+reconstruct()
+invalidate_route()
+
+Route cost:
+
+distance
+known failure
+success history
+context mismatch
+obstacle.
+
+
+============================================================
+30. PROGRESS MONITOR
+============================================================
+
+Funkciók:
+
+add_sample()
+distance_moved()
+bearing_progress()
+target_distance_progress()
+making_progress()
+no_progress_duration()
+reset()
+
+Output:
+PROGRESSING
+SLOW
+NO_PROGRESS
+UNKNOWN.
+
+
+============================================================
+31. ARRIVAL VERIFIER
+============================================================
+
+Evidence:
+
+absolute distance if reliable
+minimap cue convergence
+entity interaction readiness
+bbox growth
+quest area state change
+map transition.
+
+Funkció:
+verify(destination, world, history)
+
+Output:
+ARRIVED confidence/evidence.
+
+Hysteresis kötelező.
+
+
+============================================================
+32. STUCK DETECTOR
+============================================================
+
+Input:
+movement commanded
+position delta
+scene motion
+target-distance delta
+minimap trend
+collision evidence
+
+State:
+NOT_STUCK
+SUSPECTED
+CONFIRMED
+
+Funkciók:
+
+observe()
+state()
+reason()
+reset()
+snapshot()
+
+Recovery külön.
+
+
+============================================================
+33. OBSTACLE RECOVERY
+============================================================
+
+Létra:
+
+STOP
+BACK
+LEFT_FORWARD
+RIGHT_FORWARD
+LARGER_TURN
+LOCAL_SCAN
+ALTERNATE_ROUTE
+RELOCALIZE
+FAIL
+
+Funkció:
+next_recovery_step(attempt, context)
+
+Minden bounded.
+
+
+============================================================
+34. TRANSITION RESOLVER
+============================================================
+
+Context:
+
+OUTDOOR
+INDOOR
+CAVE
+MULTI_FLOOR
+TRANSITION
+VEHICLE
+
+Funkciók:
+
+detect_transition_needed()
+classify_transition()
+search_entrance()
+verify_transition()
+invalidate_old_local_context()
+
+Típus:
+ENTER_BUILDING
+CAVE_ENTRANCE
+CHANGE_FLOOR
+PORTAL
+TRANSPORT
+UNKNOWN.
+
+
+============================================================
+35. SEARCH SKILL
+============================================================
+
+Search mode:
+
+CAMERA_SWEEP
+RADIAL_LOCAL
+GRID_LOCAL
+PATH_EDGE
+ENTRANCE_SEARCH
+REACQUIRE
+
+Funkciók:
+
+start_search(query, area)
+next_view_sector()
+scan_current_view()
+next_search_point()
+mark_visited()
+mark_failed_candidate()
+expand_radius()
+budget_exhausted()
+result()
+
+Coverage memory kötelező.
+
+
+============================================================
+36. CAMERA CONTROLLER
+============================================================
+
+Jelenlegi camera_controller.
+
+Feladat:
+controlled, bounded camera movement.
+
+Funkciók:
+
+estimate_orientation()
+rotate(delta)
+scan_sector()
+center_target()
+restore_preferred_pitch()
+detect_camera_response()
+
+Nem:
+quest tervezés.
+
+
+============================================================
+37. INTERACT SKILL
+============================================================
+
+State:
+
+ACQUIRE_TARGET
+VALIDATE
+APPROACH
+FACE
+WAIT_INTERACTABLE
+SEND_INTERACT
+WAIT_RESULT
+VERIFY
+RECOVER
+SUCCESS
+FAILURE
+
+Funkciók:
+
+validate_target()
+approach()
+face()
+interaction_ready()
+issue_interact()
+wait_for_change()
+verify()
+local_retry()
+
+ExpectedResult:
+
+GOSSIP_OPEN
+QUEST_OFFER
+QUEST_COMPLETE
+DIALOG_OPEN
+OBJECT_STATE_CHANGE
+OBJECTIVE_PROGRESS
+ITEM_GAIN
+SCRIPT_EVENT
+
+Interact Key:
+configured, nem hard-coded.
+
+Highlight/interact-ready fontos evidence.
+
+
+============================================================
+38. INTERACTION VERIFIER
+============================================================
+
+Input:
+baseline
+current
+expected_result.
+
+Funkció:
+
+verify_ui_change()
+verify_quest_delta()
+verify_object_delta()
+verify_item_delta()
+combine_evidence()
+
+Output:
+VerificationResult.
+
+
+============================================================
+39. COMBAT SKILL
+============================================================
+
+State:
+
+ACQUIRE
+VALIDATE
+APPROACH
+FACE
+ENGAGE
+ROTATION
+MONITOR
+RECOVER_RANGE
+RECOVER_FACING
+RECOVER_LOS
+REACQUIRE
+VERIFY_DEATH
+SUCCESS
+FAILURE
+
+Funkciók:
+
+validate_hostile()
+ensure_range()
+ensure_facing()
+start_rotation()
+choose_combat_action()
+monitor_target()
+classify_combat_error()
+recover_range()
+recover_facing()
+recover_los()
+verify_death()
+
+Local recovery before planner.
+
+
+============================================================
+40. COMBAT CONTROLLER
+============================================================
+
+Jelenlegi combat_controller.
+
+Feladat:
+rotation/local combat control.
+
+Input:
+player state
+target state
+abilities/bindings
+combat errors.
+
+Funkciók:
+
+observe()
+choose_action()
+can_cast()
+resource_ok()
+cooldown_ready()
+expected_effect()
+reset()
+
+Planner nem spell selector.
+
+
+============================================================
+41. COMBAT ERROR CLASSIFIER
+============================================================
+
+OUT_OF_RANGE
+FACING_WRONG_WAY
+LINE_OF_SIGHT
+SPELL_NOT_READY
+RESOURCE_LOW
+MOVING_CAST
+TARGET_DEAD
+TARGET_LOST
+INVALID_TARGET
+PLAYER_DEAD
+UNKNOWN
+
+Funkció:
+classify(observations, combat_history)
+
+
+============================================================
+42. LOOT SKILL
+============================================================
+
+State:
+
+FIND_CORPSE
+APPROACH
+INTERACT
+WAIT_LOOT
+COLLECT
+VERIFY
+SUCCESS
+FAILURE
+
+Funkciók:
+
+locate_corpse()
+validate_lootable()
+approach()
+open_loot()
+collect()
+verify()
+
+Quest runtime dönti el, hogy loot szükséges-e.
+
+
+============================================================
+43. USE ITEM SKILL
+============================================================
+
+State:
+
+VALIDATE_CONTEXT
+RESOLVE_ITEM_ACTION
+ACQUIRE_TARGET_IF_NEEDED
+APPROACH
+FACE
+USE
+WAIT
+VERIFY
+
+Funkciók:
+
+resolve_item()
+target_required()
+range_required()
+cooldown_ready()
+activate()
+verify_credit()
+
+
+============================================================
+44. QUEST TOOL BUTTON RESOLVER
+============================================================
+
+Feladat:
+trackerhez kötött quest-use button.
+
+Funkciók:
+
+detect_tool_button()
+associate_with_objective()
+available()
+cooldown()
+trigger_command()
+verify_effect()
+
+Nem random click.
+
+
+============================================================
+45. EXTRA ACTION HANDLER
+============================================================
+
+Funkciók:
+
+detect()
+associate_context()
+requires_target()
+requires_range()
+activate()
+verify()
+
+Ha mechanika ismeretlen:
+UNSUPPORTED_MECHANIC.
+
+
+============================================================
+46. GOSSIP RESOLVER
+============================================================
+
+Funkciók:
+
+detect_options()
+read_options()
+score_option_against_objective()
+select()
+verify_transition()
+
+Low confidence:
+BLOCKED / gather info.
+
+
+============================================================
+47. QUEST ACCEPT FLOW
+============================================================
+
+State:
+
+LOCATE_QUEST_SOURCE
+INTERACT
+READ_QUEST_OFFER
+VALIDATE_QUEST
+ACCEPT
+WAIT_STATE
+VERIFY_ACTIVE
+
+Funkciók:
+
+locate_source()
+read_offer()
+matches_goal()
+accept_command()
+verify_accepted()
+
+
+============================================================
+48. QUEST DIALOG SKILL
+============================================================
+
+Általános UI skill:
+
+handle_quest_offer()
+handle_quest_complete()
+handle_reward()
+handle_gossip_transition()
+handle_confirmation()
+
+Guard:
+UiContext.
+
+
+============================================================
+49. QUEST PROGRESS VERIFIER
+============================================================
+
+Authoritative quest-credit owner.
+
+Funkciók:
+
+capture_baseline(quest/objective)
+compare(current)
+credit_increased()
+objective_completed()
+stage_changed()
+ready_for_turnin()
+quest_completed()
+
+Output:
+
+NO_CHANGE
+PROGRESSED
+OBJECTIVE_COMPLETE
+STAGE_CHANGED
+READY_TURNIN
+QUEST_COMPLETE
+
+Ez fontosabb, mint action success.
+
+
+============================================================
+50. QUEST STRATEGY HISTORY
+============================================================
+
+Quest-local adaptáció.
+
+Tárol:
+
+objective
+candidate
+strategy
+action_success
+quest_credit
+attempts
+
+Funkciók:
+
+record_attempt()
+penalize_no_credit()
+reward_credit()
+failed_candidates()
+strategy_confidence()
+
+Nem globális ML.
+
+
+============================================================
+51. NO-CREDIT HANDLING
+============================================================
+
+Első:
+re-read quest state.
+
+Második:
+revalidate target/strategy.
+
+Ismételt:
+candidate/strategy confidence csökkent.
+
+Végül:
+reclassify / relocate / unsupported.
+
+
+============================================================
+52. SPEAK OBJECTIVE
+============================================================
+
+Flow:
+
+classify SPEAK
+locate NPC
+global nav
+local nav
+search
+identity validate
+interact
+gossip/dialog if required
+quest credit verify.
+
+
+============================================================
+53. KILL OBJECTIVE
+============================================================
+
+Flow:
+
+classify KILL
+locate area/target
+navigate
+search
+validate hostile target
+combat
+verify death
+quest credit
+repeat if count incomplete.
+
+
+============================================================
+54. COLLECT OBJECTIVE
+============================================================
+
+Possible strategy:
+
+GROUND_OBJECT
+MOB_LOOT
+INTERACTABLE
+QUEST_TOOL
+SCRIPTED
+
+Funkció:
+infer_collection_strategy()
+
+Credit alapján adaptál.
+
+
+============================================================
+55. INTERACT OBJECT OBJECTIVE
+============================================================
+
+Flow:
+
+locate area
+local search
+object validation
+approach
+interact
+quest credit verify.
+
+
+============================================================
+56. TRAVEL / REACH AREA OBJECTIVE
+============================================================
+
+World Map first.
+
+Arrival után quest credit.
+
+Ha nincs credit:
+localize sub-area / entrance / NPC / trigger.
+
+
+============================================================
+57. DEFEND / WAIT OBJECTIVE
+============================================================
+
+State:
+
+WAIT_FOR_EVENT
+MONITOR
+COMBAT_IF_REQUIRED
+VERIFY_PROGRESS
+TIMEOUT_REEVALUATE
+
+Ne vándoroljon el marker hiány miatt.
+
+
+============================================================
+58. ESCORT / FOLLOW OBJECTIVE
+============================================================
+
+Funkciók:
+
+identify_escort_entity()
+maintain_distance_band()
+follow()
+handle_stop()
+handle_combat()
+reacquire()
+verify_progress()
+
+Ne előzze túl.
+
+
+============================================================
+59. VEHICLE MODE
+============================================================
+
+VehicleContext.
+
+Funkciók:
+
+detect_enter()
+load_vehicle_bindings()
+vehicle_move()
+vehicle_action()
+monitor_objective()
+detect_exit()
+restore_normal_control()
+
+Normal combat rotation tiltva vehicle state-ben.
+
+
+============================================================
+60. FIELD TURN-IN
+============================================================
+
+Completion modes:
+
+NPC_TURN_IN
+FIELD_TURN_IN
+AUTO_COMPLETE
+SPECIAL_UI
+UNKNOWN
+
+FieldTurnInSkill:
+
+detect_prompt()
+open()
+complete()
+reward_if_needed()
+verify_completed()
+
+
+============================================================
+61. TURN-IN RESOLVER
+============================================================
+
+Prioritás:
+
+local turn-in entity
+minimap cue
+world map marker
+memory/context
+search
+unknown
+
+Funkció:
+
+locate_turnin()
+validate_turnin_role()
+build_turnin_intent()
+
+
+============================================================
+62. REWARD POLICY
+============================================================
+
+Funkció:
+select_reward(options, policy)
+
+Policy:
+USER_CONFIG
+STAT_RULE
+VALUE_RULE
+TEST_FIRST_VALID
+BLOCKED
+
+Élesben random választás tilos.
+
+
+============================================================
+63. NEXT QUEST RESOLVER
+============================================================
+
+Turn-in után:
+
+same NPC offer
+local campaign marker
+tracker
+quest log
+world map.
+
+Funkció:
+resolve_campaign_continuation()
+
+Nem feltétlen same NPC.
+
+
+============================================================
+64. QUEST EXECUTION RUNTIME
+============================================================
+
+Canonical state:
+
+SELECT_QUEST
+READ_STATE
+CLASSIFY
+LOCATE
+NAVIGATE_GLOBAL
+NAVIGATE_LOCAL
+SEARCH_LOCAL
+EXECUTE
+VERIFY_CREDIT
+RECLASSIFY
+LOCATE_TURNIN
+TURNIN
+VERIFY_COMPLETE
+RESOLVE_NEXT
+COMPLETE
+BLOCKED
+
+Funkciók:
+
+start(goal)
+tick()
+current_stage()
+on_skill_result()
+on_credit()
+relocalize()
+invalidate()
+complete()
+
+
+============================================================
+65. MAIN CAMPAIGN MODE
+============================================================
+
+GoalMode MAIN_CAMPAIGN.
+
+Policy:
+campaign/main marker > unrelated side quest.
+
+Funkció:
+select_next_campaign_quest()
+
+
+============================================================
+66. MULTI-STAGE OBJECTIVE
+============================================================
+
+Minden credit/stage change után:
+normalize
+invalidate old locator
+classify again.
+
+Funkció:
+handle_stage_transition(old, new)
+
+
+============================================================
+67. LOADING / PHASING / TELEPORT
+============================================================
+
+StateInvalidationPolicy.
+
+Invalidál:
+screen tracks
+local entity loc
+local route
+minimap tracks
+local search coverage.
+
+Megőriz:
+quest goal
+quest state
+high-level target area ha még releváns.
+
+
+============================================================
+68. CINEMATIC
+============================================================
+
+Blocking.
+
+Funkció:
+
+detect_start()
+suspend_gameplay_input()
+wait_end()
+refresh_context()
+
+Skip csak policy szerint.
+
+
+============================================================
+69. PLAYER DEATH
+============================================================
+
+Supervisor interrupt.
+
+Funkció:
+
+cancel_active_skill()
+safe_stop()
+detect_death_ui()
+run_death_recovery_if_supported()
+verify_alive()
+relocalize_objective()
+
+Ha recovery nincs:
+BLOCKED.
+
+
+============================================================
+70. ACTION TARGETING / SOFT TARGETING INTEGRÁCIÓ
+============================================================
+
+Modern WoW képes action targetingre.
+
+Tervezési elv:
+opcionális evidence/input helper,
+nem canonical identity authority.
+
+Funkció:
+observe_soft_target()
+use_as_candidate_hint()
+
+Ne alapozd a teljes target logikát erre.
+
+
+============================================================
+71. BINDING INVENTORY
+============================================================
+
+Jelenlegi binding_inventory / bindings.
+
+Funkciók:
+
+reload()
+resolve(action)
+validate_required_bindings()
+preflight()
+snapshot()
+
+Canonical action ne raw keyt tároljon.
+
+Példa:
+Action.INTERACT -> configured key.
+
+
+============================================================
+72. EXECUTOR
+============================================================
+
+Command típus:
+
+PRESS
+HOLD
+RELEASE
+MOUSE_MOVE
+CLICK
+WHEEL
+STOP_MOVEMENT
+RELEASE_ALL
+
+Funkció:
+
+enqueue()
+dispatch()
+ack()
+cancel()
+flush()
+emergency_stop()
+diagnostics()
+
+Nem quest-aware.
+
+
+============================================================
+73. COMMAND ACKNOWLEDGEMENT
+============================================================
+
+Command lifecycle:
+
+CREATED
+QUEUED
+DISPATCHED
+LOCAL_ACK
+FAILED
+CANCELLED
+
+World success külön.
+
+
+============================================================
+74. INPUT SAFETY
+============================================================
+
+Funkciók:
+
+ensure_foreground()
+emergency_key_check()
+release_all()
+watchdog()
+detect_stuck_key()
+
+Fatal:
+release all.
+
+
+============================================================
+75. RETRY POLICY
+============================================================
+
+RetryPolicy:
+
+max_attempts
+per_reason_limits
+backoff
+reset_conditions
+retryable_reasons
+
+Funkció:
+
+can_retry(reason)
+record_attempt()
+next_backoff()
+reset_if(condition)
+
+
+============================================================
+76. TIMEOUT POLICY
+============================================================
+
+Domain:
+movement
+search
+interaction
+combat
+loot
+ui
+map
+
+Funkció:
+deadline_for(skill, context)
+
+
+============================================================
+77. STATE INVALIDATION POLICY
+============================================================
+
+Funkció:
+
+apply(event, world_model, runtime)
+
+Matrix események:
+
+OBJECTIVE_CHANGED
+LOADING
+TELEPORT
+MAP_CONTEXT
+DEATH
+PHASE
+FLOOR
+VEHICLE.
+
+
+============================================================
+78. MEMORY
+============================================================
+
+Jelenlegi AgentMemory nagyon széles.
+
+Végleges logikai memória:
+
+EpisodeMemory
+SpatialMemory
+EntityMemory
+NavigationMemory
+QuestAttemptMemory
+
+Memory nem current truth.
+
+Funkciók:
+
+record()
+query()
+expire()
+consolidate()
+reliability()
+
+
+============================================================
+79. ENTITY MEMORY
+============================================================
+
+Funkció:
+
+record_identity()
+record_visual_signature()
+record_location()
+find_by_name()
+recognize_visual()
+confidence()
+invalidate_stale()
+
+
+============================================================
+80. SPATIAL MEMORY
+============================================================
+
+Funkció:
+
+record_known_location()
+record_quest_role_location()
+get_candidate_locations()
+cluster_locations()
+reliability_score()
+
+
+============================================================
+81. NAVIGATION MEMORY
+============================================================
+
+Funkció:
+
+record_route()
+record_segment_outcome()
+route_success_rate()
+segment_cost_modifier()
+known_blocked_segments()
+
+
+============================================================
+82. ACTIVE PERCEPTION
+============================================================
+
+Jelenlegi ActivePerception.
+
+Feladat:
+eldönteni, milyen szenzoros információ hiányzik.
+
+Funkció:
+
+evaluate_uncertainty()
+request_map_inspection()
+request_tooltip_probe()
+request_camera_scan()
+request_quest_log_inspection()
+
+Nem közvetlen planner.
+
+
+============================================================
+83. INFORMATION GATHERING POLICY
+============================================================
+
+Ha Objective UNKNOWN:
+
+1. inspect quest tracker/detail
+2. inspect minimap
+3. inspect map
+4. camera/local scan
+5. tooltip/target probe
+6. fail/block if budget exhausted.
+
+Bounded.
+
+
+============================================================
+84. REASONER / LLM
+============================================================
+
+Jelenlegi OllamaReasoner.
+
+Pozíció:
+opcionális advisory komponens.
+
+Funkció:
+
+advise_on_unknown()
+interpret_ambiguous_text()
+suggest_strategy()
+
+Nem:
+input authority
+world truth
+combat loop.
+
+Output csak proposal, confidence-del.
+
+
+============================================================
+85. REJECTION MEMORY
+============================================================
+
+Funkció:
+jegyezze, hogy mely candidate/strategy bizonyult rossznak.
+
+rejection_signature()
+record_rejection()
+contradiction()
+ttl()
+
+Ne legyen permanens tiltás kontextusváltás után.
+
+
+============================================================
+86. RUNTIME SCHEDULER
+============================================================
+
+Funkciók:
+
+should_capture()
+should_run_world3d()
+should_run_minimap()
+should_run_map()
+should_run_ocr()
+should_plan()
+rates()
+
+Event-driven planner.
+
+Nem minden frame-en.
+
+
+============================================================
+87. PERFORMANCE MODEL
+============================================================
+
+Mérendő:
+
+capture latency
+world3d latency
+minimap latency
+map latency
+OCR latency
+fusion latency
+runtime tick
+navigation response
+executor queue
+planner latency
+
+p50/p95.
+
+
+============================================================
+88. BACKPRESSURE
+============================================================
+
+Funkció:
+
+coalesce_latest()
+drop_stale()
+bound_queue()
+prioritize_critical_event()
+
+
+============================================================
+89. REPLAY RECORDER
+============================================================
+
+JSONL.
+
+Funkció:
+
+start_session()
+record_observation()
+record_event()
+record_world_delta()
+record_skill_transition()
+record_command()
+record_verification()
+checkpoint()
+close()
+
+
+============================================================
+90. REPLAY PLAYER
+============================================================
+
+Funkció:
+
+load()
+seek()
+step()
+run()
+inject_into_runtime()
+compare_golden_trace()
+
+No real executor.
+
+
+============================================================
+91. GOLDEN TRACE
+============================================================
+
+Canonical scenarios.
+
+Interact trace.
+Combat recovery trace.
+Navigation stuck trace.
+Quest speak trace.
+Quest kill trace.
+Collect trace.
+Turn-in trace.
+
+
+============================================================
+92. DEBUG OVERLAY / GUI
+============================================================
+
+Megjelenít:
+
+goal
+quest
+objective
+classification
+locator source
+map context
+minimap cue
+active skill
+phase
+target
+confidence
+nav progress
+latest failure
+latest command
+quest credit
+replans
+
+Nem runtime owner.
+
+
+============================================================
+93. ACCEPTANCE ACCUMULATOR
+============================================================
+
+Jelenlegi acceptance.py.
+
+Cél:
+capability metrics.
+
+Funkció:
+
+record_case()
+record_success()
+record_failure()
+report_rate()
+group_by_failure()
+
+
+============================================================
+94. M0 TESTKATALÓGUS
+============================================================
+
+Target:
+correct target
+wrong target
+loss/reacquire
+
+Move:
+arrival
+overshoot
+stuck
+moving target
+
+Interact:
+out of range
+facing
+success
+no response
+wrong UI
+combat interrupt
+
+Combat:
+range
+facing
+LOS
+death
+player death
+
+Loot:
+loot success
+not lootable
+quest item gained
+
+Safe stop.
+
+
+============================================================
+95. M1 TESTKATALÓGUS
+============================================================
+
+Quest giver visible.
+Minimap only.
+Map only.
+Speak.
+Kill.
+Wrong kill/no credit.
+Collect by loot.
+Collect ground object.
+Quest tool.
+Extra action.
+Travel.
+Multi-stage.
+Different turn-in.
+Field turn-in.
+Gossip.
+Cave.
+Floor.
+Loading.
+Cinematic.
+Death.
+Vehicle.
+Next campaign quest.
+
+
+============================================================
+96. LIVE VALIDATION TERV
+============================================================
+
+M0 külön.
+
+M1 csak M0 után.
+
+Minden live session logolja:
+
+quest
+stage
+location source
+skills
+retries
+failures
+credit
+completion.
+
+Root cause:
+PERCEPTION
+LOCALIZATION
+NAVIGATION
+TARGET
+INTERACTION
+COMBAT
+QUEST
+UI
+SYSTEM.
+
+
+============================================================
+97. CURRENT REPO → TARGET OWNERSHIP TERV
+============================================================
+
+A jelenlegi repó alapján az alábbi migrációs irány javasolt.
+
+wowbot.agent.engine.AutonomousAgent
+→ AgentRuntime + Supervisor orchestration.
+Ne maradjon domain logic.
+
+wowbot.agent.autonomy_loop.AutonomousLoop
+→ Supervisor/QuestRuntime commitment részei.
+Ne legyen második execution authority.
+
+wowbot.agent.planner.Planner + QuestDomain
+→ HighLevelPlanner + QuestPlanner.
+Low-level quest workaroundok kivonandók.
+
+wowbot.agent.skills.SkillRegistry
+→ skill factory/registry + per-skill implementation.
+Verification kivonandó.
+
+wowbot.agent.skill_lifecycle
+→ ActiveSkillRuntime/FSM infrastructure.
+Egyetlen lifecycle.
+
+wowbot.agent.movement_controller.ReachMovementController
+→ NavigationService / LocalNavigator capability.
+Ne fusson párhuzamosan.
+
+wowbot.agent.navigation.AgentNavigator
+→ legacy/adapter vagy canonical service rész.
+Egy authority.
+
+wowbot.navigation.NavigationEngine + LocalNavigator + RoutePlanner
+→ canonical NavigationService alap.
+
+wowbot.agent.visual_approach.VisualApproachController
+→ local approach primitive a NavigationService alatt.
+
+wowbot.agent.vision_seek.SeekVisualCueController
+→ SearchSkill / local cue search primitive.
+
+wowbot.agent.combat_controller.CombatController
+→ CombatService belső controller.
+
+wowbot.agent.quest_model.QuestModel
+→ QuestStateNormalizer + QuestGraph.
+
+wowbot.agent.quest_semantics
+→ ObjectiveClassifier helper / locale semantics.
+
+wowbot.agent.world.WorldModel
+→ megőrizhető, de execution side effect nélkül.
+
+wowbot.agent.world.WorldQuery
+→ canonical read-only query facade.
+
+wowbot.agent.memory.AgentMemory
+→ több logikai memory domainre bontandó API-szinten.
+
+wowbot.vision.*
+→ perception stack; raw detection és high-level semantics határ tisztázandó.
+
+wowbot.agent.executor
+→ canonical executor.
+
+============================================================
+98. FUNKCIÓ-OWNERSHIP MÁTRIX
+============================================================
+
+Quest kiválasztás:
+GoalManager / QuestPlanner
+
+Quest state olvasás:
+QuestStateNormalizer
+
+Objective típus:
+ObjectiveClassifier
+
+Objective hely:
+ObjectiveLocator
+
+Map location:
+WorldMapResolver
+
+Local marker:
+MinimapResolver
+
+3D entity:
+World3D perception + CrossViewResolver
+
+Entity identity:
+WorldModel fusion
+
+Útvonal:
+NavigationService
+
+Steering:
+LocalNavigator
+
+Facing:
+FaceController
+
+Stuck:
+StuckDetector
+
+Target:
+TargetSkill
+
+Interact:
+InteractSkill
+
+Combat:
+CombatSkill + CombatController
+
+Loot:
+LootSkill
+
+Quest item:
+UseItemSkill / QuestToolResolver
+
+Gossip:
+GossipResolver
+
+Quest credit:
+QuestProgressVerifier
+
+Turn-in:
+TurnInResolver + QuestDialogSkill
+
+Reward:
+RewardPolicy
+
+Skill ownership:
+ActiveSkillRuntime
+
+Interrupt:
+Supervisor
+
+Input:
+Executor
+
+
+============================================================
+99. DESIGN REVIEW CHECKLIST
+============================================================
+
+Minden új funkciónál kérdezd:
+
+1. Ki owner?
+2. Ki írja a state-et?
+3. Ki olvassa?
+4. Milyen event indítja?
+5. Mi a success?
+6. Mi a failure?
+7. Milyen retry?
+8. Mi invalidálja?
+9. Mi a timeout?
+10. Replayelhető?
+11. Unit tesztelhető?
+12. Nem duplikál másik authorityt?
+13. Quest actionnél külön ellenőrzi a creditet?
+14. Coordinate space explicit?
+15. Blocking UI esetén safe?
+
+
+============================================================
+100. VÉGSŐ RENDSZERVISELKEDÉS
+============================================================
+
+Felhasználói cél:
+
+"Questelj a main campaignben."
+
+Agent:
+
+GoalManager
+→ MAIN_CAMPAIGN
+
+QuestRuntime
+→ current quest
+
+QuestStateNormalizer
+→ objective
+
+ObjectiveClassifier
+→ KILL
+
+ObjectiveLocator
+→ nincs local target
+→ nincs minimap target
+→ world map area van
+
+Planner
+→ MOVE_TO_AREA
+
+MovementSkill
+→ NavigationService
+
+World Map global
+→ Minimap regional
+→ local search
+
+SearchSkill
+→ mob candidate
+
+TargetSkill
+→ identity validation
+
+CombatSkill
+→ approach
+→ face
+→ combat
+→ recovery
+→ target dead
+
+CombatVerifier
+→ action success
+
+QuestProgressVerifier
+→ 3/8 → 4/8
+
+QuestRuntime
+→ objective incomplete
+→ locate next target
+
+...
+
+8/8
+
+QuestProgressVerifier
+→ objective complete
+→ ready turn-in
+
+TurnInResolver
+→ map/minimap/local NPC
+
+InteractSkill
+→ Quest Complete UI
+
+RewardPolicy
+→ reward
+
+QuestProgressVerifier
+→ QUEST_COMPLETED
+
+NextQuestResolver
+→ campaign continuation
+
+Goal continues.
+
+
+============================================================
+101. KUTATÁSI ALAP ÉS WOW-SPECIFIKUS TERVEZÉSI MEGJEGYZÉSEK
+============================================================
+
+A tervezésnél figyelembe vett WoW UI-viselkedések:
+
+- A Map & Quest Log egyesíti a zóna térképet és quest információkat, és objective-ekhez térképi információt ad.
+- A modern world map többféle quest és világikont kezel, és több ikon supertrackelhető.
+- Az Interact Key NPC-k és objektumok interakciójára használható; interaktív célok megfelelő közelségben/facingnél kiemelhetők.
+- Az Interact Key quest-item jellegű interakciókban is használható.
+- A modern WoW támogat campaign/main-story jellegű quest megkülönböztetést.
+- A questelésben előfordul Scouting Map / UI-választás, special action, vehicle, scripted event és field jellegű completion.
+- Emiatt egy kizárólag 3D detectorra vagy kizárólag waypoint koordinátára épülő quest agent nem elegendő.
+
+A rendszer ezért több információs skálát egyesít:
+
+GLOBAL:
+World Map
+
+REGIONAL:
+Minimap / navigation cue
+
+LOCAL:
+3D scene / entity search
+
+IMMEDIATE:
+target / facing / interact / combat
+
+Ezt a négy szintet a teljes quest rendszer alapmodelljének kell tekinteni.
+
+
+============================================================
+102. DOKUMENTUM HASZNÁLATA
+============================================================
+
+Ez a dokumentum DESIGN REFERENCE.
+
+A V4:
+az architektúra megépítésére szolgáló master implementation prompt.
+
+A V5:
+a V4 eredményének formalizálására/hardeningjére szolgál.
+
+Ez a Functional Design Specification:
+annak referenciája, hogy AZ AGENT EGYES FUNKCIÓINAK MIT KELL JELENTENIÜK.
+
+Implementáláskor:
+
+1. keresd meg a releváns design sectiont;
+2. azonosítsd a jelenlegi repo komponensét;
+3. ellenőrizd ownershipot;
+4. tartsd a bemenet/kimenet contractot;
+5. tartsd a success/failure elvet;
+6. írj hozzá tesztet;
+7. ne hozz létre párhuzamos authorityt.
+
+END OF FUNCTIONAL DESIGN SPECIFICATION

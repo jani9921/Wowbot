@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "description": "Physical client-area pixel-strip discovery profiles. Unknown window sizes use the nearest aspect/size profile.",
+  "fallback": {"name": "scaled-fallback", "search_x": 224, "search_y": 420, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+  "profiles": [
+    {"name": "vga-4x3", "width": 640, "height": 480, "search_x": 128, "search_y": 220, "min_pitch": 0.75, "max_pitch": 6.0, "expected_pitch": 4.0},
+    {"name": "svga-4x3", "width": 800, "height": 600, "search_x": 144, "search_y": 260, "min_pitch": 0.75, "max_pitch": 6.5, "expected_pitch": 4.0},
+    {"name": "xga-4x3", "width": 1024, "height": 768, "search_x": 160, "search_y": 320, "min_pitch": 0.75, "max_pitch": 7.0, "expected_pitch": 4.0},
+    {"name": "wxga-5x3", "width": 1280, "height": 768, "search_x": 176, "search_y": 320, "min_pitch": 0.75, "max_pitch": 7.0, "expected_pitch": 4.0},
+    {"name": "hd-16x9", "width": 1280, "height": 720, "search_x": 176, "search_y": 300, "min_pitch": 0.75, "max_pitch": 7.0, "expected_pitch": 4.0},
+    {"name": "sxga-5x4", "width": 1280, "height": 1024, "search_x": 176, "search_y": 384, "min_pitch": 0.75, "max_pitch": 8.0, "expected_pitch": 4.0},
+    {"name": "hd-1366", "width": 1366, "height": 768, "search_x": 184, "search_y": 320, "min_pitch": 0.75, "max_pitch": 7.0, "expected_pitch": 4.0},
+    {"name": "wxga-plus", "width": 1440, "height": 900, "search_x": 192, "search_y": 350, "min_pitch": 0.75, "max_pitch": 7.5, "expected_pitch": 4.0},
+    {"name": "hd-1536", "width": 1536, "height": 864, "search_x": 192, "search_y": 350, "min_pitch": 0.75, "max_pitch": 7.5, "expected_pitch": 4.0},
+    {"name": "hd-plus", "width": 1600, "height": 900, "search_x": 192, "search_y": 360, "min_pitch": 0.75, "max_pitch": 8.0, "expected_pitch": 4.0},
+    {"name": "uxga-4x3", "width": 1600, "height": 1200, "search_x": 192, "search_y": 420, "min_pitch": 0.75, "max_pitch": 8.0, "expected_pitch": 4.0},
+    {"name": "wsxga-plus", "width": 1680, "height": 1050, "search_x": 200, "search_y": 400, "min_pitch": 0.75, "max_pitch": 8.0, "expected_pitch": 4.0},
+    {"name": "full-hd", "width": 1920, "height": 1080, "search_x": 208, "search_y": 420, "min_pitch": 0.75, "max_pitch": 8.5, "expected_pitch": 4.0},
+    {"name": "wuxga", "width": 1920, "height": 1200, "search_x": 208, "search_y": 440, "min_pitch": 0.75, "max_pitch": 8.5, "expected_pitch": 4.0},
+    {"name": "qwxga", "width": 2048, "height": 1152, "search_x": 216, "search_y": 440, "min_pitch": 0.75, "max_pitch": 8.5, "expected_pitch": 4.0},
+    {"name": "ultrawide-fhd", "width": 2560, "height": 1080, "search_x": 224, "search_y": 420, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "qhd", "width": 2560, "height": 1440, "search_x": 224, "search_y": 480, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "wqxga", "width": 2560, "height": 1600, "search_x": 224, "search_y": 500, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "ultrawide-qhd", "width": 3440, "height": 1440, "search_x": 224, "search_y": 480, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "ultrawide-4k", "width": 3840, "height": 1600, "search_x": 224, "search_y": 500, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "uhd-4k", "width": 3840, "height": 2160, "search_x": 224, "search_y": 560, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0},
+    {"name": "dci-4k", "width": 4096, "height": 2160, "search_x": 224, "search_y": 560, "min_pitch": 0.75, "max_pitch": 9.0, "expected_pitch": 4.0}
+  ]
+}

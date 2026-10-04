@@ -1,0 +1,308 @@
+================================================================================
+HZ TELJESÍTMÉNY-VIZSGÁLAT ÖSSZEFOGLALÓ — 2026-09-22
+================================================================================
+Panasz: Full-AI indításkor az addon/control Hz normál esetben 20-40 Hz körül
+indul, majd fokozatosan (néhány másodperc - fél perc alatt) 1-9 Hz közé esik,
+esetenként több másodperces egyszeri fagyással. A cél 20-25 Hz körüli stabil
+működés.
+
+Módszer: élő live-debug/telemetry logok elemzése (output/live-debug/*.jsonl),
+majd offline cProfile-lal (szintetikus, élő méretű AgentMemory adatbázison
+és FULL_AI tick-eken) pontosítva az egyes gyanús helyeket. Minden javítás
+után: célzott unit tesztek + teljes pytest suite (1490+ teszt, 0 regresszió
+egyik lépésnél sem) + újramérés.
+
+================================================================================
+1. HIBA: Vizuális jelölt-áradás korlátlan párosítási költsége
+================================================================================
+Fájl:  src/wowbot/agent/visual_tracks.py (VisualTrackManager.update)
+
+Mi volt a hiba:
+  Amikor a vizuális tracker egy sikertelen keresési hurokban (SEEK_VISUAL_CUE/
+  INSPECT, semmi nem stabilizálódik) ragadt, a detektor 150-220 nyers jelöltet
+  adott ki tick-enként (normál: 20-40). A tracker minden tick-en TELJES
+  N×M költségmátrixot épített (új jelöltek × aktív track-ek) és Hungarian
+  algoritmussal (linear_sum_assignment) oldotta fel. Mivel a nem-párosodó
+  track-ek csak ~1.2 valós másodperc után törlődtek, az aktív track-ek száma
+  tick-ről tick-re HALMOZÓDOTT, a mátrix mindkét dimenzióban nőtt →
+  gyorsuló (nem csak lineáris) tick-idő növekedés.
+
+Mit javítottam:
+  VisualTrackManager-be max_active_tracks=60 és max_new_candidates=60
+  alapértelmezett korlát: minden update()-hívás elején kilépnek a
+  legkevésbé bevált (legkevesebb hits) aktív track-ek, és az új jelöltek
+  confidence szerint top-60-ra vágódnak, mielőtt a párosítási mátrix
+  felépülne. Normál (20-40 jelöltes) működésnél a korlát sosem lép életbe.
+
+Eredmény:
+  Szintetikus flood-teszt (180 jelölt/tick, 30 tick): 4378ms → 429ms
+  (~10x gyorsulás). Élőben megerősítve: a candidate-flood alatt a Hz most
+  13-21 Hz között marad (korábban 1-5 Hz-re esett / többmásodperces
+  fagyás volt).
+  13 új teszt: tests/test_visual_tracks.py
+
+================================================================================
+2. HIBA: Hiányzó adatbázis-indexek a memória-konszolidációban
+================================================================================
+Fájl:  src/wowbot/agent/memory.py (consolidate())
+
+Mi volt a hiba:
+  A consolidate() (60 másodpercenként lefutó karbantartás) az `events` és
+  `world_relations` táblákat `ORDER BY at,id` / `ORDER BY at,rowid` szerint
+  rendezve keresi a legrégebbi, törlendő sorokat. A meglévő indexek
+  (idx_events_session_at, idx_world_relations) más oszlopokkal kezdődtek,
+  ezért ez a rendezés minden alkalommal TELJES tábla-szkennelést + memóriabeli
+  rendezést kényszerített ki, amint a tábla átlépte a küszöböt (15 000 /
+  50 000 sor). Élőben mért hatás: ~470ms-es blokkolás a fő tick-szálon
+  minden egyes konszolidációnál.
+
+Mit javítottam:
+  Két új index: idx_events_at_id(at,id) és idx_world_relations_at(at).
+
+Eredmény:
+  Élőben megerősítve: a maintenance mező MINDEN konszolidációs eseménynél
+  0.0ms-re esett (korábban ~470ms). (Kivétel: egy session ELSŐ, nagy
+  elmaradást pótló konszolidációja, ahol több ezer sort kellett egyszerre
+  törölni — ez fizikai törlési munka, nem az index hiánya, lásd 7. pont.)
+  6 új teszt: tests/test_memory_consolidation_1_0.py
+
+================================================================================
+3. HIBA: Sok különálló SQLite commit tick-enként
+================================================================================
+Fájl:  src/wowbot/agent/memory.py (_tx, batch) + agent/runtime.py
+
+Mi volt a hiba:
+  Minden naplózott esemény (_record() hívás engine.py-ban) saját külön
+  SQLite tranzakciót nyitott és commitolt — egy aktív tick-en akár ~36
+  külön commit is lefuthatott, mindegyiknek valós lemez-írási költsége volt.
+
+Mit javítottam:
+  Az AgentMemory._tx() újrabelépővé (reentrant) tettem egy mélység-számlálóval
+  (a már meglévő RLock-ra építve) — csak a legkülső hívás commitol/rollback-el.
+  Új publikus memory.batch() context manager. A runtime.py-ban az
+  self.agent.tick(...) hívás most `with self.memory.batch():` alatt fut,
+  így egy teljes tick összes memória-írása EGY commit-ban landol.
+
+Eredmény:
+  Szintetikus mérés (36 írás/tick × 50 tick): 114ms → 25ms (~4.6x gyorsabb).
+  9 új teszt: tests/test_memory_consolidation_1_0.py (batch-commit és
+  rollback-korrektség tesztek)
+
+================================================================================
+4. HIBA: canonical() feleslegesen újraépítette a teljes struktúrát minden hívásnál
+================================================================================
+Fájl:  src/wowbot/agent/models.py (canonical, _json_safe)
+
+Mi volt a hiba:
+  A canonical() (hash-eléshez/kontextus-kulcsokhoz használt JSON-szerializáló)
+  MINDEN híváskor lefuttatta a _json_safe() rekurzív, minden dict/list szintet
+  újra-allokáló tisztítását — akkor is, ha a bemenetben soha nem volt
+  nem-véges float (a gyakori eset). Profilban: 76 945 hívás / 200 tick,
+  1,27 MILLIÓ rekurzív _json_safe hívással.
+
+Mit javítottam:
+  canonical() most előbb a közvetlen (másolásmentes) json.dumps(...,
+  allow_nan=False)-t próbálja; csak akkor esik vissza a lassú, tisztító
+  útvonalra, ha az ValueError-t dob (azaz tényleg van benne nem-véges float).
+
+Eredmény:
+  Szintetikus profil: 53.8ms/tick → 41.2ms/tick (~23% gyorsulás egy
+  körben). A canonical()/_json_safe() hívásfa 2.245s → 0.790s (65%-os
+  csökkenés a profilozott 200 tick alatt).
+  6 új teszt: tests/test_canonical_json.py
+
+================================================================================
+5. HIBA: Lassú copy.deepcopy a gyors JSON-másoló helyett négy fájlban
+================================================================================
+Fájlok: agent/world_evidence_reducer.py, world_addon_reducer.py,
+        world_snapshot.py, world_query.py
+
+Mi volt a hiba:
+  A world.py régebben már kapott egy gyors, JSON-alakú adatra optimalizált
+  másoló segédfüggvényt (_json_copy, a natív copy.deepcopy dispatch-
+  overhead-je nélkül), de ez csak world.py saját belső deepcopy-aliasán
+  keresztül volt elérhető. Négy másik, ugyanazon az ingest hot path-en lévő
+  fájl továbbra is a lassú, natív copy.deepcopy-t használta ugyanerre a
+  fajta adatra (pl. a teljes addon-állapotot minden tick-en, illetve minden
+  észlelt vizuális jelöltnél).
+
+Mit javítottam:
+  A gyors másolót áthelyeztem a közös models.py-ba (json_copy néven), és
+  mind a négy fájlban lecseréltem rá a natív copy.deepcopy importot.
+
+Eredmény:
+  A profilban a copy.deepcopy/_deepcopy_dict teljesen eltűnt a top-30-ból.
+  Összesen kb. 25%-kal kevesebb függvényhívás tick-enként (a 4. és 5. pont
+  együttes hatása). Nincs önálló új tesztfájl — a meglévő, kiterjedt
+  world.py/world_query.py teszt-lefedettség változatlanul zöld maradt,
+  ez egy tisztán viselkedés-megőrző refaktor.
+
+================================================================================
+6. HIBA: O(n) lineáris keresés minden esemény-duplikátum ellenőrzésnél
+================================================================================
+Fájl:  src/wowbot/agent/world.py (_emit_derived_event, _BoundedEventRecords)
+
+Mi volt a hiba:
+  A _emit_derived_event() minden híváskor VÉGIGPÁSZTÁZTA az utolsó 500
+  esemény listáját (`any(item.event_id == record.event_id for item in
+  self.event_records)`), hogy kiszűrje a duplikátumokat. "Churning" (sosem
+  stabilizálódó track-ek) állapotban ez 200 tick alatt 6,19 MILLIÓ
+  összehasonlítást jelentett.
+
+Mit javítottam:
+  Új _BoundedEventRecords osztály (deque-alosztály), ami egy `ids` halmazt
+  tart karban automatikusan minden append()-nél (eviction-nal szinkronban) —
+  a duplikátum-ellenőrzés most O(1) halmaz-keresés O(n) lineáris keresés
+  helyett.
+
+Eredmény:
+  _emit_derived_event() költsége 2.91s → 1.44s (50%-os csökkenés a
+  profilozott churning-szcenárióban), függvényhívások száma 16M → 9,9M
+  (38%-kal kevesebb).
+  3 új teszt: tests/test_event_records_dedup.py
+
+================================================================================
+7. HIBA (A FŐ, DOMINÁNS OK): a tervező-ütemező szinte minden tick-en teljes
+   újratervezést váltott ki, a 0.2-2 Hz-es célsebesség helyett
+================================================================================
+Fájl:  src/wowbot/agent/runtime_scheduler.py (BrainScheduler.signature)
+
+Mi volt a hiba:
+  A BrainScheduler egy 500ms-es "szívverés" throttle-t implementál — normál
+  esetben csak ~2x/mp fut le a teljes (drága) tervezés. Ez egy világ-állapot
+  "signature" hash-en alapul: ha a signature BÁRMENNYIT változik, a throttle-t
+  megkerülve AZONNAL újratervez ("WORLD_EVENT"). A signature tartalmazta MINDEN
+  aktuálisan követett vizuális track track_id-ját is. Amikor a track-ek sosem
+  stabilizálódtak (ugyanaz a jelenség, mint az 1. és 6. pontban), minden
+  track új azonosítót kapott minden tick-en, még ha az állapota
+  (track_state/belief/inspectable) egyáltalán nem változott — így a
+  signature GYAKORLATILAG SOHA nem egyezett meg az előzővel.
+  Élőben mérve: KÉT külön teszt-ablakban (30, ill. 50 tick-en át) a
+  brain_skips számláló a TELJES idő alatt 0 maradt — azaz szó szerint
+  MINDEN tick teljes újratervezést váltott ki, miközben a döntés (decision)
+  szövege végig ugyanaz maradt.
+
+Ellenőrzés (mielőtt javítottam, kontrollált kísérlettel bizonyítva):
+  - Minden mást statikusan tartva, csak a track_id-kat változtatva:
+    5/5 egymást követő signature MIND különböző volt.
+  - Ugyanaz, de track_id-k stabilan tartva: 5/5 signature AZONOS volt.
+  - A javasolt javítással (track_id kivéve): churn-only esetben 5/5
+    signature azonos; DE egy valóban új/feljavult track (pl. első
+    INSPECTABLE jelölt) megjelenésekor a signature helyesen ÉS AZONNAL
+    megváltozott, majd utána vissza is állt.
+
+Mit javítottam:
+  A signature() track-tuple-jéből kivettem a track_id-t; csak
+  (track_state, belief, inspectable) maradt bent. Azonos állapotú track-ek
+  puszta azonosító-cseréje többé nem vált ki újratervezést, de bármilyen
+  ÉRDEMI állapotváltozás (új inspectable jelölt, SUPPORTED-dé válás, stb.)
+  továbbra is azonnal reagál.
+
+Eredmény:
+  Célzott, kontrollált tesztekkel megerősítve (lásd fent). Élő megerősítés
+  még hátra van (ez volt az utolsó, még nem élesben tesztelt javítás).
+  2 új teszt: tests/test_runtime_scheduler_1_0.py
+
+================================================================================
+8. HIBA (ÚJ, MÁSFAJTA GYÖKÉR-OK): a capture-szál GIL-éhezése — lassú/
+   sikertelen FULL_AI-indítás ÉS a GUI szaggatása
+================================================================================
+Fájl:  src/wowbot/agent/sensor.py (BufferedPixelSensor._run/PixelSensor.poll)
+       src/wowbot/agent/dxgi_capture.py (DxgiClientCapture.capture)
+
+Mi volt a hiba (a felhasználó jelezte: "alig akar elindulni a full_ai,
+sokáig írja hogy PID not foreground, oszt rég elől van a WoW ablak", illetve
+"lassan indul, szaggat a GUI, késve kattint"):
+
+  Élő logban (live-debug-20260922-210649.jsonl): a FULL_AI indítás 121
+  tick-en (~40+ valós másodpercen) át elakadt "Start elutasítva: friss
+  addon-adat és előtérben lévő kiválasztott PID kell" üzenettel, annak
+  ellenére hogy a WoW ablak ténylegesen előtérben volt.
+
+  A döntő diagnosztikai jel: `main_thread_poll.last_payload_ago` folyamatosan
+  NŐTT (25.8s → 33.0s → 41.1s), miközben a `sensor_diagnostics` szerint a
+  háttér-capture szál (aipc-pixel-sensor) MAGAS Hz-en (67.54 Hz) pollozott
+  volna. A VALÓDI, tényleges capture_attempts szám viszont csak +4-gyel nőtt
+  kb. 15 valós másodperc alatt — a szál gyakorlatilag befagyott hosszú
+  szakaszokra, a kijelzett magas Hz csak egy korábbi pillanatnyi felvillanás
+  maradványa volt.
+
+  A kulcs-bizonyíték, ami kizárta a "lassú natív hívás" (DXGI grab, WinAPI
+  foreground-ellenőrzés) elméletet: a `poll_ms` (a `self.source.poll()`
+  hívás TÉNYLEGES mért időtartama) következetesen ALACSONY maradt a fagyás
+  alatt is (4.38ms-9.02ms) — vagyis maga a hívás gyors, AMIKOR lefut. A
+  probléma tehát nem egy blokkoló hívás, hanem hogy a szál a hívások KÖZÖTT
+  nem kap processzoridőt.
+
+  Ez klasszikus Python GIL (Global Interpreter Lock) éhezési tünet: a fő
+  agent-szál (tick(), CPU-intenzív munkával — pont amit ma javítgattunk)
+  annyira sokáig tarthatja a GIL-t, hogy sem a capture-szál (aipc-pixel-
+  sensor), sem a Tkinter GUI-szál nem kap elég futási lehetőséget — ez
+  magyarázza EGYSZERRE a lassú/sikertelen indulást ÉS a GUI szaggatását,
+  KÖZÖS gyökér-okkal, annak ellenére hogy mindegyik szál a saját munkájában
+  gyors lenne.
+
+  (Mellékesen megerősítve, de NEM ez az elsődleges ok: a
+  `windows_input.py::is_selected_foreground()` és a `dxgi_capture.py`
+  capture()-ben lévő két külön foreground-ellenőrzés is nyers, nem
+  debounce-olt WinAPI hívás — ez a capture()-ön belül önmagában gyors, csak
+  a szál-éhezés miatt válik láthatóvá problémaként.)
+
+Megoldás (IMPLEMENTÁLVA, OFFLINE TESZTELVE, ÉLŐ VALIDÁCIÓRA VÁR):
+  A képernyő-rögzítést külön OS-PROCESSZBE kell tenni (nem csak szálba),
+  ami teljesen kikerüli a GIL-t. Részletes terv:
+  docs/PROCESS_BASED_CAPTURE_DESIGN_2026-09-22.txt
+  Röviden: egy új capture_worker.py processz VÁLTOZATLANUL újrafelhasználja
+  a meglévő ClientCapture/DxgiClientCapture osztályokat, a nyers képkockát
+  egy megosztott memória (SharedMemory) gyűrűspufferbe írja; a fő processz
+  egy drop-in ProcessCaptureClient-en keresztül olvassa — a PixelSensor,
+  BufferedPixelSensor, decode_payload_from_bgra, PacketAssembler egyetlen
+  sora sem változik. Alapból kikapcsolt env var mögött (AIPC_CAPTURE_
+  PROCESS=1), ugyanaz a kockázat-csökkentő minta, mint a DXGI backend
+  korábbi bevezetésénél.
+  ŐSZINTE FIGYELMEZTETÉS: ez valószínűleg megoldja az indítási/capture-
+  éhezési problémát, de a GUI-szaggatás ELSŐDLEGES forrása feltehetően
+  MAGA a tick() CPU-munkája, ami továbbra is a fő processzben, a Tkinter-
+  szállal egy GIL alatt marad — ha a GUI-szaggatás ez után is fennáll, az
+  megerősítené, hogy a tick() maga a domináns ok, és további lépés kell.
+
+Eredmény:
+  A SharedFrameRingBuffer, capture_worker, ProcessCaptureClient és az
+  AgentRuntime opt-in bekötése elkészült. AIPC_CAPTURE_PROCESS=1 mellett a
+  grab külön OS-processzben fut; alapértelmezésben továbbra is a korábbi út
+  aktív. A Windows lapméretre kerekített SharedMemory-mappingje miatt a
+  tényleges slot_size explicit a fejlécbe került. A teljes frame-publikációt
+  lefedő seqlock védi a körbeforduló slotot, és a kliens sequence-dedupe-ja
+  nem engedi ugyanazt a snapshotot friss telemetryként újrajátszani.
+  Célzott offline tesztek zöldek; a Hz-javulás élő mérése még hátra van.
+
+================================================================================
+ÖSSZESÍTETT ÁLLAPOT
+================================================================================
+Mind a 7 teljesítmény-javítás bekerült. A 8. (GIL-éhezés) javításának
+process-alapú capture útja is elkészült és offline tesztelt, de opt-in marad,
+amíg az élő összehasonlító mérés nem igazolja a hatását.
+
+Hz-alakulás (élő logok alapján, időrendben):
+  - Kiinduló állapot: FULL_AI indításkor 20-30 Hz → néhány másodperc alatt
+    1-5 Hz-re esik, esetenként 5+ másodperces egyszeri fagyással, majd
+    gyakran automatikus MANUAL-ba kényszerítés.
+  - Az 1-6. javítás után: a candidate-flood és a memória-blokkolás
+    epizódjai megszűntek (13-21 Hz stabil még flood alatt is), DE a Hz
+    így is 3-9 Hz körül maradt a session nagy részében — ekkor derült ki
+    kontrollált méréssel a 7. (domináns) ok.
+  - A 7. javítás még nincs élesben visszamérve.
+
+Ismert, még nyitott téma (nem hiba, hanem architekturális irány):
+  A track-ek gyökér-instabilitásának valódi, hosszú távú megoldása egy
+  betanított objektumfelismerő (YOLO) integrálása lenne a jelenlegi
+  heurisztikus (szín/kontraszt-alapú) detektor mellé/helyett — ehhez a
+  scaffolding már részben megvan a kódban (vision/world3d/learned_detector.py,
+  UltralyticsYoloBackend), de nincs bekötve a perception.py élő útvonalába,
+  és tanított modell/dataset szükséges hozzá. A dataset építése a felhasználó
+  szerint folyamatban van; ez a téma egyelőre elnapolva.
+
+Következő lépés: összehasonlító élő teszt a 7. javítással, majd
+AIPC_CAPTURE_PROCESS=1 mellett, hogy lássuk, eléri-e a fast addon Hz a
+20-25-ös célsávot és megszűnik-e a capture-éhezés.
+================================================================================

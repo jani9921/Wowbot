@@ -1,0 +1,14 @@
+{
+  "priorities": {
+    "CAMPAIGN": 100,
+    "IMPORTANT": 90,
+    "DUNGEON": 80,
+    "LOCAL_STORY": 70,
+    "SIDE": 60,
+    "OPTIONAL": 50,
+    "WORLD_QUEST": 40,
+    "REPEATABLE": 30,
+    "UNKNOWN": 10
+  },
+  "priority_tie_threshold": 5
+}

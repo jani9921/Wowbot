@@ -1,0 +1,13 @@
+# Runtime packages for the agent (installed by INSTALL_WIZARD.bat when missing).
+# torch/torchvision with CUDA come from the PyTorch index, e.g.:
+#   py -3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+numpy>=2.0
+opencv-python>=4.10
+Pillow>=10.0
+dxcam
+ultralytics>=8.3
+lap
+# Optional: TensorRT engine (faster YOLO), addon Lua tests, test suite
+# tensorrt
+# lupa
+# pytest

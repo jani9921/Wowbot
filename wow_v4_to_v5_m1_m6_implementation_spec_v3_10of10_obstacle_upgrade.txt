@@ -1,0 +1,4187 @@
+WOW AUTONOMOUS CLIENT AGENT
+V4 → V5 IMPLEMENTATION SPECIFICATION v2
+M1–M6 — 10/10 DETAIL LEVEL
+============================================================
+
+PURPOSE
+============================================================
+
+This document is an implementation-grade prompt/specification for continuing
+an EXISTING V4 WoW autonomous client agent whose M0 milestone already exists.
+
+This is NOT a greenfield project prompt.
+
+The coding agent MUST:
+1. Audit the current repository first.
+2. Preserve valid M0 architecture and contracts.
+3. Extend rather than duplicate.
+4. Use adapters/migrations where needed.
+5. Implement only observable, verified success.
+6. Keep all gameplay intelligence outside direct memory reading/injection.
+7. Maintain a vision-first, client-side external control architecture.
+
+STRICTLY FORBIDDEN
+============================================================
+
+Do NOT implement or add:
+- process memory reading
+- process memory writing
+- DLL injection
+- code injection
+- internal WoW function invocation
+- executable patching
+- game-file modification for control
+- hidden memory Object Manager
+- kernel drivers
+- hooks into the game process
+- fake success states
+- random "probably worked" success
+- infinite retry loops
+- duplicate domain systems
+- Planner -> direct keyboard shortcuts
+- Vision -> direct keyboard shortcuts
+
+The agent may use:
+- screenshots
+- screen pixels
+- external input
+- normal WoW addon-visible information/events where available
+- combat log where legitimately accessible
+- external local models
+- replayed observation data
+- normal files written by addon/logging mechanisms
+
+CORE PRINCIPLE
+============================================================
+
+An action is NOT successful because input was sent.
+
+An action is successful only when the expected observable postcondition has
+been verified from the world.
+
+Canonical cycle:
+
+GOAL
+  ↓
+PLAN
+  ↓
+SUPERVISOR STATE
+  ↓
+SKILL
+  ↓
+DOMAIN ENGINE
+  ↓
+ACTION REQUEST
+  ↓
+INPUT CONTROLLER
+  ↓
+WORLD
+  ↓
+OBSERVATION
+  ↓
+EVIDENCE
+  ↓
+EVENT BUS
+  ↓
+WORLD MODEL
+  ↓
+VERIFICATION
+  ↓
+SUCCESS / RECOVERY / REPLAN
+
+
+============================================================
+GLOBAL ARCHITECTURE CONTRACT
+============================================================
+
+Recommended top-level modules:
+
+Core/
+    EventBus
+    WorldModel
+    EvidenceFusion
+    Supervisor
+    GoalManager
+    Planner
+    SkillExecutor
+    FailureManager
+    TimeProvider
+    CorrelationContext
+
+Perception/
+    FrameSource
+    World3DVision
+    EntityDetector
+    EntityTracker
+    MotionEstimator
+    FreeSpaceEstimator
+    ObstacleDetector
+    GroundEstimator
+    UIParser
+    TooltipParser
+    MinimapVision
+    WorldMapVision
+    ActivePerception
+    EvidenceEmitter
+
+Telemetry/
+    AddonEventAdapter
+    CombatLogAdapter
+    EventRecorder
+    ReplaySource
+
+Navigation/
+    NavigationService
+    GlobalPlanner
+    LocalPlanner
+    PathCorridor
+    MovementController
+    ProgressMonitor
+    DangerMap
+    StuckResolver
+    NavigationMemory
+    ReachabilityModel
+
+Combat/
+    CombatEngine
+    CombatStateMachine
+    TargetManager
+    AbilityModel
+    AbilityRuleEngine
+    CombatEvaluator
+    CombatRecovery
+
+Interaction/
+    InteractionEngine
+    InteractionTargetResolver
+    ApproachController
+    FacingController
+    HoverVerifier
+    InteractionExecutor
+    InteractionResultClassifier
+    InteractionRecovery
+
+Questing/
+    QuestModel
+    QuestGraph
+    ObjectiveModel
+    QuestPlanner
+    ObjectiveExecutor
+    QuestRecovery
+
+Skills/
+    SkillRegistry
+    SkillContext
+    SkillResult
+    MoveToSkill
+    ApproachSkill
+    FollowSkill
+    FaceSkill
+    TargetSkill
+    ClearTargetSkill
+    SearchEntitySkill
+    SearchObjectSkill
+    InteractSkill
+    TalkSkill
+    SelectGossipSkill
+    AcceptQuestSkill
+    TurnInQuestSkill
+    CastSkill
+    AttackSkill
+    InterruptSkill
+    KillSkill
+    LootSkill
+    UseItemSkill
+    WaitSkill
+    VerifySkill
+    RecoverSkill
+    ExploreAreaSkill
+
+Execution/
+    IInputController
+    InputScheduler
+    InputBackend
+
+Knowledge/
+    EntityKnowledgeBase
+    QuestKnowledgeBase
+    LearnedLocations
+    NavigationMemory
+    FailureMemory
+
+Diagnostics/
+    DebugOverlay
+    RuntimeInspector
+    HealthMonitor
+    StructuredLogger
+
+
+============================================================
+GLOBAL DATA CONTRACTS
+============================================================
+
+Use the project's language conventions. The pseudo-types below define
+semantic contracts, not mandatory syntax.
+
+------------------------------------------------------------
+1. Timestamp
+------------------------------------------------------------
+
+All events/evidence/state updates MUST carry monotonic timestamps where
+possible.
+
+type TimestampMs = long
+
+Rules:
+- never compare wall clock for short-duration control logic if monotonic time exists
+- store wall-clock only for logs/diagnostics
+- stale evidence must be rejected based on age
+
+------------------------------------------------------------
+2. Confidence
+------------------------------------------------------------
+
+type Confidence = float  // range [0.0, 1.0]
+
+Rules:
+- uncertain perception outputs MUST include confidence
+- deterministic events may use 1.0
+- unknown confidence MUST NOT default to 1.0
+- values outside [0,1] are invalid
+
+------------------------------------------------------------
+3. CorrelationId
+------------------------------------------------------------
+
+type CorrelationId = string/Guid
+
+Every high-level attempt creates a correlation chain.
+
+Example:
+Skill attempt
+→ input actions
+→ resulting events
+→ failure event
+→ recovery
+→ final SkillResult
+
+All of these MUST be traceable through CorrelationId and/or ParentCorrelationId.
+
+------------------------------------------------------------
+4. WorldEntityId
+------------------------------------------------------------
+
+type WorldEntityId = stable runtime track id
+
+This is NOT necessarily a WoW GUID.
+For vision-first entities it is a temporal track identity.
+
+------------------------------------------------------------
+5. EventEnvelope
+------------------------------------------------------------
+
+EventEnvelope {
+    EventId
+    EventType
+    Timestamp
+    Source
+    Confidence
+    CorrelationId
+    ParentCorrelationId?
+    EntityId?
+    TargetId?
+    Payload
+    SchemaVersion
+}
+
+Source enum example:
+WORLD3D_VISION
+MINIMAP_VISION
+WORLD_MAP_VISION
+UI_VISION
+TOOLTIP
+ADDON
+COMBAT_LOG
+NAVIGATION
+COMBAT
+INTERACTION
+QUEST
+SUPERVISOR
+SKILL_EXECUTOR
+INPUT
+SYSTEM
+
+------------------------------------------------------------
+6. EvidenceRecord
+------------------------------------------------------------
+
+EvidenceRecord {
+    EvidenceId
+    EvidenceType
+    Timestamp
+    Source
+    Confidence
+    EntityId?
+    SubjectKey
+    Value
+    ValidForMs
+    CorrelationId?
+}
+
+Evidence expires.
+Do not allow old evidence to remain truth forever.
+
+------------------------------------------------------------
+7. FailureRecord
+------------------------------------------------------------
+
+FailureRecord {
+    FailureId
+    Timestamp
+    Domain
+    Reason
+    Confidence
+    Retryable
+    CorrelationId
+    EntityId?
+    AttemptNumber
+    RecoveryAttempted?
+    RecoveryType?
+    Details
+}
+
+Domain enum:
+PERCEPTION
+NAVIGATION
+COMBAT
+INTERACTION
+QUEST
+INPUT
+SYSTEM
+
+------------------------------------------------------------
+8. SkillResult
+------------------------------------------------------------
+
+SkillResult {
+    Status
+    Reason
+    StartedAt
+    FinishedAt
+    CorrelationId
+    Attempts
+    VerifiedPostconditions[]
+    FailedPostconditions[]
+    FailureRecord?
+}
+
+Status:
+SUCCESS
+FAIL_RETRYABLE
+FAIL_TERMINAL
+CANCELLED
+PREEMPTED
+TIMEOUT
+
+------------------------------------------------------------
+9. ActionRequest
+------------------------------------------------------------
+
+ActionRequest {
+    ActionType
+    Parameters
+    CorrelationId
+    Deadline
+    Interruptible
+    ExpectedEffects[]
+}
+
+No domain system may directly touch a backend-specific key API.
+All physical input goes through IInputController / InputScheduler.
+
+
+============================================================
+GLOBAL OWNERSHIP RULES
+============================================================
+
+GoalManager owns:
+- active high-level goal
+- goal priority
+- goal lifecycle
+
+Planner owns:
+- decomposition of goal into domain-level intents/skills
+- plan revision
+- dependency ordering
+
+Supervisor owns:
+- which high-level runtime state currently runs
+- preemption/arbitration
+- safety/recovery precedence
+
+WorldModel owns:
+- canonical believed state
+- never physical input
+
+EventBus owns:
+- event delivery only
+- never domain state decisions
+- never physical input
+
+Perception owns:
+- observations/evidence
+- never keypresses
+
+Navigation owns:
+- movement planning and progress
+- never combat ability choice
+
+Combat owns:
+- targeting and combat ability decisions
+- asks Navigation for movement when required
+
+Interaction owns:
+- approach/face/hover/interact/verify flow
+- uses Navigation for movement
+
+Questing owns:
+- quest/objective decomposition
+- never reimplements movement/combat/interact
+
+SkillExecutor owns:
+- skill lifecycle
+- timeout/retry/postcondition verification
+
+InputController owns:
+- physical input only
+- no gameplay reasoning
+
+
+============================================================
+GLOBAL CONCURRENCY MODEL
+============================================================
+
+The implementation may use threads/tasks, but must preserve deterministic
+ownership.
+
+Recommended loops:
+
+CaptureLoop:
+    20–60 Hz depending on hardware
+
+PerceptionLoop:
+    adaptive, typically 10–30 Hz
+
+WorldStateUpdateLoop:
+    event-driven + bounded periodic reconciliation
+
+SupervisorLoop:
+    10–20 Hz
+
+PlannerLoop:
+    event-driven / goal changes / failures
+    NOT every frame
+
+NavigationControlLoop:
+    10–20 Hz
+
+CombatControlLoop:
+    10–20 Hz or event-driven where appropriate
+
+InputScheduler:
+    serialized per client
+
+Rules:
+- only one subsystem may own continuous movement at a time
+- InputScheduler must serialize conflicting key states
+- no two systems independently hold W/A/S/D without arbitration
+- long-running perception may not block input release
+- cancellation token / cancellation context required for preemptible operations
+
+Backpressure:
+- EventBus queues MUST have bounded behavior
+- low-value repeated events may coalesce
+- critical events MUST NOT be silently dropped
+- stale perception events may be discarded before processing
+
+Critical events:
+DEATH
+DISCONNECT
+COMBAT_STARTED
+COMBAT_ENDED
+STUCK_DETECTED
+TARGET_DEAD
+QUEST_COMPLETE
+UI_FATAL_MODAL
+
+
+============================================================
+DEFAULT TIMING / THRESHOLD POLICY
+============================================================
+
+All numbers below are STARTING DEFAULTS, configuration values, not hardcoded
+truth. They MUST be centralized in config.
+
+Observation freshness:
+- UI evidence stale after: 750 ms unless event-derived
+- entity position stale after: 1000 ms
+- target position stale after: 500 ms during combat
+- minimap movement evidence stale after: 1000 ms
+- world map region evidence stale after: 5000 ms
+
+Interaction:
+- hover stabilization: 120–250 ms
+- interaction result wait: 1200 ms
+- interaction direct retry budget: 3
+- interaction reposition retry budget: 2
+
+Combat:
+- error-event correlation window after ability input: 1200 ms
+- target reacquire timeout: 1500 ms
+- target reacquire attempts: 2
+- range recovery timeout: 3500 ms
+- facing recovery timeout: 1800 ms
+- LOS recovery timeout per attempt: 2500 ms
+- LOS recovery attempts: 3
+
+Navigation:
+- possible stuck if progress score < 0.18 for 1500 ms
+- hard stuck if progress score < 0.10 for 3000 ms
+- progress recovered when score > 0.35 for at least 500 ms
+- local replan budget before escalation: 2
+- global replan budget: 1
+- temporary failed-region TTL: 30–180 sec depending on failure
+
+Entity tracking:
+- tentative track confirmation: 2–3 consistent frames
+- occlusion state after missing: ~250 ms
+- LOST after missing: 1500–3000 ms depending on class/context
+- immediate deletion prohibited
+
+Confidence examples:
+- high confidence: >= 0.85
+- medium: 0.60–0.85
+- low: 0.35–0.60
+- insufficient: < 0.35
+
+These values MUST be tuneable and logged when used.
+
+
+============================================================
+M1 — RUNTIME ARCHITECTURE
+EVENT BUS / WORLD MODEL / SUPERVISOR / FAILURE FOUNDATION
+============================================================
+
+M1 OBJECTIVE
+============================================================
+
+Convert M0 from a collection of functional components into a deterministic,
+observable runtime architecture with:
+- EventBus
+- canonical WorldModel integration
+- Supervisor FSM
+- Skill lifecycle
+- Failure classification
+- closed-loop verification
+- ProgressMonitor
+- StuckResolver shell
+- bounded retries
+- anti-loop protection
+- telemetry/replay hooks
+
+------------------------------------------------------------
+M1.1 REPOSITORY AUDIT
+------------------------------------------------------------
+
+Before changing code:
+
+A. Enumerate project files.
+B. Read README / architecture docs.
+C. Identify M0 entry points.
+D. Identify currently instantiated services.
+E. Identify duplicate responsibilities.
+F. Identify direct input calls outside execution layer.
+G. Identify global mutable state.
+H. Identify blocking loops.
+I. Identify implicit success.
+J. Identify TODO/placeholder critical paths.
+
+Produce internally:
+
+M0_COMPONENT_MAP
+
+For every component:
+
+Name
+File
+Current responsibility
+Dependencies
+Writes state?
+Sends input?
+Thread/task?
+Keep/Extend/Adapt/Replace
+Migration notes
+
+Do NOT create a second architecture beside the current one.
+
+------------------------------------------------------------
+M1.2 EVENT BUS INTERFACE
+------------------------------------------------------------
+
+Required operations conceptually:
+
+Publish(EventEnvelope event)
+Subscribe(EventType or filter, handler)
+Unsubscribe(subscription)
+PublishCritical(event)
+GetRecentEvents(filter, maxCount)
+
+Requirements:
+- thread-safe
+- bounded
+- observable queue depth
+- exception isolation between subscribers
+- event ordering preserved per producer where feasible
+- critical events not lost
+- duplicate low-value event coalescing allowed
+
+Recommended coalescing:
+ENTITY_UPDATED for same track
+MOVEMENT_PROGRESS
+FREE_SPACE_UPDATED
+
+Never coalesce:
+DEATH
+TARGET_DEAD
+QUEST_ACCEPTED
+QUEST_COMPLETE
+SPELL_CAST_FAILED
+STUCK_DETECTED
+
+------------------------------------------------------------
+M1.3 WORLD MODEL WRITE POLICY
+------------------------------------------------------------
+
+Only designated reducers/updaters may mutate canonical WorldModel.
+
+Do NOT allow every subsystem to freely mutate fields.
+
+Recommended:
+
+WorldModelReducer.Apply(EventEnvelope)
+WorldModelEvidenceReducer.Apply(EvidenceRecord)
+
+or equivalent.
+
+Every state mutation should be attributable to:
+- event/evidence id
+- timestamp
+- source
+
+Maintain LastUpdatedAt per major state section.
+
+------------------------------------------------------------
+M1.4 WORLD STATE CONTRACT
+------------------------------------------------------------
+
+WorldState {
+    Version
+    UpdatedAt
+
+    PlayerState
+    TargetState
+    EntityMap
+    CombatState
+    NavigationState
+    QuestState
+    InteractionState
+    UIState
+    MapState
+    EnvironmentState
+    RecoveryState
+}
+
+PlayerState {
+    AliveBelief
+    DeadBelief
+    HealthEstimate
+    ResourceEstimate
+    InCombat
+    Moving
+    Casting
+    Channeling
+    PositionBelief
+    HeadingBelief
+    BuffEvidence[]
+    DebuffEvidence[]
+    LastUpdatedAt
+}
+
+TargetState {
+    CurrentTargetId?
+    Confidence
+    AliveBelief
+    DeadBelief
+    HostilityBelief
+    DistanceEstimate
+    BearingEstimate
+    LOSBelief
+    FacingBelief
+    CastState
+    LastSeen
+    LastUpdatedAt
+}
+
+EntityState {
+    TrackId
+    ClassDistribution
+    BestClass
+    BBox
+    ScreenCenter
+    Velocity
+    MotionState
+    DistanceEstimate
+    BearingEstimate
+    AliveBelief
+    HostileBelief
+    FriendlyBelief
+    TargetableBelief
+    InteractableBelief
+    LootableBelief
+    ReachabilityBelief
+    FirstSeen
+    LastSeen
+    TrackState
+    Confidence
+    EvidenceRefs[]
+}
+
+TrackState:
+TENTATIVE
+CONFIRMED
+OCCLUDED
+LOST
+DEAD
+
+------------------------------------------------------------
+M1.5 SUPERVISOR FSM
+------------------------------------------------------------
+
+SupervisorState interface:
+
+StateId
+Priority
+Interruptible
+CanEnter(WorldState)
+Enter(context)
+Tick(context)
+CanExit(WorldState)
+Exit(context, reason)
+Timeout
+RetryPolicy
+
+Required states:
+
+DEATH_RECOVERY
+DISCONNECT_RECOVERY
+CRITICAL_RECOVERY
+COMBAT
+COMBAT_RECOVERY
+STUCK_RECOVERY
+INTERACTION
+LOOT
+QUEST_OBJECTIVE
+NAVIGATION
+EXPLORATION
+IDLE
+
+Preemption matrix minimum:
+
+DEATH_RECOVERY preempts all
+DISCONNECT_RECOVERY preempts all except death if needed
+CRITICAL_RECOVERY preempts normal domain states
+COMBAT preempts NAVIGATION/EXPLORATION/QUEST movement
+STUCK_RECOVERY preempts active navigation movement
+INTERACTION may be preempted by combat if safe
+LOOT may be preempted by combat
+QUEST_OBJECTIVE is orchestration and should not directly hold movement keys
+
+On preemption:
+- child operation receives cancellation
+- held input keys released if ownership changes
+- resumable context persisted
+- plan not discarded unless invalidated
+
+------------------------------------------------------------
+M1.6 SKILL EXECUTOR
+------------------------------------------------------------
+
+Skill lifecycle:
+
+CREATED
+→ WAITING_PRECONDITIONS
+→ RUNNING
+→ VERIFYING
+→ SUCCESS
+
+failure branches:
+→ RETRYING
+→ RECOVERING
+→ FAILED
+
+preemption:
+→ PREEMPTED
+
+SkillContext contains:
+SkillId
+CorrelationId
+Parameters
+StartedAt
+Deadline
+Attempt
+WorldSnapshotVersion
+CancellationToken
+
+Every Skill MUST define:
+Preconditions
+ExpectedPostconditions
+Timeout
+RetryBudget
+RecoveryPolicy
+VerificationMethod
+
+------------------------------------------------------------
+M1.7 VERIFICATION ENGINE
+------------------------------------------------------------
+
+Implement generic postcondition checking.
+
+Examples:
+
+MOVE_TO:
+destination belief within arrival envelope
+AND progress ended normally
+AND no active movement error
+
+INTERACT:
+expected UI/result event observed
+
+KILL:
+target dead confidence threshold reached
+
+ACCEPT_QUEST:
+quest state changed to ACTIVE / accepted evidence
+
+Do not let skills self-report success without verifier.
+
+------------------------------------------------------------
+M1.8 FAILURE MANAGER
+------------------------------------------------------------
+
+FailureManager:
+- normalize failures
+- count retries per correlation chain
+- enforce budget
+- map failure → recovery
+- escalate when budget exhausted
+
+Escalation:
+Skill retry exhausted
+→ Domain recovery
+→ Planner replan
+→ Goal alternative
+→ Goal failed
+
+No infinite loops.
+
+------------------------------------------------------------
+M1.9 PROGRESS SCORE
+------------------------------------------------------------
+
+Implement configurable weighted evidence.
+
+Initial suggested formula:
+
+ProgressScore =
+0.30 * OpticalFlowProgress
++ 0.25 * MinimapDisplacementProgress
++ 0.20 * TargetDistanceImprovement
++ 0.15 * LandmarkParallaxProgress
++ 0.10 * MovementStateEvidence
+
+Each component normalized [0,1].
+
+If a component unavailable:
+- renormalize remaining weights
+- never substitute fake 1.0
+
+Possible stuck:
+score < 0.18 for >= 1500 ms
+
+Hard stuck:
+score < 0.10 for >= 3000 ms
+
+Recovered:
+score > 0.35 for >= 500 ms
+
+Use hysteresis to avoid flip-flopping.
+
+------------------------------------------------------------
+M1.10 STUCK RESOLVER FSM
+------------------------------------------------------------
+
+States:
+
+IDLE
+CONFIRM_STUCK
+STOP_AND_OBSERVE
+BACKWARD
+TURN
+STRAFE
+JUMP_FORWARD
+NEW_LOCAL_WAYPOINT
+LOCAL_REPLAN
+MARK_DANGER
+REBUILD_CORRIDOR
+GLOBAL_REPLAN
+BLACKLIST_TEMP
+VERIFY_RECOVERY
+FAILED
+
+Transitions:
+
+STUCK_DETECTED
+→ STOP_AND_OBSERVE
+
+If progress resumes:
+→ IDLE
+
+Else:
+STOP_AND_OBSERVE → BACKWARD
+BACKWARD → VERIFY_RECOVERY
+
+If failed:
+TURN → VERIFY_RECOVERY
+then STRAFE
+then JUMP_FORWARD
+then NEW_LOCAL_WAYPOINT
+then LOCAL_REPLAN
+then MARK_DANGER
+then REBUILD_CORRIDOR
+then GLOBAL_REPLAN
+then BLACKLIST_TEMP
+
+Every recovery step MUST be conditional on prior failure.
+Never blindly execute all steps.
+
+------------------------------------------------------------
+M1.11 ANTI-LOOP
+------------------------------------------------------------
+
+Maintain rolling signatures:
+
+ActionSignature
+SkillSignature
+WorldStateSignature
+RouteSegmentSignature
+TargetFailureSignature
+
+Detect:
+same action N times with no state delta
+same skill restart N times
+same route failure N times
+alternating movement oscillation
+same target reacquire failure
+same interaction click failure
+
+Default:
+3 repeated equivalent failures within 10 sec
+→ LOOP_SUSPECTED
+
+5 within 20 sec
+→ LOOP_CONFIRMED
+
+Supervisor must interrupt and escalate.
+
+------------------------------------------------------------
+M1.12 M1 ASSERTIONS
+------------------------------------------------------------
+
+Automated assertions where feasible:
+
+ASSERT:
+no domain service imports concrete input backend directly
+
+ASSERT:
+Planner has no direct key/mouse calls
+
+ASSERT:
+Perception has no direct key/mouse calls
+
+ASSERT:
+WorldModel has no direct key/mouse calls
+
+ASSERT:
+Skill success requires verifier result
+
+ASSERT:
+critical event queue cannot silently overflow
+
+ASSERT:
+preemption releases movement ownership
+
+ASSERT:
+stuck resolver exits when progress returns
+
+------------------------------------------------------------
+M1 ACCEPTANCE TESTS
+------------------------------------------------------------
+
+TEST M1-A NORMAL MOVEMENT
+Given:
+valid visible destination
+no obstacle
+When:
+MOVE_TO requested
+Then:
+Supervisor enters NAVIGATION
+Movement owner = Navigation
+ProgressScore > 0.35 during movement
+Arrival postcondition verified
+SkillResult.SUCCESS
+No stuck events
+
+TEST M1-B STATIC BLOCK
+Given:
+movement commanded
+no progress > 3 sec
+Then:
+POSSIBLE_STUCK emitted
+STUCK_DETECTED emitted
+StuckResolver enters
+At least one recovery action executed
+If progress returns:
+STUCK_RECOVERED
+Original navigation resumes
+
+TEST M1-C RECOVERY ESCALATION
+Given:
+back/turn/strafe fail
+Then:
+LOCAL_REPLAN occurs
+If still blocked:
+REBUILD_CORRIDOR
+Then GLOBAL_REPLAN
+No infinite retry
+
+TEST M1-D PREEMPTION
+Given:
+navigation active
+When:
+COMBAT_STARTED
+Then:
+navigation suspended
+movement input ownership transferred safely
+combat state active
+After COMBAT_ENDED:
+navigation resumes if goal remains valid
+
+M1 DEFINITION OF DONE
+============================================================
+
+- EventBus exists and is used
+- WorldModel canonical
+- Supervisor arbitration explicit
+- Skills verified
+- Failure budgets enforced
+- anti-loop operational
+- ProgressMonitor operational
+- StuckResolver operational
+- telemetry shows full chain
+- no fake success in M1 critical paths
+
+
+============================================================
+M2 — COMBAT + TARGETING + INTERACTION
+============================================================
+
+M2 OBJECTIVE
+============================================================
+
+Implement a deterministic combat/interaction runtime that:
+- reasons over WorldModel
+- uses TargetManager
+- selects abilities through rules
+- classifies failures
+- recovers OUT_OF_RANGE / FACING / LOS / INVALID_TARGET
+- verifies kill
+- interacts with NPCs/objects via approach→verify→interact→verify-result
+
+------------------------------------------------------------
+M2.1 TARGET MANAGER CONTRACT
+------------------------------------------------------------
+
+TargetCandidate {
+    EntityId
+    HostilityScore
+    QuestRelevanceScore
+    DistanceScore
+    VisibilityScore
+    ReachabilityScore
+    ThreatScore
+    RecentFailurePenalty
+    TotalScore
+}
+
+Suggested initial scoring:
+
+TotalScore =
++ 2.0 * QuestRelevance
++ 1.5 * Hostility
++ 1.0 * Reachability
++ 0.8 * Visibility
++ 0.6 * Threat
++ 0.5 * DistancePreference
+- 1.5 * RecentFailurePenalty
+- 2.0 * UnreachablePenalty
+
+Normalize inputs [0,1].
+Weights configurable.
+
+Target lifecycle:
+
+NONE
+→ CANDIDATE
+→ ACQUIRING
+→ ACQUIRED
+→ ENGAGED
+→ OCCLUDED
+→ REACQUIRING
+→ DEAD / LOST / UNREACHABLE
+
+Do not switch targets merely because a new detection scores slightly higher.
+Use target stickiness/hysteresis.
+
+Recommended switch margin:
+new candidate score must exceed current by configurable margin, e.g. 0.20.
+
+------------------------------------------------------------
+M2.2 ABILITY MODEL
+------------------------------------------------------------
+
+AbilityDefinition {
+    AbilityId
+    Name
+    Binding
+    MinRange
+    MaxRange
+    CastTimeMs
+    ChannelTimeMs
+    GcdMs
+    CooldownMs
+    ResourceCost
+    RequiresTarget
+    RequiresFacing
+    RequiresLOS
+    Tags[]
+}
+
+Tags:
+OFFENSIVE
+DEFENSIVE
+INTERRUPT
+MOVEMENT
+UTILITY
+AOE
+HEAL
+RESOURCE
+EXECUTE
+
+AbilityRuntimeState {
+    ReadyBelief
+    CooldownRemainingEstimate
+    ResourceAvailableBelief
+    InRangeBelief
+    FacingBelief
+    LOSBelief
+    UsableConfidence
+    LastAttemptAt
+    LastResult
+}
+
+------------------------------------------------------------
+M2.3 ABILITY RULE ENGINE
+------------------------------------------------------------
+
+AbilityRule {
+    RuleId
+    AbilityId
+    Priority
+    Preconditions[]
+    ForbiddenConditions[]
+    ExpectedPostconditions[]
+}
+
+Evaluation output:
+
+AbilityCandidate {
+    AbilityId
+    RuleId
+    Eligible
+    Score
+    RejectionReasons[]
+}
+
+Rules MUST explain why abilities were rejected.
+
+Debug UI:
+show top 5 candidates and rejection reasons.
+
+------------------------------------------------------------
+M2.4 COMBAT FSM
+------------------------------------------------------------
+
+States:
+
+IDLE
+SELECT_TARGET
+ACQUIRE_TARGET
+APPROACH_TARGET
+ENGAGE
+SELECT_ABILITY
+EXECUTE_ABILITY
+VERIFY_ABILITY
+RECOVER_RANGE
+RECOVER_FACING
+RECOVER_LOS
+RECOVER_TARGET
+CONFIRM_KILL
+POST_COMBAT
+FAILED
+
+Typical flow:
+
+SELECT_TARGET
+→ ACQUIRE_TARGET
+→ if too far APPROACH_TARGET
+→ ENGAGE
+→ SELECT_ABILITY
+→ EXECUTE_ABILITY
+→ VERIFY_ABILITY
+→ loop
+
+On error:
+OUT_OF_RANGE → RECOVER_RANGE
+FACING → RECOVER_FACING
+LOS → RECOVER_LOS
+INVALID_TARGET → RECOVER_TARGET
+
+On death evidence:
+CONFIRM_KILL
+→ POST_COMBAT
+
+------------------------------------------------------------
+M2.5 ACTION-ERROR CORRELATION
+------------------------------------------------------------
+
+Every ability input attempt creates AbilityAttemptId.
+
+For next configurable 1200 ms, correlate:
+- UI_ERROR_MESSAGE
+- addon failure event
+- cast failure
+- no cast change
+- no resource change
+- no target damage evidence
+
+Do NOT incorrectly assign unrelated later errors.
+
+------------------------------------------------------------
+M2.6 OUT OF RANGE RECOVERY
+------------------------------------------------------------
+
+State: RECOVER_RANGE
+
+Entry conditions:
+LastAbilityAttempt failed
+FailureReason == OUT_OF_RANGE
+Target still valid
+
+OnEnter:
+- pause offensive ability execution
+- lock intended target id
+- increment range recovery attempt
+- request Navigation.ApproachTarget(
+      targetId,
+      desiredRange = clamp(ability.maxRange * 0.80, safeMin, safeMax)
+  )
+
+Tick:
+If target lost:
+→ RECOVER_TARGET
+
+If target dead:
+→ CONFIRM_KILL
+
+If desired range belief reached:
+→ Navigation.StopApproach
+→ VERIFY_RANGE
+
+Verification:
+Either:
+- distance belief valid
+OR
+- retry probe ability no longer produces OUT_OF_RANGE
+
+Timeout default:
+3500 ms
+
+Budget:
+2 direct approach attempts
+then local replan
+then target unreachable if still impossible
+
+------------------------------------------------------------
+M2.7 FACING RECOVERY
+------------------------------------------------------------
+
+State: RECOVER_FACING
+
+Entry:
+Failure == FACING_INVALID
+
+Behavior:
+- target bearing from WorldModel
+- controlled turn toward target
+- continuously reobserve
+- stop when target center enters configured central cone
+
+Initial central cone:
+±15 degrees equivalent visual bearing
+
+Timeout:
+1800 ms
+
+If bearing unavailable:
+ActivePerception:
+small camera/player orientation probe
+reobserve
+
+Never:
+random full spin
+
+------------------------------------------------------------
+M2.8 LOS RECOVERY
+------------------------------------------------------------
+
+LOS is distinct from range.
+
+State sequence:
+
+RECOVER_LOS
+→ SAMPLE_LOCAL_GEOMETRY
+→ TRY_LATERAL_A
+→ VERIFY
+→ TRY_LATERAL_B
+→ VERIFY
+→ LOCAL_REPLAN
+→ VERIFY
+→ TARGET_UNREACHABLE
+
+Lateral preference:
+use free-space + target bearing.
+Do not blindly hardcode left first every time.
+
+Suggested offsets:
+small lateral move equivalent 0.4–1.2 sec controlled movement,
+but movement duration MUST be cut early when geometry/progress changes.
+
+Budget:
+3 recovery attempts total before escalation.
+
+On repeated LOS fail:
+TargetManager.Reachability penalty
+DangerMap temporary obstacle entry
+Planner may choose alternate target if allowed
+
+------------------------------------------------------------
+M2.9 INVALID TARGET RECOVERY
+------------------------------------------------------------
+
+Checks:
+- track still alive?
+- class still hostile?
+- targetable belief?
+- currently selected target matches intended target where observable?
+- quest relevance still valid?
+
+Recovery:
+Clear target
+Reacquire intended track
+If unavailable:
+search local candidate set
+If no candidate:
+Combat fails retryably to Planner
+
+------------------------------------------------------------
+M2.10 KILL VERIFICATION
+------------------------------------------------------------
+
+DeadConfidence may combine:
+
+CombatLog UNIT_DIED             weight 1.00
+Addon dead event                weight 1.00
+Target frame dead/zero          weight 0.85
+Corpse transition same track    weight 0.80
+HP zero estimate                weight 0.70
+Combat ended only               weight 0.25
+
+Do not simply sum without normalization.
+Use a fusion strategy with source independence awareness.
+
+Suggested acceptance:
+DeadConfidence >= 0.85
+OR deterministic event (UNIT_DIED/addon-equivalent) confidence >= 0.95.
+
+Stats increment ONLY after verified death.
+
+------------------------------------------------------------
+M2.11 INTERACTION ENGINE FSM
+------------------------------------------------------------
+
+States:
+
+IDLE
+RESOLVE_TARGET
+APPROACH
+FACE
+HOVER
+VERIFY_HOVER
+INTERACT
+WAIT_RESULT
+CLASSIFY_RESULT
+RECOVER
+SUCCESS
+FAILED
+
+------------------------------------------------------------
+M2.12 HOVER VERIFICATION
+------------------------------------------------------------
+
+Hover target:
+use best interaction point, not always bbox center.
+
+InteractionPoint candidates:
+- bbox center
+- upper torso region for NPC
+- object-specific center
+- learned stable point
+
+After mouse move:
+wait 120–250 ms
+detect tooltip/mouseover
+correlate tooltip with target track
+
+If confidence >= threshold:
+continue
+
+Else:
+adjust cursor within bbox sample points:
+center
+upper-center
+left-center
+right-center
+
+Maximum sample points:
+4 before reacquire/reposition
+
+------------------------------------------------------------
+M2.13 INTERACTION RESULT CLASSIFIER
+------------------------------------------------------------
+
+Possible outputs:
+
+GOSSIP_OPEN
+QUEST_DETAIL_OPEN
+QUEST_PROGRESS_OPEN
+QUEST_COMPLETE_OPEN
+MERCHANT_OPEN
+LOOT_OPEN
+OBJECT_ACTIVATED
+TARGET_CHANGED
+NOTHING
+UNKNOWN
+
+Use:
+UI Vision
+Addon events
+WorldModel state delta
+object disappearance/state change
+
+------------------------------------------------------------
+M2.14 INTERACTION FAILURE MATRIX
+------------------------------------------------------------
+
+TOO_FAR:
+→ Navigation.Approach
+
+FACING:
+→ FacingController
+
+LOS:
+→ Navigation local reposition
+
+CURSOR_MISS:
+→ hover resample
+
+WRONG_ENTITY:
+→ reacquire expected track
+
+ENTITY_MOVED:
+→ refresh track position + approach
+
+UI_NOT_READY:
+→ bounded wait 200–500 ms + retry
+
+TARGET_LOST:
+→ reacquire
+
+UNKNOWN:
+→ one observation retry
+then escalate
+
+Budgets:
+direct interaction retry 3
+reposition retry 2
+reacquire retry 2
+
+------------------------------------------------------------
+M2.15 LOOT
+------------------------------------------------------------
+
+Loot success evidence:
+
+loot UI opened
+loot event
+inventory delta if available
+corpse lootable flag changed
+corpse interaction state changed
+
+Do NOT:
+right click → items_looted++
+
+------------------------------------------------------------
+M2.16 M2 ASSERTIONS
+------------------------------------------------------------
+
+ASSERT no ability is cast if required target missing
+ASSERT no verified kill without evidence threshold
+ASSERT range recovery cannot exceed budget
+ASSERT LOS recovery eventually terminates
+ASSERT interaction cannot return SUCCESS solely on click
+ASSERT target reacquire preserves intended track where possible
+ASSERT combat movement requests go through NavigationService
+ASSERT combat input goes through InputController
+
+------------------------------------------------------------
+M2 ACCEPTANCE TESTS
+------------------------------------------------------------
+
+M2-A NORMAL COMBAT
+Acquire hostile
+Approach
+Select valid ability
+Execute
+Observe damage/cast
+Kill
+Verify death
+POST_COMBAT
+
+M2-B RANGE
+Force out-of-range
+Expected:
+OUT_OF_RANGE event correlated
+RECOVER_RANGE
+approach
+retry
+no repeated spam while moving
+
+M2-C FACING
+Force wrong facing
+Expected:
+FACING_INVALID
+controlled turn
+verification
+retry
+
+M2-D LOS
+Force LOS obstruction
+Expected:
+LOS failure
+lateral recovery
+local replan if needed
+eventual retry or TARGET_UNREACHABLE
+no infinite casting
+
+M2-E TARGET OCCLUSION
+Target disappears briefly
+Expected:
+OCCLUDED
+REACQUIRING
+same TrackId restored if evidence matches
+
+M2-F NPC INTERACTION
+Expected:
+approach
+face
+hover verify
+interact
+quest/gossip UI detected
+SUCCESS only after result
+
+M2 DEFINITION OF DONE
+============================================================
+
+- combat is state-machine driven
+- target manager explicit
+- ability rules explainable
+- errors classified
+- range/facing/LOS recovery implemented
+- kill verified
+- interaction closed-loop
+- no fake success
+
+
+============================================================
+M3 — QUEST EXECUTION
+============================================================
+
+M3 OBJECTIVE
+============================================================
+
+Implement general quest execution on top of existing:
+WorldModel + Planner + Skills + Navigation + Combat + Interaction.
+
+Quest logic must orchestrate generic capabilities, not duplicate them.
+
+------------------------------------------------------------
+M3.1 QUEST MODEL
+------------------------------------------------------------
+
+QuestState enum:
+
+UNKNOWN
+AVAILABLE
+ACCEPTING
+ACTIVE
+OBJECTIVES_COMPLETE
+READY_TO_TURN_IN
+TURNING_IN
+COMPLETED
+FAILED_TEMPORARY
+FAILED_TERMINAL
+
+QuestModel {
+    QuestKey
+    QuestId?
+    Title
+    State
+    Confidence
+    Prerequisites[]
+    Objectives[]
+    GiverBelief
+    TurnInBelief
+    RewardBelief
+    ChainRelations[]
+    LastUpdatedAt
+}
+
+------------------------------------------------------------
+M3.2 OBJECTIVE MODEL
+------------------------------------------------------------
+
+ObjectiveType:
+KILL
+KILL_COUNT
+INTERACT_NPC
+INTERACT_OBJECT
+LOOT_ITEM
+COLLECT
+USE_ITEM
+USE_ITEM_ON_TARGET
+FOLLOW
+ESCORT
+MOVE_TO_LOCATION
+EXPLORE
+TALK
+WAIT_FOR_EVENT
+
+ObjectiveModel {
+    ObjectiveKey
+    Type
+    TargetDescriptor
+    RequiredCount?
+    CurrentCount?
+    CompletionConfidence
+    RegionBelief?
+    Dependencies[]
+    Status
+    FailureMemory
+}
+
+Status:
+PENDING
+ACTIVE
+BLOCKED
+COMPLETE
+FAILED_RETRYABLE
+FAILED_TERMINAL
+
+------------------------------------------------------------
+M3.3 OBJECTIVE → SKILL TEMPLATES
+------------------------------------------------------------
+
+KILL_COUNT:
+SEARCH_ENTITY(targetDescriptor)
+→ APPROACH
+→ TARGET
+→ KILL
+→ VERIFY objective progress
+→ repeat until count
+
+INTERACT_NPC:
+SEARCH_ENTITY
+→ MOVE_TO/APPROACH
+→ FACE
+→ HOVER_VERIFY
+→ INTERACT
+→ VERIFY expected dialog/result
+
+INTERACT_OBJECT:
+SEARCH_OBJECT
+→ MOVE_TO
+→ INTERACT
+→ VERIFY object state / objective progress
+
+LOOT_ITEM:
+find relevant source
+→ kill/interact
+→ LOOT
+→ verify count
+
+USE_ITEM_ON_TARGET:
+find target
+→ approach
+→ target
+→ USE_ITEM
+→ verify effect/progress
+
+FOLLOW:
+acquire track
+→ maintain distance band
+→ verify target not lost
+
+ESCORT:
+follow
+→ combat preemption if needed
+→ resume same escort track
+→ verify endpoint/event
+
+MOVE_TO_LOCATION:
+NavigationService.MoveTo region/anchor
+→ arrival verify
+
+EXPLORE:
+systematic coverage of region
+→ stop when discovery evidence appears
+
+------------------------------------------------------------
+M3.4 QUEST ACCEPT FLOW
+------------------------------------------------------------
+
+States:
+
+LOCATE_GIVER
+NAVIGATE_TO_GIVER
+VERIFY_GIVER
+OPEN_DIALOG
+SELECT_QUEST
+ACCEPT
+VERIFY_ACCEPT
+DONE
+
+Verify acceptance using one or more:
+quest log
+addon quest accepted event
+quest tracker
+dialog disappearance + active quest state
+
+Click alone is never enough.
+
+------------------------------------------------------------
+M3.5 TURN-IN FLOW
+------------------------------------------------------------
+
+LOCATE_TURNIN
+NAVIGATE
+VERIFY_NPC
+OPEN_DIALOG
+VERIFY_COMPLETE_STATE
+SELECT_REWARD_IF_NEEDED
+CONFIRM
+VERIFY_TURNED_IN
+
+If reward options exist and selection logic unknown:
+explicit policy or safe default strategy;
+do not randomly click arbitrary UI.
+
+------------------------------------------------------------
+M3.6 QUEST GRAPH
+------------------------------------------------------------
+
+QuestGraph nodes:
+Quest
+
+Edges:
+REQUIRES
+UNLOCKS
+FOLLOW_UP
+EXCLUSIVE_WITH
+SAME_AREA_SYNERGY
+
+Planner rules:
+- prerequisite not satisfied → cannot activate dependent quest
+- completed quest node remains historical state
+- follow-up preference only when high-level goal permits
+- same-area objectives may be batched
+
+------------------------------------------------------------
+M3.7 BATCHING
+------------------------------------------------------------
+
+If objectives A and B are in same region:
+Planner MAY interleave them if:
+- neither requires strict order
+- batching reduces travel
+- no objective state becomes invalid
+
+Do not over-optimize if confidence low.
+
+------------------------------------------------------------
+M3.8 SEARCH POLICY
+------------------------------------------------------------
+
+When target unknown:
+
+1. WorldModel known track
+2. recent sightings memory
+3. known location memory
+4. minimap evidence
+5. world-map objective region
+6. systematic local exploration
+7. broaden search region
+8. fail/replan after budget
+
+Search MUST track coverage.
+
+------------------------------------------------------------
+M3.9 SEARCH COVERAGE
+------------------------------------------------------------
+
+SearchCell {
+    RegionId
+    LastVisited
+    VisitCount
+    DetectionCount
+    Confidence
+}
+
+Do not repeatedly scan the same small area if no evidence changes.
+
+------------------------------------------------------------
+M3.10 QUEST PROGRESS FUSION
+------------------------------------------------------------
+
+Sources:
+addon objective update
+quest tracker UI
+quest log UI
+kill/loot confirmed events
+object state changes
+
+Do not infer objective completion only because N kills were attempted.
+
+------------------------------------------------------------
+M3.11 QUEST FAILURE MEMORY
+------------------------------------------------------------
+
+Track:
+target not found
+NPC not interactable
+object not usable
+route failed
+objective progress unchanged
+quest UI mismatch
+
+Use cooldown to avoid immediate repeated attempts.
+
+------------------------------------------------------------
+M3.12 QUEST RECOVERY
+------------------------------------------------------------
+
+Examples:
+
+No quest giver:
+re-open map
+recheck marker
+broaden NPC search
+active perception
+
+Objective count not changing:
+verify correct target class
+verify correct quest active
+re-read tracker
+switch search subregion
+
+Turn-in not available:
+verify objectives complete
+verify correct NPC
+verify quest chain state
+
+------------------------------------------------------------
+M3.13 M3 ASSERTIONS
+------------------------------------------------------------
+
+ASSERT quest state transitions require evidence
+ASSERT objective count never increments solely from attempted actions
+ASSERT quest-specific code does not directly move character
+ASSERT quest-specific code does not directly execute combat rotation
+ASSERT quest-specific code uses InteractionEngine
+ASSERT repeated failed search eventually escalates
+
+------------------------------------------------------------
+M3 ACCEPTANCE TEST
+============================================================
+
+Use a normal multi-step beginning questline segment.
+
+Must include at least:
+quest giver
+accept
+movement
+combat OR interaction objective
+loot/collect/use item if available
+progress verification
+return
+turn-in
+follow-up detection
+
+Acceptance:
+AVAILABLE
+→ ACTIVE
+→ objective states complete
+→ READY_TO_TURN_IN
+→ COMPLETED
+
+No fixed prerecorded input sequence.
+
+M3 DEFINITION OF DONE
+============================================================
+
+- generic objective executor
+- quest graph respected
+- search coverage exists
+- progress verified
+- no duplicated domain logic
+- recoverable quest failures handled
+
+
+============================================================
+M4 — WORLD3D / PERCEPTION / TEMPORAL TRACKING
+============================================================
+
+M4 OBJECTIVE
+============================================================
+
+Make perception robust enough that domain engines operate on temporal beliefs,
+not unstable single-frame detections.
+
+------------------------------------------------------------
+M4.1 FRAME SOURCE
+------------------------------------------------------------
+
+Frame {
+    FrameId
+    Timestamp
+    ClientId
+    Width
+    Height
+    Pixels/Reference
+}
+
+Rules:
+- timestamps monotonic
+- dropped frames logged
+- no perception result without source FrameId
+
+------------------------------------------------------------
+M4.2 DETECTION CONTRACT
+------------------------------------------------------------
+
+Detection {
+    DetectionId
+    FrameId
+    ClassDistribution
+    BBox
+    Confidence
+    OptionalFeatures
+}
+
+Classes:
+NPC
+HOSTILE
+PLAYER
+CORPSE
+GAME_OBJECT
+RESOURCE_NODE
+PET
+UNKNOWN
+
+If class confidence low:
+UNKNOWN preferred to false certainty.
+
+------------------------------------------------------------
+M4.3 TRACKER
+------------------------------------------------------------
+
+Track association should use combination of:
+bbox overlap
+visual feature similarity
+motion prediction
+class compatibility
+screen-space proximity
+temporal consistency
+
+Track states:
+TENTATIVE
+CONFIRMED
+OCCLUDED
+LOST
+DEAD
+
+Tentative → Confirmed:
+2–3 consistent detections
+
+Confirmed → Occluded:
+short miss
+
+Occluded → Lost:
+timeout
+
+Occluded → Confirmed:
+matching detection returns
+
+------------------------------------------------------------
+M4.4 TEMPORAL FILTER
+------------------------------------------------------------
+
+Smooth:
+bbox
+screen center
+velocity
+bearing
+distance estimate
+
+Do NOT smooth:
+deterministic death event into ambiguity
+critical UI state transitions beyond reason
+
+------------------------------------------------------------
+M4.5 MOTION ESTIMATOR
+------------------------------------------------------------
+
+Output:
+PlayerMotionEvidence
+CameraMotionEvidence
+EntityMotionEvidence
+OpticalFlowField/summary
+
+Try to distinguish:
+camera rotation
+player translation
+entity movement
+
+At minimum provide confidence values.
+
+------------------------------------------------------------
+M4.6 DISTANCE BELIEF
+------------------------------------------------------------
+
+DistanceEstimate {
+    Value
+    UnitOrRelativeScale
+    Confidence
+    Sources[]
+}
+
+Potential sources:
+bbox scale
+known target frame/range feedback
+approach trend
+out-of-range event
+optical flow
+learned entity scale
+
+Never expose fake exact meters if only relative estimate exists.
+
+May represent:
+VERY_NEAR
+NEAR
+MID
+FAR
+UNKNOWN
+
+if metric estimate unreliable.
+
+------------------------------------------------------------
+M4.7 BEARING
+------------------------------------------------------------
+
+BearingEstimate:
+normalized -1..+1 screen-relative
+-1 left
+0 center
++1 right
+
+Optional angular estimate if calibrated.
+
+Use for facing correction.
+
+------------------------------------------------------------
+M4.8 FREE SPACE
+------------------------------------------------------------
+
+LocalFreeSpaceMap:
+grid or polygon regions with:
+WALKABLE_LIKELY
+BLOCKED_LIKELY
+DANGER
+UNKNOWN
+confidence
+
+Obstacle categories:
+WALL
+TREE
+ROCK
+BUILDING
+FENCE
+CLIFF
+WATER_BOUNDARY
+DYNAMIC_ENTITY
+UNKNOWN
+
+
+------------------------------------------------------------
+M4.8A WORLD3D OBSTACLE / TRAVERSABILITY SYSTEM
+------------------------------------------------------------
+
+IMPORTANT ARCHITECTURAL RULE:
+
+Do NOT treat obstacle detection primarily as an object-classification problem.
+
+Navigation does not fundamentally need to know whether a blocker is:
+TREE
+ROCK
+FENCE
+TENT
+ROOT
+PILLAR
+INVISIBLE_COLLISION
+or UNKNOWN_GEOMETRY.
+
+The primary question is:
+
+"Can the agent safely traverse this local region in the intended direction?"
+
+Therefore implement a dedicated traversability stack:
+
+World3DObstacleSystem
+├── GroundRegionEstimator
+├── FreeSpaceEstimator
+├── BoundaryEstimator
+├── DepthDiscontinuityEstimator
+├── EgoMotionEstimator
+├── MotionConsistencyMonitor
+├── CollisionEvidenceEstimator
+├── DynamicObstacleTracker
+├── TemporalObstacleFusion
+├── LocalOccupancyMap
+└── TraversabilityCostBuilder
+
+Primary output:
+
+LocalTraversabilityMap
+
+NOT merely:
+List<DetectedObstacleClass>.
+
+------------------------------------------------------------
+M4.8B TRAVERSABILITY CELL CONTRACT
+------------------------------------------------------------
+
+TraversabilityCell {
+    CellId
+    ScreenRegion / LocalRelativeRegion
+
+    TraversabilityScore       // [0,1], 1 = likely traversable
+    ObstacleConfidence        // [0,1]
+    DangerConfidence          // [0,1]
+
+    State
+    ObstacleTypeBelief?
+
+    DynamicProbability
+    PersistenceScore
+
+    GroundConfidence
+    FreeSpaceConfidence
+    BoundaryConfidence
+    DepthDiscontinuityConfidence
+    MotionMismatchConfidence
+    CollisionEvidenceConfidence
+
+    LastUpdatedAt
+    EvidenceRefs[]
+}
+
+TraversabilityState:
+
+TRAVERSABLE
+BLOCKED
+DANGEROUS
+UNCERTAIN
+UNKNOWN
+
+The LocalPlanner MUST consume traversability/cost information rather than
+depending on semantic obstacle class alone.
+
+------------------------------------------------------------
+M4.8C PRIMARY OBSERVATION CHANNELS
+------------------------------------------------------------
+
+Obstacle/traversability belief should combine independent evidence channels:
+
+1. GROUND CONTINUITY
+2. FREE-SPACE SEGMENTATION
+3. VISUAL BOUNDARIES
+4. DEPTH / PERSPECTIVE DISCONTINUITY
+5. OPTICAL FLOW
+6. EXPECTED VS OBSERVED EGO-MOTION
+7. TEMPORAL PERSISTENCE
+8. REPEATED COLLISION / NO-PROGRESS HISTORY
+9. DYNAMIC ENTITY TRACKS
+10. NAVIGATION FAILURE MEMORY
+
+No single weak channel should define hard BLOCKED state by itself unless
+confidence is extremely high.
+
+------------------------------------------------------------
+M4.8D GROUND REGION ESTIMATOR
+------------------------------------------------------------
+
+Goal:
+estimate which lower-screen regions likely correspond to locally traversable
+ground.
+
+Input:
+current frame
+camera orientation belief
+historical ground mask
+optical flow
+known UI masks
+
+Output:
+
+GroundRegionEstimate {
+    RegionMask
+    Confidence
+    HorizonBelief?
+    VanishingDirectionBelief?
+}
+
+Do not assume:
+"bottom half of screen = ground".
+
+Account for:
+ramps
+stairs
+uneven terrain
+camera pitch
+indoor floors
+vegetation
+water
+bridges
+
+Temporal stabilization required.
+
+------------------------------------------------------------
+M4.8E FREE SPACE ESTIMATOR
+------------------------------------------------------------
+
+Free space means:
+a region likely allowing forward traversal, not merely a visually empty area.
+
+Evidence:
+continuous ground texture
+absence of persistent vertical boundary
+consistent perspective expansion
+motion response during prior movement
+known safe traversals
+
+Output:
+FreeSpaceConfidence per local region.
+
+A visually dark/empty region must NOT automatically become free-space.
+
+------------------------------------------------------------
+M4.8F VISUAL BOUNDARY ESTIMATOR
+------------------------------------------------------------
+
+Detect stable boundaries that may represent:
+
+wall
+tree trunk
+rock face
+fence
+building edge
+large prop
+terrain edge
+doorway edge
+unknown collision geometry
+
+Use:
+edge structure
+vertical persistence
+region segmentation
+temporal consistency
+optical flow discontinuity
+
+Boundary evidence alone:
+usually raises obstacle confidence,
+but requires geometry/motion corroboration before hard BLOCKED when ambiguous.
+
+------------------------------------------------------------
+M4.8G DEPTH DISCONTINUITY
+------------------------------------------------------------
+
+If monocular depth estimation is available:
+
+DepthDiscontinuityEstimate {
+    RelativeDepthGradient
+    Confidence
+    PotentialDrop
+    PotentialWall
+}
+
+Do NOT treat monocular depth as exact metric distance.
+
+Use it comparatively:
+near vs far
+continuous vs discontinuous
+drop-like boundary
+wall-like boundary
+
+If no depth model exists:
+implement the interface honestly,
+do not fake metric depth.
+
+------------------------------------------------------------
+M4.8H MOTION-CONDITIONED OBSTACLE DETECTION
+------------------------------------------------------------
+
+This is a critical subsystem.
+
+When the agent commands movement, compare expected visual motion with observed
+visual motion.
+
+Example:
+
+Command:
+FORWARD
+
+Expected:
+- ground optical flow consistent with forward translation
+- landmark parallax
+- minimap displacement if available
+- target relative distance change where appropriate
+
+Observed:
+- near-zero translation-like optical flow
+- minimap unchanged
+- landmarks stable
+- same frontal boundary persists
+
+Then:
+MotionMismatchConfidence increases.
+
+This allows detection of:
+- unknown collision geometry
+- invisible/poorly classified blockers
+- small props
+- geometry missed by semantic detection
+
+Motion mismatch MUST be direction-aware.
+
+FORWARD command mismatch is not equivalent to:
+TURN command mismatch.
+
+------------------------------------------------------------
+M4.8I EGO-MOTION ESTIMATOR
+------------------------------------------------------------
+
+Estimate expected/observed motion categories:
+
+NONE
+FORWARD_TRANSLATION
+BACKWARD_TRANSLATION
+LEFT_STRAFE
+RIGHT_STRAFE
+LEFT_ROTATION
+RIGHT_ROTATION
+MIXED
+UNKNOWN
+
+Input:
+input history
+optical flow
+landmark displacement
+minimap movement
+camera state
+
+Output:
+ObservedEgoMotion
+confidence
+
+Compare:
+CommandedMotion vs ObservedEgoMotion
+
+Generate:
+EGO_MOTION_MISMATCH event/evidence when persistent.
+
+------------------------------------------------------------
+M4.8J COLLISION EVIDENCE
+------------------------------------------------------------
+
+CollisionEvidence should increase when:
+
+movement command remains active
+AND
+observed translational progress remains very low
+AND
+frontal geometry remains stable
+AND/OR
+the same local attempt repeatedly fails
+
+CollisionEvidence is NOT identical to STUCK.
+
+STUCK is an agent-level condition.
+
+CollisionEvidence is one input that can explain:
+why progress is low.
+
+------------------------------------------------------------
+M4.8K OBSTACLE CONFIDENCE FUSION
+------------------------------------------------------------
+
+Use a configurable fusion model.
+
+Recommended conceptual inputs:
+
+ObstacleConfidence =
+F(
+    BoundaryEvidence,
+    FreeSpaceViolation,
+    DepthDiscontinuity,
+    EgoMotionMismatch,
+    CollisionEvidence,
+    TemporalPersistence,
+    NavigationFailureMemory
+)
+
+Do NOT hardcode simple raw sum if it produces invalid confidence.
+
+Possible implementation:
+weighted evidence fusion with normalization and source caps.
+
+Initial conceptual weights:
+
+BoundaryEvidence              0.20
+FreeSpaceViolation            0.20
+DepthDiscontinuity            0.15
+EgoMotionMismatch             0.20
+CollisionEvidence             0.15
+TemporalPersistence           0.10
+
+NavigationFailureMemory is a prior/bias rather than blindly additive.
+
+All weights MUST be configurable.
+
+If a source unavailable:
+renormalize remaining sources.
+
+------------------------------------------------------------
+M4.8L TEMPORAL OBSTACLE FUSION
+------------------------------------------------------------
+
+Obstacle belief must persist across frames.
+
+States:
+
+NEW
+SUSPECTED
+CONFIRMED
+DYNAMIC
+DECAYING
+CLEARED
+
+Example transition:
+
+NEW
+→ SUSPECTED after 2 consistent observations
+
+SUSPECTED
+→ CONFIRMED when:
+confidence > threshold
+AND temporal persistence sufficient
+
+CONFIRMED
+→ DECAYING when evidence disappears
+
+DECAYING
+→ CLEARED after timeout
+
+Do not erase a confirmed obstacle from one clean frame.
+
+------------------------------------------------------------
+M4.8M DYNAMIC OBSTACLES
+------------------------------------------------------------
+
+Dynamic obstacles include:
+NPC
+player
+mob
+moving vehicle/transport-like entity
+temporarily blocking entity
+
+Track:
+velocity
+direction
+time-to-clear estimate where possible
+persistence
+
+Do not permanently block route around a moving entity.
+
+DynamicObstacleEntry {
+    EntityId
+    Region
+    Velocity
+    DynamicConfidence
+    TemporaryCost
+    LastUpdatedAt
+}
+
+LocalPlanner may:
+wait
+slow
+detour
+depending on danger and timeout.
+
+------------------------------------------------------------
+M4.8N LOCAL OCCUPANCY MAP
+------------------------------------------------------------
+
+Build a local egocentric occupancy/traversability representation.
+
+Possible forms:
+small grid
+polar sectors
+polygon regions
+
+Minimum semantic values:
+
+FREE
+OCCUPIED
+DANGEROUS
+UNKNOWN
+
+Each cell/sector:
+confidence
+age
+dynamic/static belief
+
+Map should shift/update as ego-motion changes.
+
+Do not pretend global metric accuracy if not available.
+
+------------------------------------------------------------
+M4.8O TRAVERSABILITY COST MAP
+------------------------------------------------------------
+
+Convert perception into navigation cost.
+
+Example starting costs:
+
+TRAVERSABLE_HIGH_CONFIDENCE     1.0
+TRAVERSABLE_LOW_CONFIDENCE      1.8
+UNKNOWN                         3.0
+DYNAMIC_OBSTACLE               4.0
+SUSPECTED_BLOCK                 6.0
+CONFIRMED_BLOCK                INF
+CLIFF/DROP_HIGH_CONFIDENCE     INF
+DANGEROUS_EDGE                 20.0
+
+Configurable.
+
+LocalPlanner should prefer:
+safe, known traversable space
+
+but may enter UNKNOWN if:
+no safe route exists
+AND confidence/risk policy allows.
+
+------------------------------------------------------------
+M4.8P CLIFF / DROP DETECTION
+------------------------------------------------------------
+
+Cliff/drop detection is NOT ordinary wall detection.
+
+Evidence:
+
+ground continuity ends
+depth discontinuity
+strong boundary
+lower-region texture disappears
+perspective suggests drop
+prior forward probe produces unsafe/no ground evidence
+
+Cliff states:
+
+NO_DROP_EVIDENCE
+POSSIBLE_DROP
+LIKELY_DROP
+CONFIRMED_DANGER
+
+Policy:
+
+POSSIBLE_DROP:
+slow
+increase observation rate
+ActivePerception
+do not commit long forward input
+
+LIKELY_DROP:
+very high navigation cost
+
+CONFIRMED_DANGER:
+hard block
+
+Never classify drop from one ambiguous frame if avoidable.
+
+------------------------------------------------------------
+M4.8Q WATER / TERRAIN TRANSITION
+------------------------------------------------------------
+
+Water is context-sensitive.
+
+Do not globally classify water as forbidden.
+
+Represent:
+
+TerrainTransition {
+    Type
+    TraversabilityBelief
+    Risk
+    Confidence
+}
+
+Planner policy may decide whether current goal permits crossing/swimming.
+
+------------------------------------------------------------
+M4.8R NARROW PASSAGE / DOORWAY
+------------------------------------------------------------
+
+Detect corridor-like free space bounded on both sides.
+
+For narrow passage:
+
+- estimate centerline
+- reduce lateral oscillation
+- prefer centered approach
+- reduce aggressive turning
+- monitor side-boundary motion
+
+If doorway interactable:
+InteractionEngine may be invoked.
+
+------------------------------------------------------------
+M4.8S MOTION PROBE / ACTIVE PERCEPTION
+------------------------------------------------------------
+
+When traversability confidence is insufficient and risk is acceptable:
+
+ActivePerception may request bounded motion probe:
+
+small turn
+small strafe
+very short forward probe
+camera adjustment
+
+Probe MUST:
+have maximum duration
+be cancellable
+avoid cliff-risk region
+collect information gain
+
+Example:
+
+uncertain frontal obstacle
+→ 10–20° camera/player turn
+→ observe parallax/boundary
+→ update obstacle confidence
+
+A forward probe is forbidden when drop confidence is above configured risk
+threshold.
+
+------------------------------------------------------------
+M4.8T STATIC VS DYNAMIC CLASSIFICATION
+------------------------------------------------------------
+
+StaticConfidence increases when:
+boundary remains world-fixed across ego-motion
+same blocked region persists
+same local path repeatedly fails
+
+DynamicConfidence increases when:
+tracked entity explains blocker
+region moves independently
+block clears with time
+
+LocalPlanner behavior differs accordingly.
+
+------------------------------------------------------------
+M4.8U TRAVERSABILITY EVENTS
+------------------------------------------------------------
+
+Emit:
+
+TRAVERSABILITY_UPDATED
+OBSTACLE_SUSPECTED
+OBSTACLE_CONFIRMED
+OBSTACLE_CLEARED
+DYNAMIC_OBSTACLE_UPDATED
+CLIFF_SUSPECTED
+CLIFF_CONFIRMED
+EGO_MOTION_MISMATCH
+COLLISION_EVIDENCE_UPDATED
+
+Events include:
+region
+confidence
+source evidence refs
+timestamp
+
+------------------------------------------------------------
+M4.8V RELATION TO PROGRESS MONITOR
+------------------------------------------------------------
+
+ProgressMonitor and ObstacleSystem MUST cooperate but remain distinct.
+
+ObstacleSystem answers:
+"What local geometry likely prevents movement?"
+
+ProgressMonitor answers:
+"Are we making progress toward the navigation objective?"
+
+Example:
+
+low progress + high frontal collision evidence
+→ STATIC_BLOCK likely
+
+low progress + no obstacle + high heading error
+→ WRONG_HEADING likely
+
+low progress + alternating actions
+→ OSCILLATION likely
+
+low progress + moving entity in front
+→ DYNAMIC_BLOCK likely
+
+This classification improves StuckResolver.
+
+------------------------------------------------------------
+M4.8W RELATION TO STUCK RESOLVER
+------------------------------------------------------------
+
+StuckResolver MUST consume:
+
+ProgressScore
+TraversabilityMap
+CollisionEvidence
+EgoMotionMismatch
+DynamicObstacle tracks
+Recent recovery history
+
+Recovery selection should be evidence-based.
+
+Examples:
+
+frontal confirmed obstacle + left free
+→ back slightly + left local waypoint
+
+frontal confirmed obstacle + right free
+→ back slightly + right local waypoint
+
+both sides blocked
+→ rebuild local corridor
+
+dynamic blocker
+→ wait/bypass instead of global blacklist
+
+possible cliff
+→ STOP + reobserve, never jump-forward recovery toward cliff
+
+------------------------------------------------------------
+M4.8X FAILURE MEMORY INTEGRATION
+------------------------------------------------------------
+
+Repeated collision at similar egocentric/world region:
+
+increase prior obstacle/danger cost.
+
+But use TTL/decay.
+
+One transient false positive MUST NOT permanently poison navigation memory.
+
+------------------------------------------------------------
+M4.8Y OBSTACLE DEBUG OVERLAY
+------------------------------------------------------------
+
+Overlay should show:
+
+ground region
+free-space regions
+blocked regions
+uncertain regions
+cliff-risk
+dynamic obstacles
+local occupancy sectors
+traversability cost
+motion vector
+expected ego-motion
+observed ego-motion
+collision confidence
+selected local waypoint
+
+Use this for live tuning.
+
+------------------------------------------------------------
+M4.8Z OBSTACLE ACCEPTANCE TESTS
+------------------------------------------------------------
+
+TEST OBS-A — CLEAR PATH
+
+Given:
+open traversable ground
+forward movement
+
+Expected:
+high FreeSpaceConfidence
+high TraversabilityScore
+low ObstacleConfidence
+positive ProgressScore
+
+TEST OBS-B — STATIC WALL/PROP
+
+Given:
+forward command into static blocker
+
+Expected:
+frontal boundary persists
+translation progress low
+EgoMotionMismatch rises
+CollisionEvidence rises
+ObstacleConfidence crosses threshold
+cell becomes BLOCKED
+Stuck classifier prefers STATIC_BLOCK
+
+TEST OBS-C — UNKNOWN COLLISION
+
+Given:
+collision geometry not semantically recognized
+
+Expected:
+semantic class may remain UNKNOWN
+but repeated motion mismatch + no-progress produces blocked traversability belief
+
+This is a REQUIRED capability.
+
+TEST OBS-D — CAMERA ROTATION
+
+Given:
+camera/player rotation without translation
+
+Expected:
+do NOT classify frontal scene motion as collision
+ObservedEgoMotion = ROTATION
+no false static block
+
+TEST OBS-E — DYNAMIC NPC BLOCK
+
+Given:
+NPC temporarily blocks corridor
+
+Expected:
+dynamic track associated with blocked region
+DynamicProbability high
+temporary cost
+no permanent blacklist
+route resumes when NPC clears or planner bypasses
+
+TEST OBS-F — CLIFF
+
+Given:
+ground discontinuity/drop
+
+Expected:
+possible/likely drop evidence
+navigation slows/stops
+no forward jump recovery
+high cost or hard block after confirmation
+
+TEST OBS-G — NARROW DOORWAY
+
+Expected:
+side boundaries detected
+central traversable corridor retained
+LocalPlanner chooses center rather than classifying entire doorway blocked
+
+TEST OBS-H — FALSE POSITIVE DECAY
+
+Given:
+single ambiguous obstacle frame
+then clear evidence
+
+Expected:
+SUSPECTED may occur
+CONFIRMED should not
+belief decays/clears
+
+TEST OBS-I — REPEATED FAILED REGION
+
+Given:
+same local region repeatedly causes collision
+
+Expected:
+FailureMemory raises navigation prior
+LocalPlanner begins preferring alternative route
+
+TEST OBS-J — ACTIVE PERCEPTION
+
+Given:
+medium-confidence obstacle
+
+Expected:
+bounded information probe
+confidence either increases/decreases
+explicit final state
+no endless probing
+
+------------------------------------------------------------
+M4.8AA OBSTACLE DEFINITION OF DONE
+------------------------------------------------------------
+
+Obstacle/traversability subsystem is complete only if:
+
+[ ] local traversability representation exists
+[ ] semantic object class is NOT required for blockage
+[ ] motion-conditioned collision evidence works
+[ ] ego-motion mismatch implemented
+[ ] temporal obstacle persistence implemented
+[ ] dynamic obstacle distinction implemented
+[ ] cliff/drop treated separately
+[ ] LocalPlanner can consume traversability cost
+[ ] StuckResolver receives obstacle evidence
+[ ] false positives decay
+[ ] unknown collision can still become blocked
+[ ] debug overlay exposes all major evidence
+[ ] tests OBS-A through OBS-J are implemented or replayable
+
+------------------------------------------------------------
+M4.9 CLIFF / EDGE POLICY
+------------------------------------------------------------
+
+If drop/edge confidence high:
+hard block or very high cost
+
+If medium:
+slow/active perception
+
+If low:
+do not assert cliff
+
+------------------------------------------------------------
+M4.10 MINIMAP
+------------------------------------------------------------
+
+Extract:
+player marker if visible
+heading
+relevant markers
+relative movement
+quest marker evidence
+POIs
+route overlays where present
+
+Keep separate confidence for each.
+
+------------------------------------------------------------
+M4.11 WORLD MAP
+------------------------------------------------------------
+
+Track:
+map open state
+zone/map identity
+zoom state
+pan state
+player marker
+quest objective region
+quest giver/turn-in markers
+
+Avoid fixed pixel assumptions.
+Use resolution/layout calibration.
+
+------------------------------------------------------------
+M4.12 TOOLTIP
+------------------------------------------------------------
+
+TooltipObservation {
+    Visible
+    Text
+    ParsedName?
+    ParsedType?
+    Relation?
+    Confidence
+    HoverScreenPoint
+    FrameId
+}
+
+Must correlate hovered screen point with candidate track.
+
+------------------------------------------------------------
+M4.13 ACTIVE PERCEPTION FSM
+------------------------------------------------------------
+
+States:
+
+REQUESTED
+SELECT_ACTION
+EXECUTE_PROBE
+WAIT_OBSERVATION
+EVALUATE_GAIN
+SUCCESS
+FAILED
+
+Probe actions:
+small camera turn
+small player turn
+hover candidate
+approach slightly
+open map
+close map
+recenter camera
+wait for tooltip
+
+Goal:
+increase information confidence.
+
+InformationGain estimate:
+new confidence - old confidence
+
+Abort if:
+combat safety
+high-priority preemption
+
+------------------------------------------------------------
+M4.14 UI PARSER
+------------------------------------------------------------
+
+Required recognizers:
+player frame
+target frame
+cast bar
+quest dialog
+gossip
+merchant
+loot
+quest tracker
+error text / error state
+loading screen / modal where possible
+
+Each UI result:
+state
+confidence
+frame id
+timestamp
+
+------------------------------------------------------------
+M4.15 PERCEPTION FUSION
+------------------------------------------------------------
+
+Example entity identity:
+World3D class 0.72 NPC
+Tooltip 0.95 same name
+Mouseover evidence 0.90
+UI target 0.80
+
+WorldModel combined confidence high.
+
+Fusion MUST avoid double-counting correlated sources where feasible.
+
+------------------------------------------------------------
+M4.16 DATASET PIPELINE
+------------------------------------------------------------
+
+If ML detector used:
+
+Define:
+class taxonomy
+annotation format
+capture protocol
+train/val/test split
+hard negative mining
+night/indoor/outdoor variety
+UI scale/resolution variety
+camera distance variety
+
+Never claim trained model exists without actual data/model artifact.
+
+------------------------------------------------------------
+M4.17 M4 ASSERTIONS
+------------------------------------------------------------
+
+ASSERT each perception result has FrameId
+ASSERT uncertain class has confidence
+ASSERT track not deleted after one missed frame
+ASSERT stale target position not treated fresh
+ASSERT ActivePerception never directly changes high-level goal
+ASSERT camera motion not blindly counted as player movement
+
+------------------------------------------------------------
+M4 ACCEPTANCE
+============================================================
+
+M4-A:
+same NPC stable TrackId across movement
+
+M4-B:
+temporary occlusion → OCCLUDED → REACQUIRED
+
+M4-C:
+camera rotation does not create dozens of fake entity motions
+
+M4-D:
+tooltip hover increases entity identity confidence
+
+M4-E:
+obstacle changes local free-space map
+
+M4-F:
+low confidence entity triggers ActivePerception then either:
+confidence improves
+OR explicit UNKNOWN remains
+
+M4 DEFINITION OF DONE
+============================================================
+
+- temporal tracks stable
+- confidence everywhere uncertain
+- UI/minimap/world map integrated
+- active perception operational
+- no single-frame action shortcuts
+
+
+============================================================
+M5 — NAVIGATION V5
+============================================================
+
+M5 OBJECTIVE
+============================================================
+
+Build a layered navigation system inspired by robust bot/navigation
+architectures but operating entirely through external perception/control.
+
+------------------------------------------------------------
+M5.1 NAVIGATION REQUEST
+------------------------------------------------------------
+
+NavigationRequest {
+    RequestId
+    CorrelationId
+    Mode
+    Destination
+    TargetEntityId?
+    DesiredRange?
+    ArrivalEnvelope?
+    AvoidCombat?
+    AllowCombat?
+    Priority
+    Timeout
+}
+
+Mode:
+MOVE_TO_LOCATION
+APPROACH_ENTITY
+FOLLOW_ENTITY
+REPOSITION_FOR_LOS
+REPOSITION_FOR_FACING
+SEARCH_REGION
+ESCORT
+
+------------------------------------------------------------
+M5.2 GLOBAL PLAN
+------------------------------------------------------------
+
+GlobalRoute {
+    RouteId
+    Anchors[]
+    Regions[]
+    Cost
+    Confidence
+    CreatedAt
+    ValidUntil
+}
+
+Sources:
+map knowledge
+learned routes
+world map
+minimap
+quest region
+danger map
+
+Global planner should not run every control tick.
+
+Replan triggers:
+destination changed
+corridor invalid
+repeated local failure
+danger cost changed significantly
+zone/map changed
+
+------------------------------------------------------------
+M5.3 PATH CORRIDOR
+------------------------------------------------------------
+
+PathCorridor {
+    CorridorId
+    RouteId
+    Segments[]
+    Width/Region constraints
+    Confidence
+}
+
+Local planner may choose local waypoints inside corridor.
+
+Do not force exact centerline if free-space suggests better route.
+
+------------------------------------------------------------
+M5.4 LOCAL PLANNER
+------------------------------------------------------------
+
+Inputs:
+LocalTraversabilityMap
+LocalOccupancyMap
+free-space evidence
+static/dynamic obstacle evidence
+cliff/drop risk
+ego-motion mismatch/collision evidence
+danger map
+current heading
+destination bearing
+corridor
+entity tracks
+movement constraints
+
+IMPORTANT:
+LocalPlanner MUST primarily reason over traversability/cost, not semantic object
+labels. An UNKNOWN object/geometry may still be BLOCKED if motion-conditioned
+and temporal evidence supports it.
+
+Output:
+
+LocalMotionPlan {
+    DesiredHeading
+    LocalWaypoint
+    MotionMode
+    ExpectedProgressVector
+    ValidForMs
+}
+
+
+------------------------------------------------------------
+M5.4A OBSTACLE/TRAVERSABILITY COUPLING
+------------------------------------------------------------
+
+The M5 Navigation stack MUST consume the M4 obstacle system as follows:
+
+World3DObstacleSystem
+→ LocalTraversabilityMap
+→ LocalPlanner
+→ LocalMotionPlan
+→ MovementController
+
+Parallel feedback:
+
+MovementController
+→ commanded ego-motion
+→ EgoMotionEstimator
+→ MotionConsistencyMonitor
+→ CollisionEvidence
+→ LocalTraversabilityMap
+→ ProgressMonitor / StuckClassifier
+
+This forms a closed perception-action loop.
+
+Local planner candidate scoring should include:
+
+CandidateScore =
++ progress_toward_goal
++ traversability
++ corridor_alignment
+- obstacle_cost
+- danger_cost
+- cliff_risk
+- oscillation_penalty
+- recent_failure_penalty
+
+Exact weights configurable.
+
+If frontal region becomes BLOCKED:
+LocalPlanner first attempts a safe local bypass if available.
+
+If no local bypass exists:
+escalate to corridor rebuild.
+
+Do NOT trigger global replan for every transient obstacle.
+
+------------------------------------------------------------
+M5.5 MOVEMENT CONTROLLER
+------------------------------------------------------------
+
+Owns:
+forward
+back
+strafe
+turn
+jump
+stop
+
+Closed-loop.
+
+Example heading controller:
+
+error = desiredBearing - observedBearing
+
+If |error| > large:
+turn strongly
+If medium:
+turn briefly
+If small:
+forward + correction
+
+Never rely purely on:
+turn right for fixed 1.2 sec.
+
+------------------------------------------------------------
+M5.6 PROGRESS MODEL
+------------------------------------------------------------
+
+Maintain rolling 2–5 sec window.
+
+Inputs:
+optical flow progress
+minimap displacement
+landmark parallax
+target-distance trend
+expected vs observed bearing
+movement animation evidence
+
+Outputs:
+ProgressScore
+DirectionConsistency
+OscillationScore
+StuckProbability
+
+------------------------------------------------------------
+M5.7 STUCK CLASSIFIER
+------------------------------------------------------------
+
+Types:
+
+STATIC_BLOCK
+CORNER
+OSCILLATION
+NO_PROGRESS
+WRONG_HEADING
+DYNAMIC_BLOCK
+TARGET_UNREACHABLE
+PATH_LOOP
+UNKNOWN
+
+Heuristics:
+
+OSCILLATION:
+repeating left/right or forward/back action pattern
+little net progress
+
+WRONG_HEADING:
+movement evidence exists but destination distance not improving
+bearing error remains high
+
+STATIC_BLOCK:
+forward command + near-zero flow/progress + stable obstacle evidence
+
+DYNAMIC_BLOCK:
+blocking entity track moves/changes
+
+------------------------------------------------------------
+M5.8 TYPE-AWARE RECOVERY
+------------------------------------------------------------
+
+STATIC_BLOCK:
+stop
+back
+turn toward free-space
+local replan
+
+CORNER:
+back
+larger turn
+new local waypoint
+
+OSCILLATION:
+suppress recent alternating command pair
+select waypoint outside oscillation basin
+
+WRONG_HEADING:
+recenter heading
+do not global replan immediately
+
+DYNAMIC_BLOCK:
+wait short bounded interval
+or bypass
+
+PATH_LOOP:
+mark loop region penalty
+rebuild corridor/global route
+
+------------------------------------------------------------
+M5.9 DANGER MAP
+------------------------------------------------------------
+
+DangerEntry {
+    DangerId
+    Type
+    Region
+    Radius
+    Cost
+    Confidence
+    CreatedAt
+    ExpiresAt
+    Source
+}
+
+Cost examples configurable:
+
+normal 1
+minor uncertain obstacle 2
+hostile aggro 4–8
+recent stuck 8–12
+known impassable effectively INF
+
+Temporary entries decay.
+
+------------------------------------------------------------
+M5.10 HOSTILE AGGRO REGION
+------------------------------------------------------------
+
+For hostile entity:
+create confidence-based approximate danger region.
+
+If high-level goal is KILL target:
+do not avoid intended target itself.
+
+If avoidCombat:
+raise cost.
+
+If allowCombat:
+planner may accept route with combat.
+
+------------------------------------------------------------
+M5.11 REACHABILITY MODEL
+------------------------------------------------------------
+
+Per entity/location:
+
+ReachableConfidence
+RecentFailures
+LastSuccessfulApproach
+FailureTypes
+CooldownUntil
+
+Repeated LOS/navigation failures lower reachability.
+
+------------------------------------------------------------
+M5.12 NAVIGATION MEMORY
+------------------------------------------------------------
+
+SuccessfulTraversal {
+    StartRegion
+    EndRegion
+    RouteSignature
+    SuccessCount
+    FailureCount
+    Reliability
+    LastUsed
+}
+
+FailureMemory:
+location
+incoming direction
+failure type
+recovery success
+TTL
+
+Use as bias, not absolute truth.
+
+------------------------------------------------------------
+M5.13 FOLLOW
+------------------------------------------------------------
+
+Maintain distance band:
+
+Too far:
+approach
+
+Within band:
+match movement / wait
+
+Too close:
+slow/stop/back slightly if safe
+
+Lost:
+predict briefly
+search around last seen
+reacquire same track
+
+Do not chase stale last position indefinitely.
+
+------------------------------------------------------------
+M5.14 REPOSITION FOR LOS
+------------------------------------------------------------
+
+Combat requests:
+target id
+reason LOS
+preferred range
+
+Navigation:
+sample free lateral candidates
+score:
+free-space
+danger
+target visibility
+range
+progress
+
+Return success only when LOS belief improves or probe cast verifies.
+
+------------------------------------------------------------
+M5.15 SEARCH REGION
+------------------------------------------------------------
+
+Coverage planner:
+divide region into cells/sectors
+score unvisited cells
+avoid immediate repeats
+stop on target detection
+
+Maintain:
+coverage %
+last visited
+detections
+danger
+
+------------------------------------------------------------
+M5.16 ARRIVAL
+------------------------------------------------------------
+
+Arrival verified when:
+inside location envelope
+OR desired target range achieved
+AND motion stabilized
+AND no contradictory evidence
+
+For entity approach:
+arrival is not exact coordinate;
+it is interaction/combat usable envelope.
+
+------------------------------------------------------------
+M5.17 M5 ASSERTIONS
+------------------------------------------------------------
+
+ASSERT local obstacle does not always trigger global replan
+ASSERT one failure does not permanently blacklist region
+ASSERT jump not periodic random behavior
+ASSERT follow uses fresh target position
+ASSERT movement ownership exclusive
+ASSERT navigation success requires arrival verification
+ASSERT stuck recovery terminates
+
+------------------------------------------------------------
+M5 ACCEPTANCE
+============================================================
+
+M5-A normal destination
+M5-B static obstacle local bypass
+M5-C repeated block → failure memory + alternate route
+M5-D hostile region → cost-based avoidance
+M5-E moving NPC follow
+M5-F Combat LOS reposition
+M5-G Interaction approach to usable range
+M5-H Search region systematic coverage
+M5-I induced oscillation → detected and broken
+
+M5 DEFINITION OF DONE
+============================================================
+
+- layered navigation
+- path corridor
+- local planner
+- danger map
+- type-aware stuck
+- navigation memory
+- follow/search modes
+- no random movement architecture
+
+
+============================================================
+M6 — END-TO-END INTEGRATION / FULL ACCEPTANCE
+============================================================
+
+M6 OBJECTIVE
+============================================================
+
+Integrate M1–M5 into one coherent runtime and validate on a beginning main
+questline such as Exile's Reach-like content.
+
+This milestone is primarily:
+integration
+robustness
+observability
+recovery
+regression elimination
+
+------------------------------------------------------------
+M6.1 CANONICAL PIPELINE
+------------------------------------------------------------
+
+Every physical action MUST be traceable:
+
+Goal
+→ Plan
+→ SupervisorState
+→ Skill
+→ DomainEngine
+→ ActionRequest
+→ Input
+→ Observation
+→ Evidence
+→ Event
+→ WorldModelDelta
+→ Verification
+→ Result
+
+If any action bypasses this without being an explicit safety reflex:
+architecture violation.
+
+------------------------------------------------------------
+M6.2 REFLEX CONTROLLER
+------------------------------------------------------------
+
+Allowed low-level reflexes only for:
+release stuck keys
+emergency stop
+critical defensive if explicitly designed
+client focus safety
+
+Reflexes must:
+log
+have bounded behavior
+not become hidden gameplay brain
+
+------------------------------------------------------------
+M6.3 CROSS-DOMAIN ENTITY ID
+------------------------------------------------------------
+
+Combat, Navigation, Interaction and Questing MUST refer to same canonical
+WorldEntityId.
+
+No:
+CombatTarget object unrelated to InteractionTarget for same entity.
+
+Adapters may exist, identity remains canonical.
+
+------------------------------------------------------------
+M6.4 PLAN RESUME
+------------------------------------------------------------
+
+Scenario:
+Quest objective navigation
+→ combat preempts
+→ kill attacker
+→ combat ends
+
+Expected:
+original quest objective still active
+navigation plan either resumed or replanned
+goal not forgotten
+
+------------------------------------------------------------
+M6.5 DEATH RECOVERY
+------------------------------------------------------------
+
+Required flow:
+
+detect death
+→ Supervisor DEATH_RECOVERY
+→ cancel unsafe skills
+→ release inputs
+→ preserve high-level goal
+→ execute available external recovery procedure
+→ wait for alive/loading stabilization
+→ rebuild WorldModel confidence
+→ Planner revalidate goal
+→ resume/replan
+
+No blind input during loading.
+
+------------------------------------------------------------
+M6.6 LOADING / DISCONNECT / MODAL
+------------------------------------------------------------
+
+Detect:
+loading screen
+connection modal
+unexpected blocking dialog
+character unavailable state
+
+Behavior:
+pause unsafe actions
+release held movement
+classify
+recover if supported
+otherwise explicit terminal/paused state
+
+------------------------------------------------------------
+M6.7 STALE STATE GUARD
+------------------------------------------------------------
+
+Before using:
+target position
+entity bbox
+minimap position
+UI dialog
+quest state
+
+check timestamp freshness.
+
+If stale:
+reobserve
+do not act as if current.
+
+------------------------------------------------------------
+M6.8 WATCHDOG
+------------------------------------------------------------
+
+Watch:
+frame capture alive?
+EventBus progressing?
+Supervisor ticking?
+Input scheduler responsive?
+same state frozen?
+same action repeated?
+perception stalled?
+
+On subsystem stall:
+emit SYSTEM_HEALTH_FAILURE
+attempt bounded restart where safe
+or stop agent safely
+
+------------------------------------------------------------
+M6.9 REPLAY PACKAGE
+------------------------------------------------------------
+
+For every major failure record:
+
+session metadata
+config snapshot
+frames or frame refs
+detections
+events
+world state deltas
+goal/plan
+skill attempts
+input events
+failures
+recovery
+
+Replay should support:
+"run WorldModel + decision logic without live WoW"
+
+------------------------------------------------------------
+M6.10 STRUCTURED LOG FORMAT
+------------------------------------------------------------
+
+Each log entry:
+
+Timestamp
+Level
+Module
+Event/Action type
+CorrelationId
+EntityId?
+Message
+Structured payload
+
+Levels:
+TRACE
+DEBUG
+INFO
+WARN
+ERROR
+CRITICAL
+
+------------------------------------------------------------
+M6.11 PERFORMANCE BUDGET
+------------------------------------------------------------
+
+Measure and report:
+capture FPS
+perception latency p50/p95
+event queue depth
+Supervisor tick latency
+Navigation loop latency
+Combat decision latency
+input dispatch latency
+
+Do not optimize blindly before measurement.
+
+------------------------------------------------------------
+M6.12 END-TO-END ACCEPTANCE SCENARIO
+------------------------------------------------------------
+
+High-level goal:
+Complete a beginning main questline segment autonomously.
+
+Must encounter/use:
+quest discovery
+quest acceptance
+NPC interaction
+navigation
+objective region
+combat
+kill verification
+loot/collect/interact
+quest progress
+return
+turn-in
+follow-up quest
+at least one recovery scenario
+
+------------------------------------------------------------
+M6.13 INDUCED FAILURE SUITE
+------------------------------------------------------------
+
+Force/test:
+
+1. OUT_OF_RANGE
+2. FACING_INVALID
+3. LOS_FAILED
+4. TARGET_LOST
+5. NPC_MOVED
+6. INTERACTION_CLICK_MISS
+7. STATIC_OBSTACLE
+8. HARD_STUCK
+9. OSCILLATION
+10. LOW_CONFIDENCE_ENTITY
+11. TEMPORARY_OCCLUSION
+12. STALE_TARGET_POSITION
+13. QUEST_PROGRESS_NOT_CHANGED
+14. UNEXPECTED_MODAL
+15. COMBAT_PREEMPTS_NAVIGATION
+
+For each:
+expected event
+expected state transition
+expected recovery
+expected termination condition
+
+------------------------------------------------------------
+M6.14 EXAMPLE EXPECTED TRANSITIONS
+------------------------------------------------------------
+
+OUT_OF_RANGE:
+
+EXECUTE_ABILITY
+→ SPELL_CAST_FAILED/OUT_OF_RANGE
+→ COMBAT_RECOVERY
+→ RECOVER_RANGE
+→ Navigation APPROACH_ENTITY
+→ range verified
+→ SELECT_ABILITY
+→ retry
+
+FACING:
+
+EXECUTE_ABILITY
+→ FACING_INVALID
+→ RECOVER_FACING
+→ target bearing centered
+→ retry
+
+LOS:
+
+EXECUTE_ABILITY
+→ LOS_FAILED
+→ RECOVER_LOS
+→ Navigation REPOSITION_FOR_LOS
+→ LOS improved
+→ retry
+OR target unreachable after budget
+
+STUCK:
+
+NAVIGATION
+→ ProgressScore low
+→ POSSIBLE_STUCK
+→ STUCK_DETECTED
+→ STUCK_RECOVERY
+→ recovery action
+→ progress returns
+→ STUCK_RECOVERED
+→ NAVIGATION resume
+
+INTERACTION MISS:
+
+INTERACT
+→ WAIT_RESULT
+→ NOTHING
+→ CURSOR_MISS
+→ HOVER resample
+→ INTERACT
+→ expected dialog
+→ SUCCESS
+
+------------------------------------------------------------
+M6.15 NO-FAKE-SUCCESS AUDIT
+------------------------------------------------------------
+
+Search code for patterns:
+success = true
+return true
+stats++
+completed++
+quests_completed++
+mobs_killed++
+items_looted++
+
+For each:
+prove observable verified postcondition precedes mutation.
+
+If not:
+fix it.
+
+------------------------------------------------------------
+M6.16 PLACEHOLDER AUDIT
+------------------------------------------------------------
+
+Search:
+TODO
+FIXME
+NotImplemented
+throw NotImplemented
+return false placeholder
+return true placeholder
+dummy
+fake
+mock in production path
+random fallback
+
+Critical path placeholders forbidden.
+
+------------------------------------------------------------
+M6.17 DIRECT INPUT AUDIT
+------------------------------------------------------------
+
+Search imports/usages:
+SendKeys
+pynput
+pyautogui
+Win32 key APIs
+mouse APIs
+backend-specific calls
+
+All production domain calls must route through Execution/Input abstraction.
+
+------------------------------------------------------------
+M6.18 DUPLICATION AUDIT
+------------------------------------------------------------
+
+Reject duplicate concepts:
+QuestNavigator
+CombatNavigator
+LootNavigator
+
+Prefer one NavigationService.
+
+Reject duplicate interaction core:
+QuestInteract
+VendorInteract
+LootInteract
+
+Prefer InteractionEngine + policy/result types.
+
+------------------------------------------------------------
+M6.19 TEST REPORT MATRIX
+------------------------------------------------------------
+
+Final report must include table:
+
+TestId
+Scenario
+Passed?
+Observed transitions
+Recovery used
+Retries
+Final state
+Notes
+
+------------------------------------------------------------
+M6.20 RELEASE GATE
+------------------------------------------------------------
+
+M6 is NOT complete unless:
+
+[ ] no fake success in critical paths
+[ ] no infinite loops
+[ ] all retries bounded
+[ ] all movement routed through Navigation
+[ ] all physical input routed through InputController
+[ ] canonical WorldModel used by all domains
+[ ] target identity consistent across domains
+[ ] EventBus used for event propagation
+[ ] stale evidence guarded
+[ ] combat errors recover
+[ ] stuck recovers/escalates
+[ ] interaction verifies results
+[ ] quest progress verified
+[ ] preemption/resume works
+[ ] replay/logs sufficient for debugging
+[ ] end-to-end questline segment completed without fixed input script
+
+
+============================================================
+MANDATORY FINAL IMPLEMENTATION REPORT
+============================================================
+
+At the end of EACH milestone output a report containing:
+
+1. REPOSITORY STATE BEFORE
+2. FILES CHANGED
+3. FILES ADDED
+4. COMPONENTS KEPT
+5. COMPONENTS ADAPTED
+6. COMPONENTS REPLACED
+7. NEW INTERFACES
+8. NEW DTOs
+9. EVENT SCHEMAS
+10. STATE MACHINES
+11. DEFAULT CONFIG VALUES
+12. OWNERSHIP RULES ENFORCED
+13. THREAD/TASK MODEL
+14. FAILURE BUDGETS
+15. TESTS ADDED
+16. TESTS PASSED
+17. TESTS FAILED
+18. KNOWN LIMITATIONS
+19. REMAINING PLACEHOLDERS
+20. TECHNICAL DEBT
+21. NEXT MILESTONE READINESS
+
+Do not simply say:
+"implemented successfully".
+
+Show exact evidence.
+
+
+============================================================
+MANDATORY CODING AGENT BEHAVIOR
+============================================================
+
+1. Read existing code before editing.
+2. Prefer integration over replacement.
+3. Do not ask trivial clarification if repository context resolves it.
+4. Do not leave critical acceptance path half-implemented.
+5. Do not mark milestone complete if acceptance tests fail.
+6. Do not hide failures.
+7. Use configuration for thresholds.
+8. Keep interfaces testable.
+9. Keep deterministic replay possible.
+10. Keep direct input isolated.
+11. Keep domain ownership strict.
+12. Preserve backwards compatibility where practical.
+13. If architecture must change, migrate explicitly.
+14. If current implementation contradicts this spec, explain and fix the conflict.
+15. If a required detector/model lacks data, state that honestly and implement the
+    integration contract without fake accuracy.
+
+============================================================
+ULTIMATE QUALITY BAR
+============================================================
+
+The final V5 agent must behave according to this rule:
+
+"I do not assume the action worked because I attempted it.
+I observe the world, verify the expected postcondition, and only then
+advance the plan. If verification fails, I classify the reason, recover,
+and replan within bounded budgets."
+
+That principle applies equally to:
+- movement
+- targeting
+- combat
+- facing
+- range
+- LOS
+- interaction
+- loot
+- quest acceptance
+- quest progress
+- quest turn-in
+- navigation
+- stuck recovery
+- follow/escort
+- object use
+
+END OF SPECIFICATION

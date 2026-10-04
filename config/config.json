@@ -1,0 +1,14 @@
+{
+    "fishing": {
+        "enabled": true,
+        "maxRetries": 3,
+        "castTimeoutMs": 5000,
+        "bobberTimeoutMs": 5000,
+        "biteTimeoutMs": 30000,
+        "lootTimeoutMs": 5000,
+        "stopInventoryPercent": 90
+    },
+    "logging": {
+        "verbose": true
+    }
+}

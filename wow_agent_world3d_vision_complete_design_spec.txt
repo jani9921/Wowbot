@@ -1,0 +1,2848 @@
+WORLD OF WARCRAFT AUTONOMOUS AGENT
+WORLD3D VISION – TELJES TERVEZÉSI SPECIFIKÁCIÓ
+DESIGN SPECIFICATION V1
+============================================================
+
+DOKUMENTUM CÉLJA
+================
+
+Ez a dokumentum a World3D Vision alrendszer teljes megtervezése.
+
+NEM implementáció.
+NEM egy egyszerű YOLO/detector specifikáció.
+NEM quest planner.
+NEM navigation controller.
+
+A cél egy olyan vizuális világreprezentációs rendszer megtervezése, amely a World of Warcraft kliens 3D viewportjából folyamatosan, időben követhető és bizonytalansággal kezelt információt állít elő az agent többi része számára.
+
+A World3D Vision legyen az agent "szeme", de ne az "agya".
+
+Feladata:
+
+- a 3D játéktér elkülönítése a UI-tól;
+- entity-k és világobjektumok detektálása;
+- nameplate-ek és overhead cue-k felismerése;
+- target/interact/quest szerepkörökhöz szükséges vizuális evidence előállítása;
+- entity-k időbeli követése;
+- occlusion és temporary loss kezelése;
+- kamera- és ego-motion elkülönítése entity motiontől;
+- relatív távolság/distance belief becslése;
+- közeli scene geometry és traversability becslése;
+- obstacle / entrance / door / stairs / ramp cue-k előállítása;
+- interaction readiness vizuális evidence előállítása;
+- local landmarkok építése;
+- negatív evidence előállítása;
+- active perception requestek támogatása;
+- tooltip/nameplate/target frame evidence-dzsel történő semantic fusion;
+- WorldModel számára normalizált World3D observationök előállítása;
+- SearchSkill / TargetSkill / Navigation / InteractSkill / CombatSkill számára stabil, időben követhető vizuális API biztosítása.
+
+NEM feladata:
+
+- quest kiválasztása;
+- quest objective klasszifikálása;
+- waypoint/útvonal tervezés;
+- billentyűk megnyomása;
+- combat rotation;
+- quest complete eldöntése;
+- planner működés;
+- közvetlen W/A/S/D steering.
+
+A World3D csak ezt válaszolja:
+
+"Mit látunk most a 3D világban?"
+"Mi maradt valószínűleg ugyanaz az előző frame óta?"
+"Mi mozog a kamerához képest?"
+"Mi lehet interaktálható?"
+"Merre látszik járható tér?"
+"Milyen lokális entity/object/entrance candidate-ek vannak?"
+"Mennyire biztosak ezek?"
+
+
+============================================================
+1. JELENLEGI REPO KIINDULÓPONTJA
+============================================================
+
+A jelenlegi projektben a World3D stack már tartalmaz több hasznos elemet:
+
+wowbot/vision/world3d/
+    models.py
+    scene.py
+    candidates.py
+    tracking.py
+    normalization.py
+    validation.py
+    ocr.py
+    v2.py
+    v3.py
+    v4.py
+    probe.py
+
+Kapcsolódó agent-komponensek:
+
+wowbot/agent/camera_controller.py
+wowbot/agent/vision_seek.py
+wowbot/agent/visual_approach.py
+
+A jelenlegi rendszerben már vannak:
+
+- WorldSceneROI;
+- WorldCandidate;
+- candidate detection;
+- color/nameplate jellegű heurisztikák;
+- WorldCandidateTracker;
+- temporal track;
+- CpuPatchTracker;
+- World3DPerceptionV2/V3;
+- VisionSemanticFusion;
+- hard-example collector;
+- OCR;
+- visual approach;
+- visual seek;
+- obstacle candidate evidence;
+- visual signatures;
+- occlusion/lost-temporary jellegű lifecycle.
+
+EZEKET NEM KELL AUTOMATIKUSAN KIDOBNI.
+
+A terv célja:
+a meglévő elemeket egy tiszta, egy-authority World3D architecture alá rendezni, és hozzáadni azokat a képességeket, amelyek jelenleg hiányoznak vagy túl implicit módon vannak kezelve.
+
+
+============================================================
+2. WORLD3D VÉGÁLLAPOT – MAGAS SZINTŰ ARCHITEKTÚRA
+============================================================
+
+A végállapot:
+
+FrameCapture
+    ↓
+WorldSceneExtractor
+    ↓
+┌────────────────────────────────────────────────────────┐
+│                   WORLD3D PIPELINE                     │
+│                                                        │
+│  Entity Detection       Scene Geometry                 │
+│       │                     │                           │
+│       ├─ Nameplates         ├─ Ground/Traversability   │
+│       ├─ Quest cues         ├─ Obstacles               │
+│       ├─ Corpses            ├─ Doors                   │
+│       ├─ Objects            ├─ Entrances               │
+│       └─ Units              ├─ Stairs/Ramps            │
+│                             └─ Local landmarks         │
+│                                                        │
+│             ↓                 ↓                        │
+│                Temporal Tracking                       │
+│                       │                                │
+│            Camera/Ego Motion Model                     │
+│                       │                                │
+│               Relative Motion                          │
+│                       │                                │
+│                Distance Belief                         │
+│                       │                                │
+│                Occlusion Model                         │
+│                       │                                │
+│              Semantic Fusion                           │
+│            /      |       |       \                    │
+│       Tooltip  Target  QuestCtx  MinimapCtx            │
+│                       │                                │
+│             Interactability                            │
+│                       │                                │
+│               World3D Observation                     │
+└───────────────────────┬────────────────────────────────┘
+                        ↓
+                    WorldModel
+                        ↓
+        Target / Search / Navigation / Interact / Combat
+
+A pipeline két fő perception-ága:
+
+A. ENTITY / SEMANTIC PERCEPTION
+B. SCENE / GEOMETRIC PERCEPTION
+
+Ezeket külön kell kezelni, majd a végén fuzionálni.
+
+
+============================================================
+3. KÖTELEZŐ FELELŐSSÉGI HATÁROK
+============================================================
+
+World3D Vision owner:
+
+- viewport perception;
+- visual candidate generation;
+- track continuity;
+- local scene geometry;
+- visual interaction readiness;
+- relative visual measurements;
+- local visual uncertainty.
+
+Navigation owner:
+
+- merre menjünk;
+- hogyan steeringeljünk;
+- route;
+- progress;
+- stuck recovery.
+
+TargetSkill owner:
+
+- melyik candidate-et targeteljük.
+
+InteractSkill owner:
+
+- mikor és hogyan interactolunk.
+
+CombatSkill owner:
+
+- combat végrehajtás.
+
+QuestRuntime owner:
+
+- melyik quest objective-et hajtjuk végre.
+
+WorldModel owner:
+
+- különböző sensor evidence-ek összevonása a teljes világról.
+
+FONTOS:
+World3D Vision saját semantic fusiont végezhet VIZUÁLIS entity-szinten,
+de nem lehet teljes világ-authority.
+
+
+============================================================
+4. WORLD3D PUBLISH / QUERY CONTRACT
+============================================================
+
+A World3D pipeline normálizált batch-et publikáljon.
+
+World3DObservationBatch {
+    frame_id
+    timestamp
+    scene_roi
+    camera_state
+    ego_motion
+    entity_tracks[]
+    scene_geometry
+    traversability
+    obstacles[]
+    entrances[]
+    landmarks[]
+    interaction_candidates[]
+    negative_evidence[]
+    diagnostics
+    processing_latency_ms
+}
+
+Publikus API:
+
+observe(frame, context) -> World3DObservationBatch
+
+get_track(track_id)
+get_active_tracks()
+find_candidates(query)
+get_interactables()
+get_hostiles()
+get_corpses()
+get_quest_objects()
+get_entrances()
+get_traversability()
+get_obstacles()
+get_local_landmarks()
+get_camera_state()
+get_ego_motion()
+request_identity_probe(track_id)
+request_local_scan(query)
+invalidate(reason)
+diagnostics()
+
+A publikus API read-only perception interface legyen.
+
+Tilos:
+
+go_to_entity()
+attack_entity()
+interact_entity()
+complete_quest()
+
+
+============================================================
+5. COORDINATE SYSTEM
+============================================================
+
+Minden vizuális koordináta explicit space-szel rendelkezzen.
+
+World3D esetén:
+
+SCREEN_PIXELS
+SCREEN_NORMALIZED
+WORLD_VIEWPORT_PIXELS
+WORLD_VIEWPORT_NORMALIZED
+ENTITY_RELATIVE
+CAMERA_RELATIVE_BEARING
+
+Tilos:
+
+{"x": 0.5, "y": 0.3}
+
+coordinate space nélkül.
+
+Ajánlott:
+
+ScreenPoint {
+    x
+    y
+    space
+}
+
+NormalizedBBox {
+    left
+    top
+    right
+    bottom
+    space=WORLD_VIEWPORT_NORMALIZED
+}
+
+BearingEstimate {
+    horizontal_error
+    vertical_error
+    confidence
+}
+
+
+============================================================
+6. WORLD SCENE EXTRACTOR
+============================================================
+
+Cél:
+a teljes WoW frame-ből meghatározni azt a régiót, amely valódi 3D játéktér.
+
+A jelenlegi:
+WorldSceneProfile
+build_scene_roi()
+
+jó alap.
+
+Tervezett funkciók:
+
+build_scene_roi(frame_size, hud_profile)
+exclude_known_ui_regions()
+exclude_chat_if_overlapping()
+exclude_actionbars()
+exclude_quest_tracker_if_needed()
+exclude_minimap()
+exclude_target_frame()
+exclude_open_panels()
+get_world_viewport_transform()
+
+Kimenet:
+
+WorldSceneROI {
+    pixel_rect
+    normalized_rect
+    profile_id
+    confidence
+}
+
+Követelmény:
+
+az ROI a GUI scale/edit-mode változások mellett konfigurálható legyen.
+
+Ne legyen minden detectorba külön hard-code-olt HUD crop.
+
+
+============================================================
+7. ENTITY TYPE TAXONOMY
+============================================================
+
+A World3D ne egyetlen "NPC/mob" enumot használjon túl korán.
+
+EntityTypeBelief:
+
+UNKNOWN_UNIT
+NPC
+PLAYER
+HOSTILE_UNIT
+FRIENDLY_UNIT
+NEUTRAL_UNIT
+CORPSE
+GAME_OBJECT
+QUEST_OBJECT
+LOOTABLE_OBJECT
+INTERACTABLE_OBJECT
+DOOR
+PORTAL
+ENTRANCE
+RESOURCE_NODE
+SPECIAL_OBJECT
+
+A type belief több értéket is tarthat valószínűséggel.
+
+Példa:
+
+type_beliefs:
+NPC .72
+FRIENDLY_UNIT .91
+PLAYER .11
+
+
+============================================================
+8. ENTITY ROLE TAXONOMY
+============================================================
+
+A ROLE külön a TYPE-tól.
+
+RoleBelief:
+
+QUEST_GIVER
+QUEST_TURNIN
+QUEST_OBJECTIVE_NPC
+QUEST_OBJECTIVE_MOB
+VENDOR
+TRAINER
+ESCORT_TARGET
+FOLLOW_TARGET
+INTERACT_TARGET
+COMBAT_TARGET
+LOOT_SOURCE
+ENTRANCE_CANDIDATE
+NONE
+UNKNOWN
+
+Példa:
+
+type = NPC
+role:
+QUEST_TURNIN .91
+VENDOR .10
+
+Ez sokkal jobb, mint:
+type = QUEST_GIVER.
+
+
+============================================================
+9. WORLD CANDIDATE DETECTOR
+============================================================
+
+A jelenlegi candidates.py jó low-level candidate generator alap.
+
+Tervezett felelősség:
+
+detect visual primitives és probable entity cues.
+
+Bemenet:
+WorldSceneROI pixels.
+
+Kimenet:
+RawWorldCandidate[].
+
+RawWorldCandidate:
+
+candidate_id
+kind
+bbox
+center
+color_features
+shape_features
+appearance_features
+source_detector
+raw_confidence
+timestamp
+
+Detector családok:
+
+NameplateDetector
+QuestMarkerDetector
+CorpseCueDetector
+InteractCueDetector
+ObjectCandidateDetector
+EntranceCandidateDetector
+ObstacleCandidateDetector
+GenericMotionCandidate
+Optional learned detector adapter
+
+A detector NEM ad végleges identityt.
+
+
+============================================================
+10. NAMEPLATE SUBSYSTEM
+============================================================
+
+A WoW nameplate kiemelten értékes vizuális cue.
+
+A jelenlegi color/nameplate heuristics használható alapnak.
+
+Külön komponens:
+
+NameplateDetector
+NameplateTracker
+NameplateSemanticResolver
+
+NameplateObservation:
+
+bbox
+bar_bbox?
+text_region?
+relation_color_belief
+health_fraction?
+cast_state?
+selected?
+soft_targeted?
+name_text?
+name_confidence
+unit_type_beliefs
+timestamp
+
+Funkciók:
+
+detect_nameplates()
+classify_relation_color()
+estimate_health()
+detect_cast_bar()
+detect_selected_state()
+associate_text()
+associate_entity_body_if_possible()
+
+A Midnight kliensben a default nameplate-ek combat-relevánsabb információt mutathatnak, ezért ezt a rendszert first-class cue-ként kell kezelni.
+
+FONTOS:
+nameplate hiánya != entity hiánya.
+
+
+============================================================
+11. NAMEPLATE ↔ ENTITY ASSOCIATION
+============================================================
+
+Egy nameplate-et a hozzá tartozó világ-entity trackhez kell kapcsolni.
+
+Association evidence:
+
+- horizontal proximity;
+- plate above entity;
+- consistent movement;
+- shared track velocity;
+- target/mouseover confirmation;
+- visual body candidate.
+
+Funkció:
+
+associate_nameplate(track_candidates, nameplates)
+
+Kimenet:
+AssociationBelief.
+
+Low confidence esetén:
+nameplate külön track maradhat.
+
+
+============================================================
+12. QUEST OVERHEAD CUE DETECTOR
+============================================================
+
+Feladat:
+
+quest giver / turn-in / objective jellegű overhead cue candidate detektálása.
+
+Nem ad végleges quest role-t.
+
+Kimenet:
+
+QuestCueObservation {
+    bbox
+    cue_type_beliefs
+    associated_track_id?
+    confidence
+}
+
+Cue:
+QUEST_AVAILABLE_LIKE
+QUEST_TURNIN_LIKE
+QUEST_OBJECTIVE_LIKE
+INTERACTION_ICON_LIKE
+UNKNOWN
+
+Semantic role csak fusion után.
+
+
+============================================================
+13. INTERACT CUE DETECTOR
+============================================================
+
+Blizzard Interact Key viselkedése alapján az interaktálható NPC-k/objektumok közelségben és megfelelő facingnél vizuális kiemelést/icon evidence-et adhatnak.
+
+Ez fontos World3D signal.
+
+InteractCueObservation:
+
+bbox/anchor
+cue_type
+candidate_track?
+confidence
+timestamp
+
+Funkció:
+
+detect_interact_highlight()
+detect_interact_icon()
+associate_to_track()
+track_readiness_change()
+
+FONTOS:
+nem minden interakció kötelezően mutat azonos ikont.
+
+Hiányzó cue nem jelenti biztosan azt, hogy nem interaktálható.
+
+
+============================================================
+14. ACTION TARGETING / SOFT TARGET EVIDENCE
+============================================================
+
+WoW Action Targeting a nézés iránya és közelség alapján automatikusan enemy targetet választhat.
+
+Ezt a World3D opcionális evidence-ként használhatja.
+
+SoftTargetObservation:
+
+candidate type
+screen anchor
+selected/highlight state
+confidence
+
+Nem lehet identity authority.
+
+Használat:
+
+target candidate prior növelés
+relative facing evidence
+combat candidate prioritás
+
+Nem:
+"soft target = biztos quest mob".
+
+
+============================================================
+15. CORPSE DETECTOR
+============================================================
+
+Feladat:
+halott/lootolható unit candidate-ek vizuális lokalizációja.
+
+Evidence:
+
+- previously tracked target becomes dead;
+- body-like candidate;
+- dead target state;
+- nameplate disappearance + death confirmation;
+- loot interaction cue;
+- temporal continuity.
+
+CorpseBelief:
+
+source_track_id?
+bbox
+lootable_belief
+identity_belief
+confidence
+
+A temporal continuity fontosabb, mint egy önálló "corpse image classifier".
+
+
+============================================================
+16. GAME OBJECT / QUEST OBJECT DETECTOR
+============================================================
+
+Objektumok gyakran nehezebben felismerhetők, mint NPC-k.
+
+Strategy:
+
+1. interaction highlight/cue;
+2. quest-area context;
+3. repeated visual anomaly/object candidate;
+4. tooltip probing;
+5. mouseover;
+6. learned detector if available.
+
+ObjectCandidate:
+
+bbox
+appearance_signature
+interactable_belief
+quest_role_belief
+tooltip_identity?
+confidence
+
+Az object detection legyen context-sensitive.
+
+
+============================================================
+17. SCENE GEOMETRY SUBSYSTEM
+============================================================
+
+Ez a jelenlegi design egyik legfontosabb bővítése.
+
+Cél:
+ne csak entityket lássunk, hanem lokális térszerkezetet.
+
+SceneGeometry:
+
+ground_region
+traversable_regions[]
+blocked_regions[]
+vertical_boundaries[]
+door_candidates[]
+entrance_candidates[]
+stairs_candidates[]
+ramp_candidates[]
+edge/drop_candidates[]
+unknown_regions[]
+
+Nem kell teljes 3D SLAM.
+
+Cél:
+lokális steeringhez és obstacle/entrance reasoninghez elegendő vizuális geometry.
+
+
+============================================================
+18. TRAVERSABILITY MAP
+============================================================
+
+A legegyszerűbb stabil reprezentáció:
+
+képernyő alsó részének iránysávokra osztása.
+
+Példa:
+
+FAR_LEFT
+LEFT
+CENTER_LEFT
+CENTER
+CENTER_RIGHT
+RIGHT
+FAR_RIGHT
+
+Minden sáv:
+
+TraversabilitySector {
+    sector
+    free_probability
+    blocked_probability
+    unknown_probability
+    obstacle_refs[]
+    evidence[]
+}
+
+Finomabb opcionális reprezentáció:
+
+normalized 2D occupancy-like grid.
+
+FONTOS:
+traversability belief,
+nem "biztos world collision map".
+
+
+============================================================
+19. TRAVERSABILITY EVIDENCE
+============================================================
+
+Források:
+
+- ground-like continuous texture;
+- edge structure;
+- wall-like vertical boundaries;
+- door/opening geometry;
+- optical flow under forward movement;
+- repeated collision/no-progress evidence;
+- known obstacle candidate;
+- scene segmentation if learned model available;
+- camera parallax.
+
+A stuck detector feedbackje is visszaadható mint evidence,
+de ne hozzon létre circular authorityt.
+
+
+============================================================
+20. OBSTACLE MODEL
+============================================================
+
+ObstacleCandidate:
+
+bbox/region
+kind_belief
+blocking_probability
+center_path_overlap
+persistence_frames
+confidence
+timestamp
+
+Kind:
+
+WALL
+TREE
+ROCK
+FENCE
+FURNITURE
+NPC_BODY
+UNKNOWN
+
+World3D csak lokális blocker beliefet ad.
+
+Navigation dönti el a kerülést.
+
+
+============================================================
+21. ENTRANCE / DOOR / STAIRS / RAMP DETECTOR
+============================================================
+
+Quest navigationnél kiemelten fontos.
+
+EntranceCandidate:
+
+bbox
+kind
+open_probability
+traversable_probability
+depth_cue
+context
+confidence
+
+Kind:
+
+DOOR
+ARCHWAY
+CAVE_MOUTH
+STAIRS_UP
+STAIRS_DOWN
+RAMP
+PORTAL
+TUNNEL
+UNKNOWN
+
+Evidence:
+
+- opening boundary;
+- dark cavity;
+- doorway frame;
+- floor convergence;
+- stairs-like repeated edges;
+- minimap/map context;
+- path blockage around objective;
+- active search context.
+
+Entrance detection context-aware legyen.
+
+
+============================================================
+22. LOCAL LANDMARK SYSTEM
+============================================================
+
+Nem kell komplett SLAM.
+
+LocalLandmark:
+
+landmark_id
+appearance_signature
+screen_position_history
+type_belief
+first_seen
+last_seen
+confidence
+
+Típus:
+
+BUILDING_EDGE
+TREE_CLUSTER
+STATUE
+DOOR
+ROCK
+BRIDGE
+STAIRS
+PORTAL
+UNIQUE_OBJECT
+UNKNOWN
+
+Használat:
+
+- camera motion estimate;
+- scene-change detect;
+- stuck detect;
+- local search coverage;
+- reacquisition.
+
+Landmark nem navigációs truth.
+
+
+============================================================
+23. TEMPORAL TRACKER
+============================================================
+
+A jelenlegi WorldCandidateTracker jó alap, de a végleges tracker legyen központi World3D track authority.
+
+Track lifecycle:
+
+TENTATIVE
+ACTIVE
+PARTIALLY_OCCLUDED
+OCCLUDED
+LOST_TEMPORARY
+REACQUIRED
+LOST
+TERMINATED
+
+EntityTrack:
+
+track_id
+type_beliefs
+role_beliefs
+identity_belief
+bbox_history
+center_history
+scale_history
+velocity_screen
+appearance_signature
+nameplate_ref?
+quest_cue_ref?
+interact_cue_ref?
+visibility
+occlusion_probability
+first_seen
+last_seen
+miss_count
+confidence
+
+
+============================================================
+24. TRACK ASSOCIATION
+============================================================
+
+Association score:
+
+screen distance
+bbox overlap
+appearance similarity
+type compatibility
+nameplate continuity
+motion prediction
+semantic cue continuity
+
+Ne csak nearest center legyen.
+
+Function:
+
+associate(previous_tracks, candidates, camera_motion)
+
+Kimenet:
+
+matches
+new_tracks
+unmatched_tracks
+
+
+============================================================
+25. OCCLUSION MODEL
+============================================================
+
+Temporary visual loss gyakori.
+
+Occlusion evidence:
+
+- candidate disappears behind persistent obstacle;
+- predicted trajectory enters occluder;
+- surrounding track motion consistent;
+- reappears near predicted location;
+- nameplate persists while body disappears;
+- body persists while plate disappears.
+
+State transitions:
+
+ACTIVE
+→ PARTIALLY_OCCLUDED
+→ OCCLUDED
+→ REACQUIRED
+
+OCCLUDED alatt:
+track még használható rövid ideig,
+de position confidence csökken.
+
+Ne azonnal TARGET_LOST.
+
+
+============================================================
+26. LOST GRACE POLICY
+============================================================
+
+Track missing one frame != LOST.
+
+Config:
+
+track_lost_grace_ms
+max_prediction_ms
+max_reacquire_radius
+
+A jelenlegi tick-count based loss helyett wall-clock time legyen elsődleges,
+mert FPS / sensor rate változhat.
+
+A meglévő visual approach kódban már felismert probléma, hogy tick-alapú miss count gépfüggő reakcióidőt adhat.
+
+Végleges design:
+count + elapsed-time kombináció.
+
+
+============================================================
+27. APPEARANCE SIGNATURE
+============================================================
+
+AppearanceSignature:
+
+color_histogram?
+texture_descriptor?
+nameplate_color?
+bbox_aspect?
+class_palette?
+visual_embedding? optional
+confirmed_identity?
+signature_version
+
+Cél:
+
+reacquire ugyanazt az entityt track-id váltás után.
+
+Nem kell túl nagy model.
+
+A signature confidence evidence legyen.
+
+
+============================================================
+28. CAMERA STATE
+============================================================
+
+World3D-nak explicit CameraState kell.
+
+CameraState:
+
+stable
+moving
+yaw_delta
+pitch_delta
+zoom_change?
+last_command_correlation?
+estimated_from_visual_flow
+confidence
+
+Funkciók:
+
+estimate_camera_motion()
+correlate_with_camera_command()
+detect_stable_frame()
+camera_delta_since(frame_id)
+
+A camera controller command eventjeit a vision felhasználhatja evidence-ként.
+
+
+============================================================
+29. EGO MOTION MODEL
+============================================================
+
+Feladat:
+különválasztani a teljes jelenet player/camera miatti elmozdulását az entity saját mozgásától.
+
+EgoMotion:
+
+translation_screen
+rotation_yaw
+rotation_pitch
+forward_motion_belief
+strafe_belief
+confidence
+
+Evidence:
+
+- global optical flow;
+- static landmarks;
+- input command history;
+- player heading telemetry if available;
+- background feature movement.
+
+Entity relative motion:
+
+observed_motion - ego_motion_estimate.
+
+
+============================================================
+30. OPTICAL FLOW / FRAME MOTION
+============================================================
+
+Nem kötelező heavy neural optical flow.
+
+Lehet:
+
+- sparse feature tracking;
+- phase correlation;
+- patch tracker;
+- landmark displacement;
+- simple block flow.
+
+A jelenlegi CpuPatchTracker jó kiinduló primitive lehet.
+
+Cél:
+
+global scene motion estimate
+nem pixel-perfect depth.
+
+
+============================================================
+31. ENTITY MOTION MODEL
+============================================================
+
+Track motion:
+
+screen_velocity_raw
+screen_velocity_ego_corrected
+motion_class
+
+MotionClass:
+
+STATIC
+SLOW
+MOVING
+FAST
+UNKNOWN
+
+Használat:
+
+- mob walking;
+- escort following;
+- reacquire;
+- moving target navigation;
+- distinguish own camera turn.
+
+
+============================================================
+32. DISTANCE BELIEF
+============================================================
+
+A World3D ne hazudjon hamis pontos métert.
+
+DistanceBelief:
+
+VERY_NEAR
+NEAR
+MEDIUM
+FAR
+VERY_FAR
+UNKNOWN
+
+Opcionális:
+
+estimated_range_min
+estimated_range_max
+
+confidence
+evidence[]
+
+
+============================================================
+33. DISTANCE EVIDENCE
+============================================================
+
+Forrás:
+
+bbox height trend
+nameplate scale trend
+known entity-size prior
+interaction readiness
+out-of-range feedback
+in-range feedback
+camera FOV known config
+parallax under movement
+target range telemetry if legitimate
+world coordinate distance if WorldModel supplies
+
+A World3D saját becslése mindig belief.
+
+
+============================================================
+34. SCALE HISTORY
+============================================================
+
+Minden tracked entity:
+
+bbox_scale_history.
+
+Ha player előre halad és:
+
+scale ↑
+→ likely approaching
+
+scale stable
+→ likely no progress / moving target / distant
+
+scale ↓
+→ moving away
+
+Navigation ProgressMonitor használhatja.
+
+
+============================================================
+35. SCREEN BEARING
+============================================================
+
+Entity bearing:
+
+horizontal normalized error:
+-1 left edge
+0 center
++1 right edge
+
+vertical error has lower steering relevance.
+
+Funkció:
+
+estimate_bearing(track)
+
+Kimenet:
+
+BearingEstimate {
+    horizontal
+    vertical
+    confidence
+}
+
+FaceController ezt használhatja.
+
+
+============================================================
+36. INTERACTABILITY BELIEF
+============================================================
+
+InteractabilityState:
+
+UNKNOWN
+UNLIKELY
+POSSIBLE
+INTERACTABLE
+INTERACTION_READY
+
+Evidence:
+
+- interaction icon;
+- highlight;
+- soft interact target;
+- tooltip;
+- known interact object;
+- distance belief;
+- facing/bearing;
+- previous successful interaction at similar geometry.
+
+Output:
+
+InteractabilityBelief {
+    state
+    probability
+    evidence[]
+}
+
+InteractSkill használja.
+
+
+============================================================
+37. FACING READINESS
+============================================================
+
+World3D nem forgat.
+
+Csak:
+
+FacingBelief {
+    target_ref
+    horizontal_error
+    likely_facing
+    confidence
+}
+
+Interaction readinessnél:
+Interact cue erős evidence.
+
+Combatnál:
+combat error feedback erősebb lehet, mint vision.
+
+
+============================================================
+38. NEGATIVE EVIDENCE
+============================================================
+
+World3D fontos outputja.
+
+NegativeEvidence:
+
+type
+query
+coverage
+context
+confidence
+timestamp
+
+Példa:
+
+QUERY: NPC Captain Garrick
+CAMERA_SWEEP: 360°
+SEARCH_RADIUS: local
+RESULT: not observed
+confidence: .82
+
+Jelentés:
+"valószínűleg nincs a jelenlegi local view/search radiusban"
+
+NEM:
+"nem létezik".
+
+Használat:
+SearchSkill továbblép minimap/map szintre.
+
+
+============================================================
+39. SEARCH COVERAGE VISUAL SUPPORT
+============================================================
+
+A World3D tartsa számon:
+
+camera sectors observed
+visibility quality
+occluded sectors
+low-light/low-confidence sectors
+
+SearchCoverageObservation:
+
+sector_id
+viewed_at
+quality
+candidate_count
+occlusion_fraction
+
+SearchSkill ownership:
+coverage strategy.
+
+World3D:
+csak perception coverage data.
+
+
+============================================================
+40. ACTIVE PERCEPTION API
+============================================================
+
+World3D legyen képes probe request fogadására.
+
+Request típus:
+
+IDENTITY_PROBE
+TOOLTIP_PROBE
+LOCAL_SCAN
+ENTRANCE_SCAN
+INTERACTABILITY_PROBE
+NAMEPLATE_SCAN
+
+World3D nem mozgatja közvetlenül az egeret/kamerát.
+
+Kimenet:
+PerceptionRequest:
+
+desired_sensor_action
+target_track
+roi
+reason
+priority
+
+ActivePerception/Supervisor/appropriate controller hajtja végre.
+
+
+============================================================
+41. TOOLTIP PROBING DESIGN
+============================================================
+
+Identity uncertainty esetén:
+
+Entity candidate
+→ ActivePerception request
+→ mouse hover / target probe
+→ tooltip appears
+→ TargetedOCR / telemetry
+→ identity evidence
+→ WorldModel update
+
+TooltipProbeResult:
+
+track_id
+text
+normalized_name
+role clues
+confidence
+timestamp
+
+A probe bounded.
+
+Ne hovereljen végig 100 candidate-et végtelenül.
+
+
+============================================================
+42. TARGET FRAME ASSOCIATION
+============================================================
+
+Ha player targetel entityt:
+
+TargetState evidence
++
+World3D track
+→ association.
+
+Funkció:
+
+associate_target_to_track(target_state, tracks)
+
+Evidence:
+
+name match
+screen relation
+recent target command
+mouseover
+visual cue.
+
+Kimenet:
+target_track_id belief.
+
+
+============================================================
+43. MOUSEOVER ASSOCIATION
+============================================================
+
+A jelenlegi mouseover association megtartható.
+
+Funkció:
+
+associate_mouseover_to_track()
+record_anchor()
+validate_anchor_after_motion()
+
+Anchor invalidation:
+
+player moved too far
+camera heading changed
+sample stale
+world context changed
+
+A meglévő visual_approach kódban már van ilyen logika; canonical service-be kell rendezni.
+
+
+============================================================
+44. VISUAL APPROACH SUPPORT
+============================================================
+
+A jelenlegi VisualApproachControllerből a perception-specifikus mérések World3D-be kerüljenek,
+a steering authority Navigation alá.
+
+World3D ad:
+
+target bearing
+target scale
+track confidence
+occlusion state
+obstacle evidence
+interaction readiness
+sample age
+
+Navigation/VisualServoController dönt:
+
+turn
+forward
+stop
+reacquire.
+
+
+============================================================
+45. VISUAL SERVO MEASUREMENT
+============================================================
+
+VisualServoMeasurement:
+
+track_id
+bearing_error
+scale_fraction
+scale_delta
+track_confidence
+occlusion_state
+interactability
+obstacle_center_probability
+visual_sample_time
+camera_stable
+ego_motion_confidence
+
+Ez legyen a visual approach standard inputja.
+
+
+============================================================
+46. VISUAL SEEK SUPPORT
+============================================================
+
+A jelenlegi SeekVisualCueController logikáját SearchSkill + World3D API felé rendezd.
+
+World3D:
+candidate retrieval + negative evidence.
+
+SearchSkill:
+kamera szektor választás és movement search.
+
+Nincs két külön authority.
+
+
+============================================================
+47. SCENE CHANGE DETECTOR
+============================================================
+
+Funkció:
+
+detect_large_scene_change(prev, current)
+
+Ok:
+
+loading ended
+teleport
+camera snap
+phase change
+indoor transition
+vehicle camera
+cutscene.
+
+Output:
+SceneChangeObservation.
+
+WorldModel/Supervisor invalidációt indíthat.
+
+
+============================================================
+48. LIGHTING / VISUAL CONDITION QUALITY
+============================================================
+
+World3DBatch diagnostics tartalmazzon:
+
+brightness
+contrast
+motion_blur_estimate
+ui_occlusion_fraction
+scene_visibility_quality
+
+Ha poor:
+confidence downweight.
+
+Ne adjon ugyanakkora confidence-et sötét, motion-blurred frame-re.
+
+
+============================================================
+49. DETECTOR FUSION
+============================================================
+
+Ha több detector ugyanazt a candidate-et találja:
+
+nameplate
+generic visual
+quest cue
+interact cue
+
+fusion:
+
+raw detections
+→ association
+→ track
+→ semantic beliefs.
+
+Ne legyen négy entity ugyanarra az NPC-re.
+
+
+============================================================
+50. SEMANTIC FUSION
+============================================================
+
+A jelenlegi VisionSemanticFusion továbbfejlesztendő.
+
+Input:
+
+track
+nameplate
+quest cue
+interact cue
+tooltip
+target state
+mouseover
+quest context
+minimap association
+
+Output:
+
+WorldEntityObservation:
+
+track_id
+type_beliefs
+role_beliefs
+identity_belief
+hostility_belief
+alive_belief
+interactability
+bearing
+distance
+motion
+bbox
+visibility
+confidence
+evidence_refs
+
+
+============================================================
+51. CONFIDENCE MODEL
+============================================================
+
+Minden belief confidence.
+
+Ne legyen díszszám.
+
+Confidence source-specific.
+
+Példa:
+
+tooltip exact name > visual appearance.
+
+Use:
+
+source reliability
+freshness
+multi-source agreement
+contradiction penalty
+occlusion penalty
+camera instability penalty
+
+effective_confidence.
+
+
+============================================================
+52. HYSTERESIS
+============================================================
+
+Entity type/identity/role ne flappeljen frame-ről frame-re.
+
+Példa:
+
+role accept threshold .85
+role retain threshold .65
+
+Ha .82 → .78:
+ne dobja el azonnal.
+
+Strong contradictory evidence:
+azonnali csökkentés engedélyezett.
+
+
+============================================================
+53. TEMPORAL DEBOUNCE
+============================================================
+
+Single-frame:
+
+quest cue
+interaction cue
+nameplate
+obstacle
+
+ne váltson kritikus state-et.
+
+Kivétel:
+high-reliability target/telemetry evidence.
+
+Config:
+min_stable_frames vagy stable_ms.
+
+
+============================================================
+54. FRESHNESS
+============================================================
+
+Track data:
+
+FRESH
+STALE
+EXPIRED
+
+Példa:
+
+screen position gyorsan stale.
+identity lassabban stale.
+
+Minden fieldnek külön freshness policy is lehet.
+
+Track:
+
+last_visual_seen
+last_semantic_confirmed
+last_identity_confirmed.
+
+
+============================================================
+55. VISUAL MEMORY
+============================================================
+
+World3D local VisualMemory:
+
+recent signatures
+last known local bearing
+last seen bbox
+confirmed identity linkage
+
+Nem hosszú távú spatial memory.
+
+Funkció:
+
+remember_track()
+match_recent_signature()
+reacquire_candidate()
+expire_recent_visual_memory()
+
+
+============================================================
+56. HARD EXAMPLE COLLECTOR
+============================================================
+
+A jelenlegi HardExampleCollector jó fejlesztői képesség.
+
+Trigger:
+
+low confidence
+detector disagreement
+wrong identity later confirmed
+quest no-credit after high-confidence target
+track loss
+false obstacle
+failed entrance candidate
+
+Save:
+
+crop
+context metadata
+detector outputs
+final label if later known.
+
+Ez későbbi training/debug datasethez használható.
+
+
+============================================================
+57. DATASET / MODEL ADAPTER
+============================================================
+
+World3D architecture ne legyen egy modellhez kötve.
+
+Detector interface:
+
+detect(frame/roi) -> detections
+
+Adapter lehet:
+
+heuristic
+YOLO
+custom model
+template
+color segmentation
+
+Semantic contract azonos.
+
+Így később modell cserélhető.
+
+
+============================================================
+58. LEARNED DETECTOR USE
+============================================================
+
+Ha YOLO/egyéb learned detector van:
+
+classes ne legyenek túl quest-specificek.
+
+Jó:
+
+NPC
+hostile_unit
+corpse
+quest_object
+door
+cave_entrance
+nameplate
+
+Rossz:
+quest_55122_target_3
+
+Quest-specific identity WorldModel/semantic fusion feladata.
+
+
+============================================================
+59. FALSE POSITIVE CONTROL
+============================================================
+
+Detector candidate nem lehet automatikus entity truth.
+
+Require:
+
+stable frames
+track continuity
+context
+semantic cues
+tooltip if needed
+
+TargetSkill confidence threshold alapján választ.
+
+
+============================================================
+60. FALSE NEGATIVE CONTROL
+============================================================
+
+Egy detector hiánya esetén fallback:
+
+nameplate
+motion
+interact cue
+tooltip probe
+mouseover
+quest context.
+
+Ne egy detector legyen single point of failure.
+
+
+============================================================
+61. MULTI-SCALE DETECTION
+============================================================
+
+Distant entity:
+small nameplate / cue.
+
+Near entity:
+body/object highlight.
+
+Pipeline használhat:
+
+full ROI low-res pass
++
+targeted high-res crops.
+
+Optimalizáció:
+csak candidate ROI-kon high-cost OCR/model.
+
+
+============================================================
+62. FRAME SCHEDULING
+============================================================
+
+Nem minden komponens ugyanazon a Hz-en.
+
+Példa design:
+
+tracker update: minden frame/capture cycle
+cheap nameplate: magasabb Hz
+generic detector: közepes
+heavy learned detector: közepes/alacsony
+OCR: event-driven
+scene geometry: közepes
+entrance detector: csak search contextben
+
+Profiling alapján.
+
+
+============================================================
+63. LATENCY BUDGET
+============================================================
+
+Mérendő:
+
+scene extraction
+candidate detection
+nameplate
+tracking
+geometry
+motion
+semantic fusion
+OCR
+batch total
+
+World3DBatch tartalmazza.
+
+Local navigation számára:
+friss bearing/track fontosabb, mint minden heavy semantic pass.
+
+
+============================================================
+64. BACKPRESSURE
+============================================================
+
+Ha Vision nem ér utol capture-t:
+
+drop old frames.
+latest-state first.
+
+Tracker frame sequence gap-et kezeljen.
+
+Tilos:
+régi frame-ek sorban feldolgozása több másodperces laggal.
+
+
+============================================================
+65. THREADING MODEL
+============================================================
+
+Capture producer.
+Vision worker.
+WorldModel consumer.
+
+World3D internal track state egy writer thread/task tulajdona.
+
+Ne több thread írja egyszerre a tracker state-et.
+
+
+============================================================
+66. RESET / INVALIDATION
+============================================================
+
+World3D.invalidate(reason)
+
+Reason:
+
+LOADING
+TELEPORT
+PHASE_CHANGE
+MAP_CONTEXT_CHANGE_MAJOR
+CAMERA_MODE_CHANGE
+VEHICLE_ENTER
+VEHICLE_EXIT
+WINDOW_RESIZE
+HUD_LAYOUT_CHANGE
+
+Invalidál:
+
+screen tracks
+camera motion history
+local landmarks
+geometry
+search visual coverage
+
+Identity memory részben megőrizhető WorldModelben,
+de World3D local track ID-k ne éljenek át teleportot.
+
+
+============================================================
+67. WINDOW RESIZE / UI SCALE
+============================================================
+
+Frame dimension change:
+
+rebuild ROI
+clear incompatible screen-space track history
+recalibrate detector geometry
+emit VISION_GEOMETRY_RESET.
+
+
+============================================================
+68. CAMERA ZOOM CHANGE
+============================================================
+
+Zoom megváltoztatja bbox scale-distance kapcsolatot.
+
+Detect:
+
+global scale/parallax pattern
+known camera input
+
+Distance scale confidence csökkentendő,
+amíg új baseline stabilizálódik.
+
+
+============================================================
+69. CAMERA PITCH
+============================================================
+
+Extreme pitch:
+traversability unreliable.
+
+CameraState:
+
+pitch_category:
+DOWN
+NORMAL
+UP
+UNKNOWN
+
+Navigation kérhet preferred camera restorationt.
+
+
+============================================================
+70. VEHICLE CAMERA
+============================================================
+
+Vehicle camera lehet eltérő.
+
+On vehicle:
+separate camera profile
+disable unsupported assumptions
+lower entity-scale distance prior.
+
+World3D működjön,
+de profile-aware.
+
+
+============================================================
+71. COMBAT VISUAL PRIORITY
+============================================================
+
+Combat alatt fontos:
+
+target track
+nameplate
+health/cast cues
+hostile candidates
+LOS obstacle evidence.
+
+Quest object OCR alacsonyabb prioritás.
+
+Scheduler context-aware legyen.
+
+
+============================================================
+72. QUEST SEARCH VISUAL PRIORITY
+============================================================
+
+Quest local search alatt:
+
+quest cues
+interact cue
+NPC/object candidates
+tooltip probes
+entrance detection
+
+kap magasabb prioritást.
+
+
+============================================================
+73. NAVIGATION VISUAL PRIORITY
+============================================================
+
+Navigation alatt:
+
+traversability
+obstacle
+landmark motion
+target bearing
+entrance
+
+prioritás.
+
+
+============================================================
+74. LOCAL WORLD MODEL OUTPUT
+============================================================
+
+World3D belső LocalWorldView:
+
+LocalWorldView {
+    tracked_entities
+    traversability
+    obstacles
+    entrances
+    landmarks
+    camera_state
+    ego_motion
+    visibility_quality
+}
+
+Ez publikálható WorldModel felé observationként.
+
+
+============================================================
+75. ENTITY QUERY
+============================================================
+
+find_candidates(query)
+
+Query:
+
+type?
+role?
+identity?
+hostility?
+interactable?
+screen region?
+minimum confidence?
+visible only?
+include occluded?
+
+Kimenet:
+ranked track refs.
+
+A ranking perception ranking,
+nem planner ranking.
+
+
+============================================================
+76. BEST LOCAL INTERACTABLE
+============================================================
+
+get_interactables(query)
+
+Rendezés:
+
+identity relevance
+quest role
+interactability
+bearing
+distance
+confidence.
+
+InteractSkill végső döntést validál.
+
+
+============================================================
+77. BEST LOCAL HOSTILE
+============================================================
+
+get_hostiles(query)
+
+Rendezés:
+
+target identity match
+quest-role match
+visibility
+distance
+confidence.
+
+Combat/TargetSkill használja.
+
+
+============================================================
+78. LOCAL ENTRANCE QUERY
+============================================================
+
+get_entrances(search_context)
+
+Returns:
+
+candidate
+kind
+bearing
+traversable belief
+confidence
+failed_before? via external memory context.
+
+
+============================================================
+79. VISUAL TARGET LOCK
+============================================================
+
+Amikor TargetSkill/InteractSkill egy tracket kiválaszt:
+
+VisionLockRequest:
+
+track_id
+importance
+expected_duration
+
+Tracker:
+nagyobb retention/reacquire budget.
+
+Ez nem garantált target lock,
+csak tracking priority.
+
+
+============================================================
+80. TRACK PRIORITY
+============================================================
+
+Prioritás:
+
+ACTIVE_SKILL_TARGET
+QUEST_TARGET
+COMBAT_HOSTILE
+INTERACTABLE
+ENTRANCE_SEARCH
+BACKGROUND
+
+Magas priority track:
+nagyobb reacquire budget,
+gyakoribb semantic refresh.
+
+
+============================================================
+81. TRACK TERMINATION
+============================================================
+
+Track terminate:
+
+expired timeout
+major context reset
+strong evidence entity gone/dead and no longer relevant
+unrecoverable association.
+
+Terminate event:
+WORLD3D_TRACK_TERMINATED.
+
+WorldModel megtarthat identity/history recordot.
+
+
+============================================================
+82. DEATH TRACK TRANSITION
+============================================================
+
+Target dead:
+
+ACTIVE entity track
+→ DEAD/CORPSE association
+
+Ne feltétlen új unrelated corpse entity.
+
+Maintain:
+source_entity_track_id.
+
+
+============================================================
+83. QUEST NO-CREDIT FEEDBACK LOOP
+============================================================
+
+QuestProgressVerifier no-credit event visszakerülhet WorldModelbe.
+
+World3D semantic role confidence csökkenthető:
+
+"quest_objective_mob" hypothesis penalty.
+
+Nem a detector bounding box confidence-et büntetjük,
+hanem a quest-role beliefet.
+
+
+============================================================
+84. INTERACTION FAILURE FEEDBACK
+============================================================
+
+Interact failed OUT_OF_RANGE:
+distance belief update.
+
+Facing failure:
+bearing/facing model feedback.
+
+No-response:
+interactability role csökkenhet,
+de csak megfelelő contextben.
+
+
+============================================================
+85. COMBAT ERROR FEEDBACK
+============================================================
+
+OUT_OF_RANGE:
+distance lower bound evidence.
+
+FACING_WRONG_WAY:
+facing belief correction.
+
+LINE_OF_SIGHT:
+local obstacle/geometry evidence erősödhet.
+
+TARGET_LOST:
+track association/reacquire request.
+
+
+============================================================
+86. CROSS-VIEW CONTEXT
+============================================================
+
+World3D semantic fusion felhasználhatja:
+
+Minimap says quest target direction NE
++
+candidate appears right side
++
+player heading known
+
+→ candidate quest-role prior nőhet.
+
+De:
+map/minimap nem írhatja felül erős tooltip contradictiont.
+
+
+============================================================
+87. WORLD3D VALIDATOR
+============================================================
+
+A jelenlegi validation.py továbbfejlesztendő.
+
+validate_batch(batch)
+validate_track(track)
+validate_geometry()
+validate_semantics()
+
+Checks:
+
+bbox inside ROI
+coordinate space correct
+timestamp monotonic
+confidence range
+track lifecycle legal
+no impossible duplicate ID
+semantic contradictions
+stale source refs.
+
+
+============================================================
+88. DIAGNOSTICS
+============================================================
+
+World3DDiagnostics:
+
+frame_id
+fps
+latency
+active_tracks
+new_tracks
+lost_tracks
+reacquired_tracks
+nameplates
+interact cues
+quest cues
+obstacles
+entrances
+geometry_confidence
+ego_motion_confidence
+camera_state
+visibility_quality
+dropped_frames
+detector_errors
+
+
+============================================================
+89. DEBUG OVERLAY
+============================================================
+
+Developer overlay:
+
+track bbox + id
+type
+role
+identity
+confidence
+nameplate link
+interactability
+distance bucket
+bearing
+occlusion
+motion vector
+
+Traversability sectors.
+
+Obstacle regions.
+
+Entrance candidates.
+
+Camera motion.
+
+Nem éles decision authority.
+
+
+============================================================
+90. REPLAY FORMAT
+============================================================
+
+World3D replay record:
+
+FRAME_META
+DETECTOR_OUTPUT
+TRACK_UPDATE
+CAMERA_MOTION
+EGO_MOTION
+GEOMETRY
+SEMANTIC_FUSION
+NEGATIVE_EVIDENCE
+PROBE_REQUEST
+PROBE_RESULT
+
+Raw frame optional reference/path/hash.
+
+Deterministic offline replay fontos.
+
+
+============================================================
+91. WORLD3D UNIT TESTEK
+============================================================
+
+Scene ROI:
+UI exclusion
+resize
+
+Tracker:
+stable target
+crossing tracks
+temporary miss
+occlusion
+reacquire
+termination
+
+Camera motion:
+camera turn
+static scene
+player movement
+
+Distance:
+approach scale ↑
+retreat scale ↓
+
+Nameplate:
+relation colors
+track association
+
+Interaction:
+cue appears/disappears
+
+Geometry:
+center obstacle
+free side
+door candidate
+
+Negative evidence:
+complete sweep no target.
+
+
+============================================================
+92. WORLD3D INTEGRATION TESZTEK
+============================================================
+
+Scenario 1:
+NPC visible
+→ track
+→ tooltip identity
+→ interactability
+→ WorldModel.
+
+Scenario 2:
+NPC behind obstacle temporarily
+→ OCCLUDED
+→ reacquire same track.
+
+Scenario 3:
+camera rotates
+→ static NPC relative motion corrected.
+
+Scenario 4:
+player approaches target
+→ scale ↑
+→ distance belief nearer.
+
+Scenario 5:
+wall center
+→ center blocked
+→ sides free.
+
+Scenario 6:
+quest target absent after 360 scan
+→ negative evidence.
+
+Scenario 7:
+nameplate visible, body weak
+→ still maintain unit candidate.
+
+Scenario 8:
+interact icon appears
+→ INTERACTION_READY belief.
+
+
+============================================================
+93. LIVE VALIDATION
+============================================================
+
+Külön teszt:
+
+A. stationary NPC
+kamera forgatás
+track persistence.
+
+B. approach NPC
+scale/distance/interact cue.
+
+C. walk past NPC
+relative motion.
+
+D. tree/wall occlusion
+track lifecycle.
+
+E. hostile mob
+nameplate + target.
+
+F. corpse
+death continuity.
+
+G. doorway
+entrance candidate.
+
+H. collision/stuck
+obstacle evidence.
+
+Log:
+track ids
+confidence
+bearing
+scale
+ego motion
+camera motion
+interaction readiness.
+
+
+============================================================
+94. MÉRŐSZÁMOK
+============================================================
+
+Track continuity rate
+ID switch rate
+temporary-loss recovery rate
+false entity rate
+nameplate association accuracy
+interaction-ready precision
+local target reacquire rate
+obstacle false positive rate
+entrance candidate hit rate
+bearing stability
+distance trend correctness
+processing p95 latency
+
+
+============================================================
+95. CURRENT REPO → TARGET DESIGN MAP
+============================================================
+
+models.py
+→ bővítendő typed World3D contracts.
+
+scene.py
+→ maradjon canonical SceneExtractor alap.
+
+candidates.py
+→ maradjon low-level heuristic candidate detector;
+ne legyen semantic authority.
+
+tracking.py
+→ váljon canonical TemporalTrackerré;
+lifecycle + wall-clock loss + occlusion erősítendő.
+
+v2.py
+→ audit:
+ha régi monolithic perception, capability-k kivonása adapterekbe.
+
+v3.py
+→ CpuPatchTracker és detector scheduling hasznos;
+canonical pipeline-be integrálandó.
+
+v4.py
+→ VisionSemanticFusion jó irány;
+bővítendő type/role/identity/interactability/distance fusionre.
+
+ocr.py
+→ targeted OCR service;
+full-screen dependency kerülendő.
+
+validation.py
+→ batch/track invariant validatorrá bővítendő.
+
+probe.py
+→ dev/probe toolingként maradhat.
+
+camera_controller.py
+→ camera actuation marad agent/service oldalon;
+World3D csak CameraState-et állít elő.
+
+vision_seek.py
+→ SearchSkill strategyhoz migrálandó;
+ne legyen külön high-level authority.
+
+visual_approach.py
+→ visual servo controller NavigationService alatt;
+perception measurementek World3D canonical outputból jöjjenek.
+
+
+============================================================
+96. AJÁNLOTT VÉGSŐ MODULSTRUKTÚRA
+============================================================
+
+Nem kötelező pontos filenameszerkezet,
+de felelősségben valami ilyen:
+
+world3d/
+    models.py
+    pipeline.py
+    scene.py
+
+    detection/
+        candidates.py
+        nameplates.py
+        quest_cues.py
+        interact_cues.py
+        objects.py
+        entrances.py
+        obstacles.py
+
+    tracking/
+        tracker.py
+        association.py
+        appearance.py
+        occlusion.py
+
+    motion/
+        camera.py
+        ego_motion.py
+        optical_flow.py
+
+    geometry/
+        traversability.py
+        obstacles.py
+        entrances.py
+        landmarks.py
+
+    semantics/
+        fusion.py
+        interactability.py
+        distance.py
+        roles.py
+
+    active_perception/
+        requests.py
+        tooltip_probe.py
+
+    diagnostics/
+        validation.py
+        replay.py
+        hard_examples.py
+
+
+============================================================
+97. WORLD3D PIPELINE – RÉSZLETES FUTÁSI SORREND
+============================================================
+
+Minden friss frame-nél:
+
+1. FRAME VALIDATION
+   - dimensions
+   - timestamp
+   - client context
+
+2. SCENE ROI
+   - current UI-aware viewport crop
+
+3. CAMERA STABILITY CHECK
+
+4. CHEAP DETECTORS
+   - nameplates
+   - known cues
+   - fast candidates
+
+5. MOTION ESTIMATION
+   - global scene motion
+   - camera/ego-motion
+
+6. TRACK PREDICTION
+
+7. CANDIDATE ↔ TRACK ASSOCIATION
+
+8. TRACK UPDATE
+
+9. CONTEXT-AWARE DETECTORS
+   - quest cue
+   - interaction cue
+   - object
+   - entrance/obstacle if needed
+
+10. SCENE GEOMETRY
+
+11. NAMEPLATE / CUE ASSOCIATION
+
+12. SEMANTIC FUSION
+
+13. DISTANCE / BEARING / MOTION BELIEF
+
+14. INTERACTABILITY BELIEF
+
+15. NEGATIVE EVIDENCE UPDATE
+
+16. VALIDATION
+
+17. NORMALIZED BATCH PUBLISH
+
+18. DIAGNOSTICS / REPLAY RECORD
+
+
+============================================================
+98. CONTEXT-AWARE DETECTOR SCHEDULING
+============================================================
+
+Normal exploration:
+cheap candidate + tracking.
+
+Quest local search:
+quest/object/interact detectors ↑
+
+Combat:
+nameplate/hostile/target priority ↑
+
+Navigation:
+geometry/obstacle/landmark ↑
+
+Entrance search:
+entrance detector ↑
+
+Identity probe:
+OCR/tooltip ↑
+
+Ezzel a rendszer gyorsabb és célzottabb.
+
+
+============================================================
+99. CRITICAL SUCCESS RULES
+============================================================
+
+A World3D akkor jó, ha:
+
+- nem csak frame-enként detektál, hanem trackel;
+- nem veszti el azonnal az occluded entityt;
+- kamera motiont nem keveri entity motionnel;
+- tud relative bearinget;
+- tud distance trendet;
+- tud interakciós readiness evidence-et;
+- tud nameplate-et first-class cue-ként használni;
+- tud lokális obstacle/traversability evidence-et;
+- tud entrance candidate-et;
+- tud negative evidence-et;
+- tud local searcht támogatni;
+- tooltip/target evidence-dzsel identityt erősít;
+- confidence/freshness minden fontos state-en jelen van;
+- nincs quest/business logic a detectorban;
+- nincs input authority a Visionben;
+- replayelhető;
+- diagnosztizálható.
+
+
+============================================================
+100. LEGFONTOSABB DESIGN ELV
+============================================================
+
+A World3D Vision NE ezt próbálja megmondani:
+
+"Menj oda és beszélj Captain Garrickkel."
+
+Hanem ezt:
+
+"Látok egy stabil NPC tracket a viewport jobb-közép részén.
+A track id: entity_128.
+NPC type confidence: 0.97.
+Identity belief Captain Garrick: 0.74.
+Quest turn-in role belief: 0.91.
+Tooltip confirmation még nincs.
+Bearing: +0.21 jobbra.
+Distance belief: NEAR.
+Interactability: POSSIBLE.
+Interaction icon nincs még.
+Track ACTIVE.
+Occlusion: 0.04.
+Center path részben szabad.
+Confidence-ek friss, 80 ms-os evidence-ből származnak."
+
+Majd:
+
+TargetSkill / ActivePerception:
+tooltip probe.
+
+Új evidence:
+
+identity Captain Garrick: 0.99.
+
+Navigation:
+approach.
+
+World3D:
+distance → VERY_NEAR,
+interaction cue detected.
+
+InteractSkill:
+INTERACTION_READY.
+
+Ez a helyes felelősségi modell.
+
+
+============================================================
+101. DESIGN ACCEPTANCE
+============================================================
+
+A World3D design akkor tekinthető teljesnek, ha az implementáció során minden alábbi kérdésre van egyetlen válasz:
+
+Ki detektál candidate-et?
+Ki trackeli?
+Ki kezeli occlusiont?
+Ki becsül camera motiont?
+Ki becsül ego-motiont?
+Ki ad bearinget?
+Ki ad distance beliefet?
+Ki detektál nameplate-et?
+Ki kapcsolja nameplate-et entityhez?
+Ki ad interactability evidence-et?
+Ki ad traversability evidence-et?
+Ki ad obstacle candidate-et?
+Ki ad entrance candidate-et?
+Ki állít elő negative evidence-et?
+Ki kér tooltip probe-ot?
+Ki kapcsol tooltipet trackhez?
+Ki invalidál teleportnál?
+Ki ad replay recordot?
+Ki validálja a batch-et?
+
+Ha valamelyikre két authoritative válasz van:
+a design még nem kész.
+
+
+============================================================
+102. WOW-SPECIFIKUS TERVEZÉSI TÁMPONTOK
+============================================================
+
+A WoW kliens modern accessibility/targeting működését a designban first-class evidence-ként kezeljük:
+
+- Interact Key segítségével NPC-k és objektumok billentyűvel interaktálhatók.
+- Az interaktív NPC-k/objektumok megfelelő közelségben és facingnél kiemelést/icon evidence-et adhatnak.
+- Az Interact Key quest-item interakcióknál is használható.
+- Action Targeting a nézés iránya/közelség alapján automatikusan enemy targetet választhat.
+- Soft-target CVars bizonyos esetekben további interact icon/nameplate cue-kat engedhetnek.
+- A Midnight-era default nameplate-ek több combat-releváns információt jelenítenek meg.
+
+Tervezési következtetés:
+
+nameplate,
+interact cue,
+soft-target cue,
+target frame
+
+nem opcionális "extra UI zaj",
+hanem használható perception evidence.
+
+Ugyanakkor egyik sem lehet önmagában teljes identity authority.
+
+
+============================================================
+103. VÉGSŐ CÉLARCHITEKTÚRA EGY MONDATBAN
+============================================================
+
+A World3D Vision legyen:
+
+EGY IDŐBELI, BIZONYTALANSÁG-TUDATOS, MULTI-CUE LOKÁLIS VILÁGREPREZENTÁCIÓ,
+
+amely nem csak azt detektálja, hogy "mi van a képen",
+hanem stabilan megmondja:
+
+- mely vizuális objektumok ugyanazok időben;
+- mi valószínűleg entity/object/obstacle/entrance;
+- hol vannak a viewporthoz képest;
+- közeledünk-e hozzájuk;
+- mozognak-e saját maguk;
+- eltűntek-e vagy csak takarásban vannak;
+- interaktálhatók-e;
+- milyen lokális irány járhatónak tűnik;
+- milyen evidence hiányzik a biztos azonosításhoz;
+
+és ezt normalizált, replayelhető, confidence/freshness alapú observationként adja tovább a WorldModelnek.
+
+END OF WORLD3D VISION DESIGN SPECIFICATION

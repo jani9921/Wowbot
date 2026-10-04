@@ -1,0 +1,1671 @@
+WORLD OF WARCRAFT AUTONOMOUS CLIENT AGENT
+V5 POST‑V4 IMPLEMENTATION HARDENING MASTER PROMPT
+=================================================
+
+FONTOS
+======
+
+EZT A PROMPTOT CSAK AKKOR HASZNÁLD, HA A V4 MASTER PROMPT VÉGREHAJTÁSA MÁR BEFEJEZŐDÖTT.
+
+A V5 NEM egy újabb teljes újratervezés.
+A V5 célja:
+- a V4 utáni tényleges repository auditálása;
+- a megvalósítás formálisabbá tétele;
+- az ownership-határok ellenőrzése;
+- a félkész / párhuzamos migrációk megszüntetése;
+- a state machine-ek teljes specifikálása;
+- a data contractok rögzítése;
+- a navigation/search/UI/event rendszerek determinisztikusabbá tétele;
+- replay és live-validáció olyan szintre emelése, hogy egy hiba reprodukálható és lokalizálható legyen;
+- annak megakadályozása, hogy a V4 "papíron kész", de a valóságban homályos ownershipű vagy nehezen debugolható rendszer maradjon.
+
+NEM SZABAD:
+- a V4 architektúrát figyelmen kívül hagyni;
+- új párhuzamos runtime-ot építeni;
+- új planner-rendszert írni a meglévő mellé;
+- új navigation stacket létrehozni a canonical mellett;
+- csak dokumentációs auditot készíteni kódmódosítás nélkül;
+- "minden jó" jelentést adni anélkül, hogy ténylegesen végignézted a teljes repo call-site-jait;
+- a V4-ben már meglévő, működő megoldást újraírni pusztán név vagy stílus miatt.
+
+A V5 MINDIG A POST‑V4 REPO TÉNYLEGES ÁLLAPOTÁBÓL INDUL.
+
+=================================================
+1. ELSŐ LÉPÉS: POST‑V4 REPOSITORY FORENSIC AUDIT
+=================================================
+
+Mielőtt BÁRMIT módosítasz:
+
+1. Listázd ki a teljes projektstruktúrát.
+2. Olvasd el:
+   - README
+   - ARCHITECTURE
+   - CHANGELOG
+   - M0_IMPLEMENTATION
+   - M1_QUEST_EXECUTION
+   - MIGRATION
+   - DEAD_CODE_AUDIT
+   - TEST_REPORT
+   - KNOWN_LIMITATIONS
+3. Azonosítsd a tényleges entry pointokat.
+4. Keresd meg az összes:
+   - runtime loop
+   - supervisor
+   - planner
+   - active skill runtime
+   - world model
+   - world query
+   - objective classifier
+   - objective locator
+   - map resolver
+   - minimap resolver
+   - navigation service
+   - movement skill
+   - search skill
+   - interact skill
+   - combat skill
+   - loot skill
+   - use-item skill
+   - quest runtime
+   - quest progress verifier
+   - executor
+   - retry policy
+   - timeout policy
+   - event bus
+   - replay recorder/player
+5. Minden fontos class/function esetében keresd:
+   - importok
+   - példányosítások
+   - hívási helyek
+   - állapotírások
+   - callbackek
+   - közvetlen mezőmódosítások
+6. Készíts tényleges ownership-térképet a KÓDBÓL.
+
+NE a V4 dokumentációt tekintsd igazságnak.
+A repo ténylegesen futó kódja az igazság.
+
+=================================================
+2. KÖTELEZŐ POST‑V4 OWNERSHIP AUDIT
+=================================================
+
+Minden kulcsfelelősségnek pontosan EGY authoritative owner-e legyen.
+
+Auditáld:
+ACTIVE SKILL OWNER
+QUEST EXECUTION OWNER
+CURRENT QUEST GOAL OWNER
+NAVIGATION OWNER
+FACING OWNER
+TARGET SELECTION OWNER
+COMBAT OWNER
+INTERACTION OWNER
+QUEST PROGRESS VERIFICATION OWNER
+UI CONTEXT OWNER
+RETRY OWNER
+TIMEOUT OWNER
+STUCK DETECTION OWNER
+INPUT EXECUTOR OWNER
+EVENT ORDER OWNER
+
+Készíts táblát:
+Responsibility
+Canonical owner
+Legacy owners found
+Direct state mutation sites
+Decision
+Migration status
+
+Egy felelősség sem maradhat két authoritative komponens között megosztva.
+
+=================================================
+3. CANONICAL INVARIANTS
+=================================================
+
+Kódba és tesztekbe rögzíts invariánsokat.
+
+Minimum:
+
+INVARIANT A
+Egyszerre legfeljebb 1 ActiveSkill lehet RUNNING/STARTING.
+
+INVARIANT B
+Planner nem mutálhat közvetlen executor vagy skill belső state-et.
+
+INVARIANT C
+WorldModel nem küld inputot.
+
+INVARIANT D
+Executor nem értelmez questet, target role-t vagy planner döntést.
+
+INVARIANT E
+RUNNING skill alatt nincs normál planner re-entry.
+
+INVARIANT F
+Quest objective stage változás invalidálja a régi objective-localization beliefet.
+
+INVARIANT G
+Loading / teleport / phase change invalidálja a screen-space és local-route state-et.
+
+INVARIANT H
+Action success nem jelent automatikusan quest-credit success-t.
+
+INVARIANT I
+Non-retryable failure után ugyanaz a DecisionFingerprint nem adható ki új evidence nélkül.
+
+INVARIANT J
+Cancel / fatal error után nincs held key.
+
+INVARIANT K
+Minden terminal skill állapot typed reasonnal és eventtel zárul.
+
+INVARIANT L
+Egyetlen navigation authority létezik.
+
+INVARIANT M
+Egyetlen stuck detector authority létezik.
+
+INVARIANT N
+Egyetlen UI-context owner létezik.
+
+Írj ezekhez automatikus architecture guard / runtime assertion teszteket.
+
+=================================================
+4. REPO-SPECIFIKUS MIGRÁCIÓS TÉRKÉP
+=================================================
+
+A V5 egyik fő feladata: ne általános tanácsot adj, hanem a tényleges post‑V4 repót formalizáld.
+
+Készíts:
+POST_V4_MIGRATION_MAP.md
+
+Formátum:
+OLD MODULE / CLASS
+CURRENT ROLE
+SHOULD REMAIN?
+TARGET CANONICAL COMPONENT
+CALL SITES
+MIGRATION ACTION
+DELETE AFTER MIGRATION?
+TEST COVERAGE
+
+Tilos "majd később" kategóriában bent hagyni aktív authorityt.
+
+=================================================
+5. TELJES FSM TRANSITION TABLE KÖTELEZŐ
+=================================================
+
+A V4-ben meglévő state machine-eket most formális transition table formára kell hozni.
+
+Minden skillhez legyen:
+CURRENT STATE
+EVENT / GUARD
+ACTION
+NEXT STATE
+TIMEOUT
+FAILURE
+RETRY POLICY
+INVALIDATION EVENT
+
+Legalább:
+MovementSkill
+SearchSkill
+TargetSkill
+InteractSkill
+CombatSkill
+LootSkill
+UseItemSkill
+QuestDialogSkill
+FieldTurnInSkill
+VehicleSkill / scripted special mechanic, ha implementálva van
+
+Példa INTERACT / APPROACH:
+
+Guard:
+target invalid
+Action:
+none
+Next:
+FAILURE
+Reason:
+TARGET_INVALID
+
+Guard:
+combat started
+Action:
+cancel navigation
+Next:
+CANCELLED
+Reason:
+INTERRUPTED_BY_COMBAT
+
+Guard:
+interaction readiness >= threshold
+Action:
+stop movement
+Next:
+FACE
+
+Guard:
+navigation == STUCK
+Action:
+request bounded movement recovery
+Next:
+RECOVER_APPROACH
+
+Timeout:
+interaction_approach_timeout
+Next:
+RECOVER_APPROACH
+
+Minden transition legyen determinisztikus.
+
+=================================================
+6. FSM IMPLEMENTÁCIÓS SZABÁLYOK
+=================================================
+
+Minden FSM-nél:
+- entry action külön
+- tick action külön
+- exit cleanup külön
+- timeout explicit
+- cancel explicit
+- retry explicit
+- terminal state explicit
+
+Ne legyen egy 600 soros tickben minden state összekeverve.
+
+Preferált:
+handle_state_X()
+transition_to()
+on_enter()
+on_exit()
+
+vagy egy tiszta transition-table engine.
+
+=================================================
+7. KONKRÉT TYPED DATA CONTRACTOK
+=================================================
+
+Formalizáld:
+
+WorldSnapshot
+PlayerState
+TargetState
+CombatState
+QuestState
+QuestObjective
+UiContext
+MapState
+MinimapState
+EntityBelief
+LocationBelief
+ObjectiveLocationResult
+SkillIntent
+SkillResult
+VerificationResult
+FailureReason
+RuntimeEvent
+NavigationResult
+RetryPolicy
+TimeoutPolicy
+DecisionFingerprint
+
+Minden fieldhez:
+- típus
+- optional/required
+- jelentés
+- owner
+- freshness
+- lifecycle
+
+Ne legyen központi contractban random dict, ha typed model használható.
+
+=================================================
+8. DATA OWNERSHIP RULES
+=================================================
+
+Minden fieldhez legyen egyetlen writer-owner.
+
+Példa:
+
+QuestState
+Writer:
+QuestStateNormalizer
+
+Readers:
+QuestRuntime
+ObjectiveClassifier
+QuestProgressVerifier
+
+Tiltott:
+CombatSkill közvetlenül átírja quest.complete=True
+
+Helyette:
+CombatSkill event/observation
+→ QuestStateNormalizer
+→ QuestState update
+
+=================================================
+9. PRIORITÁSI MÁTRIX
+=================================================
+
+Készíts explicit Supervisor Priority Matrixot.
+
+Lehetséges egyidejű események:
+FATAL_ERROR
+PLAYER_DEAD
+LOADING_STARTED
+CINEMATIC_STARTED
+DISCONNECT
+COMBAT_STARTED
+QUEST_OBJECTIVE_UPDATED
+TARGET_LOST
+SKILL_TIMEOUT
+NAVIGATION_STUCK
+UI_CHANGED
+MINIMAP_MARKER_CHANGED
+
+Definiálj stabil prioritást és teszteld.
+
+Ha ugyanazon tickben:
+TARGET_DEAD
+COMBAT_ENDED
+QUEST_OBJECTIVE_UPDATED
+
+a feldolgozás sorrendje legyen determinisztikus.
+
+=================================================
+10. EVENT ORDERING CONTRACT
+=================================================
+
+Minden event kapjon:
+event_id
+sequence_no
+timestamp_monotonic
+source
+type
+payload
+
+Define processing phases:
+
+PHASE 1
+blocking/system transitions
+
+PHASE 2
+world observation updates
+
+PHASE 3
+skill-local outcomes
+
+PHASE 4
+quest-credit updates
+
+PHASE 5
+supervisor decisions
+
+PHASE 6
+new skill dispatch
+
+=================================================
+11. EVENT IDEMPOTENCY
+=================================================
+
+Ugyanaz az event kétszer ne:
+- accepteljen questet kétszer
+- indítson két skillt
+- számoljon kétszer quest creditet
+- complete-eljen kétszer ugyanazt a turn-int
+- resetelje kétszer state-et károsan
+
+Használj:
+event_id / dedupe key
+processed-event cache
+skill command correlation id
+
+Teszteld duplicate event injectionnel.
+
+=================================================
+12. COMMAND ACKNOWLEDGEMENT MODELL
+=================================================
+
+Minden command kapjon:
+command_id
+type
+payload
+issued_at
+dispatch_state
+ack_state?
+correlation_id
+skill_runtime_id
+
+Állapot:
+QUEUED
+DISPATCHED
+ACKNOWLEDGED_LOCAL
+CANCELLED
+FAILED
+
+ACKNOWLEDGED_LOCAL csak azt jelenti:
+executor ténylegesen elküldte az inputot.
+
+Ez NEM world success.
+
+=================================================
+13. INPUT IDEMPOTENCY / RATE LIMIT
+=================================================
+
+Érzékeny inputokra:
+INTERACT
+QUEST_ACCEPT
+QUEST_COMPLETE
+GOSSIP_SELECT
+QUEST_TOOL
+EXTRA_ACTION
+USE_ITEM
+
+legyen resend window / cooldown policy.
+
+CommandFingerprint:
+(skill_runtime_id, phase, action_type, target_ref)
+
+azonos és cooldown aktív:
+ne küldd újra.
+
+=================================================
+14. UI STATE MACHINE FORMALIZÁLÁSA
+=================================================
+
+Primary states:
+WORLD
+MAP
+QUEST_LOG
+GOSSIP
+QUEST_OFFER
+QUEST_COMPLETE
+QUEST_REWARD
+LOOT
+VENDOR
+DIALOG
+SPECIAL_UI
+UNKNOWN
+
+Blocking:
+LOADING
+CINEMATIC
+PLAYER_DEAD
+DISCONNECTED
+VEHICLE_OVERRIDE
+SCRIPTED_LOCK
+
+Overlays:
+QUEST_TOOL_BUTTON
+EXTRA_ACTION_BUTTON
+CONFIRMATION_POPUP
+FIELD_TURN_IN
+TUTORIAL
+OBJECTIVE_POPUP
+
+Készíts engedélyezett transition mapot.
+
+=================================================
+15. UI ACTION GUARDOK
+=================================================
+
+Minden UI action előtt:
+expected primary state?
+blocking state absent?
+panel stable?
+target quest/entity still valid?
+input cooldown expired?
+
+QuestAccept csak QUEST_OFFER state-ben.
+
+=================================================
+16. KOORDINÁTARENDSZER CONTRACT
+=================================================
+
+Lehetséges rendszerek:
+
+SCREEN_PIXELS
+SCREEN_NORMALIZED
+MINIMAP_POLAR
+MINIMAP_NORMALIZED_XY
+WORLD_MAP_NORMALIZED_XY
+ZONE_MAP_XY
+WORLD_XYZ
+ENTITY_RELATIVE
+CAMERA_RELATIVE
+
+Minden coordinate object tartalmazzon coordinate_space enumot.
+
+Tilos coordinate_space nélküli x/y központi adatmodellben.
+
+=================================================
+17. KOORDINÁTA KONVERZIÓ
+=================================================
+
+Minden konverziónak explicit adaptere legyen.
+
+Tilos map pixelből közvetlen world XYZ-t feltételezni hiteles transzformáció nélkül.
+
+Ha nincs hiteles konverzió:
+cue-based navigation.
+
+=================================================
+18. NAVIGATION CONTROL SPEC
+=================================================
+
+Formalizáld:
+
+Global layer:
+world map / known location
+
+Regional:
+minimap / nav cue
+
+Local:
+vision / entity / obstacle
+
+Immediate:
+approach / face / interaction range
+
+Progress metrics:
+distance_delta?
+bearing_error?
+minimap_radial_delta?
+bbox_scale_delta?
+scene_motion?
+time_since_progress?
+
+=================================================
+19. HEADING CONTROL
+=================================================
+
+Ha numerikus:
+normalized angular error.
+
+Ha cue-based:
+screen/minimap bearing error.
+
+Legyen hysteresis:
+aligned_enter_threshold
+aligned_exit_threshold
+
+Ne oszcilláljon bal-jobb.
+
+=================================================
+20. ARRIVAL HYSTERESIS
+=================================================
+
+Arrival ne legyen egy threshold.
+
+arrival_enter
+arrival_exit
+
+Kerüld:
+ARRIVED
+RUNNING
+ARRIVED
+RUNNING
+
+=================================================
+21. MOVING TARGET HANDLING
+=================================================
+
+NPC/mob/escort mozoghat.
+
+Használj:
+target motion smoothing
+replan threshold
+last-known track
+
+Ne resetelj teljesen minden frame-ben.
+
+=================================================
+22. SEARCH ALGORITHM FORMALIZÁLÁSA
+=================================================
+
+Search modes:
+CAMERA_SWEEP
+RADIAL_LOCAL
+GRID_LOCAL
+PATH_EDGE
+ENTRANCE_SEARCH
+ENTITY_REACQUIRE
+
+SearchContext:
+origin
+search_area
+coverage_map
+camera_sectors
+visited_points
+candidate_history
+failed_candidates
+budget_time
+budget_distance
+budget_scans
+
+=================================================
+23. CAMERA SWEEP
+=================================================
+
+Oszd headinget szektorokra.
+
+Minden unscanned sector:
+- bounded rotate
+- frame stabilize
+- scan
+- mark checked
+
+360 coverage után:
+expand / move / fail stage.
+
+Ne forogjon örökké.
+
+=================================================
+24. AREA COVERAGE
+=================================================
+
+Search cell állapot:
+UNVISITED
+VISITED
+BLOCKED
+LOW_VISIBILITY
+TARGET_FOUND
+
+Prefer nearest/highest-information unvisited.
+
+VISITED csak context change vagy policy alapján revisitelhető.
+
+=================================================
+25. ENTRANCE SEARCH
+=================================================
+
+Külön bounded policy:
+- boundary scan
+- edge follow
+- detect door/cave/stairs
+- failed entrance cache
+- coverage limit
+
+Ne próbálja ugyanazt a rossz bejáratot végtelenül.
+
+=================================================
+26. SEARCH BUDGET
+=================================================
+
+max_time
+max_distance
+max_scan_count
+max_revisits
+max_candidate_failures
+
+Budget exhausted:
+typed result.
+
+=================================================
+27. OBJECTIVE LOCATOR DECISION TABLE
+=================================================
+
+Formalizált thresholdok:
+
+local entity
+→ minimap
+→ world map
+→ reliable memory
+→ search area
+→ unknown
+
+Minden threshold config-driven.
+
+=================================================
+28. LOCATION INVALIDATION MATRIX
+=================================================
+
+Készíts mátrixot eseményenként.
+
+OBJECTIVE_CHANGED
+LOADING_END
+MAP_CONTEXT_CHANGED
+PLAYER_DIED
+PHASE_CHANGED
+TELEPORT
+FLOOR_CHANGED
+
+Minden eseményhez:
+mit invalidál?
+mit őriz meg?
+
+Teszteld.
+
+=================================================
+29. STATE INVALIDATION POLICY
+=================================================
+
+Ne ad hoc mezőtörlés legyen.
+
+Készíts canonical StateInvalidationPolicy-t.
+
+Event-driven.
+Logged.
+Testable.
+
+=================================================
+30. QUEST CREDIT LEARNING
+=================================================
+
+Track:
+
+QuestStrategyHistory {
+    objective_ref
+    candidate_target
+    strategy
+    action_result
+    quest_credit_result
+    attempts
+    confidence_adjustment
+}
+
+Action success + no credit:
+csökkentse target/strategy confidence-et.
+
+Credit true:
+erősítse.
+
+Quest-local deterministic evidence learning.
+
+=================================================
+31. FAILED CREDIT CANDIDATE CACHE
+=================================================
+
+Track:
+entity/name/type
+objective_ref
+reason
+timestamp
+
+Ne válassza vissza azonnal.
+
+Csak:
+new evidence
+context change
+TTL expiry
+different strategy
+
+=================================================
+32. PLANNER DECISION FINGERPRINT
+=================================================
+
+DecisionFingerprint:
+quest_ref
+objective_ref
+intent_type
+target_ref?
+location_ref?
+strategy
+
+Non-retryable failure után:
+same fingerprint csak new evidence mellett ismételhető.
+
+=================================================
+33. QUEST EXECUTION TRACE CONTRACT
+=================================================
+
+Minden stage logolja:
+
+QUEST_STAGE_START
+CLASSIFICATION
+LOCATION_SELECTED
+SKILL_START
+SKILL_RESULT
+QUEST_CREDIT
+OBJECTIVE_CHANGED
+RECLASSIFY
+
+A trace-ből rekonstruálható legyen az egész döntési lánc.
+
+=================================================
+34. REPLAY JSONL SCHEMA
+=================================================
+
+Egy sor = egy JSON object.
+
+Közös mezők:
+
+schema_version
+session_id
+sequence
+monotonic_ms
+event_type
+source
+payload
+
+Record types:
+
+OBSERVATION
+WORLD_DELTA
+UI_CONTEXT
+QUEST_STATE
+MAP_STATE
+MINIMAP_STATE
+SKILL_START
+SKILL_TRANSITION
+COMMAND
+COMMAND_ACK
+VERIFICATION
+QUEST_CREDIT
+SUPERVISOR_DECISION
+PLANNER_DECISION
+FAILURE
+RECOVERY
+INVALIDATION
+
+=================================================
+35. REPLAY DETERMINIZMUS
+=================================================
+
+same input stream
+→ same state transitions
+→ same high-level decisions
+
+Randomness esetén seed rögzítendő.
+
+Replay:
+NO real input dispatch.
+
+=================================================
+36. REPLAY CHECKPOINT
+=================================================
+
+Hosszú session:
+periodic WorldSnapshot checkpoint.
+
+Replay indulhat checkpointból.
+
+=================================================
+37. GOLDEN TRACE TESTS
+=================================================
+
+Készíts canonical elvárt trace-eket.
+
+Interact:
+START
+ACQUIRE
+VALIDATE
+APPROACH
+FACE
+INTERACT
+WAIT
+VERIFY
+SUCCESS
+
+Combat recovery:
+START
+APPROACH
+ENGAGE
+OUT_OF_RANGE
+RECOVER_RANGE
+ENGAGE
+FACING_WRONG_WAY
+RECOVER_FACING
+ENGAGE
+TARGET_DEAD
+VERIFY
+SUCCESS
+
+=================================================
+38. QUEST GOLDEN TRACE
+=================================================
+
+Speak:
+READ
+CLASSIFY
+LOCATE MAP
+MOVE GLOBAL
+LOCATE MINIMAP
+MOVE LOCAL
+SEARCH
+TARGET VALIDATE
+INTERACT
+QUEST CREDIT
+RECLASSIFY
+
+Kill:
+CLASSIFY
+LOCATE
+MOVE
+SEARCH
+COMBAT
+QUEST CREDIT
+REPEAT
+
+=================================================
+39. PERFORMANCE BUDGETS
+=================================================
+
+Mérd:
+capture
+vision
+world update
+runtime tick
+navigation
+executor queue
+planner
+quest resolver
+
+p50/p95.
+
+Local control ne várjon cloud/LLM-re.
+
+=================================================
+40. SCHEDULING FREQUENCY
+=================================================
+
+Ne fusson minden komponens minden frame-en.
+
+Capture high
+local control medium-high
+world fusion medium
+map OCR low/event
+quest classification event-driven
+planner event-driven
+
+Profiling alapján állítsd.
+
+=================================================
+41. BACKPRESSURE
+=================================================
+
+Bounded queue.
+Latest-state coalescing.
+Drop stale low-value observation.
+
+Ne dolgozz fel régi minimap frame-et currentként.
+
+=================================================
+42. CONCURRENCY SAFETY
+=================================================
+
+Single writer core runtime state.
+
+Background producer:
+publish event.
+
+Test:
+complete vs cancel race
+loading during command
+target loss during interact wait
+
+=================================================
+43. COMMAND / EVENT CORRELATION
+=================================================
+
+skill_runtime_id
+phase
+correlation_id
+
+kapcsolja össze:
+command
+ack
+verification
+failure
+
+=================================================
+44. MAP/MINIMAP DETECTOR CONTRACT
+=================================================
+
+WorldMapObservation:
+map_context
+player_marker?
+quest_markers[]
+turn_in_markers[]
+areas[]
+navigation_target?
+confidence
+timestamp
+
+MinimapObservation:
+heading_reference?
+markers[]
+navigation_cue?
+confidence
+timestamp
+
+Marker:
+type_belief
+position
+coordinate_space
+confidence
+tracking_history_id
+
+Planner ne kapjon raw pixel API-t.
+
+=================================================
+45. CONFIDENCE CALIBRATION
+=================================================
+
+Ha dataset/replay frames vannak:
+kalibráld.
+
+Ha nincs:
+dokumentáld, hogy heuristic.
+
+A 0.95 ne legyen díszszám.
+
+=================================================
+46. UI DETECTOR CONTRACT
+=================================================
+
+UiObservation:
+primary_panel_beliefs[]
+blocking_state_beliefs[]
+overlay_beliefs[]
+stability_score
+timestamp
+
+UiContextResolver fuse-olja.
+
+Skills ne külön-külön raw képből találgassanak UI state-et.
+
+=================================================
+47. UI STABILITY WINDOW
+=================================================
+
+Sensitive click előtt:
+stabil UI detection N frame / minimum duration.
+
+Kerüld animáció közbeni kattintást.
+
+=================================================
+48. OCR CONTRACT
+=================================================
+
+Tárold:
+raw_text
+normalized_text
+confidence
+source_region
+
+Ne OCR-ozd a teljes képernyőt minden tickben.
+
+=================================================
+49. LOCALE
+=================================================
+
+Ne legyen core angol-only.
+
+Locale parser legyen izolált.
+
+Structured state előnyt élvez.
+
+=================================================
+50. VALIDATION LEVELS
+=================================================
+
+STATIC_VALIDATED
+UNIT_VALIDATED
+REPLAY_VALIDATED
+INTEGRATION_VALIDATED
+LIVE_SMOKE_VALIDATED
+LIVE_REPEAT_VALIDATED
+
+Egy live siker != stabil.
+
+=================================================
+51. LIVE M0 PROTOCOL
+=================================================
+
+Külön teszteld:
+NPC target
+approach
+face
+interact
+repeat
+
+Majd:
+combat
+range recovery
+facing recovery
+LOS
+loot
+stuck
+
+M1 csak utána.
+
+=================================================
+52. LIVE QUEST PROTOCOL
+=================================================
+
+Record:
+session_id
+zone
+quest
+objective
+success/failure
+failure category
+recovery count
+replans
+stuck count
+no-credit count
+
+Root cause kategória:
+PERCEPTION
+LOCATION
+NAVIGATION
+TARGETING
+INTERACTION
+COMBAT
+UI
+QUEST_CLASSIFICATION
+QUEST_CREDIT
+SUPERVISOR
+PLANNER
+SYSTEM
+
+=================================================
+53. LIVE ROOT-CAUSE GATE
+=================================================
+
+Javítás előtt keresd meg:
+az első hibás belief/state transitiont.
+
+Ne az utolsó látványos tünetet patch-eld.
+
+=================================================
+54. LIVE METRICS
+=================================================
+
+interaction success rate
+combat success rate
+navigation arrival rate
+stuck recovery rate
+quest credit rate
+stage completion rate
+full quest completion rate
+average recovery count
+replan count
+false target rate
+
+=================================================
+55. MIGRATION GATES
+=================================================
+
+Legacy törölhető ha:
+all call sites migrated
+replacement tests pass
+replay passes
+behavior contract covered
+no runtime import remains
+
+=================================================
+56. ARCHITECTURE GUARDS
+=================================================
+
+Fail, ha:
+engine új active state-et tárol
+planner executort importál közvetlenül
+WorldModel executort importál
+multiple navigation authority
+multiple stuck authority
+legacy banned import
+new mutable global runtime singleton
+
+=================================================
+57. DEPENDENCY DIRECTION
+=================================================
+
+sensors
+→ world
+→ query
+→ quest/planner intents
+→ skills/services
+→ executor
+
+Ne fordítva.
+
+=================================================
+58. ERROR BOUNDARIES
+=================================================
+
+Recoverable:
+typed failure.
+
+Fatal:
+safe stop.
+
+Ne nyelj el exceptiont.
+
+=================================================
+59. SAFE SHUTDOWN TEST
+=================================================
+
+Exception injection:
+movement
+combat
+interact wait
+loading
+
+Assert:
+keys released
+queue cleared
+skill finalized
+replay flushed
+runtime safe stopped
+
+=================================================
+60. COMPLEXITY AUDIT
+=================================================
+
+Nézd:
+LOC
+responsibility count
+cyclomatic complexity ha van tooling
+
+Csak valódi responsibility mixing miatt refaktorálj.
+
+=================================================
+61. PUBLIC API MINIMIZATION
+=================================================
+
+Canonical komponens kis API-t adjon.
+
+Ne exportálja belső mutable state-jét.
+
+=================================================
+62. QUEST MECHANIC PLUGIN INTERFACE
+=================================================
+
+Generic extension:
+
+QuestMechanicHandler
+can_handle(context)
+start()
+tick()
+verify()
+
+Quest-ID hack csak végső esetben.
+
+=================================================
+63. UNSUPPORTED MECHANIC
+=================================================
+
+Return:
+BLOCKED
+UNSUPPORTED_MECHANIC
+
+Log/replay evidence.
+
+Ne random-clickelj.
+
+=================================================
+64. FALLBACK POLICY
+=================================================
+
+Objective:
+local
+→ minimap
+→ world map
+→ memory
+→ search
+→ unknown
+
+Identity:
+tooltip/target
+→ nameplate/text
+→ quest context
+→ visual
+
+Navigation:
+coords if reliable
+→ map/minimap cue
+→ vision local
+
+=================================================
+65. THRESHOLD OWNERSHIP
+=================================================
+
+Domain config:
+identity threshold
+map threshold
+minimap threshold
+UI threshold
+interaction-ready threshold
+
+Ne callerenként eltérő magic szám.
+
+=================================================
+66. HYSTERESIS
+=================================================
+
+Belief state ne flappeljen.
+
+enter threshold
+exit threshold
+
+identity
+UI
+navigation cue
+arrival
+
+=================================================
+67. TEMPORAL DEBOUNCE
+=================================================
+
+Single-frame blip ne váltson nagy state-et.
+
+combat start
+UI open
+marker disappearance
+target loss
+
+kivéve explicit safety signal.
+
+=================================================
+68. TARGET LOSS POLICY
+=================================================
+
+lost_grace_period
+last_seen
+track
+
+Egy frame hiány != target lost.
+
+=================================================
+69. QUEST STATE DEBOUNCE
+=================================================
+
+Tracker animation/intermediate state után stabil normalize.
+
+=================================================
+70. SNAPSHOT VERSIONING
+=================================================
+
+WorldSnapshot:
+snapshot_id
+sequence
+timestamp
+
+Skill baseline exact snapshotra hivatkozik.
+
+=================================================
+71. CONFIG VERSIONING
+=================================================
+
+Replay tárolja:
+config hash/version
+detector/model version ha van
+
+=================================================
+72. TEST FIXTURES
+=================================================
+
+Reusable:
+visible_npc
+far_mob
+minimap_marker
+map_area
+loading
+player_dead
+quest_speak
+quest_kill
+quest_collect
+quest_turnin
+
+=================================================
+73. PROPERTY/FUZZ TESTS
+=================================================
+
+Jitter:
+event order
+detector dropout
+duplicate event
+stale observation
+confidence noise
+
+Assert:
+no crash
+no double skill
+no infinite loop
+no illegal transition
+
+=================================================
+74. WATCHDOG
+=================================================
+
+Ha túl sokáig nincs meaningful progress:
+RUNTIME_NO_PROGRESS
+
+Diagnostic snapshot.
+
+Ne vak restart.
+
+=================================================
+75. LIVELOCK DETECTION
+=================================================
+
+Ismétlődő:
+A → B → A → B
+
+world progress nélkül:
+escalate/fail.
+
+=================================================
+76. RESOURCE CLEANUP
+=================================================
+
+Skill end:
+timers
+subscriptions
+held movement
+locks
+search context
+
+mind cleanup.
+
+=================================================
+77. MEMORY GROWTH TEST
+=================================================
+
+Bound:
+event cache
+history
+failed candidate cache
+search coverage
+snapshot retention
+
+=================================================
+78. DEBUG VIEW
+=================================================
+
+Mutassa canonical state-ből:
+goal
+quest
+objective
+classification
+location source
+map context
+minimap cue
+skill
+phase
+target
+confidence
+command
+verification
+failure
+replan count
+credit
+
+=================================================
+79. V5 DELIVERABLES
+=================================================
+
+POST_V4_AUDIT.md
+OWNERSHIP_MAP.md
+FSM_SPEC.md
+DATA_CONTRACTS.md
+PRIORITY_MATRIX.md
+INVALIDATION_MATRIX.md
+COORDINATE_SYSTEMS.md
+REPLAY_SCHEMA.md
+GOLDEN_TRACES.md
+LIVE_VALIDATION_PLAN.md
+TEST_REPORT_V5.md
+REMAINING_RISKS.md
+
+=================================================
+80. PASS / FAIL: OWNERSHIP
+=================================================
+
+PASS:
+one ActiveSkill
+one Navigation
+one StuckDetector
+one UIContext owner
+one QuestProgressVerifier
+one executor
+planner not executing
+
+Duplicate active authority:
+FAIL.
+
+=================================================
+81. PASS / FAIL: FSM
+=================================================
+
+PASS:
+state list
+legal transitions
+cancel
+timeout
+terminal reasons
+illegal transition tests
+
+=================================================
+82. PASS / FAIL: QUEST
+=================================================
+
+PASS:
+skill success separate from quest credit
+objective change invalidates stale plan
+map/minimap/3D hierarchy
+no-credit changes strategy
+turn-in location not assumed
+field completion handled or typed unsupported
+
+=================================================
+83. PASS / FAIL: NAVIGATION
+=================================================
+
+PASS:
+coordinate spaces explicit
+arrival hysteresis
+stuck hysteresis
+moving target policy
+bounded search
+bounded entrance search
+no infinite recovery
+
+=================================================
+84. PASS / FAIL: EVENTS
+=================================================
+
+PASS:
+deterministic order
+duplicate-safe
+command correlation
+blocking priority
+replay reproducible
+
+=================================================
+85. PASS / FAIL: REPLAY
+=================================================
+
+PASS:
+JSONL documented
+no real input
+golden traces
+key M0/M1 replay scenarios
+
+=================================================
+86. PASS / FAIL: SAFE RUNTIME
+=================================================
+
+PASS:
+fatal releases keys
+cancel stops movement
+queue safe clear
+death interrupt
+loading/cinematic blocks normal action
+
+=================================================
+87. LIVE READINESS
+=================================================
+
+LIVE_READY csak akkor:
+STATIC
+UNIT
+REPLAY
+INTEGRATION
+
+pass.
+
+=================================================
+88. IMPLEMENTÁCIÓS MUNKAMÓD
+=================================================
+
+1. inspect
+2. map ownership
+3. identify violations
+4. implement fixes
+5. migrate call sites
+6. remove old authority
+7. add tests
+8. run tests
+9. update docs
+10. continue
+
+Ne állj meg auditnál.
+
+=================================================
+89. MIT NE CSINÁLJ
+=================================================
+
+Ne:
+- rewrite-old jó V4 kódot stílus miatt
+- új architektúrát találj ki
+- cloud AI-t adj hozzá
+- unrelated feature-t fejlessz
+- legacy authorityt hagyj aktívan
+- live successnek nevezd a simulationt
+- random retry loopot használj
+- implicit x/y koordinátát használj
+- plannerből inputot küldj
+- verifierből actiont indíts
+- WorldModelből skillt válassz
+- executornak quest logikát adj
+
+=================================================
+90. V5 VÉGSŐ CÉL
+=================================================
+
+A V4 után legyen működő M0/M1 rendszer.
+
+A V5 feladata, hogy a post‑V4 implementáció:
+- determinisztikusabb;
+- formális FSM-ekkel;
+- explicit data contractokkal;
+- coordinate-space safe módon;
+- bounded search/recoveryvel;
+- anti-loop védelemmel;
+- idempotens event/command flow-val;
+- replayelhetően;
+- live debugolhatóan;
+- egyértelmű ownershiptel
+működjön.
+
+A V5 után a következő lépés:
+REPLAY + LIVE VALIDATION,
+majd csak bizonyított hibák célzott javítása.
+
+END OF V5 POST‑V4 IMPLEMENTATION HARDENING SPECIFICATION

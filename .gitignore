@@ -1,0 +1,28 @@
+# Runtime-generated agent output (status, live-debug logs, captures) - large, not source
+output/
+.runtime-data/
+
+# Large imported/generated reference databases
+data/*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Editor/OS
+.vscode/
+Thumbs.db
+
+# Personal / per-machine (never commit)
+config/wow_password.txt
+config/wow_account.txt
+config/local_env.bat
+output/
+datasets/
+runs/
+runs_*.log
+weights/
+*.engine
+native/recastnavigation/
+data/*.sqlite3

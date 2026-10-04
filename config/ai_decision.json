@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "provider": "ollama",
+  "base_url": "http://127.0.0.1:11434",
+  "model": "qwen2.5-coder:7b",
+  "timeout_seconds": 5,
+  "max_calls_per_minute": 20,
+  "min_seconds_between_calls": 2,
+  "fallback_to_deterministic": true,
+  "ai_score_ambiguity_threshold": 40,
+  "decision_cache_seconds": 5,
+  "candidate_stale_seconds": 3,
+  "minimum_candidate_confidence": 0.45,
+  "max_prompt_candidates": 8,
+  "semantic": {
+    "enabled": true,
+    "model": "qwen3:4b-instruct-2507-q4_K_M",
+    "num_gpu": null,
+    "num_thread": 4,
+    "timeout_seconds": 600,
+    "keep_alive": "2m",
+    "_note": "Local-LLM text interpretation (semantic_advisor). Benchmark 2026-10-04: qwen3:4b-instruct-2507 beat llama3.2:3b. num_gpu null = Ollama fits layers into free VRAM (live 2026-10-04: CPU-only load took 3 min and timed out with 0.6 GB free RAM). num_ctx 2048 keeps the KV cache small; keep_alive 2m unloads between question bursts.",
+    "num_ctx": 2048
+  }
+}

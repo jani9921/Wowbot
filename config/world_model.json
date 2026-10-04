@@ -1,0 +1,8 @@
+{
+  "player_ttl_seconds": 5.0,
+  "quest_ttl_seconds": 8.0,
+  "objective_ttl_seconds": 8.0,
+  "target_ttl_seconds": 2.5,
+  "navigation_ttl_seconds": 3.0,
+  "recovery_ttl_seconds": 10.0
+}

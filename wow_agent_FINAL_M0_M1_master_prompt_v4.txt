@@ -1,0 +1,3544 @@
+WORLD OF WARCRAFT AUTONOMOUS CLIENT AGENT
+FINAL M0 + M1 IMPLEMENTATION MASTER PROMPT V4
+============================================================
+
+PURPOSE OF THIS DOCUMENT
+========================
+
+This is an implementation specification, not a brainstorming document.
+
+You are modifying an EXISTING World of Warcraft autonomous client-agent repository.
+
+Your task is to transform the current project into a deterministic, testable, ownership-clean M0 core and then implement an M1 quest-execution layer that behaves like a human player using the information actually available in the WoW UI:
+
+- Quest Tracker
+- Quest Log / Map & Quest Log
+- World Map
+- map quest/turn-in/area indicators
+- supertracking/navigation indicators when present
+- Minimap
+- 3D world view
+- target frame/nameplates
+- tooltips
+- gossip/quest/loot/reward UI
+- interaction highlight / Interact Key readiness
+- quest-item/tool buttons
+- Extra Action Button / vehicle/special UI when present
+- addon/telemetry evidence where already supported
+- temporal history and prior observations
+
+THE IMPLEMENTATION MUST NOT ASSUME THAT THE QUEST OBJECTIVE IS CURRENTLY VISIBLE IN THE 3D CAMERA.
+
+The central questing model is:
+
+WHAT must be done?
+        ↓
+WHERE is it likely to be?
+        ↓
+Which information scale can currently localize it?
+        ↓
+GLOBAL → REGIONAL → LOCAL → IMMEDIATE
+        ↓
+Reach the correct area
+        ↓
+Acquire and validate the local target/mechanic
+        ↓
+Execute the appropriate deterministic skill
+        ↓
+VERIFY QUEST CREDIT / QUEST STATE CHANGE
+        ↓
+Re-classify the next objective or turn-in state
+
+This specification intentionally tells you not only WHAT to build, but WHO OWNS EACH RESPONSIBILITY, WHAT STATE MACHINES TO USE, WHAT OUTPUT TYPES TO RETURN, WHEN TO RETRY, WHEN TO REPLAN, AND HOW TO PROVE EACH PHASE WORKS.
+
+Do not reinterpret the architecture casually.
+
+
+============================================================
+0. NON-NEGOTIABLE PROJECT CONSTRAINTS
+============================================================
+
+0.1 EXISTING PROJECT, NOT GREENFIELD
+------------------------------------
+
+Do not start a new unrelated bot project.
+
+First inspect the full repository.
+
+Read:
+- README files
+- architecture docs
+- changelogs
+- config
+- tests
+- entry points
+- runtime setup
+- current world model
+- vision stack
+- telemetry stack
+- input executor
+- planner
+- engine/runtime
+- skills/controllers
+- navigation implementations
+- lifecycle implementations
+- verifier implementations
+
+For every important class or function, find:
+- definition
+- imports
+- construction sites
+- call sites
+- direct state mutation sites
+
+Do not infer whether code is active merely from its filename.
+
+
+0.2 CLIENT-SIDE ARCHITECTURE
+----------------------------
+
+Keep the system client-side.
+
+Permitted architectural sources include:
+- screen capture
+- UI/image detection
+- OCR where actually useful
+- addon-derived telemetry already available through supported game/addon mechanisms
+- local world model
+- keyboard/mouse/keybind executor
+- local models/vision components
+
+Do not require:
+- process memory injection
+- binary/game-file modification
+- executable patching
+- protected memory access
+- code injection into the game client
+
+
+0.3 DO NOT SOLVE CORE RELIABILITY WITH AN LLM
+---------------------------------------------
+
+M0 must work without an LLM.
+
+M1 ordinary quest execution must also be able to run deterministically from normalized quest/UI/map/world observations.
+
+An LLM may later help with UNKNOWN/novel semantic cases, but it must NOT be required for:
+- movement
+- facing
+- targeting
+- interaction
+- combat recovery
+- loot
+- map/minimap localization
+- basic quest objective classification
+- quest progress verification
+
+
+0.4 NO "WRAPPER REFACTOR"
+-------------------------
+
+It is forbidden to add a new Manager/Controller/Runtime around an old implementation and then leave both active.
+
+For every migrated responsibility, end with ONE authoritative implementation.
+
+Temporary adapters are allowed only while migrating call sites.
+
+A phase is not complete until old authority is:
+- removed, OR
+- isolated behind the canonical API with no independent state ownership.
+
+
+0.5 NO NEW FEATURES UNTIL M0/M1 ARE STABLE
+------------------------------------------
+
+Do not expand:
+- dungeon automation
+- raid
+- PvP
+- auction/economy
+- advanced gathering
+- fishing expansion
+- cloud AI
+- new LLMs
+- unrelated UI
+
+until this specification's M0 and M1 gates pass.
+
+
+============================================================
+1. DEFINITIONS: OBSERVATION, BELIEF, FACT, INTENT, SKILL
+============================================================
+
+OBSERVATION
+-----------
+A sensor-specific statement.
+
+Examples:
+- "yellow quest-like icon detected at screen x,y"
+- "target frame text reads X"
+- "quest tracker line changed from 3/8 to 4/8"
+- "minimap marker at angle 42 degrees"
+
+An observation is not automatically true world state.
+
+
+BELIEF
+------
+A fused interpretation derived from one or more observations.
+
+Examples:
+- "entity_42 is probably the required NPC"
+- "objective area is probably in the northeast of this zone"
+- "player is probably within interaction range"
+
+A belief must have:
+- confidence
+- evidence list
+- source timestamps
+
+
+CONFIRMED FACT
+--------------
+Use only when the evidence source is sufficiently reliable for that fact.
+
+Examples:
+- explicit quest objective progress changed
+- target frame shows target dead
+- quest state reports ready for turn-in
+- a blocking loading screen is visible
+
+Do not promote weak vision evidence to fact.
+
+
+INTENT
+------
+A high-level request given to a skill.
+
+Examples:
+- MoveToArea(location)
+- Interact(entity)
+- Combat(entity)
+- Loot(corpse)
+- SearchForEntity(query)
+
+
+SKILL
+-----
+A deterministic state machine that executes ONE bounded capability.
+
+A skill owns its internal progress until:
+- SUCCESS
+- FAILURE
+- CANCELLED
+- BLOCKED
+
+A Planner does not micromanage a RUNNING skill.
+
+
+============================================================
+2. FINAL RESPONSIBILITY MODEL
+============================================================
+
+The final dependency flow must approximately be:
+
+Sensors / Capture / Telemetry
+             |
+             v
+      Observation Ingest
+             |
+             v
+         WorldModel
+             |
+             v
+        WorldQuery API
+             |
+             +------------------------------+
+             |                              |
+             v                              v
+       Quest Runtime                    Supervisor
+             |                              |
+             v                              v
+    Objective Classifier              Planner/Goal Selector
+             |                              |
+             v                              |
+      Objective Locator                    |
+             |                              |
+             +-------------+----------------+
+                           |
+                           v
+                   ActiveSkillRuntime
+                           |
+                           v
+                        Skill FSM
+                           |
+             +-------------+---------------+
+             |             |               |
+             v             v               v
+       Navigation      CombatService   Interaction/UI
+             \             |               /
+              \            |              /
+               +-----------+-------------+
+                           |
+                           v
+                        Executor
+                           |
+                           v
+                        WoW Client
+
+Verification is a side-effect-free evaluation service used by skills and quest runtime.
+
+WorldModel never sends input.
+
+Planner never presses keys.
+
+Executor never understands quest semantics.
+
+
+============================================================
+3. ONE AUTHORITATIVE ACTIVE SKILL
+============================================================
+
+There must be exactly ONE authoritative ActiveSkillRuntime.
+
+Audit all fields or concepts equivalent to:
+- pending
+- current_action
+- current_skill
+- active_action
+- commitment
+- active_controller
+- current_task
+- execution_phase
+- retrying_action
+- implicit "last action is current"
+
+For each:
+KEEP / MIGRATE / DELETE.
+
+Final ActiveSkillRuntime owns:
+
+ActiveSkillState {
+    runtime_id
+    skill_type
+    intent
+    target_ref?
+    phase
+    started_at
+    phase_started_at
+    attempt
+    local_retry_count
+    failure_history[]
+    timeout_policy
+    retry_policy
+    before_snapshot
+    skill_context
+    last_result?
+}
+
+Other modules may observe it.
+They must not maintain independent copies.
+
+
+============================================================
+4. COMMON TYPED CONTRACTS
+============================================================
+
+Use typed models/dataclasses/enums.
+
+Do not use ambiguous True/False/None control flow for skill status.
+
+
+4.1 SkillStatus
+---------------
+
+IDLE
+STARTING
+RUNNING
+SUCCESS
+FAILURE
+BLOCKED
+CANCELLED
+
+
+4.2 SkillResult
+---------------
+
+SkillResult {
+    status: SkillStatus
+    reason: FailureReason | None
+    retryable: bool
+    replan_required: bool
+    commands: list[Command]
+    events: list[RuntimeEvent]
+    evidence: list[Evidence]
+    metadata: dict
+}
+
+
+4.3 VerificationResult
+----------------------
+
+VerificationResult {
+    success: bool
+    confidence: float
+    reason: VerificationReason
+    evidence: list[Evidence]
+    retry_recommended: bool
+}
+
+
+4.4 NavigationResult
+--------------------
+
+RUNNING
+ARRIVED
+STUCK
+BLOCKED
+TARGET_LOST
+CONTEXT_CHANGED
+TIMEOUT
+FAILED
+
+
+4.5 ObjectiveLocationStatus
+---------------------------
+
+LOCAL_ENTITY
+LOCAL_OBJECT
+LOCAL_MARKER
+WORLD_MAP_LOCATION
+KNOWN_LOCATION
+SEARCH_AREA
+TRANSITION_REQUIRED
+UNKNOWN
+
+
+============================================================
+5. FAILURE TAXONOMY
+============================================================
+
+Create one typed shared taxonomy.
+
+Do not scatter arbitrary strings.
+
+Suggested hierarchy:
+
+
+PERCEPTION
+- TARGET_NOT_FOUND
+- TARGET_LOST
+- LOW_CONFIDENCE
+- IDENTITY_UNCERTAIN
+- STALE_OBSERVATION
+- UI_UNKNOWN
+
+
+NAVIGATION
+- NO_ROUTE
+- NO_PROGRESS
+- STUCK
+- PATH_BLOCKED
+- ARRIVAL_NOT_CONFIRMED
+- TARGET_MOVED
+- WRONG_MAP_CONTEXT
+- TRANSITION_REQUIRED
+- TIMEOUT
+
+
+INTERACTION
+- OUT_OF_RANGE
+- FACING_FAILED
+- NOT_INTERACTABLE
+- NO_RESPONSE
+- WRONG_UI
+- EXPECTED_STATE_NOT_REACHED
+- INTERRUPTED
+
+
+COMBAT
+- INVALID_TARGET
+- TARGET_DEAD
+- TARGET_LOST
+- OUT_OF_RANGE
+- FACING_WRONG_WAY
+- LINE_OF_SIGHT
+- SPELL_NOT_READY
+- NOT_ENOUGH_RESOURCE
+- CAST_INTERRUPTED
+- PLAYER_DEAD
+- COMBAT_TIMEOUT
+
+
+LOOT
+- CORPSE_NOT_FOUND
+- NOT_LOOTABLE
+- LOOT_UI_NOT_OPENED
+- EXPECTED_ITEM_NOT_RECEIVED
+
+
+QUEST
+- OBJECTIVE_UNKNOWN
+- OBJECTIVE_NOT_PROGRESSING
+- QUEST_STATE_UNKNOWN
+- TURN_IN_NOT_FOUND
+- WRONG_QUEST_UI
+- UNSUPPORTED_MECHANIC
+- QUEST_CREDIT_NOT_RECEIVED
+
+
+SYSTEM
+- TELEMETRY_STALE
+- INPUT_FAILURE
+- EXECUTOR_FAILURE
+- INTERNAL_ERROR
+- CANCELLED
+- TIMEOUT
+
+
+============================================================
+6. RUNTIME TICK CONTRACT
+============================================================
+
+The main runtime loop must be simple orchestration.
+
+Conceptual pseudocode:
+
+while running:
+
+    observations = sensors.poll_or_consume()
+    world_model.ingest(observations)
+    world_model.expire_stale_evidence()
+
+    events = event_bus.consume()
+
+    supervisor.handle_interrupts(world_model, events)
+
+    if active_skill.exists:
+        result = active_skill.tick(world_model, now)
+        executor.dispatch(result.commands)
+
+        if result.status == RUNNING:
+            continue
+
+        if result.status in [SUCCESS, FAILURE, BLOCKED, CANCELLED]:
+            supervisor.consume_skill_result(result)
+            active_skill.finalize()
+
+    if no_active_skill:
+        next_intent = supervisor.next_intent(world_model)
+
+        if next_intent:
+            active_skill.start(next_intent)
+
+IMPORTANT:
+
+Do not call the planner every frame.
+
+Do not replace a RUNNING skill merely because the planner can produce another action.
+
+Replanning occurs only on an explicit gate.
+
+
+============================================================
+7. REPLAN GATES
+============================================================
+
+Planner/Supervisor may select a new high-level intent when:
+
+- there is no active skill
+- active skill SUCCESS
+- active skill non-recoverable FAILURE
+- active skill retry budget exhausted
+- active skill BLOCKED and escalation is required
+- world context fundamentally changed
+- player died
+- quest objective changed
+- quest became ready for turn-in
+- explicit higher-priority interrupt occurred
+
+Do NOT replan because:
+- a skill is still RUNNING
+- one frame temporarily lost a target
+- a minimap marker momentarily disappeared
+- one detector confidence dipped briefly
+
+
+============================================================
+8. WORLD MODEL RULES
+============================================================
+
+WorldModel contains data and fused beliefs.
+
+WorldModel must not:
+- press keys
+- start a skill
+- retry an action
+- rotate the player
+- choose a combat spell
+
+WorldModel should contain:
+
+PlayerState
+TargetState
+CombatState
+QuestState
+UiContext
+MapState
+MinimapState
+EntityBeliefs
+LocationBeliefs
+InventoryRelevantState
+TemporalHistory
+NavigationObservations
+
+
+============================================================
+9. SENSOR FRESHNESS
+============================================================
+
+Every observation must carry:
+
+timestamp
+source
+confidence
+freshness policy
+
+Use:
+
+FRESH
+STALE
+EXPIRED
+
+Examples:
+
+screen-space bbox:
+short lifetime
+
+local entity location:
+short-medium lifetime
+
+minimap marker:
+short lifetime
+
+quest objective text:
+medium-long lifetime
+
+quest completion state:
+until replaced by newer authoritative quest state
+
+world-map objective area:
+medium lifetime, invalidated by quest stage/context change
+
+Never navigate using an ancient screen-space target.
+
+
+============================================================
+10. EVIDENCE FUSION
+============================================================
+
+Example entity identity ranking:
+
+explicit addon/quest reference when legitimate and current
+target-frame/tooltip name
+stable nameplate/text
+quest marker + quest context
+visual appearance classifier
+
+Weak visual evidence alone must not become confirmed named identity.
+
+Contradictions reduce confidence.
+
+Old evidence decays.
+
+Store:
+
+EntityBelief {
+    entity_ref
+    type_belief
+    identity_belief
+    role_belief
+    hostility_belief
+    interactable_belief
+    location_belief
+    confidence
+    evidence[]
+    first_seen
+    last_seen
+}
+
+
+============================================================
+11. UI CONTEXT MODEL
+============================================================
+
+Do not model the entire UI as one simplistic boolean.
+
+Use:
+
+UiContext {
+    primary_panel
+    overlays[]
+    blocking_state?
+    confidence
+}
+
+Possible primary_panel values:
+
+WORLD
+MAP
+QUEST_LOG
+GOSSIP
+QUEST_OFFER
+QUEST_COMPLETE
+QUEST_REWARD
+LOOT
+VENDOR
+DIALOG
+POPUP
+SPECIAL_UI
+UNKNOWN
+
+Possible blocking_state:
+
+NONE
+LOADING
+CINEMATIC
+DISCONNECTED
+PLAYER_DEAD
+VEHICLE_OVERRIDE
+SCRIPTED_LOCK
+
+Overlays may include:
+- quest tool button
+- Extra Action Button
+- confirmation popup
+- tutorial popup
+- objective popup
+- field-complete quest button
+
+A skill must react to blocking_state first.
+
+
+============================================================
+12. WORLD OF WARCRAFT QUEST INFORMATION HIERARCHY
+============================================================
+
+For questing, treat these as first-class information sources:
+
+A. Quest Tracker / Quest Log
+B. World Map
+C. supertracking/navigation marker where present
+D. Minimap
+E. 3D world
+F. target/nameplate/tooltip
+G. quest-specific UI/tools
+H. temporal history
+
+Do not reduce the system to 3D object detection.
+
+
+============================================================
+13. QUEST STATE NORMALIZATION
+============================================================
+
+Normalize each active quest:
+
+QuestState {
+    quest_ref
+    title
+    classification?
+    tracked
+    focused_or_supertracked?
+    completed
+    ready_for_turn_in
+    objectives[]
+    last_updated
+    confidence
+}
+
+Quest classification may include:
+
+CAMPAIGN
+IMPORTANT
+LOCAL_STORY
+REPEATABLE
+META
+LEGENDARY
+OTHER
+UNKNOWN
+
+Do not require every version/content type to expose every classification.
+
+Treat classification as evidence, not mandatory data.
+
+
+Objective:
+
+QuestObjective {
+    objective_ref
+    text
+    current_count?
+    required_count?
+    complete
+    inferred_type
+    target_hint?
+    location_belief?
+    last_credit_change?
+    confidence
+}
+
+
+============================================================
+14. QUEST SUCCESS HAS TWO LEVELS
+============================================================
+
+THIS IS CRITICAL.
+
+SKILL SUCCESS IS NOT QUEST SUCCESS.
+
+Example:
+
+CombatSkill SUCCESS:
+target was killed.
+
+But QuestProgressVerifier may report:
+
+objective remained 3/8.
+
+Therefore:
+the combat action succeeded,
+but the quest execution did NOT progress.
+
+Likewise:
+
+LootSkill SUCCESS
+does not prove the required quest item was obtained.
+
+InteractSkill SUCCESS
+does not prove the quest objective advanced.
+
+Always separate:
+
+ACTION_SUCCESS
+from
+QUEST_CREDIT_CONFIRMED
+
+
+============================================================
+15. QUEST CREDIT IS AUTHORITATIVE FOR OBJECTIVE PROGRESS
+============================================================
+
+Primary quest-progress evidence:
+
+1. objective counter/state changed
+2. objective became complete
+3. objective was replaced by next stage
+4. quest became ready for turn-in
+5. quest completed/removed with completion evidence
+
+Secondary evidence:
+- item gained
+- target killed
+- object changed
+- dialog opened
+
+Secondary evidence does NOT replace quest credit verification when quest state is available.
+
+
+============================================================
+16. OBJECTIVE TYPE CLASSIFIER
+============================================================
+
+Create a deterministic ObjectiveClassifier.
+
+At minimum support:
+
+SPEAK
+INTERACT_NPC
+KILL
+KILL_NAMED
+COLLECT
+LOOT
+INTERACT_OBJECT
+USE_ITEM
+USE_ITEM_ON_TARGET
+TRAVEL
+REACH_AREA
+FOLLOW
+ESCORT
+DEFEND
+WAIT
+EMOTE
+GOSSIP_CHOICE
+VEHICLE
+EXTRA_ACTION
+QUEST_TOOL_BUTTON
+SPECIAL_UI
+SCRIPTED_EVENT
+FIELD_TURN_IN
+MULTI_STAGE
+UNKNOWN
+
+Input:
+- objective text
+- quest detail
+- quest UI
+- quest-item/tool-button presence
+- map state
+- known telemetry
+- previous objective stage
+
+Return:
+type
+confidence
+supporting evidence
+
+UNKNOWN is a valid state.
+
+Do NOT guess a destructive action when confidence is low.
+
+
+============================================================
+17. OBJECTIVE LOCATOR: THE CORE M1 LOCATION SYSTEM
+============================================================
+
+Create ObjectiveLocator.
+
+It does NOT move the character.
+
+It answers:
+"Where is the best current belief about the place/entity/mechanic required for this objective?"
+
+
+17.1 Resolution order
+---------------------
+
+1. VALIDATED LOCAL ENTITY / OBJECT
+2. MINIMAP OR NAVIGATION CUE
+3. WORLD MAP QUEST LOCATION / AREA / MARKER
+4. RELIABLE MEMORY / LAST KNOWN LOCATION
+5. QUEST TEXT / CONTEXTUAL LOCATION HINT
+6. SEARCH AREA
+7. TRANSITION REQUIRED
+8. UNKNOWN
+
+
+17.2 Result
+-----------
+
+ObjectiveLocationResult {
+    status
+    entity_ref?
+    object_ref?
+    location_belief?
+    search_area?
+    transition_hint?
+    source
+    confidence
+    evidence[]
+}
+
+
+17.3 Important semantic rule
+----------------------------
+
+If the required entity is not visible in 3D, but the World Map shows the relevant quest area:
+
+THIS IS NOT TARGET_NOT_FOUND.
+
+It is:
+TARGET_NOT_CURRENTLY_LOCAL
++
+WORLD_MAP_LOCATION_KNOWN.
+
+The correct action is navigation.
+
+
+============================================================
+18. WORLD MAP RESOLVER
+============================================================
+
+WorldMapResolver is a first-class module.
+
+Responsibilities:
+
+- open/close map through configured input
+- determine current map context
+- distinguish current local map from parent zone/region when possible
+- detect player map position/heading cue when available
+- detect relevant quest markers
+- detect ready-for-turn-in markers
+- detect quest areas/bounds
+- detect campaign/important/in-progress cues where available
+- detect known entrance/teleporter/transport/map icons where useful
+- inspect quest focus/supertracking/navigation destination if present
+- produce a LocationBelief
+- never directly control movement
+
+
+18.1 Map zoom/context problem
+-----------------------------
+
+Absence of a marker at the current map level does NOT prove no marker exists.
+
+Handle:
+- wrong zoom level
+- parent zone
+- subzone
+- interior/local map
+- cave/floor context
+
+Resolver procedure when expected marker is absent:
+
+1. verify correct tracked quest
+2. inspect current map level
+3. zoom/step out if necessary
+4. inspect relevant parent zone
+5. if target zone found, zoom into it if useful
+6. restore a usable map state
+7. return location belief or UNKNOWN
+
+
+18.2 Map filters
+----------------
+
+Map filters can hide content.
+
+Do not treat hidden-by-filter as impossible.
+
+If the implementation can reliably detect filter state, record it.
+
+If it cannot, low-confidence absence must remain UNKNOWN, not confirmed absence.
+
+
+18.3 Map location output
+------------------------
+
+Do not assume a screen pixel on the World Map is a direct 3D world point.
+
+Return semantic/map-relative location evidence.
+
+Navigation converts this into a movement strategy.
+
+
+============================================================
+19. SUPERTRACKING / NAVIGATION INDICATORS
+============================================================
+
+If the client provides a focused/supertracked navigation target or directional cue:
+
+Treat it as useful navigation evidence.
+
+Do not make the whole architecture depend on it.
+
+It may disappear when:
+- focus changes
+- quest turns in
+- map context changes
+- current objective changes
+- navigation is unsupported for a route
+
+Therefore:
+
+navigation cue present:
+use it.
+
+cue absent:
+fall back to minimap/world-map/location beliefs.
+
+Never confuse "no navigation arrow" with "quest has no location."
+
+
+============================================================
+20. MINIMAP RESOLVER
+============================================================
+
+The MinimapResolver is the regional/local locator.
+
+Detect/estimate when possible:
+
+- player center
+- player heading/orientation
+- nearby quest marker
+- objective cue
+- turn-in marker
+- edge-clamped marker
+- direction from player to cue
+- radial distance proxy
+- movement trend toward/away from cue
+- local entrance/point-of-interest evidence if visible
+
+
+MinimapTarget {
+    type
+    angle
+    radial_distance_proxy
+    edge_clamped
+    confidence
+    history[]
+}
+
+
+20.1 Marker behavior
+--------------------
+
+If marker is at minimap edge:
+FOLLOW_LOCAL_DIRECTION.
+
+As marker moves toward center:
+continue local approach.
+
+When marker disappears:
+DO NOT automatically fail.
+
+Possible interpretations:
+- objective area entered
+- marker switched representation
+- objective is now in 3D proximity
+- map/phase/floor context changed
+- objective stage changed
+
+Re-evaluate:
+Quest state
+3D world
+World Map
+UI context
+
+
+============================================================
+21. 3D WORLD PERCEPTION
+============================================================
+
+3D perception is immediate/local, not global.
+
+It may detect:
+
+NPC
+friendly/hostile/neutral unit
+corpse
+interactable object
+quest overhead icon
+nameplate
+door
+stairs
+wall
+cave entrance
+loot cue
+local landmark
+special quest object
+interaction highlight
+
+It produces observations only.
+
+Do not embed quest planning into the detector.
+
+
+============================================================
+22. INTERACT KEY / INTERACTION READINESS
+============================================================
+
+WoW can highlight interactive NPCs/objects when the player is in suitable range and facing them, and an Interact Key may be configured.
+
+Use this as valuable evidence.
+
+Do not hard-code the physical key.
+
+Use configuration:
+
+interaction_key = configured binding
+
+Interaction readiness evidence may include:
+- visible interaction highlight
+- interact prompt/icon
+- target distance belief
+- facing alignment
+- UI/accessibility cue
+- known object state
+
+If configured Interact Key is unavailable, use the project's safe existing interaction method.
+
+
+============================================================
+23. TWO NAVIGATION MODES
+============================================================
+
+The architecture must support both modes without duplicating ownership.
+
+
+23.1 TELEMETRY-ASSISTED NAVIGATION
+----------------------------------
+
+If reliable player/map coordinates are available through the existing supported telemetry:
+
+Use them for:
+- progress
+- route guidance
+- arrival estimation
+- map-relative navigation
+
+Still verify with UI/visual evidence.
+
+
+23.2 VISION-ONLY / CUE-BASED NAVIGATION
+---------------------------------------
+
+If coordinates are unavailable:
+
+Use:
+- World Map location belief
+- minimap direction
+- heading changes
+- scene motion
+- landmarks
+- objective marker trends
+- local entity acquisition
+- arrival/quest-state evidence
+
+Do NOT fail merely because absolute XYZ is unavailable.
+
+
+23.3 One API
+------------
+
+Both modes expose the same canonical NavigationService API.
+
+No parallel independent navigation authorities.
+
+
+============================================================
+24. CANONICAL NAVIGATION SERVICE
+============================================================
+
+Target final shape:
+
+NavigationService
+    RoutePlanner
+    GlobalNavigator
+    LocalNavigator
+    ProgressMonitor
+    StuckDetector
+    ObstacleRecovery
+    ArrivalVerifier
+    TransitionResolver
+
+Canonical API:
+
+move_to_location(location)
+move_to_area(area)
+move_to_entity(entity_ref)
+follow_minimap_target(target)
+move_direction(direction)
+face_entity(entity_ref)
+turn_to_heading(heading)
+stop()
+get_progress()
+is_arrived()
+recover_stuck()
+
+Audit old systems such as:
+- AgentNavigator
+- ReachMovementController
+- VisualApproachController
+- NavigationEngine
+- LocalNavigator
+- route/state-machine variants
+
+Select ONE canonical stack.
+
+Migrate all call sites.
+
+
+============================================================
+25. NAVIGATION CONTEXT
+============================================================
+
+Use explicit context:
+
+OUTDOOR
+INDOOR
+CAVE
+MULTI_FLOOR
+TRANSITION
+VEHICLE
+UNKNOWN
+
+This context influences:
+- route expectation
+- map interpretation
+- arrival verification
+- stuck recovery
+
+Do not assume every quest marker has a straight-line path.
+
+
+============================================================
+26. ENTRANCE / CAVE / MULTI-FLOOR HANDLING
+============================================================
+
+Problem:
+World-map quest area may lie "near" the player while the actual path requires an entrance or floor transition.
+
+Signals:
+- repeated local route blockage
+- map distance low but 3D target absent
+- no-progress around boundary
+- local map context differs
+- floor/interior map appears
+- entrance icon/cue
+- target appears above/below in contextual evidence
+
+TransitionResolver may return:
+
+ENTER_BUILDING
+FIND_CAVE_ENTRANCE
+CHANGE_FLOOR
+USE_PORTAL
+USE_TRANSPORT
+UNKNOWN_TRANSITION
+
+Do not repeatedly walk into a wall.
+
+If entrance is unknown:
+run bounded local entrance search,
+then escalate to re-localization.
+
+
+============================================================
+27. ARRIVAL VERIFICATION
+============================================================
+
+Arrival is evidence-based.
+
+Possible evidence:
+- player coordinate delta and distance threshold
+- minimap target converged
+- target bbox scale increased
+- interaction readiness appeared
+- local quest entity appeared
+- quest state changed on entering area
+- world/map context changed as expected
+
+Timer alone is not arrival.
+
+ArrivalVerifier returns confidence and evidence.
+
+
+============================================================
+28. STUCK DETECTOR
+============================================================
+
+Exactly one canonical StuckDetector.
+
+Input:
+- commanded movement
+- player displacement if known
+- minimap/objective progress
+- target-distance trend
+- scene-motion trend
+- repeated visual similarity
+- collision/path failure evidence
+- no-progress duration
+
+States:
+NOT_STUCK
+SUSPECTED
+CONFIRMED
+
+
+28.1 Recovery ladder
+--------------------
+
+1. STOP
+2. short backward
+3. small left turn + short forward
+4. small right turn + short forward
+5. larger heading change
+6. local scan
+7. alternate local route
+8. re-localize navigation target
+9. FAILURE to Supervisor
+
+Each bounded by attempts/time.
+
+No infinite recovery loop.
+
+
+============================================================
+29. COMMON FACE CONTROLLER
+============================================================
+
+Interact and Combat use the same facing primitive.
+
+FaceController:
+
+Input:
+entity_ref / bbox / heading estimate
+
+Output:
+ALIGNED
+ADJUSTING
+TARGET_LOST
+FAILED
+
+Do not copy facing logic into multiple skills.
+
+
+============================================================
+30. M0 DEFINITION
+============================================================
+
+M0 is the deterministic execution core.
+
+Given an already specified entity/location/object, M0 must reliably:
+
+- acquire target
+- validate target
+- navigate
+- approach
+- stop
+- face
+- interact
+- fight
+- recover common combat errors
+- verify death
+- loot when required
+- verify action outcome
+- cancel cleanly
+- recover from navigation stuck
+- return typed result
+
+M0 contains no quest reasoning.
+
+
+============================================================
+31. M0 TARGET SKILL
+============================================================
+
+FSM:
+
+ACQUIRE_CANDIDATES
+VALIDATE_IDENTITY
+SELECT_TARGET
+APPLY_TARGET
+VERIFY_TARGET
+SUCCESS / FAILURE
+
+Input:
+
+TargetIntent {
+    query
+    expected_type?
+    expected_name?
+    expected_role?
+    hostility?
+    minimum_confidence
+}
+
+Identity validation prioritizes strong evidence.
+
+Failure:
+NO_CANDIDATE
+LOW_CONFIDENCE
+WRONG_TARGET
+TARGET_LOST
+TIMEOUT
+
+
+============================================================
+32. M0 MOVEMENT SKILL
+============================================================
+
+FSM:
+
+INIT
+RESOLVE_DESTINATION
+PLAN
+MOVE
+MONITOR_PROGRESS
+LOCAL_CORRECTION
+ARRIVAL_VERIFY
+RECOVER_STUCK
+SUCCESS
+FAILURE
+
+MovementSkill uses NavigationService.
+It does not implement a second pathing system.
+
+
+============================================================
+33. M0 INTERACT SKILL
+============================================================
+
+Input:
+
+InteractIntent {
+    target_ref
+    interaction_kind?
+    expected_result?
+}
+
+FSM:
+
+ACQUIRE_TARGET
+VALIDATE_TARGET
+APPROACH
+FACE
+WAIT_INTERACTABLE
+SEND_INTERACT
+WAIT_RESULT
+VERIFY
+RECOVER
+SUCCESS
+FAILURE
+
+
+33.1 Validation
+---------------
+
+Check:
+- target still exists
+- identity/type confidence sufficient
+- stale location not used
+- interaction is contextually plausible
+
+
+33.2 Approach
+-------------
+
+Use NavigationService.move_to_entity().
+
+Do not use planner micro-actions.
+
+
+33.3 Interact
+-------------
+
+Use configured input.
+
+Do not spam.
+
+Record timestamp and baseline snapshot.
+
+
+33.4 Verification
+-----------------
+
+Depending on expected interaction:
+
+- gossip opened
+- quest offer opened
+- quest complete UI opened
+- object state changed
+- quest objective changed
+- scripted state began
+- item was granted
+- UI changed appropriately
+
+InteractionVerifier decides.
+
+Failure:
+TARGET_NOT_FOUND
+TARGET_LOST
+IDENTITY_UNCERTAIN
+OUT_OF_RANGE
+FACING_FAILED
+NOT_INTERACTABLE
+NO_RESPONSE
+WRONG_UI
+EXPECTED_STATE_NOT_REACHED
+TIMEOUT
+INTERRUPTED
+
+
+============================================================
+34. M0 COMBAT SKILL
+============================================================
+
+FSM:
+
+ACQUIRE_TARGET
+VALIDATE_TARGET
+APPROACH
+FACE
+ENGAGE
+ROTATION
+MONITOR
+RECOVER_RANGE
+RECOVER_FACING
+RECOVER_LOS
+REACQUIRE
+VERIFY_DEATH
+SUCCESS
+FAILURE
+
+
+34.1 Local recovery
+-------------------
+
+OUT_OF_RANGE:
+approach
+face
+resume
+
+FACING_WRONG_WAY:
+face
+resume
+
+LINE_OF_SIGHT:
+bounded reposition
+face
+resume
+
+TARGET_LOST:
+bounded reacquire
+
+SPELL_NOT_READY:
+wait according to combat controller policy
+
+PLAYER_DEAD:
+immediate failure/interrupt
+
+
+34.2 Death verification
+-----------------------
+
+Use stronger evidence than "target frame disappeared".
+
+Evidence:
+- target dead state
+- hp zero
+- corpse
+- combat end associated with target
+- objective credit if this is quest combat
+
+CombatSkill may return SUCCESS before quest credit verification.
+Quest runtime then decides whether objective progressed.
+
+
+============================================================
+35. M0 LOOT SKILL
+============================================================
+
+FSM:
+
+LOCATE_CORPSE
+APPROACH
+INTERACT
+WAIT_LOOT_STATE
+COLLECT
+VERIFY
+SUCCESS
+FAILURE
+
+Verification:
+- loot UI state
+- inventory relevant delta
+- objective delta
+- corpse no longer lootable
+- expected quest item acquisition
+
+Do not blindly loot forever.
+
+Respect configurable loot policy.
+
+
+============================================================
+36. M0 SEARCH SKILL
+============================================================
+
+Search is a bounded capability.
+
+SearchSkill supports:
+
+SEARCH_LOCAL_ENTITY
+SEARCH_LOCAL_OBJECT
+SEARCH_ENTRANCE
+REACQUIRE_TARGET
+
+It must track coverage.
+
+Do not spin 360 degrees forever.
+
+SearchContext {
+    origin
+    radius
+    sectors_scanned
+    visited_search_points
+    scan_budget
+    time_budget
+    query
+}
+
+Pattern example:
+- camera sweep
+- scan
+- move to next search point
+- scan
+- expand radius
+- stop when budget exhausted
+
+Returns:
+FOUND
+NOT_FOUND_WITHIN_BUDGET
+CONTEXT_CHANGED
+BLOCKED
+
+
+============================================================
+37. M0 CANCELLATION
+============================================================
+
+All skills are cancel-safe.
+
+Cancel must:
+- release held keys
+- stop movement
+- cancel timers
+- invalidate temporary controller state
+- finalize event/log state
+- leave no phantom active action
+
+Example:
+
+InteractSkill RUNNING
+→ combat interrupt
+→ cancel interact
+→ CombatSkill
+→ combat finishes
+→ Supervisor re-evaluates original goal
+
+
+============================================================
+38. M0 RETRY POLICY
+============================================================
+
+Use typed RetryPolicy.
+
+Example:
+
+RetryPolicy {
+    max_attempts
+    per_failure_limits
+    backoff
+    reset_conditions
+}
+
+Do not scatter:
+if attempts < 3
+
+through unrelated modules.
+
+
+============================================================
+39. M0 TIMEOUT POLICY
+============================================================
+
+Central domain configuration:
+
+movement
+interaction
+combat
+loot
+search
+ui_wait
+map_wait
+
+Timeouts may be context-sensitive.
+
+No magic numbers spread across implementation.
+
+
+============================================================
+40. VERIFICATION PACKAGE
+============================================================
+
+Split by responsibility:
+
+verification/
+    base.py
+    movement.py
+    interaction.py
+    combat.py
+    loot.py
+    quest.py
+    ui.py
+
+Verifier rules:
+- no input
+- no controller mutation
+- no retries
+- no planner calls
+
+Purely evaluate evidence/deltas.
+
+
+============================================================
+41. BEFORE / AFTER SNAPSHOTS
+============================================================
+
+Take a relevant baseline before executing a skill.
+
+Interact snapshot:
+- target
+- UI context
+- quest objective state
+- inventory relevant subset
+- player/target position estimate
+
+Combat:
+- target identity
+- target hp/status
+- combat state
+- objective state
+- player hp
+
+Loot:
+- corpse state
+- inventory relevant subset
+- quest state
+
+Verification should compare meaningful deltas.
+
+
+============================================================
+42. M0 ACCEPTANCE TEST
+============================================================
+
+M0 is not DONE because code compiles.
+
+Required synthetic/replay scenarios:
+
+A.
+visible NPC
+→ approach
+→ face
+→ interact
+→ expected gossip
+→ SUCCESS
+
+B.
+mob far away
+→ approach
+→ combat
+→ OUT_OF_RANGE recovery
+→ FACING recovery
+→ kill
+→ death verify
+→ SUCCESS
+
+C.
+LOS error
+→ reposition
+→ resume
+→ kill
+
+D.
+corpse
+→ loot
+→ verify
+
+E.
+movement no progress
+→ stuck suspected
+→ stuck confirmed
+→ recovery
+→ progress
+→ arrival
+
+F.
+interact interrupted by combat
+→ clean cancel
+→ combat
+→ reassess
+
+G.
+target disappears temporarily
+→ bounded reacquire
+→ continue
+
+Run at least 100 deterministic synthetic/replay iterations across the suite.
+
+Must prove:
+- no double ActiveSkill
+- no planner re-entry while RUNNING
+- no infinite loop
+- no held key after cancel/fatal
+- every terminal failure has typed reason
+- lifecycle transitions are deterministic
+
+
+============================================================
+43. M1 DEFINITION
+============================================================
+
+M1 is a QUEST EXECUTION layer built only after M0.
+
+M1 is responsible for:
+
+- choosing/maintaining primary quest goal
+- reading normalized quest state
+- classifying current objective
+- locating the objective hierarchically
+- asking M0 skills to execute
+- verifying QUEST CREDIT
+- handling multi-stage objective changes
+- finding turn-in
+- completing/rewarding quest
+- recognizing next campaign/main quest
+
+M1 does not duplicate movement/combat/interact internals.
+
+
+============================================================
+44. CANONICAL QUEST EXECUTION FSM
+============================================================
+
+SELECT_PRIMARY_QUEST
+READ_QUEST_STATE
+CLASSIFY_OBJECTIVE
+LOCATE_OBJECTIVE
+
+Then branch:
+
+LOCAL_ENTITY/OBJECT
+    -> EXECUTE_OBJECTIVE
+
+LOCAL_MARKER
+    -> NAVIGATE_LOCAL
+    -> RELOCALIZE
+
+WORLD_MAP_LOCATION
+    -> NAVIGATE_GLOBAL
+    -> RELOCALIZE
+
+KNOWN_LOCATION
+    -> NAVIGATE
+    -> RELOCALIZE
+
+SEARCH_AREA
+    -> SEARCH_LOCAL
+    -> RELOCALIZE
+
+TRANSITION_REQUIRED
+    -> RESOLVE_TRANSITION
+    -> RELOCALIZE
+
+UNKNOWN
+    -> GATHER_INFORMATION
+
+After execution:
+
+VERIFY_QUEST_PROGRESS
+
+If progress confirmed and objective remains:
+    CLASSIFY_OBJECTIVE again
+
+If objective changed:
+    CLASSIFY new objective
+
+If all objectives complete:
+    RESOLVE_COMPLETION_MODE
+
+If ready for turn-in:
+    LOCATE_TURN_IN
+    NAVIGATE
+    TURN_IN
+
+If field turn-in:
+    FIELD_TURN_IN
+
+Then:
+VERIFY_QUEST_COMPLETED
+RESOLVE_NEXT_QUEST
+GOAL_COMPLETE or next quest
+
+
+============================================================
+45. PRIMARY QUEST GOAL
+============================================================
+
+Always maintain one PrimaryQuestGoal.
+
+Other quests may progress incidentally.
+Update their WorldModel state,
+but do not silently switch primary goal.
+
+Goal switching requires Supervisor/GoalSelector decision.
+
+
+============================================================
+46. MAIN CAMPAIGN MODE
+============================================================
+
+For main-story acceptance:
+
+GoalMode = MAIN_CAMPAIGN
+
+Prefer reliable UI classification for:
+- Campaign
+- Important continuation when contextually required
+
+Do not accept every nearby side quest.
+
+After completing a campaign quest:
+- inspect current quest UI
+- inspect same NPC for continuation
+- inspect nearby campaign marker
+- inspect map/tracker updates
+- then select the next campaign quest
+
+Do not hard-code individual quest IDs unless the repository already uses them as optional evidence.
+
+
+============================================================
+47. QUEST ACQUISITION
+============================================================
+
+Quest may begin from:
+
+- visible quest giver
+- minimap/map quest marker
+- gossip option
+- automatic/field quest prompt
+- item/object
+- scripted event
+- current active tracker state
+
+Acceptance flow:
+
+LOCATE SOURCE
+→ M0 Interact if necessary
+→ detect QUEST_OFFER/GOSSIP/FIELD_PROMPT
+→ read title/objective
+→ accept
+→ wait for UI/state update
+→ verify quest became active
+
+Click alone is not acceptance proof.
+
+
+============================================================
+48. FIELD / REMOTE QUEST COMPLETION
+============================================================
+
+Some quests may become completable without returning to an NPC and may expose a completion button/prompt.
+
+Therefore completion mode must be classified:
+
+NPC_TURN_IN
+FIELD_TURN_IN
+AUTO_COMPLETE
+SPECIAL_UI
+UNKNOWN
+
+If field-complete UI exists:
+use the correct QuestCompletionSkill/UI flow.
+
+Do not navigate back to the original giver by assumption.
+
+
+============================================================
+49. SPEAK / INTERACT NPC OBJECTIVE
+============================================================
+
+Pipeline:
+
+classify SPEAK/INTERACT_NPC
+→ ObjectiveLocator
+→ global nav if required
+→ local nav
+→ local search
+→ validate NPC identity/role
+→ InteractSkill
+→ expected dialog/gossip/script
+→ QuestProgressVerifier
+
+If interaction succeeds but quest state does not progress:
+do not mark objective complete.
+
+Re-evaluate:
+- wrong NPC?
+- gossip option required?
+- scripted wait?
+- different interaction?
+- objective location changed?
+
+
+============================================================
+50. KILL OBJECTIVE
+============================================================
+
+Pipeline:
+
+classify KILL/KILL_NAMED
+→ locate objective area/entity
+→ navigate
+→ search target
+→ validate target
+→ CombatSkill
+→ QuestProgressVerifier
+→ repeat only after credit check
+
+For count objectives:
+current_count must drive completion.
+
+If mob killed but count does not increase:
+reduce confidence in that target/source and re-evaluate.
+
+Do not repeatedly kill the same wrong target type.
+
+
+============================================================
+51. COLLECT OBJECTIVE
+============================================================
+
+Collection source is not known merely from the word "collect".
+
+Maintain strategy belief:
+
+GROUND_OBJECT
+MOB_LOOT
+DIRECT_INTERACT
+QUEST_ITEM_MECHANIC
+SCRIPTED
+UNKNOWN
+
+Example adaptive reasoning:
+
+kill matching enemy
+→ kill succeeds
+→ objective does not progress
+→ corpse lootable
+→ loot
+→ objective increases
+→ strengthen MOB_LOOT strategy belief
+
+If loot succeeds but objective does not increase:
+re-evaluate source.
+
+
+============================================================
+52. INTERACT OBJECT OBJECTIVE
+============================================================
+
+Pipeline:
+
+locate quest area
+→ local search for object
+→ object-role validation
+→ MovementSkill / InteractSkill
+→ verify object/world delta
+→ QuestProgressVerifier
+
+Do not require an NPC target frame for objects.
+
+
+============================================================
+53. QUEST ITEM / TOOL BUTTON OBJECTIVE
+============================================================
+
+Quest items may be exposed through quest UI/tool buttons rather than normal inventory-only workflows.
+
+Create QuestToolResolver.
+
+It detects:
+- quest item button attached to objective/tracker
+- configured action for quest item
+- cooldown/availability
+- whether target is required
+
+UseItemSkill:
+
+VALIDATE_CONTEXT
+ACQUIRE_TARGET_IF_REQUIRED
+APPROACH_IF_REQUIRED
+FACE_IF_REQUIRED
+ACTIVATE
+WAIT
+VERIFY
+
+Do not spam a tool button during cooldown.
+
+
+============================================================
+54. EXTRA ACTION BUTTON
+============================================================
+
+Treat Extra Action Button as a generic special mechanic, not a one-off hack.
+
+ExtraActionResolver:
+
+- detect presence
+- associate with active objective/context
+- determine whether target/range/facing is required from available evidence
+- invoke configured input
+- verify resulting quest/world state
+
+If mechanic remains ambiguous:
+return BLOCKED/UNSUPPORTED_MECHANIC rather than random repeated clicks.
+
+
+============================================================
+55. VEHICLE / OVERRIDE BAR QUESTS
+============================================================
+
+Entering a vehicle may replace normal action bindings.
+
+Detect:
+VEHICLE_OVERRIDE or equivalent UI/context change.
+
+On transition:
+- cancel incompatible normal combat/movement assumptions
+- switch to VehicleSkill/VehicleController if implemented
+- use vehicle-specific configured actions
+- verify quest progress
+
+When vehicle exits:
+invalidate vehicle action state
+restore normal control context
+
+Do not let normal rotation fire into a vehicle override state.
+
+
+============================================================
+56. GOSSIP CHOICE
+============================================================
+
+Interaction may open gossip rather than directly advancing the quest.
+
+GossipResolver:
+
+- detect option list
+- read/identify options
+- match option to active objective/context
+- select only at sufficient confidence
+- verify resulting state
+
+If several choices are plausible and confidence is low:
+gather more information or return BLOCKED.
+
+Do not randomly click.
+
+
+============================================================
+57. DEFEND / WAIT / SCRIPTED EVENT
+============================================================
+
+Not every objective is active movement.
+
+For DEFEND/WAIT/SCRIPTED_EVENT:
+
+- detect event-start state
+- maintain safe local position if appropriate
+- monitor quest/objective state
+- respond to combat only when required
+- respect script timing
+- do not wander away because no marker is visible
+
+Use event/timeout progress evidence.
+
+If no progress within reasonable budget:
+re-evaluate objective.
+
+
+============================================================
+58. FOLLOW / ESCORT
+============================================================
+
+Escort behavior is distinct from normal point navigation.
+
+Maintain:
+- escorted entity belief
+- following distance band
+- entity last seen
+- event/combat interruptions
+- objective progress
+
+Do not outrun the escort.
+Do not treat temporary stop as arrival.
+
+
+============================================================
+59. TRAVEL / REACH AREA
+============================================================
+
+Travel objectives prioritize location evidence.
+
+World Map:
+global destination
+
+Minimap/navigation cue:
+local approach
+
+3D:
+entrance/local finalization
+
+Success is strongest when:
+quest state changes after reaching area.
+
+If map arrival occurs but quest does not progress:
+inspect:
+- entrance
+- floor
+- NPC
+- sub-area
+- scripted trigger
+
+
+============================================================
+60. MULTI-STAGE QUESTS
+============================================================
+
+After EVERY quest-credit change:
+
+READ QUEST STATE AGAIN.
+
+Do not continue the previous execution strategy blindly.
+
+Example:
+
+SPEAK
+→ progress
+→ objective becomes KILL
+→ classify KILL
+→ locate
+→ combat
+
+Then:
+KILL complete
+→ new objective USE_ITEM
+→ reclassify
+
+Objective-stage change invalidates stale objective-localization beliefs.
+
+
+============================================================
+61. TURN-IN
+============================================================
+
+Quest giver and turn-in NPC/location may differ.
+
+TurnInResolver location hierarchy:
+
+1. validated local turn-in marker/entity
+2. minimap turn-in cue
+3. world map turn-in marker
+4. reliable quest memory/context
+5. search
+6. unknown
+
+Then:
+
+navigate
+→ validate turn-in role
+→ InteractSkill
+→ QUEST_COMPLETE/REWARD UI
+→ reward policy
+→ complete
+→ verify quest no longer active / completion confirmed
+
+
+============================================================
+62. REWARD SELECTION
+============================================================
+
+Reward choice must be policy-driven.
+
+Do not randomly select a meaningful reward.
+
+Possible policy:
+- explicit user/config policy
+- deterministic stat/value policy if already implemented
+- test/sandbox "first valid reward" only when explicitly enabled
+- BLOCKED_NEEDS_REWARD_POLICY
+
+No silent arbitrary selection in production mode.
+
+
+============================================================
+63. NEXT QUEST / CHAIN CONTINUATION
+============================================================
+
+After turn-in:
+
+- inspect resulting UI
+- inspect same NPC for a new quest
+- inspect local markers
+- inspect tracker/log
+- inspect world map
+- use campaign classification
+
+If GoalMode MAIN_CAMPAIGN:
+choose the reliable campaign continuation.
+
+Do not assume same NPC.
+
+
+============================================================
+64. MAP / MINIMAP / 3D RELOCALIZATION LOOP
+============================================================
+
+This is the core quest-navigation loop:
+
+while objective not complete:
+
+    if validated local target exists:
+        execute appropriate skill
+        verify quest credit
+        continue
+
+    if usable local/minimap cue exists:
+        navigate locally
+        reobserve
+        continue
+
+    if world-map location exists:
+        navigate globally
+        reobserve
+        continue
+
+    if known location memory is reliable:
+        navigate there
+        reobserve
+        continue
+
+    if search area exists:
+        bounded local search
+        reobserve
+        continue
+
+    gather more information
+
+    if still unknown after budget:
+        return typed BLOCKED/UNKNOWN,
+        not an infinite loop.
+
+
+============================================================
+65. SEARCH COVERAGE MEMORY
+============================================================
+
+Search must remember what has already been checked.
+
+Track:
+- scanned camera sectors
+- visited local search points
+- failed entity candidates
+- failed entrances
+- timestamp
+- context/map phase
+
+Do not repeat identical search path unless the world context changed.
+
+Invalidate local search memory when:
+- loading/teleport
+- phase change
+- objective stage change
+- map/floor transition
+- major player relocation
+
+
+============================================================
+66. PHASING / LOADING / TELEPORT
+============================================================
+
+Detect world-context transitions.
+
+Events:
+LOADING_STARTED
+LOADING_ENDED
+WORLD_CONTEXT_CHANGED
+MAP_CONTEXT_CHANGED
+
+On transition invalidate:
+- screen-space tracks
+- local entity positions
+- local route
+- immediate search coverage
+
+Preserve:
+- primary quest goal
+- normalized quest state
+- reliable high-level destination if still applicable
+
+Then re-localize.
+
+
+============================================================
+67. CINEMATIC HANDLING
+============================================================
+
+Cinematic is a blocking state.
+
+Default behavior:
+- stop sending gameplay inputs
+- wait for cinematic end
+
+Optional configured skip policy may exist,
+but do not spam skip input.
+
+After cinematic:
+refresh entire local WorldModel context
+and quest state.
+
+
+============================================================
+68. PLAYER DEATH / RECOVERY
+============================================================
+
+Death is a Supervisor-level interrupt.
+
+On PLAYER_DEAD:
+
+1. cancel active skill
+2. release all keys
+3. capture death UI state
+4. run DeathRecovery policy
+5. restore control only after alive state is verified
+6. invalidate stale local target/path
+7. preserve primary quest goal
+8. re-localize current objective
+
+DeathRecovery implementation may support the current game UI flow already present in the repository.
+
+Do not fake success if automated resurrection is not implemented.
+
+Return BLOCKED_NEEDS_DEATH_RECOVERY when required.
+
+
+============================================================
+69. COMBAT INTERRUPTS QUEST INTERACTION
+============================================================
+
+Priority:
+
+PLAYER_SURVIVAL
+> required combat interruption
+> current interaction
+> navigation
+
+If unexpected hostile combat starts during:
+- map use
+- search
+- interaction
+- loot
+
+Supervisor may cancel/pause current skill and start CombatSkill.
+
+After combat:
+re-read quest/world state before resuming.
+Do not blindly resume stale coordinates.
+
+
+============================================================
+70. OBJECTIVE CREDIT FAILURE STRATEGY
+============================================================
+
+If the action succeeds but no quest credit:
+
+Do not repeat indefinitely.
+
+Use failure history:
+
+1st no-credit:
+re-check quest state and target identity
+
+2nd similar no-credit:
+reduce strategy/target confidence
+change candidate/source/search
+
+Repeated no-credit:
+escalate to ObjectiveClassifier/Locator
+or BLOCKED if unsupported
+
+Maintain:
+failed_credit_candidates[]
+failed_strategy_attempts[]
+
+
+============================================================
+71. PLANNER ANTI-LOOP RULE
+============================================================
+
+Planner may not emit the exact same:
+
+(skill_type, target, strategy)
+
+after a non-retryable failure
+unless there is NEW EVIDENCE or world context changed.
+
+Record DecisionFingerprint.
+
+Repeated fingerprint without new evidence:
+force alternative strategy or escalation.
+
+
+============================================================
+72. SUPERVISOR PRIORITY ORDER
+============================================================
+
+Suggested priorities:
+
+1. fatal/system safety
+2. player death
+3. blocking loading/cinematic/disconnect
+4. immediate survival combat
+5. active skill completion/recovery
+6. quest objective execution
+7. quest localization
+8. quest selection
+9. optional exploration
+
+Supervisor owns interrupts.
+Planner does not.
+
+
+============================================================
+73. EVENT BUS
+============================================================
+
+Use standard events.
+
+Examples:
+
+SKILL_STARTED
+SKILL_PHASE_CHANGED
+SKILL_SUCCEEDED
+SKILL_FAILED
+SKILL_CANCELLED
+
+QUEST_ACCEPTED
+QUEST_OBJECTIVE_UPDATED
+QUEST_CREDIT_CONFIRMED
+QUEST_READY_FOR_TURN_IN
+QUEST_COMPLETED
+
+MAP_OPENED
+MAP_CLOSED
+MAP_CONTEXT_CHANGED
+MINIMAP_TARGET_FOUND
+LOCAL_ENTITY_FOUND
+
+NAVIGATION_PROGRESS
+NAVIGATION_STUCK
+ARRIVED
+
+COMBAT_STARTED
+COMBAT_ENDED
+TARGET_LOST
+PLAYER_DIED
+PLAYER_ALIVE
+
+UI_CONTEXT_CHANGED
+LOADING_STARTED
+LOADING_ENDED
+CINEMATIC_STARTED
+CINEMATIC_ENDED
+VEHICLE_ENTERED
+VEHICLE_EXITED
+
+
+============================================================
+74. THREADING / CONCURRENCY
+============================================================
+
+Audit all:
+- threads
+- async tasks
+- timers
+- callbacks
+- capture loops
+- telemetry readers
+- input queues
+
+Runtime authority should preferably be mutated on one control thread/event loop.
+
+Background systems publish observations/events.
+
+They do NOT directly modify ActiveSkill internal state.
+
+Eliminate race conditions around:
+- cancellation
+- completion
+- target update
+- key release
+- retry timers
+
+
+============================================================
+75. EXECUTOR CONTRACT
+============================================================
+
+Executor is intentionally dumb.
+
+Commands:
+
+PRESS_KEY
+HOLD_KEY
+RELEASE_KEY
+RELEASE_ALL_KEYS
+MOVE_MOUSE
+CLICK
+STOP_MOVEMENT
+WAIT_UNTIL/DELAY if the existing architecture requires scheduling
+
+Executor does not understand:
+- quests
+- NPC roles
+- objective types
+- combat strategy
+
+Executor requirements:
+- focus validation where existing project supports it
+- key-up cleanup
+- queue cancellation
+- emergency stop
+- idempotent safe cleanup
+
+
+============================================================
+76. SAFE STOP
+============================================================
+
+Any fatal runtime error:
+
+- release all held keys
+- stop movement
+- stop/cancel executor queue
+- cancel ActiveSkill
+- record failure
+- save replay/debug context
+- stop runtime safely
+
+Never leave W or another key held after exception.
+
+
+============================================================
+77. ERROR HANDLING
+============================================================
+
+Audit:
+
+except Exception:
+    pass
+
+and equivalent broad swallowing.
+
+Recoverable error:
+convert to typed failure/event.
+
+Unexpected fatal:
+structured log + Safe Stop.
+
+Do not silently hide bugs.
+
+
+============================================================
+78. STRUCTURED LOGGING
+============================================================
+
+Required events should be inspectable.
+
+Example:
+
+{
+  "event": "SKILL_FAILED",
+  "skill": "INTERACT",
+  "phase": "VERIFY",
+  "target": "entity_42",
+  "reason": "QUEST_CREDIT_NOT_RECEIVED",
+  "attempt": 2,
+  "elapsed_ms": 4312,
+  "evidence": [...]
+}
+
+Log:
+- planner decisions
+- skill starts
+- phase transitions
+- cancellations
+- failures
+- recoveries
+- quest-credit changes
+- objective reclassification
+- localization source changes
+
+
+============================================================
+79. REPLAY SYSTEM
+============================================================
+
+This is mandatory for reliable development.
+
+Record:
+- relevant observations
+- timestamps
+- world-state deltas
+- map/minimap results
+- quest state
+- UI context
+- skill transitions
+- commands
+- verification results
+- planner/supervisor decisions
+- failures/recoveries
+
+Replay mode:
+- does NOT send real inputs
+- feeds recorded observations
+- should reproduce the same state-machine decisions when inputs are equivalent
+
+Use replay to reproduce bugs.
+
+
+============================================================
+80. DEBUG OVERLAY
+============================================================
+
+Optional but strongly recommended.
+
+Display:
+
+Primary goal
+Current quest
+Current objective
+Objective type + confidence
+Location source
+Map context
+Minimap cue
+Active skill
+Skill phase
+Current target
+Target confidence
+Navigation progress
+Latest failure
+Retry count
+Quest progress
+
+Debug UI must not own runtime logic.
+
+
+============================================================
+81. REPOSITORY REFACTOR TARGET
+============================================================
+
+Audit oversized/overlapping modules such as:
+- engine/runtime
+- planner
+- skills registry
+- lifecycle
+- verification
+- navigation/controller variants
+
+Target shape may resemble:
+
+runtime/
+    agent_runtime.py
+    active_skill.py
+    supervisor.py
+    events.py
+    policies.py
+
+world/
+    model.py
+    query.py
+    evidence.py
+    snapshots.py
+
+skills/
+    base.py
+    target.py
+    movement.py
+    search.py
+    interact.py
+    combat.py
+    loot.py
+    use_item.py
+    quest_dialog.py
+    field_turn_in.py
+    vehicle.py
+
+navigation/
+    service.py
+    global_nav.py
+    local_nav.py
+    route_planner.py
+    progress.py
+    stuck.py
+    arrival.py
+    transitions.py
+
+quest/
+    runtime.py
+    state.py
+    classifier.py
+    locator.py
+    world_map.py
+    minimap.py
+    progress_verifier.py
+    turn_in.py
+    gossip.py
+    mechanics.py
+
+verification/
+    base.py
+    movement.py
+    interaction.py
+    combat.py
+    loot.py
+    quest.py
+    ui.py
+
+Do not force these exact filenames if the existing repository has a cleaner equivalent.
+The RESPONSIBILITY BOUNDARIES are mandatory.
+
+
+============================================================
+82. PLANNER BREAKUP
+============================================================
+
+If current planner is a God Object, split responsibilities.
+
+Potential components:
+
+GoalSelector
+QuestPlanner
+RecoveryPlanner
+ResourcePlanner (later)
+PlanTypes
+
+High-level Planner decides intents.
+
+QuestPlanner may say:
+INTERACT(entity_42)
+
+It may NOT say:
+press W for 1.2s, turn left, press F.
+
+
+============================================================
+83. ENGINE/RUNTIME BREAKUP
+============================================================
+
+Main runtime should not contain:
+- quest-specific branches
+- combat rotation
+- navigation math
+- UI verifier logic
+- entity identity algorithms
+
+It orchestrates.
+
+If engine tick is huge,
+move domain logic into the correct canonical services/skills.
+
+
+============================================================
+84. LEGACY / DEAD CODE AUDIT
+============================================================
+
+Find:
+- never-instantiated classes
+- duplicate controllers
+- deprecated wrappers
+- old navigation stacks
+- unused lifecycle systems
+- duplicate verifier logic
+- obsolete helpers
+- TODO hacks
+
+Document each as:
+
+KEEP
+MIGRATE
+ADAPTER_TEMPORARY
+DELETE
+
+Final project must not retain two active authorities "just in case."
+
+
+============================================================
+85. CONFIGURATION
+============================================================
+
+Centralize domain-specific thresholds.
+
+Examples:
+
+runtime config
+navigation config
+interaction config
+combat config
+search config
+quest config
+vision confidence config
+
+Configurable:
+- timeouts
+- retry counts
+- interaction range assumptions
+- confidence thresholds
+- stuck thresholds
+- search budgets
+- wait durations
+
+Do not create one giant unrelated config dump.
+
+
+============================================================
+86. PERFORMANCE RULE
+============================================================
+
+Do not optimize blindly.
+
+Measure:
+- runtime tick latency
+- capture latency
+- world-model update latency
+- detector latency
+- navigation/control latency
+- input queue delay
+
+Low-level movement/combat control must not block on cloud/LLM calls.
+
+
+============================================================
+87. M0 UNIT TEST MATRIX
+============================================================
+
+ActiveSkill:
+- only one active skill
+- start
+- success
+- failure
+- cancel
+- no double start
+
+Lifecycle:
+- validation not skipped
+- explicit phase transitions
+- terminal state immutable/finalized correctly
+
+Movement:
+- progress
+- arrival
+- target moves
+- no progress
+- stuck
+- recovery
+- timeout
+
+Interact:
+- target missing
+- low confidence
+- out of range
+- face fail/recovery
+- interaction success
+- wrong UI
+- no response
+- timeout
+- interrupt
+
+Combat:
+- normal kill
+- out of range
+- facing wrong
+- LOS
+- target lost
+- player dead
+- timeout
+
+Loot:
+- corpse missing
+- loot success
+- no expected item
+- quest progress after loot
+
+Search:
+- finds first sector
+- expands
+- coverage memory
+- budget exhaustion
+
+Safe Stop:
+- releases held inputs after exception
+
+
+============================================================
+88. M1 UNIT TEST MATRIX
+============================================================
+
+Quest normalization:
+- counts
+- complete
+- ready turn-in
+- objective changes
+
+Classifier:
+- speak
+- kill
+- collect
+- object
+- travel
+- use item
+- scripted
+- unknown
+
+WorldMapResolver:
+- marker found
+- wrong zoom
+- parent zone
+- no marker
+- filter uncertainty
+
+MinimapResolver:
+- marker edge
+- marker approaches center
+- disappearance triggers re-evaluation
+
+ObjectiveLocator:
+- local entity wins
+- minimap fallback
+- world-map fallback
+- known-location fallback
+- search area
+- unknown
+
+QuestProgressVerifier:
+- action success + credit
+- action success + no credit
+- stage change
+- ready turn-in
+
+
+============================================================
+89. M1 INTEGRATION SCENARIOS
+============================================================
+
+At minimum:
+
+1. visible quest giver -> accept
+2. quest giver only on minimap -> locate -> accept
+3. quest giver only on world map -> global nav -> local nav -> accept
+4. speak objective target initially not visible
+5. kill area on map, no mobs initially visible
+6. kill wrong mob produces no credit -> strategy changes
+7. collect via mob loot
+8. collect via ground object
+9. use quest tool button
+10. Extra Action Button objective
+11. travel/reach objective
+12. multi-stage quest changes type
+13. turn-in NPC differs from giver
+14. field/remote turn-in
+15. gossip choice required
+16. minimap marker disappears on entering objective area
+17. wrong world-map zoom level
+18. cave/entrance required
+19. indoor/multi-floor context change
+20. interaction interrupted by combat
+21. loading/teleport
+22. cinematic
+23. player death/recovery
+24. vehicle/override state
+25. quest complete -> next campaign quest
+
+
+============================================================
+90. M0 COMPLETION GATE
+============================================================
+
+M0 is DONE only when:
+
+- one ActiveSkill authority
+- canonical movement/navigation path
+- deterministic Target/Move/Search/Interact/Combat/Loot skills
+- typed result/failure system
+- retry/timeout policies
+- verification split
+- safe cancellation
+- safe stop
+- replay test support
+- tests pass
+- legacy active authority removed
+
+Compile success alone is NOT M0 completion.
+
+
+============================================================
+91. M1 COMPLETION GATE
+============================================================
+
+M1 is DONE only when the agent can demonstrate:
+
+- primary quest selection
+- quest-state reading
+- objective classification
+- hierarchical objective localization
+- World Map use
+- Minimap use
+- 3D local acquisition
+- global -> local -> immediate navigation
+- M0 skill execution
+- QUEST CREDIT verification
+- multi-stage reclassification
+- turn-in localization
+- completion
+- next main/campaign quest recognition
+
+and passes the scenario suite.
+
+
+============================================================
+92. EXILE'S REACH / STARTING-ZONE ACCEPTANCE PRINCIPLE
+============================================================
+
+If Exile's Reach or a comparable starting main questline is used as the live acceptance target:
+
+Do NOT hard-code every quest route.
+
+The test is intended to prove generic capabilities:
+
+- discover/accept main quest
+- read objective
+- use world map
+- use minimap
+- local 3D search
+- move/interact
+- kill/recover combat
+- loot/collect
+- use objective mechanic
+- travel
+- multi-stage update
+- turn-in
+- continue chain
+
+Quest-specific adapters are acceptable only for genuinely unique scripted mechanics,
+not as a substitute for general quest execution.
+
+
+============================================================
+93. IMPLEMENTATION ORDER
+============================================================
+
+Follow this order unless repo reality proves a dependency requires a small adjustment.
+
+PHASE 0
+Full repo audit
+Architecture map
+Call-site map
+Legacy authority map
+
+PHASE A
+Common typed contracts
+Failure taxonomy
+ActiveSkillRuntime
+Supervisor gates
+
+PHASE B
+Canonical NavigationService selection
+MovementSkill
+FaceController
+TargetSkill
+SearchSkill
+
+PHASE C
+InteractSkill
+InteractionVerifier
+
+PHASE D
+CombatSkill
+Combat recovery
+CombatVerifier
+
+PHASE E
+LootSkill
+LootVerifier
+
+PHASE F
+Retry policy
+Timeout policy
+StuckDetector
+Safe Stop
+Cancellation cleanup
+
+PHASE G
+Verification split
+Before/after snapshots
+
+PHASE H
+Engine/runtime God Object breakup
+
+PHASE I
+Planner God Object breakup
+
+PHASE J
+QuestState normalization
+QuestProgressVerifier
+
+PHASE K
+WorldMapResolver
+
+PHASE L
+MinimapResolver
+
+PHASE M
+ObjectiveClassifier
+ObjectiveLocator
+
+PHASE N
+QuestExecutionRuntime
+
+PHASE O
+Speak/Kill/Collect/Object/UseItem/Travel flows
+
+PHASE P
+Gossip/field turn-in/tool button/Extra Action mechanics
+
+PHASE Q
+Turn-in/reward/next quest
+
+PHASE R
+Loading/phasing/cave/floor/death/vehicle/scripted edge cases
+
+PHASE S
+Replay suite
+M0 integration suite
+M1 integration suite
+
+PHASE T
+Legacy deletion
+Documentation
+Final audit
+
+
+============================================================
+94. PHASE DONE CONTRACT
+============================================================
+
+A phase may be marked DONE only if:
+
+1. implementation exists
+2. repository call sites were searched
+3. call sites were migrated
+4. old state authority was removed or strictly isolated
+5. unit tests added
+6. integration/replay test added where applicable
+7. tests pass
+8. compile/import smoke passes
+9. documentation updated
+10. no duplicate authority was introduced
+
+Every phase report must state:
+
+CHANGED FILES
+MIGRATED CALL SITES
+REMOVED/ISOLATED LEGACY PATHS
+TESTS ADDED
+TEST RESULTS
+KNOWN RISKS
+LIVE_VALIDATION_REQUIRED
+
+
+============================================================
+95. CODING RULES
+============================================================
+
+Prefer:
+- small focused modules
+- explicit typed state
+- dependency injection
+- deterministic FSMs
+- clear ownership
+- side-effect isolation
+
+Avoid:
+- giant functions
+- giant God classes
+- mutable global singleton state
+- broad hidden side effects
+- duplicated state machines
+- duplicated navigation/facing logic
+- silent exception swallowing
+- random retry numbers
+
+
+============================================================
+96. DO NOT LIE ABOUT VALIDATION
+============================================================
+
+Distinguish:
+
+STATIC_VALIDATED
+UNIT_VALIDATED
+REPLAY_VALIDATED
+INTEGRATION_VALIDATED
+LIVE_VALIDATED
+
+If a feature has not been tested in live WoW:
+do not label it LIVE_VALIDATED.
+
+Complete every offline-testable portion first.
+
+Mark remaining live requirements explicitly.
+
+
+============================================================
+97. REQUIRED FINAL DELIVERABLES
+============================================================
+
+Return the complete modified repository plus:
+
+CHANGELOG.md
+ARCHITECTURE.md
+M0_IMPLEMENTATION.md
+M1_QUEST_EXECUTION.md
+MIGRATION.md
+DEAD_CODE_AUDIT.md
+TEST_REPORT.md
+KNOWN_LIMITATIONS.md
+
+TEST_REPORT must show:
+- test names/groups
+- pass/fail
+- replay coverage
+- integration coverage
+- what still needs live verification
+
+
+============================================================
+98. FINAL OWNERSHIP TABLE
+============================================================
+
+The final architecture must respect:
+
+SENSORS
+"What did we observe?"
+
+WORLD MODEL
+"What is probably true now?"
+
+QUEST STATE
+"What quest/objective state is currently active?"
+
+OBJECTIVE CLASSIFIER
+"What kind of quest task is this?"
+
+OBJECTIVE LOCATOR
+"Where is the best current belief about the target/area/mechanic?"
+
+WORLD MAP RESOLVER
+"What is the global quest location/context?"
+
+MINIMAP RESOLVER
+"What is the local directional/location cue?"
+
+NAVIGATION
+"How do we get there?"
+
+SKILL
+"How do we execute this bounded capability?"
+
+VERIFIER
+"Did that capability actually succeed?"
+
+QUEST PROGRESS VERIFIER
+"Did the quest actually give credit or advance?"
+
+SUPERVISOR
+"Should we continue, interrupt, recover, or replan?"
+
+PLANNER
+"What high-level intent comes next?"
+
+EXECUTOR
+"What input commands are sent?"
+
+Never merge these responsibilities back into one God Object.
+
+
+============================================================
+99. THE MOST IMPORTANT QUEST RULE
+============================================================
+
+THE QUEST OBJECTIVE DOES NOT HAVE TO BE IN THE CAMERA.
+
+When the objective is not visible:
+
+DO NOT immediately return TARGET_NOT_FOUND.
+
+Instead:
+
+1. read current quest/objective
+2. check validated local evidence
+3. check minimap/navigation cue
+4. check world map
+5. check reliable memory/context
+6. navigate to the best known area
+7. re-check minimap
+8. perform bounded local search
+9. acquire and validate entity/object/mechanic
+10. execute deterministic M0 skill
+11. verify QUEST CREDIT
+12. re-read quest state
+13. classify/localize the next stage
+
+This loop is the core of human-like WoW quest execution.
+
+
+============================================================
+100. FINAL COMMAND TO THE CODING AGENT
+============================================================
+
+Do not merely write an architecture proposal.
+
+Do the work in the repository.
+
+Start with a complete audit.
+
+Do not stop after fixing one bug.
+
+Do not solve architectural conflicts by adding another parallel controller.
+
+Do not consider compilation proof of correctness.
+
+Do not invent quest state that is not observed.
+
+Do not assume the objective is on screen.
+
+Do not assume action success means quest success.
+
+Do not use infinite retries.
+
+Do not leave two active navigation systems.
+
+Do not leave two active skill authorities.
+
+Do not leave a planner that micromanages movement/combat.
+
+Build and test the deterministic M0 core first.
+
+Then build the M1 quest execution layer on top of M0.
+
+The final system must be capable of behaving like this:
+
+"Complete the current main quest."
+
+→ identify current quest
+→ read objective
+→ classify objective
+→ locate it using local evidence / minimap / world map
+→ travel to the appropriate area
+→ acquire the local target or mechanic
+→ execute the correct deterministic skill
+→ verify quest credit
+→ re-read the changed quest state
+→ repeat for the next stage
+→ locate turn-in
+→ complete the quest
+→ identify the next main/campaign quest
+
+with clear ownership, deterministic state machines, bounded recovery, evidence-based decisions, replayable debugging, and explicit validation status.
+
+END OF SPECIFICATION.

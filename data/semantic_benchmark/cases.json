@@ -1,0 +1,68 @@
+{
+  "_note": "Benchmark for semantic_advisor (local LLM). source LIVE = objective/speech text captured from this profile's telemetry (Exile's Reach, 2026-10); SYNTHETIC = typical WoW phrasing written for coverage. Expected values list every acceptable answer; null means the field must be empty.",
+  "quests": [
+    {"source": "LIVE", "quest_id": 55879, "title": "Ride of the Scientifically Enhanced Boar", "description": "",
+     "objectives": [
+       {"text": "Ride the Giant Boar", "action": ["RIDE_VEHICLE"], "target": ["Giant Boar", null]},
+       {"text": "0/8 Monstrous Cadaver slain", "action": ["KILL", "USE_VEHICLE_ABILITY"], "target": ["Monstrous Cadaver"]},
+       {"text": "0/1 Torgok slain", "action": ["KILL", "USE_VEHICLE_ABILITY"], "target": ["Torgok"]}]},
+    {"source": "LIVE", "quest_id": 56034, "title": "Re-sizing the Situation", "description": "",
+     "objectives": [
+       {"text": "0/3 Re-Sizer v9.0.1 tested on Wandering Boars", "action": ["USE_ITEM_ON_TARGET"],
+        "target": ["Wandering Boars", "Wandering Boar"], "item": ["Re-Sizer v9.0.1", "Re-Sizer"]}]},
+    {"source": "LIVE", "quest_id": 55193, "title": "The Scout-o-Matic 5000", "description": "",
+     "objectives": [
+       {"text": "0/1 Use Scout-o-Matic 5000 to scout the area", "action": ["RIDE_VEHICLE", "USE_ITEM_ON_TARGET", "INTERACT_OBJECT"],
+        "target": ["Scout-o-Matic 5000", null]}]},
+    {"source": "LIVE", "quest_id": 55184, "title": "Quilboar Shadow Magic", "description": "",
+     "objectives": [{"text": "0/7 Quilboar slain", "action": ["KILL"], "target": ["Quilboar"]}]},
+    {"source": "LIVE", "quest_id": 55186, "title": "Down with the Quilboar", "description": "",
+     "objectives": [{"text": "0/1 Geolord Grek'og slain", "action": ["KILL"], "target": ["Geolord Grek'og"]}]},
+    {"source": "LIVE", "quest_id": 59254, "title": "Enhanced Combat Tactics", "description": "",
+     "objectives": [{"text": "0/3 Abilities proven against Captain Garrick", "action": ["KILL"],
+                     "target": ["Captain Garrick"]}]},
+    {"source": "LIVE", "quest_id": 55174, "title": "Cooking Meat", "description": "",
+     "objectives": [
+       {"text": "0/5 Raw Meat collected from wildlife", "action": ["COLLECT"], "target": ["Raw Meat", "wildlife", null]},
+       {"text": "0/1 Cook the meat on the campfire", "action": ["INTERACT_OBJECT"], "target": ["campfire"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900001, "title": "Report to Goldshire", "description": "",
+     "objectives": [{"text": "Talk to Marshal Dughan", "action": ["TALK"], "target": ["Marshal Dughan"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900002, "title": "Webwood Eggs", "description": "",
+     "objectives": [{"text": "0/6 Spider Egg collected", "action": ["COLLECT"], "target": ["Spider Egg"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900003, "title": "A Safe Path", "description": "Kee-la is too weak to travel alone. Stay with her until she reaches the camp.",
+     "objectives": [{"text": "Escort Kee-la to safety", "action": ["ESCORT"], "target": ["Kee-la"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900004, "title": "Purge the Totems", "description": "Take this torch and use it on the harpy totems to burn them down.",
+     "objectives": [{"text": "0/4 Harpy Totem burned", "action": ["USE_ITEM_ON_TARGET"], "target": ["Harpy Totem"],
+                     "item": ["torch", "Torch"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900005, "title": "Hold the Line", "description": "",
+     "objectives": [{"text": "Defend the Supply Wagon", "action": ["DEFEND"], "target": ["Supply Wagon"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900006, "title": "The Missing Scout", "description": "",
+     "objectives": [{"text": "Locate Meredy Huntswell", "action": ["GO_TO", "TALK"], "target": ["Meredy Huntswell"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900007, "title": "Gnoll Trouble", "description": "Bring me the paws of the gnolls in the forest.",
+     "objectives": [{"text": "0/5 Gnoll Paw", "action": ["COLLECT", "KILL"], "target": ["Gnoll Paw", "gnolls", "gnoll"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900008, "title": "Up and Away", "description": "",
+     "objectives": [{"text": "Board the Skyship", "action": ["RIDE_VEHICLE"], "target": ["Skyship", null]}]},
+    {"source": "SYNTHETIC", "quest_id": 900009, "title": "Shred the Murlocs", "description": "Climb into the shredder and use its saw to cut down the murlocs on the shore.",
+     "objectives": [{"text": "0/10 Murlocs slain while riding the Shredder", "action": ["USE_VEHICLE_ABILITY", "KILL"],
+                     "target": ["Murlocs", "Murloc"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900010, "title": "Buried Treasure", "description": "",
+     "objectives": [{"text": "Open the Ancient Chest", "action": ["INTERACT_OBJECT"], "target": ["Ancient Chest"]}]},
+    {"source": "SYNTHETIC", "quest_id": 900011, "title": "Field Medicine", "description": "Use the First Aid Kit on the injured soldiers around the camp.",
+     "objectives": [{"text": "0/5 Injured Soldier bandaged", "action": ["USE_ITEM_ON_TARGET"],
+                     "target": ["Injured Soldier", "injured soldiers"], "item": ["First Aid Kit"]}]}
+  ],
+  "abilities": [
+    {"source": "LIVE", "id": 305556, "name": "Trample", "description": "Command the giant boar to charge forward, increasing its speed and sending any undead in its way flying into the air.", "max_range": 0, "mode": ["FORWARD_DASH"]},
+    {"source": "SYNTHETIC", "id": 1, "name": "Cannon Blast", "description": "Fires the cannon at the targeted enemy, dealing Fire damage.", "max_range": 40, "mode": ["TARGETED"]},
+    {"source": "SYNTHETIC", "id": 2, "name": "Stomp", "description": "Stomps the ground, damaging all enemies within 8 yards.", "max_range": 0, "mode": ["CLOSE"]},
+    {"source": "SYNTHETIC", "id": 3, "name": "Eject Passenger", "description": "Ejects your passenger from the vehicle.", "max_range": 0, "mode": ["NOT_ATTACK"]},
+    {"source": "SYNTHETIC", "id": 4, "name": "Throw Bomb", "description": "Throw a bomb at the target location, damaging enemies in a 5 yard radius.", "max_range": 30, "mode": ["GROUND_TARGET"]},
+    {"source": "SYNTHETIC", "id": 5, "name": "Iron Hide", "description": "Reduces damage taken by 50% for 10 sec.", "max_range": 0, "mode": ["SELF_BUFF"]}
+  ],
+  "speech": [
+    {"source": "LIVE", "speaker": "Captain Garrick", "line": "Charge at me again to close the distance between us. Always begin your attack with a Charge!", "abilities": ["Charge", "Slam"], "instruction": true, "ability": ["Charge"]},
+    {"source": "LIVE", "speaker": "Lindie Springstock", "line": "Or... science! The re-sizer can enlarge one of the nearby boars so it can trample all of those monsters flat!", "abilities": ["Trample"], "instruction": true, "ability": ["Trample", null]},
+    {"source": "LIVE", "speaker": "Quilboar Geomancer", "line": "Our thorns will strangle you!", "abilities": ["Charge", "Slam"], "instruction": false, "ability": [null]},
+    {"source": "LIVE", "speaker": "Lady Jaina Proudmoore", "line": "If it has a camera why did we just send that recruit up there?", "abilities": ["Charge"], "instruction": false, "ability": [null]}
+  ]
+}
