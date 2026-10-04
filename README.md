@@ -20,6 +20,11 @@ reading, injection or secret-value bypasses.
 ## Run
 `START_AGENT.bat` (GUI) or `AUTO_START.bat`. See `HOW_TO_USE.md`.
 
+`examples/bindings-cache.example.wtf` is a real exported binding cache for
+reference. It is **not** selected automatically: choose a cache explicitly in
+the GUI, and verify it matches the bindings of the running WoW client. On a
+new machine, the addon export can create a fresh cache for that client.
+
 ## Not included
 - TensorRT engines (built per GPU by the wizard), training datasets and runs, personal agent
   memory and logs, the TrinityCore spawn catalog (`data/tdb_spawn_catalog.sqlite3`, optional).
