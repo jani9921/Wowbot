@@ -65,6 +65,37 @@ class RuntimeLifecycleMixin:
         except (OSError, TypeError, ValueError, RuntimeError):
             pass
 
+    NAVIGATION_OVERLAY_SECONDS = .25
+
+    def _publish_navigation_overlay(self, current: float) -> None:
+        """Latest route view for LIVE VISION (design doc §11), ~4 Hz."""
+        monitor = getattr(self, "_live_vision_monitor", None)
+        last = getattr(self, "_navigation_overlay_at", None)
+        if monitor is None or (last is not None and current - last < self.NAVIGATION_OVERLAY_SECONDS):
+            return
+        self._navigation_overlay_at = current
+        try:
+            monitor.publish_navigation(self.agent.navigation.overlay_snapshot(self.agent.world.state))
+        except Exception:
+            pass
+
+    def _save_ability_effects(self, current: float, *, force: bool = False) -> None:
+        """Learned vehicle ability effects -> quest_creature_memory (only changes)."""
+        world = getattr(self.agent.world, "__dict__", {})
+        memory, effects = world.get("quest_creature_memory"), world.get("vehicle_ability_effects")
+        if memory is None or not effects:
+            return
+        if not force and current - (getattr(self, "_ability_effects_saved_at", None) or -1e9) < 10.:
+            return
+        self._ability_effects_saved_at = current
+        try:
+            names = {str(action.get("id")): action.get("name")
+                     for action in self.agent.world.state.get("actionbar") or ()
+                     if isinstance(action, dict) and action.get("source") == "VEHICLE_BAR"}
+            memory.save_ability_effects(effects, names)
+        except Exception:
+            pass
+
     def _write_status_now(self, result):
         write_started = time.perf_counter()
         self._save_quest_npcs()
@@ -136,6 +167,13 @@ class RuntimeLifecycleMixin:
         if self.thread:
             self.thread.join(timeout=2)
         self.agent.navigation.close()
+        self._save_ability_effects(time.monotonic(), force=True)
+        creature_memory = getattr(self.agent.world, "__dict__", {}).get("quest_creature_memory")
+        if creature_memory is not None:
+            try:
+                creature_memory.close()
+            except Exception:
+                pass
         if self.replay_bridge is not None:
             self.replay_bridge.checkpoint({"mode": self.agent.mode.value})
             self.replay_bridge.close(metadata={"terminal_mode": "STOPPED"})

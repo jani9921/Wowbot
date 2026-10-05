@@ -71,6 +71,10 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
         from .quest_attempt_memory import QuestAttemptMemory
         self.quest_attempt_memory = QuestAttemptMemory(); self.planner = Planner(self.registry, memory, self.quest_attempt_memory)
         self.navigation = NavigationService(bindings, navmesh=navmesh)
+        # Planning-only geometry query for the quest planner (pit/cave layer
+        # under a quest POI); WorldModel re-init keeps extra attributes.
+        self.world.__dict__["layer_oracle"] = self.navigation.lower_layer_point
+        self.world.__dict__["zone_sweep"] = self.navigation.zone_sweep_next
         self.movement_skill_runner = MovementSkillRunner(self.navigation)
         self.navigation_terminal = NavigationTerminalProcessor(self.navigation)
         self.target_skill = TargetSkill()

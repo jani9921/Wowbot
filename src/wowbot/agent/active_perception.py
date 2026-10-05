@@ -195,6 +195,9 @@ class ActivePerception:
         # quest's hover-confirmed targets than to rejected looks (corpses,
         # unrelated units) -> probe first; the reverse -> probe later.
         prototype_lift = max(-1., min(1., number(appearance.get("prototype_lift")) or 0.))
+        # Remembered quest creatures (quest_creature_memory, user 2026-10-05):
+        # looks like the giver/ender/objective creature the situation wants.
+        creature_lift = max(-1., min(1., number(appearance.get("creature_memory_lift")) or 0.))
         sensor_weight, sensor_health = .5, "UNKNOWN"
         rejection = {"belief": "UNKNOWN", "confidence": 0.}
         if self.memory:
@@ -223,7 +226,7 @@ class ActivePerception:
                     # let generic overhead cues always win in live ranking.
                     .40*memory_probe_value + .07*interaction_readiness +
                     .03*never_inspected - .16*static_scene +
-                    .30*prototype_lift*goal_relevance)
+                    .30*prototype_lift*goal_relevance + .25*creature_lift*goal_relevance)
         if source in {"MINIMAP_CV", "WORLD_MAP_CV"}:
             # Preserve the established map-inspection priority. This is a
             # surface/context cue, not semantic marker recognition.
@@ -273,6 +276,7 @@ class ActivePerception:
                                      "memory_recognition_temporal_frames": int(recognition_tracks),
                                      "memory_probe_value": round(memory_probe_value, 4),
                                      "prototype_lift": round(prototype_lift, 4),
+                                     "creature_memory_lift": round(creature_lift, 4),
                                      "never_inspected": bool(never_inspected)},
                 "recommended_observation": "MOUSEOVER"}
 

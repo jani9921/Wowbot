@@ -306,5 +306,13 @@ line.
    the nearest computed entrance.  Fixed: the navigation context read `is_indoors`, the addon exports
    `movement.indoors`.  **Pending:** the user's spider-cave walk (which cave is it?), then using labels in
    destination-layer selection (cave POI → target the CAVE region) and the §11 top-down inset.
+5. **Destination layer + own layer (2026-10-05, Hrun's pit, offline-tested; descent live-confirmed):**
+   `NavigationService.lower_layer_point` (deepest reachable walkable point ≥ 15 yd under the POI surface,
+   35 yd radius, unreachable pockets skipped), used by the quest planner on a text cue, a minimap
+   "objective below" cue or 25 s rim search without progress.  Own-layer tracking (§4.3) seeds a new
+   route's start height (estimated, so the start-layer probe still runs).  Minimap rule (user): inside the
+   blue area = in the zone; yellow objective dot = same space; grey dot with a down/up arrow = the
+   objective is lower/higher.  Kill objectives show no dots.
+6. **§11 route view, step 1 (2026-10-05, offline):** `NavigationService.overlay_snapshot` → runtime ~4 Hz → LIVE VISION's own latest-only queue → `diagnostics/navigation_overlay.py`: heading-up top-down inset (route, next waypoint, zone-sweep hops, destination; colour = height vs the tracked own layer) and a bearing line ("WP 14 yd, 34° jobbra, ↓4 yd"). Step 2 (ground line, §11b) still open.  Zone sweep: `zone_sweep_next` walks the multi-floor zone in 15 yd hops, down then up.
 Rebuild the DLL: `cmake -S native/detour_shim -B native/detour_shim/build -G "Visual Studio 17 2022" -A x64`
 then `cmake --build native/detour_shim/build --config Release`.

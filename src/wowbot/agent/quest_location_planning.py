@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import re
 
 from .models import Proposal, number
 from .objective_locator import ObjectiveLocator
@@ -15,6 +16,80 @@ from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
 from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
 
+
+
+# Live 2026-10-05 12:53: the yellow "!" icon of Private Cole's available quest
+# (13.6 yd from his API pin) passed as an objective dot at the 843 px capture
+# and the agent walked 95 yd east for it.  "!"/"?" icons stand on the API
+# giver pins and on finished quests' turn-in points.
+DOT_GIVER_ICON_YARDS = 20.
+
+
+def minimap_objective_dots(state: dict, *, turn_in_yards: float = 30.,
+                           association_yards: float = 150.) -> list[tuple[float, float, str]]:
+    """Yellow minimap objective dots as (world x, world y, quest id).
+
+    The dot offsets become WORLD_YARDS with the addon's minimap view radius
+    and the player position.  Dots on a quest giver "!" pin or at a finished
+    quest's turn-in point are icons, not objectives, and are dropped.  User
+    2026-10-05: a yellow dot means the objective is in the same space (cave,
+    building, floor) as the player; a grey one is elsewhere.
+    """
+    candidate = next((item for item in state.get("visual_candidates") or ()
+                      if isinstance(item, dict) and item.get("kind") == "minimap_quest_dot"
+                      and item.get("dots")), None)
+    open_quests = [quest for quest in state.get("active_quests") or ()
+                   if isinstance(quest, dict) and quest.get("is_complete") is not True]
+    if candidate is None or not open_quests:
+        return []
+    position = state.get("player_world_position") or {}
+    px, py = number(position.get("x")), number(position.get("y"))
+    geometry = state.get("minimap_geometry") or {}
+    view = number(candidate.get("view_radius_yards")) or number(geometry.get("view_radius_yards"))
+    if px is None or py is None or not view:
+        return []
+    from wowbot.vision.minimap_quest_area import offsets_to_world
+    rotate = bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap")))
+    # A dot with a floor arrow is not where we can walk to on this floor
+    # (user 2026-10-05: "sárga pötty lefelé nyíllal").
+    same_floor = [dot for dot in candidate["dots"] if dot.get("floor", "SAME") == "SAME"]
+    if not same_floor:
+        return []
+    points = offsets_to_world([dot["offset"] for dot in same_floor],
+                              player_x=px, player_y=py, view_radius_yards=view,
+                              rotate=rotate, facing=number(state.get("orientation")))
+    open_ids = {str(quest.get("quest_id")) for quest in open_quests}
+    completed_ids = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
+                     if isinstance(quest, dict) and quest.get("is_complete") is True}
+    pois = []
+    for location in state.get("quest_locations") or ():
+        where = world_point(location) if isinstance(location, dict) else None
+        if where:
+            pois.append((str(location.get("quest_id")), float(where["x"]), float(where["y"])))
+    givers = []
+    for record in ((state.get("map_pois") or {}).get("available_quests") or ()):
+        where = world_point(record) if isinstance(record, dict) else None
+        if where:
+            givers.append((float(where["x"]), float(where["y"])))
+    result = []
+    for x, y in points or ():
+        if any(math.hypot(gx-x, gy-y) <= DOT_GIVER_ICON_YARDS for gx, gy in givers):
+            continue
+        near_turn_in = any(qid in completed_ids and math.hypot(qx-x, qy-y) <= turn_in_yards
+                           for qid, qx, qy in pois)
+        if near_turn_in:
+            # Live 2026-10-04 09:20: the dot 10-15 yd from Down with the
+            # Quilboar's turn-in point was its quest ender; with one open
+            # quest it was attributed to Quilboar Shadow Magic (200 yd
+            # away) and the agent walked off to the turn-in NPC.
+            continue
+        associated = [(math.hypot(qx-x, qy-y), qid) for qid, qx, qy in pois
+                      if qid in open_ids and math.hypot(qx-x, qy-y) <= association_yards]
+        if associated:
+            result.append((x, y, min(associated)[1]))
+        elif len(open_quests) == 1 and not any(qid in open_ids for qid, _, _ in pois):
+            result.append((x, y, str(open_quests[0].get("quest_id"))))
+    return result
 
 class QuestLocationPlanningPolicy:
     """Resolve explicit quest locations without owning movement or input."""
@@ -168,6 +243,63 @@ class QuestLocationPlanningPolicy:
                 and str(position["instance_id"]) != str(destination["instance_id"])):
             return False
         return math.hypot(px-dx, py-dy) <= self.OBJECTIVE_AREA_ARRIVED_YARDS
+
+    # Live 2026-10-05 12:25 ("Who Lurks in the Pit", user: "spirálisan megy
+    # lefelé egy út"): the POI is on the rim of a pit, the cocoons ~110 yd
+    # below.  "Within the area" was a 2D test (design doc §4.4), so the agent
+    # searched the rim, opened the map and talked to Bjorn.  User rule: on
+    # reaching the zone (its edge) the exploration starts at once -- walking
+    # the zone over its walkable layers while seeking the objectives and
+    # watching the minimap for yellow dots; not first to the centre.  When the
+    # mmap connects floors far below the POI the zone sweep walks them in
+    # short hops (navigation ``zone_sweep_next``), down and back up.
+    LOWER_LAYER_TEXT = re.compile(
+        r"\b(?:pit|pits|cave|caves|cavern|caverns|descent|descend|bottom|below|beneath|"
+        r"underground|depths?|tunnels?|mines?|burrows?|underneath|down (?:into|in|to|there))\b",
+        re.IGNORECASE)
+
+    def _lower_layer_move(self, world, location: dict, destination: dict, qid) -> Proposal | None:
+        model = getattr(world, "_model", world)
+        sweep = getattr(model, "__dict__", {}).get("zone_sweep")
+        oracle = getattr(model, "__dict__", {}).get("layer_oracle")
+        if not callable(sweep) and not callable(oracle):
+            return None
+        state = world.state
+        texts = (model.__dict__.get("quest_texts") or {}).get(str(qid)) or {}
+        words = " ".join([str(texts.get("description") or ""), str(texts.get("objectives_text") or "")]
+                         + [str(objective.get("description") or "")
+                            for quest in state.get("active_quests") or ()
+                            if isinstance(quest, dict) and str(quest.get("quest_id")) == str(qid)
+                            for objective in quest.get("objectives") or () if isinstance(objective, dict)])
+        text_cue = bool(self.LOWER_LAYER_TEXT.search(words))
+        # Minimap objective dots (user 2026-10-05): yellow = the objective is
+        # in our space (walk to the dot instead); grey with a down/up arrow =
+        # it is lower/higher than us.
+        minimap = [item for item in state.get("visual_candidates") or ()
+                   if isinstance(item, dict) and "MINIMAP" in str(item.get("source") or "")]
+        labels = {str(label).lower() for item in minimap for label in item.get("candidate_labels") or ()}
+        below_cue = "objective_below_like" in labels
+        same_space = "same_space_like" in labels or any(
+            str(dot[2]) == str(qid) for dot in minimap_objective_dots(state))
+        if not below_cue and same_space:
+            return None
+        key = (str(qid), round(number(destination.get("x")) or 0.), round(number(destination.get("y")) or 0.))
+        try:
+            point = sweep(state, destination, key) if callable(sweep) else oracle(state, destination)
+        except Exception:
+            return None
+        if not point:
+            return None
+        params = {**destination, "quest_id": qid,
+                  "location_map_x": location.get("x"), "location_map_y": location.get("y"),
+                  "location_source": "QUEST_ZONE_SWEEP", **point,
+                  "purpose": "LOCATE_QUEST_OBJECTIVE_REGION", "destination_layer": "LOWER",
+                  "layer_cue": ("MINIMAP_OBJECTIVE_BELOW" if below_cue else "QUEST_TEXT" if text_cue
+                                else "ZONE_HAS_LOWER_FLOORS"),
+                  "require_navmesh": True, "stop_distance": 6.0}
+        return Proposal.make(
+            "MOVE", "Quest zóna bejárása a járható szinteken (gödör/barlang), közben keresés",
+            params, confidence=.7, priority=80 if (text_cue or below_cue) else 62)
 
     def turn_in_search(self, quest_id, destination: dict) -> Proposal:
         """Look for the turn-in NPC ("?") around an arrived turn-in point.
@@ -376,57 +508,16 @@ class QuestLocationPlanningPolicy:
         (user), so the dot is used only with no target selected.
         """
         state = world.state
-        candidate = next((item for item in state.get("visual_candidates") or ()
-                          if isinstance(item, dict) and item.get("kind") == "minimap_quest_dot"
-                          and item.get("dots")), None)
-        if candidate is None:
-            return None
         open_quests = [quest for quest in state.get("active_quests") or ()
                        if isinstance(quest, dict) and quest.get("is_complete") is not True]
-        if not open_quests:
-            return None
         if (state.get("target") or {}).get("guid"):
             # A selected unit is drawn as a yellow dot too (user): it may be
             # the dot.  The objective NPC itself is handled by COMBAT/INTERACT.
             return None
         position = state.get("player_world_position") or {}
         px, py = number(position.get("x")), number(position.get("y"))
-        geometry = state.get("minimap_geometry") or {}
-        view = number(candidate.get("view_radius_yards")) or number(geometry.get("view_radius_yards"))
-        if px is None or py is None or not view:
-            return None
-        from wowbot.vision.minimap_quest_area import offsets_to_world
-        rotate = bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap")))
-        points = offsets_to_world([dot["offset"] for dot in candidate["dots"]],
-                                  player_x=px, player_y=py, view_radius_yards=view,
-                                  rotate=rotate, facing=number(state.get("orientation")))
-        if not points:
-            return None
-        open_ids = {str(quest.get("quest_id")) for quest in open_quests}
-        completed_ids = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
-                         if isinstance(quest, dict) and quest.get("is_complete") is True}
-        pois = []
-        for location in state.get("quest_locations") or ():
-            where = world_point(location) if isinstance(location, dict) else None
-            if where:
-                pois.append((str(location.get("quest_id")), float(where["x"]), float(where["y"])))
-        candidates = []
-        for x, y in points:
-            near_turn_in = any(qid in completed_ids
-                               and math.hypot(qx-x, qy-y) <= self.DOT_TURN_IN_YARDS
-                               for qid, qx, qy in pois)
-            if near_turn_in:
-                # Live 2026-10-04 09:20: the dot 10-15 yd from Down with the
-                # Quilboar's turn-in point was its quest ender; with one open
-                # quest it was attributed to Quilboar Shadow Magic (200 yd
-                # away) and the agent walked off to the turn-in NPC.
-                continue
-            associated = [(math.hypot(qx-x, qy-y), qid) for qid, qx, qy in pois
-                          if qid in open_ids and math.hypot(qx-x, qy-y) <= self.DOT_ASSOCIATION_YARDS]
-            if associated:
-                candidates.append((x, y, min(associated)[1]))
-            elif len(open_quests) == 1 and not any(qid in open_ids for qid, _, _ in pois):
-                candidates.append((x, y, str(open_quests[0].get("quest_id"))))
+        candidates = minimap_objective_dots(state, turn_in_yards=self.DOT_TURN_IN_YARDS,
+                                            association_yards=self.DOT_ASSOCIATION_YARDS)
         if not candidates:
             return None
         dx, dy, quest_key = min(candidates, key=lambda item: math.hypot(item[0]-px, item[1]-py))
@@ -474,11 +565,18 @@ class QuestLocationPlanningPolicy:
                     searched.append(spot)
                     result.append(self.turn_in_search(qid, destination))
                 continue
-            if destination and not completed and self._within_objective_area(destination, state, qid):
+            reached_zone = (destination is not None and not completed
+                            and self.reached_quest_locations.get(self.location_key(location))
+                            == WorldModel.quest_signature(state))
+            if destination and not completed and (reached_zone
+                                                  or self._within_objective_area(destination, state, qid)):
                 # Live 2026-10-03: inside the objective area every kill credit
                 # changed the quest signature, so the "reached" mark went stale
                 # and the same MOVE came back, made no progress and was blocked
                 # (WAIT "út ideiglenesen tiltva").  Local search owns this area.
+                descend = self._lower_layer_move(world, location, destination, qid)
+                if descend is not None:
+                    result.append(descend)
                 continue
             if destination and not completed and local_quest is not None and str(qid) != local_quest:
                 # Live 2026-10-04 09:15: at 1/7 inside the Quilboar Shadow

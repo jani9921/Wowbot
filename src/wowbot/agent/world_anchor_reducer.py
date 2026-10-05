@@ -239,6 +239,14 @@ class WorldAnchorReducer:
         memory_for(model).observe_hover(
             model.state, guid=guid, unit=unit, track_id=anchor.get("track_id"), quest_id=quest_id,
             open_quest_ids=open_quest_ids(model.state), at=observation.received_at)
+        from .quest_creature_learning import learn_hover
+        from .visual_prototypes import candidate_embedding
+        hovered_box = next((item for item in model.state.get("visual_candidates") or ()
+                            if isinstance(item, dict) and anchor.get("track_id") is not None
+                            and item.get("track_id") == anchor.get("track_id")
+                            and not (item.get("appearance") or {}).get("self_player_avatar")), None)
+        learn_hover(model, unit, embedding=candidate_embedding(hovered_box) if hovered_box else None,
+                    quest_id=quest_id, map_id=model.state.get("map_id"), at=observation.received_at)
         if quest_id is not None:
             model.mouseover_entity_semantics[guid] = {
                 "guid": guid, "name": unit.get("name"),

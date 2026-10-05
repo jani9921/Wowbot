@@ -206,13 +206,34 @@ class PerceptionSourcesMixin:
                 "view_radius_yards": geometry.get("view_radius_yards"),
                 "rotate_minimap": geometry.get("rotate_minimap"),
                 "markers": target_markers})
-        # Quest objective NPC dots (yellow), user 2026-10-04.
+        # Quest objective dots (yellow), user 2026-10-04, and their floor
+        # (user 2026-10-05): grey = another space, a triangle under/over a
+        # dot = the objective is lower/higher than us.
         try:
-            from wowbot.vision.minimap_quest_dot import detect_quest_dots
-            dots = detect_quest_dots(np.ascontiguousarray(pixels[top:bottom, left:right, 2::-1]),
-                                     (center.x-left, center.y-top), radius)
+            from wowbot.vision.minimap_floor_markers import detect_floor_markers
+            floor_markers = detect_floor_markers(
+                np.ascontiguousarray(pixels[top:bottom, left:right, 2::-1]),
+                (center.x-left, center.y-top), radius)
         except Exception:  # noqa: BLE001 -- an optional cue must not stop perception
-            dots = []
+            floor_markers = []
+        dots = [{"offset": marker["offset"], "pixels": marker["pixels"], "floor": marker["floor"],
+                 "distance_fraction": round(float(math.hypot(*marker["offset"])), 4)}
+                for marker in floor_markers if marker["colour"] == "YELLOW"]
+        other_floor = [marker for marker in floor_markers
+                       if marker["colour"] == "GREY" or marker["floor"] != "SAME"]
+        if other_floor:
+            from wowbot.vision.minimap_floor_markers import FLOOR_LABELS
+            labels = sorted({label for marker in other_floor for label in FLOOR_LABELS[marker["floor"]]})
+            result.append({
+                "track_id": "minimap:floor_markers", "kind": "minimap_floor_markers",
+                "detector_kind": "minimap_floor_markers", "source": "MINIMAP_CV",
+                "semantic_type": "UNKNOWN", "belief": "CANDIDATE", "confirmed": False,
+                "confidence": .75, "inspectable": False,
+                "x": center.x/width, "y": 1-center.y/height, "observed_at": at,
+                "candidate_labels": labels, "minimap_radius_px": float(radius),
+                "view_radius_yards": geometry.get("view_radius_yards"),
+                "rotate_minimap": geometry.get("rotate_minimap"),
+                "markers": other_floor})
         if dots:
             result.append({
                 "track_id": "minimap:quest_dots", "kind": "minimap_quest_dot",

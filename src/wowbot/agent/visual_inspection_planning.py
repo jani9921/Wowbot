@@ -123,7 +123,13 @@ class VisualInspectionPolicy:
             if not self._near_hover_position(world, item):
                 return False
             if not world.state.get("active_quests") and not item.get("attackable"):
-                return False
+                # User 2026-10-05 ("ne legyen felesleges sok inspect"): when
+                # every "!" pin here has a remembered giver, a unit that is
+                # none of them needs no second hover; otherwise keep looking.
+                from .quest_creature_memory import remembered_creature
+                creatures = world.state.get("quest_creatures") or {}
+                return bool(creatures.get("pin_givers_known")) and remembered_creature(
+                    world.state, item["guid"], name=item.get("name"), pin_givers=True) is None
             if item.get("quest_signature") != self._quest_signature(world.state):
                 # Live 2026-10-05 05:38: Captain Garrick was named while the
                 # vendor quest was open; once it completed he was its turn-in

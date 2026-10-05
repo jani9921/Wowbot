@@ -41,6 +41,12 @@ MAP_MARKER_YOLO_CLASSES: tuple[str, ...] = (
     "quest_area",                  # blue (hatched) objective region
     "quest_edge_arrow",            # minimap rim arrow toward a tracked objective
     "player_arrow",                # the player's own arrow
+    # Minimap objective dots and their floor (user 2026-10-05, Hrun's pit).
+    # Appended so existing label files keep their class ids.
+    "objective_dot_same_space",    # yellow dot: in the same space (cave/building/floor) as us
+    "objective_dot_other_space",   # grey dot: inside a space we are not in
+    "objective_dot_below",         # grey dot with a down arrow: lower than us
+    "objective_dot_above",         # grey dot with an up arrow: higher than us
 )
 MAP_MARKER_CLASS_TITLES: tuple[str, ...] = (
     "Quest offer ! (yellow)",
@@ -52,8 +58,12 @@ MAP_MARKER_CLASS_TITLES: tuple[str, ...] = (
     "Quest area (blue region)",
     "Minimap edge arrow",
     "Player arrow",
+    "Objective dot, same space (yellow)",
+    "Objective dot, other space (grey)",
+    "Objective dot below (grey, down arrow)",
+    "Objective dot above (grey, up arrow)",
 )
-QUEST_MARKER_CLASSES = frozenset(MAP_MARKER_YOLO_CLASSES[:8])
+QUEST_MARKER_CLASSES = frozenset(name for name in MAP_MARKER_YOLO_CLASSES if name != "player_arrow")
 
 # Appearance labels consumed by existing planners.  ``blue_region_like`` keeps
 # QuestLocationPlanner's search-region seeding working for learned areas,
@@ -71,6 +81,10 @@ CLASS_APPEARANCE_LABELS: dict[str, tuple[str, ...]] = {
     "quest_area": ("quest_area_like", "blue_region_like"),
     "quest_edge_arrow": ("quest_edge_arrow_like", "direction_arrow_like"),
     "player_arrow": ("player_arrow_like",),
+    "objective_dot_same_space": ("quest_objective_dot_like", "same_space_like"),
+    "objective_dot_other_space": ("quest_objective_dot_like", "other_space_like"),
+    "objective_dot_below": ("quest_objective_dot_like", "other_space_like", "objective_below_like"),
+    "objective_dot_above": ("quest_objective_dot_like", "other_space_like", "objective_above_like"),
 }
 
 SURFACES = ("WORLD_MAP", "MINIMAP")

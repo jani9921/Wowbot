@@ -23,6 +23,11 @@ MAX_RED_OVER_GREEN = 60      # yellow, not the orange autumn foliage
 DISC_FRACTION = .9           # the gold rim art is outside this
 PLAYER_EXCLUSION = .05       # the player arrow sits at the centre
 MIN_PIXELS, MAX_PIXELS = 2, 40
+# MAX_PIXELS was measured at a 44.7 px disc radius (843x475 client); a bigger
+# minimap (Edit Mode size, higher resolution; user 2026-10-05) draws bigger
+# dots, so the upper limit grows with the disc area.  The lower limit and the
+# 4 px "!"/"?" glyph height stay: at a 76 px radius the "?" is ~5-6 px tall.
+REFERENCE_RADIUS_PX = 44.7
 
 
 def quest_dot_mask(rgb: np.ndarray, center: tuple[float, float], radius: float) -> np.ndarray:
@@ -65,8 +70,9 @@ def detect_quest_dots(rgb: np.ndarray, center: tuple[float, float], radius: floa
     from .minimap_target_marker import _bright, _pip_directions
     bright = _bright(rgb)
     dots = []
+    scale = max(1., radius / REFERENCE_RADIUS_PX)
     for pixels in _components(quest_dot_mask(rgb, center, radius)):
-        if not MIN_PIXELS <= len(pixels) <= MAX_PIXELS:
+        if not MIN_PIXELS <= len(pixels) <= MAX_PIXELS * scale * scale:
             continue
         ys = [p[0] for p in pixels]
         xs = [p[1] for p in pixels]

@@ -16,7 +16,7 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     toc = (CANONICAL / "AIPlayerControllerExport.toc").read_text(encoding="utf-8")
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     assert "## Interface: 120100" in toc
-    assert "## Version: 0.9.55-12.1.0" in toc
+    assert "## Version: 0.9.56-12.1.0" in toc
     assert 'local PROTOCOL_VERSION = "AIPC5"' in lua
     assert toc.index("Transport.lua") < toc.index("AIPlayerControllerExport.lua")
     assert "local SCHEMA_VERSION = 4" in lua
@@ -201,3 +201,39 @@ def test_retail_addon_exports_authoritative_map_to_world_affine_basis() -> None:
     assert "mapToWorldPosition(mapID, 0, 1)" in helper
     assert 'source = "C_MAP_WORLD_POS_AFFINE"' in helper
     assert "map_world_transform = mapWorldTransform(telemetryMapID)" in lua
+
+
+def test_dialog_quest_text_is_exported_first_with_the_ender_guid() -> None:
+    """0.9.56 (user 2026-10-05, quest_creature_memory): the giver/ender of the
+    latest quest dialog must reach the agent even when the quest has already
+    left the log (turned in) or is not in it yet (offered)."""
+    import pytest
+    lupa = pytest.importorskip("lupa")
+    source = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    start = source.index("local questLogTextSeen = {}")
+    end = source.index("-- Map data APIs")
+    harness = """
+local now = 100
+local function nowSeconds() return now end
+local function accessible(v) return true end
+local function safeNumber(v, f) if type(v) ~= "number" then return f or 0 end return v end
+local function safeText(v, d) if v == nil then return d end return tostring(v) end
+AIPlayerControllerExportDB = {}
+""" + source[start:end] + """
+rememberQuestText(55194, "ender_name", "Captain Garrick")
+rememberQuestText(55194, "ender_guid", "Creature-0-3113-2175-63341-245394-00004115E3")
+rememberQuestText(7, "description", "other quest")
+questTextPending.questID = 55194
+questTextPending.untilAt = 105
+local first = readQuestText({{quest_id = 7}})
+now = 106
+local later = readQuestText({{quest_id = 7}})
+return first.quest_id .. "," .. first.ender_name .. "," .. first.ender_guid .. "|" .. later.quest_id
+"""
+    assert lupa.LuaRuntime().execute(harness) == (
+        "55194,Captain Garrick,Creature-0-3113-2175-63341-245394-00004115E3|7")
+    body = source[source.index("local function readQuests"):source.index("local function readQuestText")]
+    assert "GetQuestLogCompletionText, index" in body
+    assert "completion_log_text = completionLogText and" in body
+    handler = source[source.index('if event == "QUEST_DETAIL" or event == "QUEST_PROGRESS"'):]
+    assert 'rememberQuestText(dialogQuestID, "ender_guid", safeUnitCall(UnitGUID, "npc"))' in handler

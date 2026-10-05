@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.55"
+local ADDON_VERSION = "0.9.56"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -626,6 +626,10 @@ end
 local questLogTextSeen = {}
 local questLogTextUnreliable = false
 local questTextCursor = 0
+-- 0.9.56: the quest of the latest dialog is exported first for a few
+-- seconds, also when it is not (yet / any more) in the log, so its giver /
+-- ender reach the agent's quest_creature_memory.
+local questTextPending = {questID = nil, untilAt = 0}
 
 local function storedQuestTexts()
     AIPlayerControllerExportDB = AIPlayerControllerExportDB or {}
@@ -732,6 +736,14 @@ local function readQuests()
             if C_QuestLog.GetNextWaypointText then waypointText = safeCall(C_QuestLog.GetNextWaypointText, questID) end
             local readyForTurnIn = C_QuestLog.ReadyForTurnIn and safeCall(C_QuestLog.ReadyForTurnIn, questID)
             if readyForTurnIn == nil and C_QuestLog.IsComplete then readyForTurnIn = safeCall(C_QuestLog.IsComplete, questID) end
+            -- 0.9.56: the log's completion line of a finished quest ("Return
+            -- to Captain Garrick at the Alliance camp."), as the objective
+            -- tracker shows it; it names the turn-in NPC.
+            local completionLogText
+            if readyForTurnIn and GetQuestLogCompletionText then
+                completionLogText = safeCall(GetQuestLogCompletionText, index)
+                if not accessible(completionLogText) or completionLogText == "" then completionLogText = nil end
+            end
             local waypointWorld = mapToWorldPosition(waypointMap, waypointX, waypointY)
             quests[#quests + 1] = {
                 quest_id = questID,
@@ -744,6 +756,7 @@ local function readQuests()
                 is_campaign = questIsCampaign(questID),
                 is_accepted = true,
                 is_complete = optionalBool(readyForTurnIn),
+                completion_log_text = completionLogText and string.sub(safeText(completionLogText, ""), 1, 300) or nil,
                 waypoint = waypointX and waypointY and {
                     map_id = safeNumber(waypointMap), x = safeNumber(waypointX), y = safeNumber(waypointY),
                     text = safeText(waypointText, ""), source = "QUEST_API", coordinate_space = "NORMALIZED_MAP",
@@ -758,6 +771,14 @@ local function readQuests()
 end
 
 local function readQuestText(quests)
+    local pending = questTextPending.questID
+    if pending and nowSeconds() <= questTextPending.untilAt and storedQuestTexts()[pending] then
+        local entry = storedQuestTexts()[pending]
+        return {quest_id = pending, description = entry.description, objectives_text = entry.objectives_text,
+                progress_text = entry.progress_text, completion_text = entry.completion_text,
+                giver_name = entry.giver_name, giver_guid = entry.giver_guid, ender_name = entry.ender_name,
+                ender_guid = entry.ender_guid}
+    end
     local active = {}
     for _, quest in ipairs(quests or {}) do
         if quest.quest_id and storedQuestTexts()[quest.quest_id] then active[#active + 1] = quest.quest_id end
@@ -768,7 +789,8 @@ local function readQuestText(quests)
     local entry = storedQuestTexts()[questID]
     return {quest_id = questID, description = entry.description, objectives_text = entry.objectives_text,
             progress_text = entry.progress_text, completion_text = entry.completion_text,
-            giver_name = entry.giver_name, giver_guid = entry.giver_guid, ender_name = entry.ender_name}
+            giver_name = entry.giver_name, giver_guid = entry.giver_guid, ender_name = entry.ender_name,
+            ender_guid = entry.ender_guid}
 end
 
 -- Map data APIs (not secret values): available quests ("!" givers),
@@ -2678,6 +2700,11 @@ frame:SetScript("OnEvent", function(_, event, ...)
     end
     if event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
         local dialogQuestID = GetQuestID and safeCall(GetQuestID) or nil
+        local pendingID = safeNumber(dialogQuestID)
+        if pendingID and pendingID > 0 then
+            questTextPending.questID = pendingID
+            questTextPending.untilAt = nowSeconds() + 5
+        end
         if event == "QUEST_DETAIL" then
             rememberQuestText(dialogQuestID, "description", GetQuestText and safeCall(GetQuestText) or nil)
             rememberQuestText(dialogQuestID, "objectives_text", GetObjectiveText and safeCall(GetObjectiveText) or nil)
@@ -2691,6 +2718,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
             rememberQuestText(dialogQuestID, "completion_text", GetRewardText and safeCall(GetRewardText) or nil)
             -- Ground truth for the turn-in NPC inference (who took the quest).
             rememberQuestText(dialogQuestID, "ender_name", safeUnitCall(UnitName, "npc"))
+            rememberQuestText(dialogQuestID, "ender_guid", safeUnitCall(UnitGUID, "npc"))
         end
     end
     if event == "QUEST_DETAIL" then

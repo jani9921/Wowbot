@@ -123,17 +123,34 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
                            if 0 <= state_time-at <= NOT_QUEST_GIVER_SECONDS)
         return frozenset(skipped)
 
-    @staticmethod
-    def _friendly_target_relevant(world, goal, target: dict) -> bool:
+    # A friendly unit talked to this recently, with an empty quest log and no
+    # "!" over it, has nothing left for us (see _friendly_target_relevant).
+    HANDLED_TARGET_RELEASE_SECONDS = 300.
+
+    def _friendly_target_relevant(self, world, goal, target: dict) -> bool:
         """Approach/talk to a selected friendly unit only when questing needs it."""
-        from .quest_giver_evidence import friendly_npc_relevant, is_companion_pet
+        from .quest_giver_evidence import (friendly_npc_relevant, is_companion_pet,
+                                           selected_npc_shows_quest_symbol)
         if is_companion_pet(target):
             return False
         if getattr(goal, "domain", None) != "QUEST":
             return True
         state = world.state
         if not state.get("active_quests"):
-            return True   # discovery keeps its own "!"-based selection rule
+            # Discovery keeps its own "!"-based selection rule, but a unit we
+            # already dealt with is released (live 2026-10-05 05:39, pid 1212):
+            # Captain Garrick stayed selected after the turn-in, this branch
+            # kept him "relevant" and ended planning before the mouseover
+            # hand-off -- Private Cole ("!") and Henry Garrick were hovered
+            # and left.  No CLEARTARGET binding exists in Retail 12.1 and a
+            # blind Esc may open the game menu, so the release is logical:
+            # the next TARGET replaces the selection.
+            guid = str(target.get("guid") or "")
+            handled_at = number(self.__dict__.get("interacted_at", {}).get(guid))
+            now = number(state.get("monotonic_time"))
+            handled = (handled_at is not None and now is not None
+                       and 0 <= now-handled_at <= self.HANDLED_TARGET_RELEASE_SECONDS)
+            return not handled or selected_npc_shows_quest_symbol(state, guid)
         from .quest_giver_evidence import npc_objective_subjects
         ready = world.quest_model.ready()
         types = {str(getattr(obj, "type", "") or "") for obj in ready}

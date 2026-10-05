@@ -103,9 +103,62 @@ def hovered_subject(state: dict, guid: str) -> dict | None:
     return nearest if math.hypot(float(nearest["x"])-cx, float(nearest["y"])-cy) <= .09 else None
 
 
+CURSOR_BOX_MARGIN = .012     # ~10 px of an 843 px wide client
+
+
+def _box_holds_cursor(item: dict, cx: float, cy: float) -> bool:
+    x, y = number(item.get("x")), number(item.get("y"))
+    width, height = number(item.get("bbox_width_fraction")), number(item.get("bbox_height_fraction"))
+    if None in (x, y, width, height):
+        return False
+    return (abs(cx-x) <= width/2 + CURSOR_BOX_MARGIN
+            and abs(cy-y) <= height/2 + CURSOR_BOX_MARGIN)
+
+
+def hovered_subjects(state: dict, guid: str) -> list[dict]:
+    """Every box that may be the hovered unit: its bound track and, while
+    the cursor is on it, the boxes under the cursor.
+
+    Live 2026-10-05 12:24: Private Cole was hovered three times with a "!"
+    exactly over his box, yet never selected -- the hover was bound to the
+    probed track (a box beside him), whose head had no symbol.
+    """
+    candidates = _world3d(state)
+    result = []
+    first = hovered_subject(state, guid)
+    if first is not None:
+        result.append(first)
+    mouse = state.get("mouseover") or {}
+    cursor = state.get("cursor_position") or {}
+    cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+    if str(mouse.get("guid") or "") == str(guid) and cx is not None and cy is not None:
+        result += [item for item in candidates
+                   if item not in result and not is_symbol(item) and not is_self_avatar_box(item)
+                   and _box_holds_cursor(item, cx, cy)]
+    return result
+
+
 def npc_shows_quest_symbol(state: dict, guid: str) -> bool:
-    subject = hovered_subject(state, guid)
-    return subject is not None and subject_has_quest_symbol(subject, _world3d(state))
+    candidates = _world3d(state)
+    return any(subject_has_quest_symbol(subject, candidates)
+               for subject in hovered_subjects(state, guid))
+
+
+def selected_npc_shows_quest_symbol(state: dict, guid: str) -> bool:
+    """A "!" over the selected unit's own box: hovered now, or its bound track.
+
+    Unlike ``npc_shows_quest_symbol`` this never falls back to the box under
+    the cursor -- that box belongs to whoever is hovered, not to the target.
+    """
+    if str((state.get("mouseover") or {}).get("guid") or "") == str(guid):
+        return npc_shows_quest_symbol(state, guid)
+    anchor = (state.get("confirmed_mouseover_anchors") or {}).get(str(guid)) or {}
+    if anchor.get("track_id") is None:
+        return False
+    candidates = _world3d(state)
+    subject = next((item for item in candidates
+                    if str(item.get("track_id")) == str(anchor["track_id"])), None)
+    return subject is not None and subject_has_quest_symbol(subject, candidates)
 
 
 def quest_symbol_visible(state: dict) -> bool:
@@ -126,6 +179,12 @@ def quest_search_allows_npc(state: dict, guid: str) -> bool:
     """With no active quest: may this hovered friendly NPC be selected?"""
     if npc_shows_quest_symbol(state, guid):
         return True
+    from .quest_creature_memory import remembered_creature
+    if remembered_creature(state, guid, pin_givers=True):
+        # The quest dialog showed this unit offering a "!" quest next to us
+        # (quest_creature_memory) -- also when its "!" is not detected
+        # (live 2026-10-05: Henry Garrick's campaign "!" never was).
+        return True
     return not quest_symbol_visible(state) and near_api_quest_giver(state)
 
 
@@ -143,12 +202,28 @@ def is_companion_pet(unit_or_guid) -> bool:
     return str(guid or "").startswith("Pet-")
 
 
+def is_game_object_objective(objective) -> bool:
+    """The quest API's own objective type says a game object (cocoon, chest).
+
+    Live 2026-10-05 12:25 ("0/5 Trapped Expedition Member rescued from
+    cocoons", raw type ``object``, normalized INTERACT): every friendly NPC
+    became relevant and the agent selected and talked to Bjorn twice.
+    """
+    raw = getattr(objective, "raw", None) or {}
+    # Vendor objectives ("Any item purchased from ...") are raw "object" too,
+    # but their BUY/SELL type names the vendor NPC.
+    return (str(raw.get("raw_type") or "").lower() == "object"
+            and str(getattr(objective, "type", "") or "").upper() in {"INTERACT", "USE_OBJECT"})
+
+
 def npc_objective_subjects(objectives) -> tuple[tuple[str, ...], bool]:
     """Names the ready NPC objectives address, and whether any names none."""
     from .quest_semantics import talk_to_subject
     names, unnamed = [], False
     for objective in objectives or ():
         if str(getattr(objective, "type", "") or "").upper() not in NPC_OBJECTIVE_TYPES:
+            continue
+        if is_game_object_objective(objective):
             continue
         entity = getattr(objective, "target_entity", None) or {}
         name = entity.get("name") or talk_to_subject({
@@ -185,10 +260,15 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
         # Live 2026-10-04 10:27: "Use Scout-o-Matic 5000" made every friendly
         # NPC relevant; Lindie Springstock was selected and approached again
         # and again.  A named NPC objective wants that NPC only.
-        if unnamed or not names or subject_matches_name(list(names), unit_name):
+        # No name and no unnamed NPC objective left: only game-object
+        # objectives (cocoons), which no friendly NPC serves.
+        if unnamed or (names and subject_matches_name(list(names), unit_name)):
             return True
     if npc_shows_quest_symbol(state, guid):
         return True
+    from .quest_creature_memory import remembered_creature
+    if remembered_creature(state, guid, name=unit_name, roles=("ENDER", "VEHICLE")):
+        return True          # the remembered ender of a finished quest / the quest's vehicle
     complete = {str(quest.get("quest_id")) for quest in quests if quest.get("is_complete") is True}
     if not complete:
         return False

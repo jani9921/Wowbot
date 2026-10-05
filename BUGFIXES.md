@@ -27,10 +27,61 @@ a fájlból készül (`python tools/readme_changes.py`).
   függvény három részre bontva. A tesztek mindegyik lépés után zöldek, a 3 régi méretkorlát-teszt is.
 - ✅ **Verziók (git tag):** minden nagyobb változás előtt a GitHubon lévő állapot verziócímkét kap,
   így bármikor visszaállítható (lásd README, „Verziók”).
+- 🧪 **Útvonal a Live Visionben:** jobb alsó sarokban felülnézeti kis térkép (menetirány felfelé) az útvonal
+  összekötött pontjaival, a következő ponttal, a zóna-bejárás szakaszaival és a céllal, magasság szerint színezve
+  (kék = lejjebb, narancs = feljebb, zöld = egy szinten); a kép alján irányjelzés („WP 14 yd, 34° jobbra, le 4 yd”).
+- 🧪 **Quest-lény memória (`quest_creature_memory`):** a profilban megmarad, melyik quest-et ki
+  adta és ki vette át (a párbeszédablak NPC-je), mely lények voltak a célpontok, melyik járműre szállt
+  fel, a lények kinézete, és hogy mivel teljesültek az objective-ek (pl. „8× Trample a disznóról a
+  Monstrous Cadaverekre, itt”). Felhasználás: az emlékezett leadó a legerősebb leadó-bizonyíték; a pin
+  ismert quest-adóját „!” nélkül is kijelöli; ha minden közeli pin quest-adója ismert, a többi NPC-t
+  nem hoverezi újra; a keresett lényhez hasonló kinézetű dobozt nézi meg először. A tanult
+  jármű-képesség hatások (pl. Trample = előre roham) újraindítás után is megmaradnak.
+- ✅ **Addon 0.9.56:** a kész quest questlog-befejezési sora („Return to Captain Garrick…”) és a leadó
+  GUID-ja is átjön; a legutóbbi párbeszéd questjének szövege elsőként megy át, akkor is, ha a quest
+  már nincs a logban.
 
 ### Bug fixes
 
+#### Navigáció: gödör/barlang, quest-zóna
+- 🧪 **A spirál alján, a barlang bejáratánál 30 mp-ig körbe-körbe forgott, centinként lépkedett** (a zóna-bejárás
+  4. pontja 0,1–0,5 yardra volt, „megérkezett”, mégsem állt meg). Két hiba együtt okozta: a navmesh-útvonal vége
+  Detour-pontosságú, 0,000075 yarddal eltért a kért céltól, ezért minden vezérlőlépés újratervezett, és az
+  újratervezés a „megérkezett” állapotot visszaállította „megy”-re. A gyors (FAST) sáv látta az érkezést és
+  megállt, de a lépést csak a lassú sáv zárhatja le, és az ugyanarra a mintára „nincs új pozíció”-t
+  látott. → Az újratervezés a kért célt hasonlítja; a „megérkezett/elakadt” ítélet megmarad a következő
+  indításig. (Az útvonal eddig minden navmesh-es MOVE-nál folyton újratervezett.)
+- 🧪 **A gubó sárga pöttyének lefelé nyila két képkockán eltűnt** (halvány nyíl, illetve a kék zónakeret egy
+  pixelsora a nyíl tetején), ilyenkor „egy szinten” lett volna. → Halvány nyilat második lépésben keres,
+  a keret pixelsorát levágja; a nyilat nem számolja szürke pöttynek. Élő képkockákon: a gubó minden
+  képen „lejjebb”.
+- 🧪 **„Who Lurks in the Pit”: a gödör peremén (2D-ben „a zónában”) keresgélt, térképet nyitott és Bjornt
+  szólította meg, le nem ment.** → A zóna szélén indul a zóna bejárása; ha a navmesh a POI mellett jóval
+  mélyebb, elérhető szinteket köt össze (itt a spirál, 34 szakasz, z 91 → −22), rövid szakaszokban
+  végigmegy rajtuk le, majd vissza fel, és minden szakasz után keres (sárga pötty, seek, inspect, harc).
+  Élőben a lemenet már működött (12:52).
+- 🧪 **Pók után a lefelé út a fenti peremről indult, egy helyben toporgott.** → A navigáció követi a játékos
+  saját szintjét, az új útvonal onnan indul (becsült magasságként, így a Torgok/Wrathion-féle
+  kijutás változatlan).
+- 🧪 **Oda-vissza a quest-adók között; sárga „!” ikon pöttynek nézve (95 yd kitérő); Cole „!”-jét nem
+  vette észre; gubó-objective miatt Bjorn megszólítása.** → Leadás után 10 mp-et vár az új pinekre; a blokkolt
+  út alternatívája nem lehet sokkal távolabbi; a „!”-pinek körüli pöttyök ikonok; a „!” keresése a kurzor
+  alatti dobozon is; tárgyas objective nem tesz NPC-t relevánssá.
+- 🧪 **Minimap szint-nyilak:** a szürke pöttyöt és a pötty alatti/feletti kis háromszöget (▼/▲) felismeri
+  (1600×900-on; 843×475-ön a nyíl 1–2 px, nem látszik); lefelé nyílnál nem a pötty felé megy ezen a szinten,
+  hanem lefelé folytatja a zóna bejárását. A sárga pötty mérethatára a minimap méretéhez igazodik.
+- 🧪 **Minimap-szabály (felhasználó):** kék területen belül = zónában; sárga pötty = ugyanabban a térben;
+  szürke pötty le/fel nyíllal = lejjebb/feljebb van az objective. Új minimap-osztályok a tanításhoz.
+
 #### Questek leadása, NPC-keresés
+- 🧪 **Három quest-adóhoz ment oda, csak a harmadiknál (Bjorn) vett fel questet.** A leadás után
+  Captain Garrick kijelölve maradt, és üres questlognál minden kijelölt barátságos NPC
+  „releváns” volt: a Garrick-ág minden körben lezárta a tervezést, mielőtt az egér alatti NPC
+  kijelölése (TARGET) sorra került volna. Private Cole („!” a feje fölött) és Henry Garrick
+  hoverezve volt, mégsem jelölte ki őket; közben 88 yardról újra Garrick felé indult, és
+  9 mp-ig tétlenül várt. → A már megszólított, „!” nélküli kijelölt NPC-t az ágens elengedi;
+  a következő kijelölés felülírja. Billentyűt nem nyom: a Retail 12.1-ben nincs „Clear Target”
+  kötés, a vak Esc pedig a játékmenüt nyithatja meg.
 - 🧪 **Garricknál nem adta le a kész questet, Private Cole-nál nem vette fel a következőt.**
   Az INSPECT „már megnéztem, nem kell” memóriája 60 mp-ig kihagyta őket, pedig közben
   a quest kész lett, illetve a játékos odament a „!” helyre.

@@ -116,6 +116,46 @@ def target_named_by_open_objective(state: dict[str, Any]) -> bool:
                if isinstance(objective, dict) and not objective.get("is_complete"))
 
 
+def quest_zone_entered(params: dict, world_state: dict[str, Any]) -> dict[str, Any] | None:
+    """The objective MOVE has reached the quest zone: hand over to the search.
+
+    User 2026-10-05: entering the zone means getting inside the blue quest
+    area on the minimap; from there the yellow-dot approach, the visual seek
+    and the minimap search take over instead of walking to the area's
+    centre.  Objective dots drawn grey with a down/up arrow mean the
+    objective is on another floor: then we are *not* in the zone yet (Hrun's
+    pit: inside the blue area on the rim, the cocoons far below).  A descent
+    to a lower layer ends when a yellow (same-space) objective dot shows.
+    """
+    minimap = [item for item in world_state.get("visual_candidates") or ()
+               if isinstance(item, dict) and "MINIMAP" in str(item.get("source") or "")]
+    labels = {str(label).lower() for item in minimap for label in item.get("candidate_labels") or ()}
+    if {"objective_below_like", "objective_above_like"} & labels:
+        return None
+    if params.get("destination_layer") == "LOWER":
+        from .quest_location_planning import minimap_objective_dots
+        quest = str(params.get("quest_id"))
+        if any(str(dot[2]) == quest for dot in minimap_objective_dots(world_state)):
+            return {"reason": "quest_zone_entered_same_space", "kind": "QUEST_ZONE_ENTERED",
+                    "evidence": "MINIMAP_YELLOW_OBJECTIVE_DOT"}
+        return None
+    area = next((item for item in minimap if item.get("kind") == "minimap_quest_area"
+                 and (item.get("quest_area") or {}).get("player_inside") is True), None)
+    if area is None:
+        return None
+    # The blue area belongs to a quest near this destination: the POI is in
+    # minimap view.
+    position = world_state.get("player_world_position") or {}
+    px, py = number(position.get("x")), number(position.get("y"))
+    dx, dy = number(params.get("x")), number(params.get("y"))
+    view = (number(area.get("view_radius_yards"))
+            or number((world_state.get("minimap_geometry") or {}).get("view_radius_yards")) or 160.)
+    if None in (px, py, dx, dy) or math.hypot(dx-px, dy-py) > view:
+        return None
+    return {"reason": "quest_zone_entered", "kind": "QUEST_ZONE_ENTERED",
+            "evidence": "MINIMAP_BLUE_AREA"}
+
+
 def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str, Any] | None:
     """Return one goal-relevant visual handoff observed during navigation.
 
@@ -146,6 +186,10 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
     }
     if not (reference_reach or quest_route):
         return None
+    if purpose == "LOCATE_QUEST_OBJECTIVE_REGION":
+        entered = quest_zone_entered(params, world_state)
+        if entered is not None:
+            return entered
     mouse = world_state.get("mouseover") or {}
     expected = {str(value) for value in params.get("npc_ids", []) if value is not None}
     if params.get("npc_id") is not None:

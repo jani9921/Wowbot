@@ -106,6 +106,9 @@ class LiveVisionMonitor:
         context = mp.get_context("spawn")
         self._stopped = context.Event()
         self._queue = context.Queue(maxsize=1)
+        # Latest-only route packets from the agent (design doc §11); their own
+        # mailbox, so they never displace a frame.
+        self._navigation = context.Queue(maxsize=1)
         max_width = max(640, int(os.environ.get("AIPC_LIVE_VISION_MAX_WIDTH", "3840")))
         max_height = max(480, int(os.environ.get("AIPC_LIVE_VISION_MAX_HEIGHT", "2160")))
         prefix = f"aipc_vision_{os.getpid()}_{uuid.uuid4().hex[:10]}"
@@ -114,7 +117,7 @@ class LiveVisionMonitor:
         self._process = context.Process(
             target=_monitor_process_main,
             args=(self._queue, self._stopped, self.maximum_hz, self.WINDOW_TITLE,
-                  self._frames.name_prefix),
+                  self._frames.name_prefix, self._navigation),
             name="aipc-live-vision-monitor",
             daemon=True,
         )
@@ -124,6 +127,23 @@ class LiveVisionMonitor:
         """Picklable-at-spawn handles for a publisher in another process."""
         return {"queue": self._queue, "stopped": self._stopped,
                 "frames": self._frames.name_prefix}
+
+    def publish_navigation(self, navigation: dict[str, Any] | None) -> None:
+        """Replace the route view drawn on the following frames."""
+        if self._closed or not self._process.is_alive() or navigation is None:
+            return
+        item = {**navigation, "published_at": time.monotonic()}
+        try:
+            self._navigation.put_nowait(item)
+        except Full:
+            try:
+                self._navigation.get_nowait()
+            except Empty:
+                pass
+            try:
+                self._navigation.put_nowait(item)
+            except Full:
+                pass
 
     def publish(self, frame: tuple[bytes, int, int], overlay: dict[str, Any], *,
                 diagnostics: dict[str, Any] | None = None, frame_id: str = "",
@@ -169,7 +189,8 @@ class LiveVisionMonitor:
                      source_hz: float = 0.0,
                      timing: str = "",
                      max_width: int | None = None,
-                     max_height: int | None = None) -> np.ndarray:
+                     max_height: int | None = None,
+                     navigation: dict[str, Any] | None = None) -> np.ndarray:
         pixels = np.frombuffer(item.raw, dtype=np.uint8).reshape(
             item.height, item.width, 4)
         scale = 1.0
@@ -219,6 +240,9 @@ class LiveVisionMonitor:
                   f"source {source_hz:.1f} Hz | "
                   f"vision {item.latency_ms:.0f} ms | device {device} | {item.frame_id}"
                   + (f" | {timing}" if timing else ""))
+        if navigation:
+            from .navigation_overlay import draw_navigation
+            draw_navigation(canvas, navigation)
         cv2.rectangle(canvas, (0, 0), (display_width, 31), (10, 10, 10), -1)
         cv2.putText(canvas, header, (9, 21), cv2.FONT_HERSHEY_SIMPLEX,
                     .55, (245, 245, 245), 1, cv2.LINE_8)
@@ -298,13 +322,14 @@ class LiveVisionPublisher:
 
 
 def _monitor_process_main(queue, stopped, maximum_hz: float, window_title: str,
-                          frame_prefix: str) -> None:
+                          frame_prefix: str, navigation_queue=None) -> None:
     """Own the HighGUI message loop outside the Tk/agent process."""
     _configure_monitor_process()
     next_display = 0.0
     display_times: deque[float] = deque(maxlen=120)
     source_times: deque[float] = deque(maxlen=120)
     latest: _MonitorFrame | None = None
+    navigation: dict[str, Any] | None = None
     dirty = False
     # Where a displayed frame's time goes (EMA, ms): our drawing vs HighGUI
     # imshow + event pump.  The process runs BELOW_NORMAL on purpose, so a
@@ -337,6 +362,14 @@ def _monitor_process_main(queue, stopped, maximum_hz: float, window_title: str,
                 item = None
             if received and item is None:
                 break
+            while navigation_queue is not None:
+                try:
+                    navigation = navigation_queue.get_nowait()
+                except Empty:
+                    break
+            if (navigation is not None
+                    and time.monotonic() - float(navigation.get("published_at") or 0.) > 2.):
+                navigation = None      # stale: the agent stopped routing
             if received:
                 # Collapse any queued replacements to the newest available frame.
                 while True:
@@ -381,7 +414,8 @@ def _monitor_process_main(queue, stopped, maximum_hz: float, window_title: str,
             canvas = LiveVisionMonitor.render_frame(
                 latest, display_hz=display_hz, source_hz=source_hz,
                 timing=f"draw {draw_ms:.1f} show {show_ms:.1f} ms",
-                max_width=preview_width, max_height=preview_height)
+                max_width=preview_width, max_height=preview_height,
+                navigation=navigation)
             draw_ms = .8*draw_ms + .2*(time.perf_counter()-draw_started)*1000
             if not window_created:
                 cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)

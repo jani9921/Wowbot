@@ -61,6 +61,8 @@ class WorldStateProjector:
         self._project_self_avatar_identity(model)
         self._project_self_player_tracks(model.state)
         self._project_visual_prototypes(model)
+        from .quest_creature_learning import project as project_quest_creatures
+        project_quest_creatures(model)
         self._prune_transient_memory(model)
         self._project_confirmed_semantics(model)
         self._project_selected_target_anchor(model)

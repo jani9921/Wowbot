@@ -123,6 +123,29 @@ class MapPoiPlanningPolicy:
             chosen += [row for row in side if row[0] <= self.SIDE_QUEST_ON_THE_WAY_YARDS]
         return sorted(chosen, key=lambda row: (row[1].get("is_campaign") is not True, row[0]))
 
+    # Live 2026-10-05 (05:39 and 12:24): the follow-up "!" pins of a turn-in
+    # arrive 7-14 s after it.  At 12:24 the agent left for Private Cole's pin
+    # (85 yd) 2 s after turning in to Bjorn; Alaria's new pin then appeared
+    # 2 yd from where it had stood, and it walked back (user).  Hold the pin
+    # routes until the pin list changes or this much time has passed.
+    POST_TURN_IN_SETTLE_SECONDS = 10.
+
+    def _settling_after_turn_in(self, state: dict, now: float) -> bool:
+        active = frozenset(str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
+                           if isinstance(quest, dict))
+        pins = frozenset(str(record.get("quest_id")) for record in map_poi_records(state, "available_quests"))
+        previous = self.__dict__.get("_last_active_quests")
+        self.__dict__["_last_active_quests"] = active
+        if previous is not None and previous - active:
+            self.__dict__["_turn_in_settle"] = (now, pins)    # a quest left the log
+        settle = self.__dict__.get("_turn_in_settle")
+        if settle is None:
+            return False
+        if not 0 <= now-settle[0] < self.POST_TURN_IN_SETTLE_SECONDS or pins != settle[1]:
+            self.__dict__.pop("_turn_in_settle", None)
+            return False
+        return True
+
     def quest_giver_moves(self, world, now: float | None = None) -> list[Proposal]:
         """Walk to API "!" givers: campaign first, side quests only on the way."""
         state = world.state
@@ -130,6 +153,8 @@ class MapPoiPlanningPolicy:
             return []
         now = number(state.get("monotonic_time")) if now is None else now
         now = 0. if now is None else now
+        if self._settling_after_turn_in(state, now):
+            return []
         result = []
         for distance, record, destination in self._giver_candidates(state):
             params = {

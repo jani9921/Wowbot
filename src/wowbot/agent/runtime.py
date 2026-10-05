@@ -78,6 +78,17 @@ class AgentRuntime(RuntimeLifecycleMixin):
         from .visual_prototypes import VisualPrototypeMemory
         self.agent.world.__dict__["visual_prototypes"] = VisualPrototypeMemory(
             self.profile / "visual_prototypes.json")
+        # Quest givers/enders, objective creatures, how objectives advanced and
+        # learned vehicle ability effects survive restarts (user 2026-10-05).
+        from .quest_creature_memory import QuestCreatureMemory
+        creature_memory = QuestCreatureMemory(self.profile / "quest_creature_memory.sqlite3")
+        self.agent.world.__dict__["quest_creature_memory"] = creature_memory
+        try:
+            effects = self.agent.world.__dict__.setdefault("vehicle_ability_effects", {})
+            for key, effect in creature_memory.ability_effects().items():
+                effects.setdefault(key, effect)
+        except Exception:
+            pass
         if hasattr(self.executor, "performance_monitor"):
             self.executor.performance_monitor = self.agent.performance_monitor
         # Creature types whose tooltip named an open quest survive restarts
@@ -119,6 +130,7 @@ class AgentRuntime(RuntimeLifecycleMixin):
                 from wowbot.diagnostics.live_vision_monitor import LiveVisionMonitor
                 live_vision_monitor = LiveVisionMonitor(
                     maximum_hz=float(os.environ.get("AIPC_LIVE_VISION_HZ", "60")))
+            self._live_vision_monitor = live_vision_monitor
             proposal_mode = os.environ.get("AIPC_WORLD3D_PROPOSAL_MODE", "YOLO_ONLY")
             if (os.environ.get("AIPC_WORLD3D_PROCESS", "1").strip() != "0"
                     and self._capture_process_handle is not None
@@ -479,6 +491,8 @@ class AgentRuntime(RuntimeLifecycleMixin):
         prototypes = self.agent.world.__dict__.get("visual_prototypes")
         if prototypes is not None:
             prototypes.save(current)
+        self._save_ability_effects(current)
+        self._publish_navigation_overlay(current)
         try:
             self._entrance_observer.observe(self.agent.world.state, current)
         except Exception:

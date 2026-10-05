@@ -30,7 +30,7 @@ from wowbot.vision.world3d.annotation_review import AnnotationBox, contains  # n
 
 
 WINDOW = "AIPC map-marker annotator"
-HEADER = 150
+HEADER = 166
 CLASS_COLORS = (
     (40, 220, 255),   # quest_available - yellow
     (255, 170, 40),   # repeatable offer - blue
@@ -41,6 +41,10 @@ CLASS_COLORS = (
     (255, 120, 40),   # quest area - blue
     (60, 255, 120),   # edge arrow - green
     (240, 240, 240),  # player arrow - white
+    (60, 230, 255),   # objective dot, same space - yellow
+    (170, 170, 170),  # objective dot, other space - grey
+    (120, 120, 200),  # objective dot below - grey/red
+    (200, 120, 120),  # objective dot above - grey/blue
 )
 
 
@@ -215,9 +219,9 @@ class MapReviewer:
                           3 if class_id == self.active_class else 1)
             cv2.putText(canvas, f"{class_id + 1} {title}", (left + 5, top + 17),
                         cv2.FONT_HERSHEY_SIMPLEX, .4, CLASS_COLORS[class_id], 1, cv2.LINE_AA)
-        cv2.putText(canvas, "drag draw | click select | 1-9 class | SPACE accept | A all | D del | "
+        cv2.putText(canvas, "drag draw | click select | 1-9,0 class, C next | SPACE accept | A all | D del | "
                     "X del unaccepted | ENTER save+next | E empty+next | N/P | [ ] | +/- zoom | Q",
-                    (10, 136), cv2.FONT_HERSHEY_SIMPLEX, .4, (190, 190, 190), 1, cv2.LINE_AA)
+                    (10, HEADER - 4), cv2.FONT_HERSHEY_SIMPLEX, .4, (190, 190, 190), 1, cv2.LINE_AA)
         return canvas
 
     def run(self) -> None:
@@ -228,8 +232,11 @@ class MapReviewer:
             key = cv2.waitKey(20) & 0xFF
             if key in (ord("q"), 27):
                 break
-            if ord("1") <= key <= ord("9"):
-                self.active_class = key - ord("1")
+            if ord("1") <= key <= ord("9") or key in (ord("0"), ord("c")):
+                # 1-9, 0 = class 10, C = next class (13 classes since 2026-10-05)
+                self.active_class = (9 if key == ord("0") else
+                                     (self.active_class + 1) % len(MAP_MARKER_YOLO_CLASSES)
+                                     if key == ord("c") else key - ord("1"))
                 if self.selected is not None:
                     self.boxes[self.selected].class_id = self.active_class
                     self.boxes[self.selected].status = "ACCEPTED"

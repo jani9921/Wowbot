@@ -201,8 +201,13 @@ class WorldAddonReducer:
                 continue
             found = turn_in_from_text(quest, texts.get(str(quest["quest_id"])))
             current = turn_in.get(str(quest["quest_id"])) or {}
-            if found and not str(current.get("source") or "").startswith("QUEST_TEXT_PATTERN"):
+            if found and not str(current.get("source") or "").startswith(
+                    ("QUEST_TEXT_PATTERN", "QUEST_CREATURE_MEMORY")):
                 turn_in[str(quest["quest_id"])] = found
+        # What the dialogs/objective progress showed about this quest's
+        # creatures, kept per profile (quest_creature_memory).
+        from .quest_creature_learning import learn_full_snapshot
+        learn_full_snapshot(model, state, observation.received_at)
         quests = [
             {**quest, "description": texts[str(quest.get("quest_id"))].get("description")}
             if isinstance(quest, dict) and not quest.get("description")

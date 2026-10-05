@@ -69,6 +69,9 @@ class GlobalNavigator:
                   or state.get("map_id"))
         regions = ({"map_id": map_id, "kind": "DESTINATION_REGION", "fact": False,
                     "danger_adapted": danger_adapted,
+                    # The mmap route ends on Detour's float32 polygon point,
+                    # never exactly on the requested destination.
+                    "requested_destination": {"x": destination["x"], "y": destination["y"]},
                     "route_source": ("TRINITYCORE_MMAP" if navmesh_path is not None
                                      else "MMAP_REQUIRED_UNAVAILABLE" if navmesh_required
                                      else "MEASURED_OR_DIRECT"),
@@ -158,10 +161,16 @@ class GlobalNavigator:
             return None
         if player_instance != destination_instance:
             return None
+        # The z flags travel with the point: an *estimated* height (terrain,
+        # layer continuity, a lower quest layer) lets the navmesh probe the
+        # other layers when it has no complete path (Torgok/Wrathion fix).
+        flags = ("z_estimated", "z_observed", "z_source")
         start = {**player, "z": raw_player.get("z", player.get("z", 0.)),
-                 "z_known": raw_player.get("z_known", raw_player.get("z") is not None)}
+                 "z_known": raw_player.get("z_known", raw_player.get("z") is not None),
+                 **{key: raw_player[key] for key in flags if key in raw_player}}
         end = {**destination, "z": raw_destination.get("z", destination.get("z", 0.)),
-               "z_known": raw_destination.get("z_known", raw_destination.get("z") is not None)}
+               "z_known": raw_destination.get("z_known", raw_destination.get("z") is not None),
+               **{key: raw_destination[key] for key in flags if key in raw_destination}}
         return self.navmesh.find_path(player_instance, start, end)
 
     def needs_replan(self, route: GlobalRoute | None, request: NavigationRequest, state: dict[str, Any],
@@ -174,7 +183,13 @@ class GlobalNavigator:
         destination = self._point(request.destination)
         if destination is None or not route.anchors:
             return True
-        end = route.anchors[-1]
+        # Compare with what the route was planned for.  Live 2026-10-05
+        # (Hrun's pit): the Detour end differed from the request by 7.5e-5 yd,
+        # so every command() replanned and restarted the controller, which
+        # reset an ARRIVED phase to MOVING -- the agent turned on the spot on
+        # top of its zone-sweep hop for 30 s.
+        end = next((item["requested_destination"] for item in route.regions
+                    if isinstance(item.get("requested_destination"), dict)), route.anchors[-1])
         if self._distance(end, destination) > 1e-5:
             return True
         route_maps = {item.get("map_id") for item in route.regions if item.get("map_id") is not None}

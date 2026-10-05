@@ -6,8 +6,10 @@ quest's own words usually say it: "Return to Captain Garrick", "Speak with
 Lindie Springstock", or "report back to me" (the giver, whom addon 0.9.52
 records from the quest dialog).  Order of evidence:
 
-1. text pattern naming the NPC (waypoint text, objective lines, objectives
-   text, completion/progress text, description);
+0. the ender this quest was actually turned in to before
+   (``quest_creature_memory``, the QUEST_COMPLETE dialog's unit);
+1. text pattern naming the NPC (quest-log completion line, waypoint text,
+   objective lines, objectives text, completion/progress text, description);
 2. "back to me" wording -> the recorded quest giver;
 3. the local LLM (semantic_advisor ``turnin`` task) when 1-2 found nothing.
 
@@ -34,6 +36,11 @@ _MEET_NAME = re.compile(r"\b(?i:meet(?: up)?(?: with)?|join)\s+(?:(?i:the)\s+)?"
 def _texts(quest: dict, texts: dict | None) -> list[tuple[str, str]]:
     texts = texts or {}
     sources = []
+    # Addon 0.9.56: the quest log's completion line of a finished quest
+    # ("Return to Captain Garrick at the Alliance camp.") -- what the
+    # objective tracker shows; the most direct naming of the turn-in NPC.
+    if quest.get("completion_log_text"):
+        sources.append(("QUEST_LOG_COMPLETION_TEXT", str(quest["completion_log_text"])))
     waypoint = quest.get("waypoint") if isinstance(quest.get("waypoint"), dict) else {}
     if waypoint.get("text"):
         sources.append(("WAYPOINT_TEXT", str(waypoint["text"])))

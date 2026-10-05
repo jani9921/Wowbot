@@ -56,13 +56,21 @@ class NavigationProposalAdapter:
                     confidence=proposal.confidence, evidence=proposal.evidence)
             proposal = guarded
         if not self.navigation.permits(world, proposal.parameters, now):
+            # Live 2026-10-05 12:25: Alaria's pin (38 yd west) was briefly
+            # blocked; the "alternative" was the Harpy pin 155 yd east, so the
+            # agent walked east for the 5 s cooldown and back (user: "oda-vissza
+            # ment két quest között").  A detour that is much longer than the
+            # blocked trip is no alternative; waiting/looking around is.
+            distance_of = getattr(world, "distance", None)
+            blocked_distance = distance_of(proposal.parameters) if callable(distance_of) else None
             alternatives = [
                 item for item in proposals
                 if item.key != proposal.key
                 and (item.confidence >= .55
                      or item.skill in {"WAIT", "INSPECT", "DEFEND", "ESCAPE", "COMBAT"})
                 and (item.skill not in {"MOVE", "FOLLOW"}
-                     or self.navigation.permits(world, item.parameters, now))]
+                     or (self.navigation.permits(world, item.parameters, now)
+                         and not self._much_farther(world, item, blocked_distance)))]
             if alternatives:
                 return alternatives[0]
             retry_lookup = getattr(self.navigation, "retry_at", None)
@@ -82,6 +90,16 @@ class NavigationProposalAdapter:
         return Proposal.make(
             proposal.skill, proposal.reason, waypoint,
             proposal.confidence, proposal.priority, proposal.evidence)
+
+    @staticmethod
+    def _much_farther(world, item: Proposal, blocked_distance) -> bool:
+        """A WORLD_YARDS alternative more than twice (and 40 yd) farther."""
+        distance_of = getattr(world, "distance", None)
+        if (blocked_distance is None or not callable(distance_of)
+                or item.parameters.get("coordinate_space") != "WORLD_YARDS"):
+            return False
+        distance = distance_of(item.parameters)
+        return distance is not None and distance > 2.*blocked_distance + 40.
 
     @staticmethod
     def _guard_physical_move(proposal: Proposal, world) -> Proposal | None:

@@ -107,6 +107,7 @@ class ReachMovementController:
         # often clears a small obstacle).  Cleared when progress resumes.
         self.jump_attempted = False
         self.command_history: deque[tuple[float, str, float]] = deque(maxlen=240)
+        self.terminal_reason: str | None = None
         # Evidence helper only. It does not own or issue movement commands;
         # this controller remains the single REACH control owner.
         self.progress_monitor.clear()
@@ -137,6 +138,7 @@ class ReachMovementController:
         if self.started_at is None:
             self.started_at = now
         self.phase = MovementPhase.MOVING
+        self.terminal_reason = None
         self.observe(state, observation_id, now, commanded=False)
 
     def _position(self, state: dict) -> tuple[float, float] | None:
@@ -276,7 +278,30 @@ class ReachMovementController:
         error = ((desired-current+math.pi) % math.tau-math.pi) if current is not None else 0.
         return distance, desired, error
 
+    TERMINAL_PHASES = frozenset({MovementPhase.ARRIVED, MovementPhase.FAILED,
+                                 MovementPhase.SUPPORTED_STUCK})
+    AWAITING_REASONS = frozenset({"awaiting_fresh_progress_observation",
+                                  "awaiting_fresh_position_sample"})
+
     def observe(self, state: dict, observation_id: str, now: float, *, commanded: bool = True) -> MovementAssessment:
+        """One assessment; a terminal verdict is repeated until the next start().
+
+        Live 2026-10-05 (Hrun's pit): the FAST lane consumed the arriving
+        position sample, saw ARRIVED and stopped, but only the medium tick
+        finishes a skill -- and on the same sample it saw no fresh position,
+        so it reported "awaiting" and the MOVE never ended.
+        """
+        assessment = self._observe_once(state, observation_id, now, commanded=commanded)
+        if assessment.terminal and self.destination:
+            self.terminal_reason = assessment.reason
+        elif (self.terminal_reason and self.phase in self.TERMINAL_PHASES
+                and assessment.reason in self.AWAITING_REASONS):
+            return MovementAssessment(self.phase, True, self.phase is MovementPhase.ARRIVED,
+                                      self.terminal_reason)
+        return assessment
+
+    def _observe_once(self, state: dict, observation_id: str, now: float, *,
+                      commanded: bool = True) -> MovementAssessment:
         if not self.destination:
             return MovementAssessment(MovementPhase.IDLE, True, False, "no_reach_intent")
         if observation_id == self.last_observation_id:

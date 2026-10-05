@@ -96,6 +96,10 @@ class WorldGeometryService:
         }
         return projected
 
+    def walkable_points_near(self, instance_id: int, point: dict, radius: float) -> list[dict]:
+        finder = getattr(self.navmesh, "walkable_points_near", None)
+        return finder(instance_id, point, radius) if callable(finder) else []
+
     def find_path(self, instance_id: int, start: dict, destination: dict):
         start = self._with_terrain_hint(instance_id, start)
         destination = self._with_terrain_hint(instance_id, destination)

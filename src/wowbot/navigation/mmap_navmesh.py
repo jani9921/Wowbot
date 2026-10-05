@@ -219,6 +219,29 @@ class TrinityMMapNavMesh:
         self.__dict__["_last_surface"] = (instance_id, float(point["x"]), float(point["y"]), float(height))
         return result
 
+    def walkable_points_near(self, instance_id: int, point: dict, radius: float) -> list[dict]:
+        """Centres of the walkable polygons within ``radius`` yards, every layer.
+
+        Planning-only geometry for destination-layer selection (design doc
+        §5: a quest POI on a pit rim, its objective far below).  No state is
+        changed, unlike ``project_position``'s continuity tracking.
+        """
+        instance_id = int(instance_id)
+        dt, grid = self._world_to_detour(point), self._world_grid(point)
+        if dt is None or grid is None or not self.supports(instance_id):
+            return []
+        index, _polygons = self._surface_index(instance_id, grid)
+        low = self._surface_bin(dt[0]-radius, dt[2]-radius)
+        high = self._surface_bin(dt[0]+radius, dt[2]+radius)
+        found: dict = {}
+        for bx in range(low[0], high[0]+1):
+            for bz in range(low[1], high[1]+1):
+                for poly in index.get((bx, bz), ()):
+                    centre = poly.center
+                    if poly.key not in found and math.hypot(centre[0]-dt[0], centre[2]-dt[2]) <= radius:
+                        found[poly.key] = self._detour_to_world(centre, instance_id)
+        return list(found.values())
+
     SURFACE_CONTINUITY_YARDS = 15.
     NATIVE_SURFACE_EXTENTS = ((1.5, 4., 1.5), (3., 10., 3.))
 
