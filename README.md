@@ -226,6 +226,123 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 - ✅ **A térkép nyitva maradt a leadási pontnál, ezért WAIT.** → CLOSE_MAP.
 
 </details>
+
+<details>
+<summary><b>2026-10-02</b> — 6 új funkció, 8 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Telepítő varázsló (első változat):** Python csomagok, WoW `_retail_` mappa ellenőrzése,
+  addon telepítése, navigációs adatok (maps / vmaps / mmaps) a TrinityCore extractorokkal
+  közvetlenül a `_retail_` mappából (zip nélkül), TensorRT engine, beállítások mentése.
+- 🧪 **Elakadás-kezelés:** futás közbeni ugrás kis akadálynál, nagyobb hátralépés, a megtanult
+  akadály a navmeshen ellenőrzött kitérővel; ismétlődő elakadásnál folytatja a lépéssort.
+- 🧪 **Harc névtábla nélkül:** a kijelölt célpont képernyő-helye a hozzá kötött World3D trackből
+  (Retail 12 nem ad névtábla-pozíciót); „rossz irányba nézel” esetén a célpont felé fordul.
+- 🧪 **Quest-NPC szűrő quest nélkül:** csak „!”-jeles NPC-t (vagy API-s quest-pin közelében lévőt)
+  szólít meg; a semmit nem mondó NPC 300 mp-ig kimarad.
+- 🧪 **YOLO v9** (4975 kép) és hibaelemzés: a gyenge pontszám fő oka a hiányzó címkék és a saját
+  karakter következetlen jelölése, nem a képminőség → újraellenőrzési kép-pool; annotátor:
+  nyilas lapozás, figyelmeztetés mentetlen módosításra, kép törlése visszavonással.
+- ✅ **Quest-adó API-vizsgálat** (addon 0.9.39): kiderült, hogy Retail 12.1-ben nincs API, ami
+  hoverre/targetre megmondaná, ad-e questet egy NPC → csak a „!” jel, a párbeszédablak és a
+  térkép-pinek használhatók.
+
+#### Bug fixes
+- ✅ **Futás közben „elakadtnak” hitte magát.** A gyors telemetria-csomagok nem vitték a pozíciót,
+  így minden minta a régi helyet mutatta. → Addon 0.9.38; csak friss pozíció számít haladásnak.
+- 🧪 **A Murloc Hideaway hajóroncsánál valóban elakadt** (a roncs nincs a navmeshben, újra-
+  generálással sem kerül bele). → Megtanult akadály és kitérő útvonal.
+- ✅ **Az első murlocot nem lootolta** (nem jegyezte meg, hogy ő ölte meg), és a loot-ellenőrzés
+  rossz eseménynevet várt. → Harc-memória, javított ellenőrzés, 6 mp-es időkorlát.
+- ✅ **Kill után nem volt mire kattintani lootoláskor.** → A halálkori World3D doboz lesz a hulla helye.
+- 🧪 **A saját karakter dobozára kattintott lootoláskor.** → A saját doboz minden társításból
+  kimarad; az addon 0.9.41 jelzi, ha a hulla üres.
+- 🧪 **„Rossz irányba nézel” után 14 mp-ig várt, miközben ütötték.** → Fordulás a célpont felé, rövid tiltás.
+- 🧪 **Kee-La (nem quest-adó) ~45 mp-et vitt el a quest-adó keresésből.** → Quest-NPC szűrő.
+- ✅ **„Murloc Mania” (55122) teljesítve** a javítások után (felhasználói jelentés).
+
+</details>
+
+<details>
+<summary><b>2026-10-01</b> — 8 új funkció, 13 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Térkép-API pontok** (addon 0.9.37): quest-adók („!”) és dungeon/raid bejáratok helye; aktív
+  quest nélkül a legközelebbi quest-adóhoz indul (✅ 10-02-én élesben elérte Jainát).
+- 🧪 **Quest-adó keresés aktív quest nélkül:** gyűrűben bejárt, navmeshen ellenőrzött cellák,
+  minden cellában körbenézés.
+- 🧪 **World Map / minimap ikon-felismerő (YOLO) folyamat:** gyűjtő, átnéző és tanító eszközök;
+  modell még nincs, mert élesben egyetlen quest-pin sem látszott a térképen.
+- ✅ **Kamera-mozgás kompenzáció** két világ-kivágással és több hipotézis közüli választással,
+  és a saját karakter képernyőhöz kötött követése → a saját karakter végig egy azonosítón maradt.
+- 🧪 **Érkezés-szabály (felhasználói):** megérkezett, ha a célpont doboza a saját karakter mellé
+  ér vagy kb. negyedéig-harmadáig átfed vele.
+- 🧪 **Kilépési-él korrekció (felhasználói ötlet):** ha a doboz alul tűnt el → hátralép, oldalt →
+  arra fordul, felül → előrelép.
+- ✅ **Kill vége = harcon kívül (felhasználói szabály):** a célpont HP-ja titkos, ezért a harc vége
+  jelzi a kill-t, és azonnal jön a loot.
+- 🧪 **Live Vision eseményvezérelt megjelenítés** (terhelt gépen 30 → 40 Hz).
+
+#### Bug fixes
+- ✅ **Kamera-forduláskor minden doboz új azonosítót kapott** (a kompenzáció a képernyőhöz rögzített
+  pixel-csíkot és HUD-ot nézte). → Világ-kivágások; a „GMC failed” numpy-hiba is javítva.
+- 🧪 **Ugyanazzal az azonosítóval két doboz, azonnali újraszületések.** → Egyedi azonosítók
+  képkockánként, bővebb újra-azonosítás.
+- ✅ **A „need to be closer” hibák elvesztek** (code 852). → Esemény alapján; az interakciós
+  magasság élesben tanult (.13 → .186).
+- 🧪 **Szaggatott, „stop-and-go” közelítés és túlfutás.** → Folyamatos előre-menet, egyszeri
+  azonosság-ellenőrzés, előre megállás, nagyobb érkezési tűrés.
+- 🧪 **Végrehajtási hibák** („Érvénytelen movement lease / klienskoordináta”). → Minimális
+  fordulási idő, képernyőn belüli pontok.
+- 🧪 **Egy véletlen gnóm játékost követett.** → Újrakötés csak megbízható, hasonló méretű dobozra.
+- 🧪 **WAIT-holtpont kijelölt, de képernyőn kívüli egységnél.** → Visszakeresés az utolsó irányban.
+- ✅ **A loot rossz pontra kattintott** (az utolsó mouseover helyére). → A halálkori doboz;
+  18:27-kor az első sikeres élő lootok.
+- ✅ **A harc 17–32 mp-ig futott a kill után.** → Harcon-kívül szabály.
+- ✅ **Nem minden mobot lootolt** (a terület-loot már kiürítette a többit). → Sikeres loot után a
+  közeli saját hullák kész.
+- 🧪 **A World Map újra és újra megnyílt** (üres térkép). → 2 üres keresés után 10 percig nem.
+- 🧪 **Egy kijelölt játékos blokkolta a quest-adó keresést.** → Játékos-kijelölés nem blokkol.
+- ✅ **Mérföldkő:** teljes lánc élesben (keresés → kijelölés → quest elfogadása → útvonal → harc
+  → loot), és 18:43-kor a „Murloc Mania” célja 6/6, teljesen önállóan.
+
+</details>
+
+<details>
+<summary><b>2026-09-30</b> — 8 új funkció, 11 javítás</summary>
+
+#### Új funkciók / implementációk
+- ✅ **3-osztályos YOLO egység-detektor (v8)**: lény / quest-tárgy körvonal / fej feletti jel;
+  TensorRT ~7 ms.
+- ✅ **Szál-profilozó** (`thread_profile_history.jsonl`) a fő ciklus akadásainak méréséhez.
+- 🧪 **Stabil World3D objektumréteg (felhasználói kérés):** a dobozok aktívak és helyben maradnak,
+  a nyers állapot (elveszett, takarásban) a háttérben látszik.
+- ✅ **Képrögzítés-vezérelt YOLO külön folyamatban:** minden új képkockán fut (élesben ~27 Hz,
+  követéssel együtt).
+- ✅ **A World3D érzékelés saját folyamatban** (élesben 36–92 Hz, korábban 15–18 Hz).
+- ✅ **Memória késleltetett és háttérben írása:** az agent lépése 70 → 30 ms, a gyors vezérlés
+  12 → 21 Hz.
+- 🧪 **Pixel-csík dekódolás** egy numpy-lépésben, a képrögzítő folyamatban.
+- ✅ **Korlátos, időzített automatikus tesztfutás** (felhasználói engedéllyel).
+
+#### Bug fixes
+- ✅ **Kee-La-t (nem válaszoló NPC) újra és újra megszólította.** → Néma NPC egy időre kimarad
+  (később: Jainát nem blokkolja, ha hatótáv-hiba volt).
+- ✅ **A fő ciklus „éhezett”, a karakter helyben forgott.** → Folyamat-alapú képrögzítés
+  alapból; a nagy World3D nézet nem kerül az adatbázisba (0/110 elavult minta, 18 Hz).
+- 🧪 **A saját karakter duplikált doboza inspektálható maradt.**
+- 🧪 **A quest-jel egy elveszett (rossz) testhez kötődött**, ezért elfordult Jainától. → Élő testek előnyben.
+- 🧪 **A pixel-csík dekódolás teljesen leterhelte a szenzor-szálat.**
+- 🧪 **Elveszett követés, ha egy NPC-nek két váltakozó doboza volt.** → Élő folytatás.
+- 🧪 **Gyakori azonosító-csere.** → Teljes képes detektálás, BoT-SORT pontszám-fúzió nélkül
+  (visszajátszásban 2079 → 199 új azonosító/perc), rövid kiesés utáni újra-azonosítás.
+- 🧪 **Villogó UI-jelzők** (a térkép 28× „nyílt-zárt” 4 mp alatt). → Debounce.
+- 🧪 **Távoli néma megszólítások és WAIT-holtpont.** → Előbb közelítés.
+- ✅ **Az INTERACT a gombnyomás előtti adat alapján bukott** (és az óra-eltérés miatt is). →
+  Javítva; 18:26-kor élesben elfogadta a „Murloc Mania” questet.
+- 🧪 **A közelítés után 120 mp-ig minden feladat tiltva volt.** → Sikeres közelítés újranyitja.
+
+</details>
 <!-- CHANGES:END -->
 
 ## Not included
