@@ -343,6 +343,138 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 - 🧪 **A közelítés után 120 mp-ig minden feladat tiltva volt.** → Sikeres közelítés újranyitja.
 
 </details>
+
+<details>
+<summary><b>2026-09-29</b> — 5 új funkció, 8 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **BoT-SORT követés kamera-mozgás kompenzációval** (sparse optical flow), 30 frissítésnyi
+  „elveszett” puffer, a dobozfajták nem cserélhetnek azonosítót; háttérben töltődik be.
+- 🧪 **Követő kamerás keresés (felhasználói beállítás):** a keresés a karaktert fordítja
+  (TURNLEFT/RIGHT) a kamera húzása helyett.
+- 🧪 **Teljes magasságú YOLO látómező:** a quest-jel a kép tetején sem esik ki; kemény UI-maszkok
+  a telemetria-csíkra, HUD-ra, chatre, akciósávra, egység-keretekre.
+- 🧪 **Saját karakter jelölése:** a Live Vision „[SELF]”-ként mutatja, nem inspektálható.
+- 🧪 **Detektor-kimaradás tűrése és simítás:** egy üres YOLO-frissítés nem törli az összes dobozt
+  (legfeljebb 8 frissítésig marad), a dobozok simítva mozognak.
+
+#### Bug fixes
+- 🧪 **A barátságos NPC követése közben cserélődtek az azonosítók, és fölöslegesen nyílt a World
+  Map.** → Steering-újrakötés a közeli egyértelmű dobozra; a térkép 30 mp-ig nem nyílik újra.
+- ✅ **Részleges hozzárendelésnél a BoT-SORT végleg kikapcsolt** („tracker assigned 2/3”). →
+  Támogatott állapot; élesben a tracker végig működött.
+- 🧪 **A kijelölt Jainát nem szólította meg** (egy régi „már beszéltem vele” jelző sosem járt le). → 60 mp után lejár.
+- 🧪 **Az azonosság-ellenőrző hover túl hamar feladta** (0,85 mp, az addon 1,48 mp alatt
+  válaszolt). → 2 mp.
+- 🧪 **Jaina helyett Kee-La-t választotta** (a quest-jeles csoport alacsony pontszám miatt
+  kiesett). → A jeles alany-csoportok előnyben.
+- 🧪 **Képernyőn kívüli kitalált doboz** (y = 1,68) miatt forgott körbe. → Levágás, normalizálás a teljes képre.
+- 🧪 **Egy fáklyalángra indult el előre** (a jel alá kitalált „test” kapott mozgási jogot). → A kitalált
+  doboz csak hoverelhető, mozgást nem kap; YOLO-jel alá nem készül kitalált test.
+- 🧪 **Kamera-fordulás után nem kötötte újra a kijelölt NPC dobozát.** → GUID-dal ellenőrzött újrakötés.
+
+</details>
+
+<details>
+<summary><b>2026-09-28</b> — 4 új funkció, 8 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Folyamatos „legújabb képkocka” YOLO:** nincs mesterséges 8–15 Hz-es fék (visszajátszásban 36 Hz).
+- 🧪 **Warrior harc-rotáció:** Charge nyitásként, közelben Shield Slam / Slam, ha semmi sem
+  használható, jobbklikk auto-attack a kijelölt célpontra; a harc legfeljebb 45 mp.
+- 🧪 **Több quest-ajánlat egy NPC-nél:** egyértelmű sorválasztás (kész sor előre, majd a legfelső).
+- 🧪 **Quest special item a táskából** (pl. Re-Sizer), ha nincs az akciósávon (addon 0.9.36).
+
+#### Bug fixes
+- 🧪 **A GUI lefagyott csatlakozáskor és a második FULL_AI-nál.** → Háttérszálas indítás és vezérlés.
+- 🧪 **Quilboar Briarpatch: a navmesh-út egy 45°-os sziklán át vezetett.** → Meredek átmenetek tiltva.
+- 🧪 **Két quest-ajánlat sorainak nem volt koordinátája** (x = 0, y = 0). → Addon 0.9.33; addig
+  biztonságos WAIT a nyitott ablak mögött.
+- 🧪 **Leadás előtt újra és újra megnyitotta a World Mapet.** → Leadási pontnál nem talál ki bejáratot.
+- 🧪 **A quest-ajánlatot jutalomválasztásnak nézte.** → Addon 0.9.34.
+- 🧪 **MOVE közben megtámadták, 47 mp-ig nem védekezett, és meghalt.** → Addon 0.9.35: harci
+  FAST csomag (harc-állapot, akciósáv).
+- 🧪 **Harc után falba futott** (a futó animáció haladásnak számított). → Csak valós elmozdulás számít.
+- 🧪 **Re-Sizer quest: megtámadta a vaddisznót tárgyhasználat helyett.** → USE_ITEM felismerés (addon 0.9.36).
+
+</details>
+
+<details>
+<summary><b>2026-09-27</b> — 4 új funkció, 8 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Quest MOVE közben passzív vizuális keresés**, és a harc által megszakított MOVE folytatása
+  (180 mp-ig).
+- ✅ **FULL_AI élesítés kézfogással** (előtér, friss addon, World3D, billentyű-export);
+  telemetria-kimaradáskor elengedi az inputot, de megtartja a FULL_AI-t; fókuszvesztés kezelése.
+- 🧪 **Passzív WAIT közös 5 mp-es kerete**, utána kényszerített újratervezés.
+- 🧪 **Kijelölt ellenség megközelítése hover nélkül** egy stabil World3D track alapján.
+
+#### Bug fixes
+- 🧪 **Az elakadás-figyelő nem indította el a menekülési lépéseket.**
+- 🧪 **A tracker sebessége összeomlott** (egy kiugró mérés lefojtotta). → Gördülő medián.
+- 🧪 **Túl sok gyenge YOLO-doboz** (0,05-ös küszöb). → 0,15.
+- 🧪 **A World Map újra és újra megnyílt** (a 0 „szülőtérképet” valódinak vette).
+- 🧪 **MOVE-megszakítási vihar:** 79 MOVE-ból 77-et gyenge jelek szakítottak meg. → Szigorúbb kapu.
+- 🧪 **Idegen (nem általa ölt) hullákat akart lootolni.** → Csak saját kill.
+- 🧪 **CLOSE_MAP be-ki ciklus** (a bezárás után újra kinyitotta). → A FAST térkép-jelzőt olvassa.
+- 🧪 **30 mp-es passzív várakozások** egy tiltott útvonal után. → 5 mp.
+
+</details>
+
+<details>
+<summary><b>2026-09-26</b> — 5 új funkció, 6 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **v4 YOLO modell** (2794 kép) TensorRT engine-ekkel, alapértelmezett.
+- 🧪 **Független „legújabb képkocka” érzékelés-pumpa** (tracker offline 23 → 33 Hz).
+- 🧪 **Harc:** képességhasználati előzmény, friss (FAST) akciósáv-adatok, a kijelölt célpont
+  vizuális követése; addon 0.9.32 a spell-hatótávokkal.
+- 🧪 **Kék quest-terület** a World Mapről/minimapről → navmeshen bejárható lefedési pontok
+  (addon: C_Map koordináta-átváltás).
+- 🧪 **Lassú, egyirányú kamera-söprés** a gyors bal-jobb rángatás helyett.
+
+#### Bug fixes
+- 🧪 **A saját karakter maszkja eltakarta az előtte álló NPC-t.** → A maszk csak metaadat.
+- 🧪 **Jaina quest-jelét a fix minimap-kizárás törölte, és WAIT lett.** → Átfedés engedve; a
+  támogatott jel–test csoport keresést indít.
+- 🧪 **Murloc-loot után rossz útvonal és kitalált bejárat.** → Világ-koordináta + kötelező navmesh.
+- 🧪 **A kijelölt Murloc után WAIT** (késő célpont-adat, lassú akciósáv). → Nameplate-társítás,
+  FAST akciósáv.
+- 🧪 **Éhező tracker és vak TAB-célpont.** → Független pumpa; a TAB nem kereső eszköz.
+- 🧪 **Átláthatatlan WAIT és ismételt World Map keresés.** → A WAIT oka kiíródik; a képernyő
+  szélén lévő tooltip nem térképpont.
+
+</details>
+
+<details>
+<summary><b>2026-09-25</b> — 1 új funkció, 3 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **TensorRT és foveált gyors út:** a YOLO külön folyamatban, osztott memóriával (20 → 9 ms).
+
+#### Bug fixes
+- 🧪 **Élesben a tanult detektor sokkal kevesebbet látott,** mint az annotáló előnézet (túl magas
+  kapu, a HUD-sáv kizárás törölte a valódi lényeket). → Osztályonkénti kapuk, CUDA-eszköz javítva.
+- 🧪 **600–800 ms-os akadások** (memória-karbantartás, státusz-építés). → Korlátozott törlés,
+  ritkább karbantartás.
+- 🧪 **A Live Vision ablak elvette az erőforrást.** → 1 OpenCV szál, alacsony prioritás.
+
+</details>
+
+<details>
+<summary><b>2026-09-24</b> — 1 új funkció, 1 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Az első tanított YOLO modell** (`world3d_annotation_assist_combined_1077_v1`) bekötve az
+  élő World3D útba: a felismerések UNKNOWN jelöltek maradnak, konzervatív küszöbök, háttérben
+  melegedő GPU.
+
+#### Bug fixes
+- 🧪 **Nem létező jutalomablak miatt ragadt WAIT-ben** egy harci feladat közben. → Addon 0.9.30
+  (csak látható ablakból olvas), a FAST „bezárva” jelzés azonnal törli.
+
+</details>
 <!-- CHANGES:END -->
 
 ## Not included
