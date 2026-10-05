@@ -6,7 +6,7 @@ YOLO detector, plans with a shared WorldModel / planner / skill architecture and
 client with ordinary keyboard and mouse input for the selected process only. No memory
 reading, injection or secret-value bypasses.
 
-**📋 [Bug fixes / javítások](BUGFIXES.md)** — what the live tests found and how it was fixed, day by day.
+**📋 [Változások: bug fixes + implementációk](#változások-bug-fixes--implementációk)** — what the live tests found, how it was fixed and what was added, day by day.
 
 ## Install
 1. Python 3.13 (64-bit) on Windows 10/11.
@@ -33,10 +33,200 @@ reference. It is **not** selected automatically: choose a cache explicitly in
 the GUI, and verify it matches the bindings of the running WoW client. On a
 new machine, the addon export can create a fresh cache for that client.
 
-## Bug fixes
-The fixes of the live tests, grouped by day and area, with live-validated (✅) or
-offline-tested (🧪) status: [BUGFIXES.md](BUGFIXES.md). Full detail:
-[docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md).
+## Változások (bug fixes + implementációk)
+Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás és egy oldalon:
+[BUGFIXES.md](BUGFIXES.md); részletes napló: [docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md).
+
+<!-- CHANGES:START -->
+<details open>
+<summary><b>2026-10-05</b> — 4 új funkció, 8 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Telepítő – helyi MI lépés:** megerősítés után telepíti az Ollamát (winget), elindítja és
+  letölti a modellt (`qwen3:4b-instruct-2507-q4_K_M`); a Befejezés oldalon külön gomb.
+- 🧪 **Telepítő – figyelmeztetések:** a hiányzó GPU-gyorsítás (TensorRT / CUDA / DirectML) külön
+  figyelmeztetés, a telepítés folytatódik.
+- 🧪 **NPC-memória az INSPECT-hez:** a hoverrel már megnevezett, nem szükséges NPC-t nem
+  hoverezi újra; csak ugyanabban a quest-állapotban és helyben érvényes, 20 mp-ig.
+- ✅ **GitHub:** ez a lap, a README „Változások” blokkja, és a projekt szinkronja a repóba
+  (személyes fájlok és felhasználónév nélkül).
+
+#### Bug fixes
+
+##### Questek leadása, NPC-keresés
+- 🧪 **Garricknál nem adta le a kész questet, Private Cole-nál nem vette fel a következőt.**
+  Az INSPECT „már megnéztem, nem kell” memóriája 60 mp-ig kihagyta őket, pedig közben
+  a quest kész lett, illetve a játékos odament a „!” helyre.
+  → Az ítélet csak ugyanabban a quest-állapotban és helyben (5 yardon belül) érvényes,
+  20 mp-ig. Quest-adó keresése közben (nincs aktív quest) barátságos NPC-t soha nem hagy ki.
+- 🧪 **Rossz leadó NPC.** A quest szövege nem nevezte meg a leadót, a helyi MI tippelt
+  (Richter, tévesen). → Ha a leadót csak az MI tippelte, a quest-adó is jelölt marad.
+- 🧪 **„Meet Bjorn Stouthands west of the Alliance Camp”** szövegből nem ismerte fel a
+  leadót. → A „Meet / Meet with / Join &lt;név&gt;” minta is leadót jelöl.
+- 🧪 **Négyszer szólította meg Bjornt 11 mp alatt, mindig „out of range”.** → Az első
+  megszólítás marad; hatótáv-hiba után 20 mp-ig nem szólítja meg vakon újra, előbb
+  megkeresi és megközelíti.
+
+##### Helyi MI, telepítő
+- 🧪 **A GUI mindig kikapcsolta a helyi MI-t (quest-szövegértelmező).** → Újra a
+  `config/ai_decision.json` szerint fut (alapból be), ha az Ollama elérhető.
+- 🧪 **Telepítő, friss NVIDIA gép:** az `ultralytics` a CPU-s PyTorch-ot húzta fel, a CUDA-s
+  telepítés „már megvan”-t mondott, és a telepítés megállt. → A CUDA-s torch települ először.
+- 🧪 **Telepítő:** egy hiányzó TensorRT / CUDA / DirectML az egész telepítést leállította
+  (addon és navigáció nélkül). → Csak figyelmeztetés, a telepítés folytatódik.
+- 🧪 **Telepítő:** az „Indítás most” 20 perces próbát indított (→ 5 perc); aposztrófos mappanév
+  elrontotta a parancsikonokat.
+
+</details>
+
+<details>
+<summary><b>2026-10-04</b> — 15 új funkció, 31 javítás</summary>
+
+#### Új funkciók / implementációk
+- ✅ **Járművek (általánosan, minden quest-járműre):** a jármű akciósávjának exportja
+  (addon 0.9.49), VEHICLE_ABILITY készség, a képességek használati módja (előre-roham /
+  célzott / közeli) a megfigyelt hatásból, a tooltipből vagy a helyi MI-ből; visszaszállás
+  kijelentkezés után. 🧪 EXIT_VEHICLE, ha magától kell kiszállni.
+- 🧪 **Saját karakter felismerése** kamera-zoomtól és járműtől függetlenül (hover, forgás közben
+  helyben maradó doboz, középső fókusz), maszkolás nélkül.
+- ✅ **Helyi MI (Ollama, qwen3:4b, GPU-n ~2 mp/kérdés):** quest-feladatok, jármű-képességek és
+  NPC-beszéd értelmezése bonyolultabb questeknél; benchmark eszköz a modellválasztáshoz.
+  Addon 0.9.51–0.9.52: quest szöveg, quest-adó és leadó rögzítése.
+- 🧪 **Leadó NPC a quest saját szövegéből** („Return to …”, „Speak with …”, „back to me”).
+- 🧪 **Vizuális prototípusok:** questenként megtanulja, milyen alakú/színű dolgot kell ölni,
+  és a hasonló dobozokat hamarabb nézi meg.
+- ✅ **Minimap quest-pötty:** a sárga pötty felé indul, ha a célpont nem látszik.
+- 🧪 **Kijelölt célpont minimap-jele:** képernyőn kívüli célpont iránya és távolsága.
+- ✅ **Vendor questek:** bolt megnyitása, a legolcsóbb tárgy megvétele, szemét eladása
+  (addon 0.9.55).
+- ✅ **Jutalom automatikus választása:** használható → item level → eladási ár → első sor
+  (addon 0.9.53).
+- ✅ **Navigáció többszintes helyeken (épületek):** a cél és a kiindulás bejárható szintjeinek
+  vizsgálata a navmeshen.
+- 🧪 **Respawn-várakozás** egyedi célpontra (pl. Torgok), ha valaki más megölte.
+- 🧪 **„Need to be closer” lépésszabály:** hatótáv-hiba után 5, majd 3, majd 2 lépés előre.
+- 🧪 **Confidence-öröklés** (felhasználói ötlet): azonos helyen és méretben a gyengébb
+  YOLO-doboz is ugyanaz a célpont.
+- 🧪 **Vision dataset új formátum:** teljes képek YOLO-címkékkel a detektor tanításához.
+- 🧪 **Live capture megőrzés:** csak a legutóbbi 3 szegmens marad.
+
+#### Bug fixes
+
+##### Vendor quest („Stocking Up on Supplies”)
+- ✅ **Richtert hoverezte, de nem nyitotta meg a boltját.** A szerver `1/1`-et küldött kész
+  jelzés nélkül, az agent késznek vette. → Az API „nincs kész” jelzése erősebb a
+  számlálónál; a „purchased from X / sold to X” vásárlás/eladás feladat X vendornál.
+- ✅ **Nyitott boltnál leállt (WAIT).** Az addon üres árulistát küldött (Retail 12:
+  `C_MerchantFrame.GetItemInfo`), és csak a vásárlást tervezte. → Addon 0.9.55; nyitott
+  boltnál vásárlás és eladás is tervezve; a megnyílt bolt sikeres interakciónak számít.
+- 🧪 **Ugyanazt a 3 NPC-t hoverezte körbe-körbe.** → Megnevezett, nem kellő NPC-t nem
+  hoverez újra (10-05-én finomítva).
+
+##### Jutalom és leadás
+- ✅ **Egyetlen jutalomnál nem tudott leadni** (nem volt „Complete” gomb). → Addon 0.9.46.
+- ✅ **Két jutalomnál nem választott.** → Automatikus választás (lásd fent).
+- 🧪 **Kiválasztotta a jutalmat, de nem nyomta meg a „Complete Quest”-et.** Retail 12-ben a
+  jutalomgomb kijelölése nem látszott az addonnak. → Addon 0.9.54 (`QuestInfoFrame.itemChoice`).
+- ✅ **A kijelölt leadó NPC (Garrick) helyett a leadási pontra ment.** → A kész quest
+  leadójához közel kijelölt NPC-t megszólítja.
+- 🧪 **„You need to be closer” ciklus (Wrathion):** a képernyő-doboz alapján „elég közel”-nek
+  hitte. → Hatótáv-hiba után valóban előremegy (5/3/2 lépés).
+- 🧪 **A „need to be closer” hibát elveszítette** (az addon órája 6 mp-et késett). → Esemény-sorszám alapján dönt.
+- 🧪 **Huxworth kijelölve és látható, mégsem közelítette meg.** → A célponthoz kötött
+  World3D track is érvényes horgony.
+
+##### Speciális questek
+- ✅ **Scout-o-Matic 5000** („Use &lt;unit&gt; to …”): nem használta. → Használat/lovaglás/beszállás
+  szöveg NPC-interakció; járműbe ülés sikernek számít (addon 0.9.47).
+- ✅ **Minden barátságos NPC „releváns” lett** (Lindie-t újra és újra kijelölte). → Ha a feladat
+  megnevezi az NPC-t, csak azt.
+- ✅ **Re-Sizer:** a vaddisznót megtámadta a tárgyhasználat helyett; távoli célnál nem
+  tudta használni. → Tárgyhasználati feladatnál nincs harc; táskagombok Retail 12-ben
+  (addon 0.9.48); hatótáv-hiba után közelítés.
+- ✅ **Giant Boar:** nem ült fel rá. → „Ride/Mount/Board/Enter &lt;unit&gt;” felismerése.
+- ✅ **A disznón utasként várt.** → A jármű képességei kerülnek az akciósávra.
+- ✅ **Monstrous Cadaver-eket nem támadta.** → Trample előre-roham módban (célzás, majd nyomás).
+- 🧪 **A saját disznó dobozát hitte célpontnak.** → Saját-karakter felismerés (lásd fent).
+- ✅ **Kijelentkezés után nem ült vissza a disznóra.** → Újra felül, amíg a jármű-szakasz nyitott.
+- ✅ **Lassú volt a disznós rész** (161 mp várakozás 310-ből). → A járműképesség nem vár a
+  kijelölési „commitment”-re (161 → 36 mp).
+- 🧪 **Elvesztette a célzott doboz követését** (alacsony confidence). → Forgás-korrekciós
+  újrakötés és confidence-öröklés.
+- ✅ **A szkriptelt leszállás után a disznót kereste.** → Állapotmentes visszaszállás-szabály.
+
+##### Navigáció
+- ✅ **Nem jutott be Torgok épületébe** (terep-magasság az épület alatt). → Szintvizsgálat.
+- ✅ **Nem jutott ki az épületből** (rossz kiinduló magasság). → A kiinduló szintet is vizsgálja.
+- ✅ **A minimap-pötty felé indulva egy helyben állt** (az első útpont alatta volt). → Közeli
+  útpontok kihagyása.
+- ✅ **A távolabbi questre ment előbb** (egyenlő pontszám). → Valós távolság dönt.
+- 🧪 **Kőbe ragadt, majd ugyanarra ment vissza.** → Akadály-jelölés és kitérő útvonal.
+- 🧪 **Elhagyta a nyitott quest területét egy másik quest kedvéért.** → A területen belül
+  más quest útvonala 120 mp-ig vár.
+- 🧪 **Rossz minimap-pötty** (a leadási „?” jelet és a kijelölt célpont jelét is quest-pöttynek vette).
+
+##### Telemetria, futás
+- 🧪 **„telemetry suspended” megállás, miközben az adat folyt.** → A FAST csomag frissíti az élő-jelzést.
+- 🧪 **Két agent futott ugyanarra a WoW-ra.** → A második nem indul el.
+- 🧪 **Live capture-ök megtöltötték a lemezt.** → Megőrzési szabály (lásd fent).
+
+</details>
+
+<details>
+<summary><b>2026-10-03</b> — 16 új funkció, 21 javítás</summary>
+
+#### Új funkciók / implementációk
+- ✅ **Leadási pont körüli keresés:** a pont közelében körbenéz és bejárja a környéket a „?” NPC-ért.
+- ✅ **Quest-terület bejárása cellánként**, minden cellában körbenézéssel.
+- 🧪 **Quest-terület a minimap kék körvonalából** (addon 0.9.43).
+- ✅ **Kampány questek elsőbbsége** (felhasználói döntés; addon 0.9.44 kampány-jelző).
+- 🧪 **Questek csoportosítása:** előbb az egy helyen lévőket csinálja meg, utána adja le együtt.
+- 🧪 **Több quest egy NPC-nél:** soronként veszi fel (addon 0.9.42, QUEST_GREETING).
+- ✅ **Hover-megerősített kattintás:** TARGET és LOOT csak akkor kattint, ha az addon
+  megerősítette a GUID-ot a kurzor alatt.
+- ✅ **Auto-attack az interact billentyűvel**, képernyő-doboz nélkül is.
+- ✅ **Halál kezelése:** szellem-futás a holttesthez, feltámadás (addon 0.9.45).
+- 🧪 **Saját cast-okból számolt cooldown** (harcban a cooldown titkosított).
+- ✅ **YOLO v10 modell** (újraellenőrzött címkék, creature mAP50 .43 → .68), alapértelmezett.
+- 🧪 **Telemetria-visszajátszó eszköz** a döntések offline ellenőrzéséhez.
+- 🧪 **Memória felhasználónkénti profilban** (nem PID-enként).
+- 🧪 **Indítás bindings-cache nélkül:** az első AUTO_START az addon exportjából készít egyet.
+- 🧪 **Telepítő varázsló:** „Minden egyben telepítés”, automatikus belépés, parancsikonok.
+- 🧪 **AMD/Intel GPU:** a YOLO DirectML-lel fut (CPU 251 ms → 18 ms/kép).
+
+#### Bug fixes
+
+##### Quest-folyamat
+- ✅ **A leadási ponton egy helyben toporgott** („?” keresés helyett újra és újra MOVE).
+- 🧪 **Leadott quest maradt az „elsődleges”**, és kiszűrte a többi quest lépéseit.
+- 🧪 **Egy NPC két questet kínált, 38 mp-ig várt.** → Soronként felveszi; újra megszólítja, ha maradt quest.
+- ✅ **2 perces WAIT a quest-területen.** → Cellánkénti bejárás.
+- 🧪 **Felesleges MOVE a quest-területen belül** (minden kill után új út).
+- ✅ **„Cook the meat on the campfire”** tárgyként jött, nem használta a tábortüzet. → Objektum-interakció.
+
+##### Harc, célpont, loot
+- 🧪 **Slam-et soha nem használta** (Retail harcban titkosítja a cooldownt). → Saját cast-okból számolt cooldown.
+- ✅ **TARGET kattintás mellément** (a célpont kicsúszott a kurzor alól). → Hover-megerősített kattintás.
+- ✅ **Közelharcban álló kecskét nem támadta** (0 rage, nincs képernyő-doboz). → Auto-attack az interact billentyűvel.
+- 🧪 **4,5 percig nem csinált semmit harcban** (a célpont képernyőn kívül). → Korlátos várakozás, majd újratervezés.
+- 🧪 **„Target needs to be in front of you” → meghalt.** → Fordulási keresés támadással; harcban is támadhat.
+- ✅ **Halál után megállt.** → Halál kezelése (lásd fent).
+- 🧪 **5/5 után is ölte a kecskéket** (a tooltip a kész sort is mutatta). → Kész sorok nem számítanak.
+- 🧪 **Üres hullát próbált lootolni; a karakter alatti hullát nem találta.** → `lootable=false`
+  figyelése; softinteract hulla az interact billentyűvel.
+- ✅ **Tüske-disznót hoverezte, de nem jelölte ki** (a tooltipben a quest neve szerepelt). → Ez is quest-relevancia.
+- 🧪 **Barátságos NPC-k és mások petje mellé tévedt.** → Aktív questnél csak a szükséges NPC.
+
+##### Teljesítmény, rendszer
+- ✅ **Lassú agent (FAST ~14 Hz), óriási memória-adatbázis** (500 MB + 2,26 GB WAL). →
+  Pillanatnyi állapotok nem kerülnek a DB-be; ~26 Hz.
+- 🧪 **„Érvénytelen movement lease” hibák** (túl rövid fordulás, rossz sávon küldött egérmozgás).
+- 🧪 **Ugyanazt az üres pontot hoverezte 11–12×.** → Változatlan nézetben 25 mp-ig kihagyja.
+- 🧪 **Oszlop és kő közé szorult.** → Sorban kipróbált fizikai menekülési lépések.
+- ✅ **A térkép nyitva maradt a leadási pontnál, ezért WAIT.** → CLOSE_MAP.
+
+</details>
+<!-- CHANGES:END -->
 
 ## Not included
 - TensorRT engines (built per GPU by the wizard), training datasets and runs, personal agent
