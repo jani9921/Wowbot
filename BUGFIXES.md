@@ -22,6 +22,11 @@ a fájlból készül (`python tools/readme_changes.py`).
   hoverezi újra; csak ugyanabban a quest-állapotban és helyben érvényes, 20 mp-ig.
 - ✅ **GitHub:** ez a lap, a README „Változások” blokkja, és a projekt szinkronja a repóba
   (személyes fájlok és felhasználónév nélkül).
+- 🧪 **A nagy fájlok szétbontása** (12 db, 750–1276 sor → legfeljebb ~660): a metódusok változatlanul
+  témánkénti modulokba kerültek, a régi importútvonalak mind működnek; az 571 soros quest-tervező
+  függvény három részre bontva. A tesztek mindegyik lépés után zöldek, a 3 régi méretkorlát-teszt is.
+- ✅ **Verziók (git tag):** minden nagyobb változás előtt a GitHubon lévő állapot verziócímkét kap,
+  így bármikor visszaállítható (lásd README, „Verziók”).
 
 ### Bug fixes
 

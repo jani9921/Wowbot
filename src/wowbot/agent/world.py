@@ -15,10 +15,9 @@ from .models import (EventRecord, Observation, Prediction, PredictionError, cano
                      json_copy as _json_copy, number)
 deepcopy = _json_copy
 from .quest_model import QuestModel
-from .world_entities import (AppearanceObservation, EntityIdentity, EntityStateObservation,
-                             LocationCluster, LocationObservation, RoleObservation)
+from .world_entities import LocationCluster
 from .world_query import WorldQuery
-from .world_models import Belief, ContradictionRecord, Evidence, WorldRelation
+from .world_models import Belief, Evidence, WorldRelation
 
 
 class _BoundedEventRecords(deque):
@@ -55,14 +54,10 @@ from .world_section_updates import WorldSectionUpdateTracker
 from .world_state_contract import WorldStateContract
 from .world_trace_graph import WorldTraceGraph
 from .world_prediction_runtime import WorldPredictionRuntime
-from wowbot.vision.models import MapMarker
+from .world_corpses import WorldCorpseMixin
+from .world_entity_records import WorldEntityRecordsMixin
+from .world_beliefs import WorldBeliefMixin, RELIABILITY, SENSOR_TIERS, SOURCE_TIERS
 
-
-RELIABILITY = {"ADDON_TELEMETRY": 1., "MOUSEOVER": 1., "TOOLTIP": .9,
-               "ENTITY_MEMORY": .7, "SPATIAL_MEMORY": .7, "SEMANTIC_MEMORY": .7, "WORLD_MAP_CV": .6,
-               "MINIMAP_CV": .55, "WORLD3D": .55, "WORLD3D_LOCAL_VIEW": .55, "UI_CV": .58, "VISION": .55,
-               "CROSS_VIEW": .55, "AI": .3,
-               "QUEST_STATE": 1., "PLAYER_STATE": 1.}
 
 # AIPC5 exports one authoritative state through multiple pixel-strip pages.
 # This packet-receipt window does not relax PID/focus/input safety checks in
@@ -83,41 +78,6 @@ MAX_RELATIONS = 20_000
 # actionbar data.  Treating that as a disconnect previously stopped FULL_AI
 # during a live fight despite packets arriving continuously.  Packet receipt
 # and explicit player absence remain the control-safety contract.
-
-SENSOR_TIERS = {
-    "GROUND_TRUTH": 4,
-    "STRONG": 3,
-    "PERCEPTION": 2,
-    "REASONING": 1,
-    "UNKNOWN": 0,
-}
-SOURCE_TIERS = {
-    "ADDON_TELEMETRY": "GROUND_TRUTH", "MOUSEOVER": "GROUND_TRUTH",
-    "TOOLTIP": "GROUND_TRUTH", "QUEST_STATE": "GROUND_TRUTH",
-    "PLAYER_STATE": "GROUND_TRUTH", "WORLD_MAP": "STRONG",
-    "ENTITY_MEMORY": "STRONG", "SPATIAL_MEMORY": "STRONG",
-    "SEMANTIC_MEMORY": "STRONG", "MINIMAP_CV": "PERCEPTION",
-    "WORLD_MAP_CV": "PERCEPTION", "WORLD3D": "PERCEPTION", "WORLD3D_LOCAL_VIEW": "PERCEPTION", "UI_CV": "PERCEPTION",
-    "VISION": "PERCEPTION", "CROSS_VIEW": "PERCEPTION", "AI": "REASONING", "VLM": "REASONING",
-    "PREDICTION": "REASONING",
-}
-
-# These fields describe a continuously changing sampled state, not durable
-# semantic claims.  Comparing the last two seconds of camera positions,
-# candidate lists or traversability rasters as if they were mutually exclusive
-# facts manufactured thousands of BELIEF_CHANGED/CONTRADICTION events per
-# minute.  They remain normal evidence and remain queryable; only the durable
-# *lifecycle event* projection is suppressed.  Their real transitions already
-# have dedicated events/reducers (TARGET_CHANGED, combat, UI and track events).
-TEMPORAL_STATE_BELIEF_KEYS = frozenset({
-    "active_perception_ranking", "camera_state", "is_in_combat",
-    "local_traversability", "map_mouseover", "mouseover", "movement",
-    "orientation", "player_world_position", "position", "scene_geometry",
-    "soft_targets", "spawn_reference_candidates",
-    "tooltip_observation", "ui_observations", "visual_candidates",
-    "world_map_state",
-})
-
 
 T = TypeVar("T")
 
@@ -196,7 +156,7 @@ class WorldSnapshot:
         return self._model.corpse_was_recently_looted(guid, now)
 
 
-class WorldModel:
+class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
     """Temporal facts with explicit contradiction history and session boundaries."""
 
     def __init__(self, reliability_provider=None, relation_sink=None, event_sink=None, entity_memory=None):
@@ -337,180 +297,7 @@ class WorldModel:
             return None
         return self._emit_derived_event(event_type, payload, self.latest)
 
-    def mark_area_looted(self, at: float | None = None, *, window: float = 30.) -> None:
-        """Retire own corpses killed within ``window`` s (Retail area loot)."""
-        now = self.last_received if at is None else float(at)
-        for guid, killed_at in list(self.owned_corpse_guids.items()):
-            if killed_at is not None and 0 <= now-float(killed_at) <= window:
-                self.mark_corpse_looted(guid, now)
-
-    def note_loot_failure(self, guid: str | None, at: float | None = None,
-                          *, limit: int = 2) -> None:
-        guid = str(guid or "")
-        if not guid:
-            return
-        failures = self.__dict__.setdefault("loot_failures", {})
-        failures[guid] = failures.get(guid, 0) + 1
-        if failures[guid] >= limit:
-            self.mark_corpse_looted(guid, at)
-
-    def mark_corpse_looted(self, guid: str | None, at: float | None = None) -> None:
-        """Retire one confirmed corpse after authoritative loot progress."""
-        guid = str(guid or "")
-        if not guid:
-            return
-        observed_at = number(at)
-        self.looted_corpse_guids[guid] = (self.last_received if observed_at is None else observed_at)
-        self.owned_corpse_guids.pop(guid, None)
-        self.corpse_anchors.pop(guid, None)
-        if "confirmed_corpse_anchors" in self.state:
-            self.state["confirmed_corpse_anchors"] = [
-                anchor for anchor in self.state["confirmed_corpse_anchors"]
-                if anchor.get("guid") != guid]
-        self.state["owned_corpse_guids"] = list(self.owned_corpse_guids)
-
-    def corpse_was_recently_looted(self, guid: str, now: float) -> bool:
-        looted_at = self.looted_corpse_guids.get(guid)
-        return looted_at is not None and 0 <= now-looted_at <= 300.
-
-    def mark_combat_kill(self, guid: str | None, at: float | None = None) -> None:
-        """Record exact-GUID loot ownership after verified local combat."""
-        guid = str(guid or "")
-        if not guid.startswith(("Creature-", "Vehicle-")):
-            return
-        observed_at = number(at)
-        killed_at = self.last_received if observed_at is None else observed_at
-        self.owned_corpse_guids[guid] = killed_at
-        anchor = self.mouseover_screen_anchors.get(guid)
-        boxed = self.last_target_boxes.get(guid)
-        if (boxed and isinstance(boxed.get("bbox"), dict)
-                and 0 <= killed_at-float(boxed.get("observed_at") or -1e9) <= 5.):
-            anchor = {**(anchor or {}), **boxed, "anchor_source": "TARGET_TRACK_AT_DEATH"}
-        if anchor and number(anchor.get("x")) is not None and number(anchor.get("y")) is not None:
-            self.corpse_anchors[guid] = {
-                **deepcopy(anchor), "guid": guid, "dead": True,
-                "source": "OWN_COMBAT_CONFIRMED", "belief": "CONFIRMED",
-                "ownership_confirmed": True, "ownership_source": "COMBAT_SUCCESS",
-                "observed_at": killed_at,
-            }
-        if "confirmed_corpse_anchors" in self.state:
-            self.state["confirmed_corpse_anchors"] = [
-                deepcopy(item) for item in self.corpse_anchors.values()]
-        self.state["owned_corpse_guids"] = list(self.owned_corpse_guids)
-
     ENGAGED_CORPSE_SECONDS = 120.
-
-    def corpse_was_engaged(self, guid: str | None, now: float) -> bool:
-        engaged_at = self.__dict__.get("combat_engaged", {}).get(str(guid or ""))
-        return engaged_at is not None and 0 <= now-float(engaged_at) <= self.ENGAGED_CORPSE_SECONDS
-
-    def corpse_is_owned(self, guid: str | None, now: float) -> bool:
-        killed_at = self.owned_corpse_guids.get(str(guid or ""))
-        return killed_at is not None and 0 <= now-killed_at <= 180.
-
-    def corpse_is_combat_correlated(self, guid: str | None, now: float) -> bool:
-        """Accept own-kill evidence already verified or still owned by COMBAT."""
-        guid = str(guid or "")
-        if self.corpse_is_owned(guid, now) or self.corpse_was_engaged(guid, now):
-            return True
-        active = self.runtime_context.get("active_skill") or {}
-        if (str(active.get("skill") or "").upper() in {"COMBAT", "DEFEND"}
-                and str(active.get("target_guid") or "") == guid):
-            return True
-        commitment = self.runtime_context.get("commitment") or {}
-        if (commitment.get("kind") == "TARGET"
-                and str(commitment.get("target_guid") or "") == guid
-                and str(commitment.get("initial_skill") or "").upper()
-                    in {"COMBAT", "DEFEND"}):
-            return True
-        # A full event page can arrive immediately after FAST already cleared
-        # the dead target.  Preserve exact-GUID continuity from the preceding
-        # combat observation; never infer ownership from proximity/name/dead.
-        for observation in reversed(self.history):
-            if observation is self.latest:
-                continue
-            if now-observation.received_at > 5.:
-                break
-            prior = observation.payload
-            target = prior.get("target") or {}
-            if (prior.get("is_in_combat") is True
-                    and str(target.get("guid") or "") == guid):
-                return True
-        return False
-
-    def _update_track_lifecycle(self, obs: Observation):
-        if "visual_candidates" not in obs.payload:
-            return
-        active = self.track_lifecycle.setdefault(obs.source, {})
-        seen = set()
-        for item in obs.payload.get("visual_candidates", []):
-            track_id = item.get("track_id")
-            if not track_id:
-                continue
-            seen.add(track_id)
-            state = str(item.get("track_state") or
-                        ("STABLE" if (number(item.get("stable_frames")) or 0) >= 3 else "TENTATIVE"))
-            prior = active.get(track_id)
-            active[track_id] = {"state": state, "misses": int(number(item.get("missing_frames")) or 0),
-                                "kind": item.get("detector_kind") or item.get("kind")}
-            if prior is None:
-                self._emit_derived_event("VISUAL_TRACK_APPEARED",
-                    {"track_id": track_id, "surface": obs.source, "state": state}, obs)
-            elif prior["state"] not in {"STABLE", "ACTIVE"} and state in {"STABLE", "ACTIVE"}:
-                self._emit_derived_event("VISUAL_TRACK_STABILIZED",
-                    {"track_id": track_id, "surface": obs.source, "state": state}, obs)
-            if prior and state == "OCCLUDED" and prior["state"] != "OCCLUDED":
-                self._emit_derived_event("TRACK_OCCLUDED",
-                    {"track_id": track_id, "surface": obs.source}, obs)
-            if prior and state == "REACQUIRE_CANDIDATE" and prior["state"] in {"OCCLUDED", "LOST_TEMPORARY"}:
-                self._emit_derived_event("TRACK_REACQUIRE_CANDIDATE",
-                    {"track_id": track_id, "surface": obs.source,
-                     "identity_status": "CANDIDATE"}, obs)
-        for track_id in list(active):
-            if track_id in seen:
-                continue
-            active[track_id]["misses"] += 1
-            if active[track_id]["misses"] >= 3:
-                self._emit_derived_event("VISUAL_TRACK_LOST",
-                    {"track_id": track_id, "surface": obs.source,
-                     "previous_state": active[track_id]["state"]}, obs)
-                del active[track_id]
-
-    def _update_belief_lifecycle(self, obs: Observation, keys):
-        for key in keys:
-            if key in TEMPORAL_STATE_BELIEF_KEYS or key.startswith("world3d_"):
-                continue
-            belief = self.belief(key, obs.received_at)
-            identity = (belief["status"], canonical(belief.get("value")))
-            prior = self.last_beliefs.get(key)
-            self.last_beliefs[key] = identity
-            if prior is not None and prior != identity:
-                self._emit_derived_event("BELIEF_CHANGED", {
-                    "belief_key": key, "previous_status": prior[0],
-                    "status": identity[0], "supporting_observations": belief.get("evidence", [])}, obs)
-            contradictions = tuple(belief.get("contradictions") or ())
-            contradiction_status = "AMBIGUOUS" if belief["status"] == "AMBIGUOUS" else (
-                "RESOLVED" if contradictions else "NONE")
-            contradiction_identity = (contradiction_status, contradictions)
-            old_contradiction = self.contradiction_state.get(key)
-            if contradictions and contradiction_identity != old_contradiction:
-                resolution = str((belief.get("resolution") or {}).get("method") or "UNRESOLVED")
-                self.contradiction_history.append(ContradictionRecord(
-                    key, contradiction_status, resolution, canonical(belief.get("value")),
-                    tuple(belief.get("supporting_evidence") or ()), contradictions, obs.received_at))
-                self._emit_derived_event(
-                    "CONTRADICTION_DETECTED" if contradiction_status == "AMBIGUOUS" else "CONTRADICTION_RESOLVED",
-                    {"belief_key": key, "status": contradiction_status, "resolution": resolution,
-                     "support": list(belief.get("supporting_evidence") or ()),
-                     "contradictions": list(contradictions)}, obs)
-            elif old_contradiction and old_contradiction[0] == "AMBIGUOUS" and not contradictions:
-                self.contradiction_history.append(ContradictionRecord(
-                    key, "RESOLVED", "NEW_EVIDENCE", canonical(belief.get("value")),
-                    tuple(belief.get("supporting_evidence") or ()), old_contradiction[1], obs.received_at))
-                self._emit_derived_event("CONTRADICTION_RESOLVED", {
-                    "belief_key": key, "status": "RESOLVED", "resolution": "NEW_EVIDENCE",
-                    "contradictions": list(old_contradiction[1])}, obs)
-            self.contradiction_state[key] = contradiction_identity
 
     def _world_prediction(self, kind: str, subject: str, predicted_state: dict,
                           obs: Observation, *, horizon: float, confidence: float):
@@ -563,219 +350,6 @@ class WorldModel:
 
     def _ingest_execution_trace(self, obs: Observation):
         self._trace_graph.ingest(self, obs)
-
-    def _record_entity_location(self, identity: str, position: dict, state: dict,
-                                source: str, obs: Observation) -> LocationObservation | None:
-        x, y, z = number(position.get("x")), number(position.get("y")), number(position.get("z"))
-        if x is None or y is None:
-            return None
-        map_id = position.get("map_id", state.get("map_id"))
-        phase, instance, zone = state.get("phase"), state.get("instance_id"), state.get("zone_name")
-        coordinate_space = str(position.get("coordinate_space") or "NORMALIZED_MAP")
-        context = canonical({"map_id": map_id, "phase": phase, "instance": instance,
-                             "zone": zone, "coordinate_space": coordinate_space})
-        clusters = self.entity_location_clusters.setdefault(identity, {})
-        compatible = [cluster for cluster in clusters.values()
-                      if cluster.context == context and math.hypot(x-cluster.center_x, y-cluster.center_y) <= .01]
-        cluster = min(compatible, key=lambda item: math.hypot(x-item.center_x, y-item.center_y), default=None)
-        if cluster is None:
-            seed = canonical({"entity": identity, "context": context,
-                              "cell_x": round(x/.005), "cell_y": round(y/.005)})
-            cluster_id = __import__("hashlib").sha256(seed.encode()).hexdigest()[:24]
-            cluster = LocationCluster(cluster_id, map_id, phase, instance, zone, context,
-                                      coordinate_space, x, y, z, obs.received_at, obs.received_at,
-                                      confidence=1., observation_ids=[obs.observation_id])
-            clusters[cluster_id] = cluster
-        else:
-            count = cluster.seen_count + 1
-            cluster.center_x = (cluster.center_x*cluster.seen_count+x)/count
-            cluster.center_y = (cluster.center_y*cluster.seen_count+y)/count
-            if z is not None:
-                cluster.center_z = z if cluster.center_z is None else (cluster.center_z*cluster.seen_count+z)/count
-            cluster.seen_count, cluster.last_seen = count, obs.received_at
-            cluster.observation_ids = (cluster.observation_ids + [obs.observation_id])[-40:]
-        record = LocationObservation(obs.observation_id, cluster.cluster_id, map_id, x, y, z,
-                                     coordinate_space, phase, instance, zone, context, source, 1.,
-                                     obs.received_at)
-        locations = self.entity_locations.setdefault(identity, [])
-        locations.append(vars(record))
-        self.entity_locations[identity] = locations[-80:]
-        return record
-
-    def _record_entity_role(self, identity: str, unit: dict, state: dict,
-                            source: str, obs: Observation) -> RoleObservation | None:
-        role, role_source = unit.get("quest_role"), unit.get("quest_role_source")
-        if not role or role == "UNKNOWN" or not role_source:
-            return None
-        quest_id, revision = unit.get("quest_id"), state.get("quest_state_revision")
-        player_context = canonical({"level": state.get("level"), "combat": state.get("is_in_combat"),
-                                    "quest_revision": revision, "session": obs.session_id})
-        seed = canonical({"entity": identity, "role": role, "quest": quest_id,
-                          "revision": revision, "phase": state.get("phase"),
-                          "instance": state.get("instance_id"), "observation": obs.observation_id})
-        role_id = __import__("hashlib").sha256(seed.encode()).hexdigest()[:24]
-        record = RoleObservation(role_id, str(role), quest_id, revision, player_context,
-                                 state.get("phase"), state.get("instance_id"), str(role_source),
-                                 1., obs.received_at, obs.observation_id)
-        roles = self.entity_roles.setdefault(identity, [])
-        roles.append(vars(record))
-        self.entity_roles[identity] = roles[-80:]
-        return record
-
-    def _record_entity_identity_evidence(self, identity: str, value, source_tag: str, obs: Observation) -> None:
-        """V4-010: append one named-identity claim for later `fuse_identity()`."""
-        if not value:
-            return
-        from .entity_belief import IdentityEvidence
-        entries = self.entity_identity_evidence.setdefault(identity, [])
-        entries.append(IdentityEvidence(str(source_tag), str(value), 1.0, obs.received_at))
-        self.entity_identity_evidence[identity] = entries[-40:]
-
-    def _record_entity_state_and_appearance(self, identity: str, unit: dict, state: dict,
-                                            source: str, obs: Observation) -> None:
-        values = {key: unit.get(key) for key in
-                  ("health", "max_health", "dead", "is_dead", "attackable", "is_attackable",
-                   "moving", "combat", "quest_available", "quest_complete") if key in unit}
-        if values:
-            seed = canonical({"entity": identity, "values": values, "observation": obs.observation_id})
-            record = EntityStateObservation(__import__("hashlib").sha256(seed.encode()).hexdigest()[:24],
-                values, state.get("phase"), state.get("instance_id"), source,
-                obs.received_at, obs.observation_id)
-            states = self.entity_states.setdefault(identity, [])
-            states.append(vars(record)); self.entity_states[identity] = states[-80:]
-        signature = unit.get("visual_signature") or unit.get("appearance")
-        if isinstance(signature, dict) and signature:
-            representation = str(signature.get("representation_space") or "UNKNOWN")
-            seed = canonical({"entity": identity, "signature": signature,
-                              "representation": representation, "observation": obs.observation_id})
-            record = AppearanceObservation(__import__("hashlib").sha256(seed.encode()).hexdigest()[:24],
-                representation, deepcopy(signature), source, obs.received_at, obs.observation_id)
-            appearances = self.entity_appearances.setdefault(identity, [])
-            appearances.append(vars(record)); self.entity_appearances[identity] = appearances[-80:]
-
-    def add_evidence(self, key: str, value, obs: Observation, confidence: float = 1., ttl: float = 5.):
-        entries = self.evidence.setdefault(key, deque(maxlen=20))
-        if any(e.correlation_id == obs.correlation_id and e.source == obs.source for e in entries):
-            return
-        dynamic = self.reliability_provider(obs.source, self.addon_state) if self.reliability_provider else None
-        reliability = dynamic if dynamic is not None else RELIABILITY.get(obs.source, .4)
-        reliability = max(0., min(1., float(reliability)))
-        sensor_tier = SOURCE_TIERS.get(obs.source, "UNKNOWN")
-        context = {"session_id": obs.session_id, "map_id": obs.payload.get("map_id"),
-                   "surface": obs.payload.get("surface")}
-        provenance = obs.payload.get("provenance") or {}
-        independence_group = str(provenance.get("independence_group") or
-                                 (obs.correlation_id if obs.source in {"MINIMAP_CV", "WORLD_MAP_CV", "WORLD3D", "UI_CV", "VISION", "AI"}
-                                  else obs.observation_id))
-        entries.append(Evidence(obs.observation_id, obs.correlation_id, obs.source, obs.received_at,
-                                obs.received_at + ttl, canonical(value), confidence, reliability,
-                                canonical(context), independence_group, sensor_tier,
-                                SENSOR_TIERS[sensor_tier], key,
-                                str(obs.payload.get("entity_id") or obs.payload.get("guid") or "") or None,
-                                str(obs.payload.get("quest_id") or "") or None,
-                                str(obs.payload.get("objective_id") or "") or None))
-
-    @staticmethod
-    def _diagnostic_claim_value(key: str, value):
-        """Bound collection claims without discarding their typed item evidence.
-
-        Full visual candidates stay in the source projection and each track gets
-        its own evidence claim below. The aggregate collection belief only needs
-        identity/type/lifecycle metadata; embedding complete 32-frame histories
-        recursively inflated contradiction records.
-        """
-        if key == "visual_candidates" and isinstance(value, list):
-            return [{field: item.get(field) for field in
-                     ("track_id", "source", "detector_kind", "kind", "semantic_type",
-                      "belief", "confidence", "stable_frames", "lifecycle", "inspectable")}
-                    for item in value if isinstance(item, dict)]
-        if key == "visual_recognition_candidates" and isinstance(value, list):
-            return [{"track_id": item.get("track_id"), "surface": item.get("surface"),
-                     "appearance_signature_id": item.get("appearance_signature_id"),
-                     "entity_candidates": [{field: candidate.get(field) for field in
-                         ("identity_key", "status", "reliability", "similarity", "match_method")}
-                        for candidate in item.get("entity_candidates", []) if isinstance(candidate, dict)]}
-                    for item in value if isinstance(item, dict)]
-        if key == "active_perception_ranking" and isinstance(value, list):
-            return [{field: item.get(field) for field in
-                     ("track_id", "source", "semantic_type", "detector_kind", "utility",
-                      "expected_information_gain", "cost", "recognition_candidate_count",
-                      "recommended_observation", "action_authority")}
-                    for item in value if isinstance(item, dict)]
-        return value
-
-    def belief(self, key: str, now: float) -> dict:
-        entries = list(self.evidence.get(key, ()))
-        active = [e for e in entries if e.expires >= now]
-        if not active:
-            return {"status": "STALE" if entries else "UNKNOWN", "value": None, "evidence": []}
-        # Several visual/AI passes over one captured frame are correlated. Keep
-        # only the strongest vote in such a group rather than manufacturing
-        # independent support from the same pixels.
-        groups = {}
-        for entry in active:
-            current = groups.get(entry.independence_group)
-            if current is None or (entry.tier_rank, entry.reliability * entry.confidence) > (
-                    current.tier_rank, current.reliability * current.confidence):
-                groups[entry.independence_group] = entry
-        ranked = sorted(list(groups.values()),
-                        key=lambda e: (e.tier_rank, e.reliability * e.confidence, e.at), reverse=True)
-        winning_rank = ranked[0].tier_rank
-        peers = [entry for entry in ranked if entry.tier_rank == winning_rank]
-        value_scores: dict[str, float] = {}
-        for entry in peers:
-            value_scores[entry.value_json] = value_scores.get(entry.value_json, 0.) + entry.reliability*entry.confidence
-        values = sorted(value_scores.items(), key=lambda item: item[1], reverse=True)
-        best_value, best_score = values[0]
-        best = max((entry for entry in peers if entry.value_json == best_value), key=lambda e: e.at)
-        contradictions = [e for e in ranked if e.value_json != best_value]
-        supporting = [e for e in ranked if e.value_json == best_value]
-        peer_competitor = values[1][1] if len(values) > 1 else 0.
-        ambiguous = peer_competitor > 0 and abs(best_score-peer_competitor) <= max(.1, .15*best_score)
-        lower_tier_only = bool(contradictions) and all(e.tier_rank < winning_rank for e in contradictions)
-        support_groups = len({entry.independence_group for entry in supporting})
-        effective_tier = "STRONG" if best.sensor_tier == "PERCEPTION" and support_groups >= 3 else best.sensor_tier
-        resolution = ({"status": "UNRESOLVED", "method": "EQUAL_TIER_CONFLICT"}
-                      if ambiguous else
-                      {"status": "RESOLVED", "method": "HIGHER_SENSOR_TIER"}
-                      if lower_tier_only else
-                      {"status": "RESOLVED", "method": "WEIGHTED_SUPPORT"}
-                      if contradictions else {"status": "NONE", "method": "NO_CONTRADICTION"})
-        import json
-        return {"status": "AMBIGUOUS" if ambiguous else "CONFIRMED" if best.sensor_tier == "GROUND_TRUTH" else "SUPPORTED",
-                "value": json.loads(best.value_json), "source": best.source,
-                "confidence": min(1., best_score), "sensor_tier": effective_tier,
-                "sensor_tier_rank": SENSOR_TIERS[effective_tier], "resolution": resolution,
-                "evidence": [e.observation_id for e in ranked],
-                "supporting_evidence": [e.observation_id for e in supporting],
-                "contradictions": [e.observation_id for e in contradictions],
-                "source_reliability": {e.source: e.reliability for e in ranked},
-                "evidence_hierarchy": [{"observation_id": e.observation_id, "source": e.source,
-                                        "tier": e.sensor_tier, "tier_rank": e.tier_rank,
-                                        "weighted_confidence": e.reliability*e.confidence}
-                                       for e in ranked],
-                "correlation_groups": sorted({e.correlation_id for e in ranked}),
-                "independence_groups": sorted({e.independence_group for e in ranked}),
-                "context": json.loads(best.context_json)}
-
-    def typed_belief(self, key: str, now: float) -> Belief:
-        """Typed read projection; legacy dict callers remain source-compatible."""
-        return Belief.from_projection(key, self.belief(key, now))
-
-    def prune_expired_evidence(self, now: float) -> int:
-        """Drop evidence keys with no still-active entry.
-
-        Each key's own deque is already TTL-bounded, but the outer dict
-        (one key per distinct field, plus one per distinct visual track ever
-        seen this session) was never trimmed, growing for the life of a long
-        session. Called periodically from runtime maintenance, not every
-        tick -- snapshot()'s own beliefs projection separately skips dead
-        keys on every call regardless of when this last ran.
-        """
-        dead = [k for k, entries in self.evidence.items() if not any(e.expires >= now for e in entries)]
-        for k in dead:
-            del self.evidence[k]
-        return len(dead)
 
     def flush_pending(self) -> None:
         """Finish a supplemental batch with one state rebuild."""

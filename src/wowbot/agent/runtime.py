@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import json
-import hashlib
 import os
 from pathlib import Path
 import threading
 import time
-import traceback
 from collections import deque
 from .bindings import BindingsCache
 from .engine import AutonomousAgent
 from .executor import InputExecutor
 from .memory import AgentMemory
-from .models import Mode, canonical
+from .models import Mode
 from .reasoner import OllamaReasoner
 from .runtime_scheduler import RateMeter
 from .runtime_control import (RuntimeControl, compact_fast_payload,
@@ -30,9 +28,12 @@ from .visual_recognition_stabilizer import (
     _manual_mouseover_learning_probe,
     _publishable_visual_matches,
 )
+from .runtime_lifecycle import RuntimeLifecycleMixin
+# Offline replay lives in offline_replay.py; re-exported for existing callers.
+from .offline_replay import replay  # noqa: F401
 
 
-class AgentRuntime:
+class AgentRuntime(RuntimeLifecycleMixin):
     """One selected PID, one agent, one input authority. Starts passive."""
 
     def __init__(self, pid: int, cache: Path, output: Path, *, ollama=None, sensor=None,
@@ -227,91 +228,6 @@ class AgentRuntime:
             self.replay_bridge = RuntimeReplayBridge(Path(configured_replay))
         else:
             self.replay_bridge = None
-
-    def start(self):
-        if self.started:
-            raise RuntimeError("A runtime csak egyszer indítható")
-        self.started = True
-        if self.replay_bridge is not None:
-            self.replay_bridge.start(agent=self.agent, metadata={
-                "pid": self.pid,
-                "bindings_cache": str(self.bindings.path),
-                "bindings_sha256": self.bindings.digest,
-                "mmap_configured": self.agent.navigation.snapshot(time.monotonic())["navmesh"]["configured"],
-            })
-        if hasattr(self.sensor, "start"):
-            self.sensor.start()
-        if self.perception is not None and hasattr(self.perception, "start_background"):
-            # 60 Hz pump + 30 Hz cadence gate gives the tracker a real 30 Hz
-            # opportunity. A 40 Hz pump quantized a 33 ms gate to every second
-            # tick, capping measured throughput near 20 Hz even at <2 ms cost.
-            self.perception.start_background(lambda: self.sensor.frame, hz=120.)
-            add_listener = getattr(self.sensor, "add_frame_listener", None)
-            if callable(add_listener):
-                add_listener(self.perception.notify_new_frame)
-        self._status_writer_thread = threading.Thread(
-            target=self._status_writer_loop, name="aipc-status-writer", daemon=True)
-        self._status_writer_thread.start()
-        if os.environ.get("AIPC_THREAD_PROFILE", "1").strip() != "0":
-            from wowbot.diagnostics.thread_profiler import ThreadProfiler
-            ThreadProfiler(self.output / "thread_profile.json").start()
-        # The perception pump, capture/feed polling and input threads mostly
-        # wait on native work; with CPU-bound Python threads alive each GIL
-        # re-acquisition could wait the default 5 ms switch interval.
-        import sys
-        sys.setswitchinterval(max(.0005, float(os.environ.get(
-            "AIPC_GIL_SWITCH_INTERVAL", ".0005"))))
-        self.thread = threading.Thread(target=self.run, name="aipc-agent", daemon=True)
-        self.thread.start()
-
-    def _save_quest_npcs(self):
-        npcs = getattr(self.agent.world, "__dict__", {}).get("quest_relevant_npcs")
-        if not npcs:
-            return
-        try:
-            text = json.dumps(dict(npcs), sort_keys=True)
-            if text != self._quest_npcs_saved:
-                from adapters.atomic_file import write_json_replace
-                write_json_replace(self._quest_npcs_path, json.loads(text))
-                self._quest_npcs_saved = text
-        except (OSError, TypeError, ValueError, RuntimeError):
-            pass
-
-    def _write_status_now(self, result):
-        write_started = time.perf_counter()
-        self._save_quest_npcs()
-        try:
-            from adapters.atomic_file import write_json_replace
-            write_json_replace(self.output / "agent_status.json", result)
-            self._status_write_error = None
-        except Exception as error:
-            self._status_write_error = f"{type(error).__name__}: {error}"
-        finally:
-            self._status_write_ms = (time.perf_counter()-write_started)*1000
-
-    def _status_writer_loop(self):
-        """Write only the newest diagnostic snapshot off the control thread."""
-        while True:
-            self._status_write_event.wait(.5)
-            self._status_write_event.clear()
-            with self._status_write_lock:
-                pending, self._status_write_pending = self._status_write_pending, None
-            if pending is not None:
-                self._write_status_now(pending)
-            with self._status_write_lock:
-                empty = self._status_write_pending is None
-            if self._status_write_stop.is_set() and empty:
-                return
-
-    def _publish_status(self, result):
-        if self._status_writer_thread is None:
-            # Direct step() calls in tests/tools remain deterministic.
-            self._write_status_now(result)
-            self._step_latencies.append(self._status_write_ms)
-            return
-        with self._status_write_lock:
-            self._status_write_pending = result
-        self._status_write_event.set()
 
     def goal(self, text, parameters=None):
         self._control.goal(text, parameters)
@@ -585,165 +501,3 @@ class AgentRuntime:
             sensor_ms=sensor_ms, perception_ms=perception_ms,
             observations_ms=observations_ms, tick_ms=tick_ms,
             backend=backend)
-
-    def run(self):
-        try:
-            control_interval = 1./self.control_hz
-            while not self.stopped.is_set():
-                at = time.monotonic()
-                try:
-                    self.step(at)
-                except Exception as error:
-                    self.mode("MANUAL")
-                    # Live 2026-10-04 00:16 an INTERACT crash left only the
-                    # message; keep the stack for offline diagnosis.
-                    stack = traceback.format_exc()
-                    self.status = {**(self.status or {}), "mode": "MANUAL",
-                                   "runtime_error": f"{type(error).__name__}: {error}",
-                                   "runtime_traceback": stack[-4000:]}
-                    print(stack, flush=True)
-                    try:
-                        with (Path(self.output) / "runtime_errors.log").open("a", encoding="utf-8") as log:
-                            log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\n{stack}\n")
-                    except OSError:
-                        pass
-                    self.stopped.wait(.5)
-                self.stopped.wait(max(0., control_interval-(time.monotonic()-at)))
-        finally:
-            self.agent.set_mode(Mode.STOPPED)
-
-    def close(self):
-        self.arm_at = self.arm_deadline = self.test_deadline = None
-        self.stopped.set()
-        self.agent.set_mode(Mode.STOPPED)
-        if hasattr(self.executor, "close"):
-            self.executor.close()
-        if self.thread:
-            self.thread.join(timeout=2)
-        self.agent.navigation.close()
-        if self.replay_bridge is not None:
-            self.replay_bridge.checkpoint({"mode": self.agent.mode.value})
-            self.replay_bridge.close(metadata={"terminal_mode": "STOPPED"})
-        self._status_write_stop.set()
-        self._status_write_event.set()
-        if self._status_writer_thread:
-            self._status_writer_thread.join(timeout=2)
-        # Persist the actual terminal safety state synchronously.  Otherwise
-        # the last periodic snapshot can keep claiming FULL_AI (and even show
-        # a formerly held movement key) after the process has already released
-        # every key and stopped.
-        final_status = {
-            **self.status,
-            "mode": "STOPPED",
-            "arm_in": None,
-            "arm_waiting_for_fresh_state": False,
-            "test_remaining": None,
-            "input_safety": (self.executor.diagnostics()
-                             if hasattr(self.executor, "diagnostics") else {}),
-            "stopped_at": time.time(),
-        }
-        self.status = final_status
-        self._write_status_now(final_status)
-        if self.memory:
-            self.memory.close()
-        if hasattr(self.spatial, "entities") and hasattr(self.spatial.entities, "close"):
-            self.spatial.entities.close()
-        if hasattr(self.spatial, "points") and hasattr(self.spatial.points, "close"):
-            self.spatial.points.close()
-        self.live_capture.close()
-        if hasattr(self.sensor, "close"):
-            self.sensor.close()
-        if self._capture_process_handle is not None:
-            self._capture_process_handle.stop()
-        if self.perception:
-            self.perception.close()
-        self.reasoner.close()
-        self.semantic.close()
-
-
-def replay(path: Path, output: Path, goal="Questelj", parameters=None):
-    """JSONL {at, state} observations. Never constructs an OS input backend."""
-    from .executor import RecordingExecutor
-    executor = RecordingExecutor()
-    memory = AgentMemory(output / "replay_memory.sqlite3")
-    agent = AutonomousAgent(executor, memory=memory)
-    source_text = path.read_text(encoding="utf-8-sig")
-    results = []
-    previous_player: dict | None = None
-    world_deltas: list[dict] = []
-    trace: list[dict] = []
-    for index, line in enumerate(source_text.splitlines(), start=1):
-        if not line.strip():
-            continue
-        item = json.loads(line)
-        at = float(item["at"])
-        if agent.goal is None:
-            agent.set_goal(goal, at, parameters)
-            agent.set_mode(Mode.FULL_AI)
-        status = agent.tick(item.get("state"), at)
-        results.append(status)
-        player = ((status.get("world") or {}).get("player") or {})
-        changed = {key: value for key, value in player.items()
-                   if previous_player is None or previous_player.get(key) != value}
-        world_deltas.append({"index": index, "at": at,
-                             "changed": changed,
-                             "player_state_sha256": hashlib.sha256(
-                                 canonical(player).encode("utf-8")).hexdigest()})
-        trace.append({
-            "index": index, "at": at,
-            "goal": status.get("goal"), "plan": status.get("plan"),
-            "decision": status.get("decision"), "pending": status.get("pending"),
-            "result": status.get("result"),
-            "skill_lifecycle": status.get("skill_lifecycle"),
-            "supervisor": status.get("supervisor"),
-            "structured_log": status.get("structured_log"),
-        })
-        previous_player = player
-    from dataclasses import asdict
-    from adapters.atomic_file import write_json_replace
-    hydration = {"verified": False, "reason": "no_observations"}
-    if agent.world.session_id:
-        hydrated = memory.hydrate_world(agent.world.session_id)
-        original_relations = set(agent.world.relations)
-        hydrated_relations = set(hydrated.relations)
-        original_events = {event.event_id for event in agent.world.event_records}
-        hydrated_events = {event.event_id for event in hydrated.event_records}
-        checks = {
-            "observation_count": len(hydrated.history) == len(agent.world.history),
-            "quest_state": canonical(hydrated.quest_model.snapshot()) == canonical(agent.world.quest_model.snapshot()),
-            "entities": set(hydrated.entities) == set(agent.world.entities),
-            "relations": hydrated_relations == original_relations,
-            "events": hydrated_events == original_events,
-        }
-        hydration = {"verified": all(checks.values()), "checks": checks,
-                     "observation_count": len(hydrated.history),
-                     "missing_relations": sorted(original_relations-hydrated_relations),
-                     "extra_relations": sorted(hydrated_relations-original_relations),
-                     "missing_events": sorted(original_events-hydrated_events),
-                     "extra_events": sorted(hydrated_events-original_events)}
-    package = {
-        "format": "AIPC_REPLAY_PACKAGE_V1",
-        "offline": True,
-        "source": {"path": str(path), "sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
-                   "observation_rows": len(results)},
-        "config_snapshot": {"goal": goal, "parameters": dict(parameters or {}),
-                            "input_backend": "RECORDING_EXECUTOR"},
-        "session_metadata": {"session_id": agent.world.session_id,
-                             "started_at": (results[0].get("world") or {}).get("received_at") if results else None,
-                             "ended_at": (results[-1].get("world") or {}).get("received_at") if results else None},
-        "frame_references": [],  # JSONL telemetry has no raster frame payload by contract.
-        "world_state_deltas": world_deltas,
-        "trace": trace,
-        "commands": [asdict(c) for c in executor.commands],
-        "failures": [entry for entry in trace
-                     if (entry.get("result") or {}).get("outcome") in {"FAILURE", "CANCELLED"}],
-        "hydration": hydration,
-    }
-    result = {"offline": True, "frames": len(results), "commands": package["commands"],
-              "status": results[-1] if results else {}, "hydration": hydration,
-              "replay_package": {"format": package["format"], "source_sha256": package["source"]["sha256"],
-                                 "failure_count": len(package["failures"]),
-                                 "trace_entries": len(trace)}}
-    write_json_replace(output / "replay_result.json", result)
-    write_json_replace(output / "replay_package.json", package)
-    return result

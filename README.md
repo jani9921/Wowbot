@@ -33,13 +33,25 @@ reference. It is **not** selected automatically: choose a cache explicitly in
 the GUI, and verify it matches the bindings of the running WoW client. On a
 new machine, the addon export can create a fresh cache for that client.
 
+## Verziók
+Minden nagyobb javítás vagy implementáció előtt a GitHubon lévő állapot verziócímkét (git tag)
+kap, így egy jól működő korábbi verzió bármikor elővehető:
+- GitHubon: **Code → Tags** (vagy a `main` ág választójában a *Tags* fül) → a kívánt verzió →
+  *Download ZIP*;
+- gitben: `git checkout <verzió>` (pl. `git checkout v2026.10.05-1`), vissza: `git checkout main`.
+
+| Verzió | Tartalom |
+|---|---|
+| `v2026.10.05-1` | vendor questek, leadás-keresés, telepítő + Ollama, változásnapló (a modulbontás előtt) |
+| `v2026.10.05-2` | a nagy Python-fájlok szétbontása (működés változatlan) |
+
 ## Változások (bug fixes + implementációk)
 Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás és egy oldalon:
 [BUGFIXES.md](BUGFIXES.md); részletes napló: [docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md).
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-05</b> — 4 új funkció, 8 javítás</summary>
+<summary><b>2026-10-05</b> — 6 új funkció, 8 javítás</summary>
 
 #### Új funkciók / implementációk
 - 🧪 **Telepítő – helyi MI lépés:** megerősítés után telepíti az Ollamát (winget), elindítja és
@@ -50,6 +62,11 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
   hoverezi újra; csak ugyanabban a quest-állapotban és helyben érvényes, 20 mp-ig.
 - ✅ **GitHub:** ez a lap, a README „Változások” blokkja, és a projekt szinkronja a repóba
   (személyes fájlok és felhasználónév nélkül).
+- 🧪 **A nagy fájlok szétbontása** (12 db, 750–1276 sor → legfeljebb ~660): a metódusok változatlanul
+  témánkénti modulokba kerültek, a régi importútvonalak mind működnek; az 571 soros quest-tervező
+  függvény három részre bontva. A tesztek mindegyik lépés után zöldek, a 3 régi méretkorlát-teszt is.
+- ✅ **Verziók (git tag):** minden nagyobb változás előtt a GitHubon lévő állapot verziócímkét kap,
+  így bármikor visszaállítható (lásd README, „Verziók”).
 
 #### Bug fixes
 
