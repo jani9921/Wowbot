@@ -1,6 +1,6 @@
 # Bug fixes és implementációk
 
-A felhasználó által végzett fejlesztések: az élő tesztek (Exile's Reach, Alliance, Warrior)
+Az Astra 6 által végzett fejlesztések: az élő tesztek (Exile's Reach, Alliance, Warrior)
 során talált hibák, a javításaik és az új funkciók, naponként, 2026-09-24-től, amikor az első
 YOLO modell bekerült az agentbe.
 A részletes napló (okok, logok, tesztek, korábbi előzmények):
