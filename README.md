@@ -1,4 +1,4 @@
-# WoW Retail AI agent (sandbox server)
+# WoW Retail AI agent 
 
 Autonomous questing agent for World of Warcraft Retail 12.1 on a private sandbox server.
 It reads the game through its own addon (pixel-strip telemetry), sees the 3D world with a
