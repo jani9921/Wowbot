@@ -1,6 +1,6 @@
 # WoW Retail AI agent 
 
-Autonomous questing agent for World of Warcraft Retail 12.1 on a private sandbox server.
+Autonomous questing agent for World of Warcraft Retail 12.1.
 It reads the game through its own addon (pixel-strip telemetry), sees the 3D world with a
 YOLO detector, plans with a shared WorldModel / planner / skill architecture and drives the
 client with ordinary keyboard and mouse input for the selected process only. No memory
