@@ -6,6 +6,8 @@ YOLO detector, plans with a shared WorldModel / planner / skill architecture and
 client with ordinary keyboard and mouse input for the selected process only. No memory
 reading, injection or secret-value bypasses.
 
+**📋 [Bug fixes / javítások](BUGFIXES.md)** — what the live tests found and how it was fixed, day by day.
+
 ## Install
 1. Python 3.13 (64-bit) on Windows 10/11.
 2. Run `INSTALL_WIZARD.bat` → "Minden egyben telepítés" (all-in-one):
@@ -30,6 +32,11 @@ reading, injection or secret-value bypasses.
 reference. It is **not** selected automatically: choose a cache explicitly in
 the GUI, and verify it matches the bindings of the running WoW client. On a
 new machine, the addon export can create a fresh cache for that client.
+
+## Bug fixes
+The fixes of the live tests, grouped by day and area, with live-validated (✅) or
+offline-tested (🧪) status: [BUGFIXES.md](BUGFIXES.md). Full detail:
+[docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md).
 
 ## Not included
 - TensorRT engines (built per GPU by the wizard), training datasets and runs, personal agent
