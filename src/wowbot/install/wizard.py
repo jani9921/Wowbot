@@ -554,6 +554,21 @@ class InstallWizard:
             directml=bool(self.directml_ready))
         for issue in issues:
             self.line(frame, "Még nem kész: " + issue, "bad")
+        for warning in checks.installation_warnings(
+                PROJECT, vendor, torch_cuda=bool(self.torch_cuda),
+                directml=bool(self.directml_ready)):
+            self.line(frame, "Figyelmeztetés: " + warning, "warn")
+        llm = checks.ollama_status(PROJECT, timeout=.5)
+        llm_ready = llm["running"] and llm["model_present"]
+        self.line(frame, "Helyi MI (opcionális, bonyolult questek szövegéhez): "
+                         + ("kész" if llm_ready else
+                            f"Ollama {'fut' if llm['running'] else 'telepítve, nem fut' if llm['installed'] else 'nincs telepítve'}"
+                            f", modell ({llm['model'] or '—'}) {'megvan' if llm['model_present'] else 'nincs letöltve'}"),
+                  "ok" if llm_ready else "warn")
+        if not llm_ready:
+            ttk.Button(frame, text="Helyi MI telepítése / modell letöltése (Ollama)",
+                       command=lambda: self._stage_ollama(lambda _ok: self.show(self.index))
+                       ).pack(anchor="w", pady=(4, 2))
 
         def save():
             if not has_mmaps and not messagebox.askyesno(
@@ -588,10 +603,11 @@ class InstallWizard:
             messagebox.showwarning("AUTO_START", "Előbb mentsd el a belépési adatokat "
                                    "az 'Automatikus indítás' lépésben.")
             return
-        if not messagebox.askyesno("AUTO_START", "Elindítod a WoW-ot és az agentet (20 perces próba)?"):
+        # User rule: a live trial lasts at most 3-5 minutes, never 20.
+        if not messagebox.askyesno("AUTO_START", "Elindítod a WoW-ot és az agentet (5 perces próba)?"):
             return
         subprocess.Popen(["cmd", "/c", "start", "", str(PROJECT / "AUTO_START.bat"),
-                          "--trial-seconds", "1200"], cwd=str(PROJECT))
+                          "--trial-seconds", "300"], cwd=str(PROJECT))
 
     # ----- one-click installation ----------------------------------------------
     def run_all(self) -> None:
@@ -618,7 +634,7 @@ class InstallWizard:
                   self._stage_addon,
                   self._stage_maps, self._stage_vmaps, self._stage_mmaps,
                   self._stage_engine, self._stage_verify, self._stage_save,
-                  self._stage_shortcuts]
+                  self._stage_shortcuts, self._stage_ollama]
         self.write("=== Minden egyben telepítés ===")
 
         def advance(index: int = 0) -> None:
@@ -629,11 +645,15 @@ class InstallWizard:
                 model = checks.runtime_model_status(
                     PROJECT, vendor, torch_cuda=bool(self.torch_cuda),
                     directml=bool(self.directml_ready))
+                warnings = checks.installation_warnings(
+                    PROJECT, vendor, torch_cuda=bool(self.torch_cuda),
+                    directml=bool(self.directml_ready))
                 messagebox.showinfo(
                     "Kész", "A telepítés kész.\n"
                     "Agent logika: CPU\n"
                     f"YOLO detektor várható futása: {model['backend']}\n"
                     f"Modell: {model['model_name'] or 'HIÁNYZIK'}\n"
+                    + "".join(f"Figyelmeztetés: {warning}\n" for warning in warnings) +
                     "A tényleges backend az agent indítási naplójában ellenőrizhető. "
                     "Az AUTO_START-hoz add meg a belépési adatokat az Automatikus indítás lapon.")
                 return
@@ -670,8 +690,11 @@ class InstallWizard:
             def verified(value):
                 self.torch_cuda = value is True
                 if not self.torch_cuda:
-                    self.write("CUDA Torch nem használható; a telepítés nem kész.")
-                done(self.torch_cuda)
+                    # Not fatal: the agent still runs (CPU YOLO); addon and
+                    # navigation must not be skipped because of it.
+                    self.write("FIGYELEM: CUDA Torch nem használható (illesztőprogram?); "
+                               "a YOLO CPU-n fog futni. A telepítés folytatódik.")
+                done(True)
 
             self._run_stage(commands, PROJECT, "pip telepítés", installed)
 
@@ -699,6 +722,12 @@ class InstallWizard:
         if not self._has_gpu():
             done(True)
             return
+        def optional(value):
+            if value is not True:
+                self.write("FIGYELEM: TensorRT nem érhető el; a YOLO PyTorch CUDA-val fut. "
+                           "A telepítés folytatódik.")
+            done(True)
+
         def checked(ready):
             if ready is True:
                 done(True)
@@ -706,8 +735,7 @@ class InstallWizard:
                 self._run_stage(
                     [[sys.executable, "-m", "pip", "install", "--upgrade", "tensorrt-cu12"]],
                     PROJECT, "TensorRT telepítés",
-                    lambda ok: self.background(checks.probe_tensorrt,
-                                               lambda value: done(value is True)) if ok else done(False))
+                    lambda ok: self.background(checks.probe_tensorrt, optional) if ok else optional(False))
         self.background(checks.probe_tensorrt, checked)
 
     def _stage_directml(self, done) -> None:
@@ -715,8 +743,8 @@ class InstallWizard:
             done(True)
             return
         if not RUNTIME_MODEL.with_suffix(".onnx").is_file():
-            self.write("DirectML-hez hiányzik a csomagolt ONNX modell.")
-            done(False)
+            self.write("FIGYELEM: DirectML-hez hiányzik a csomagolt ONNX modell; a YOLO CPU-n fut.")
+            done(True)
             return
 
         def checked(ready):
@@ -731,13 +759,14 @@ class InstallWizard:
                                   "--force-reinstall", "onnxruntime-directml"]
             self._run_stage([command], PROJECT, "DirectML telepítés",
                             lambda ok: self.background(checks.probe_directml, verified)
-                            if ok else done(False))
+                            if ok else verified(False))
 
         def verified(ready):
             self.directml_ready = ready is True
             if not self.directml_ready:
-                self.write("DirectML provider nem érhető el; az AMD/Intel GPU-útvonal nem kész.")
-            done(self.directml_ready)
+                self.write("FIGYELEM: DirectML provider nem érhető el; a YOLO CPU-n fut. "
+                           "A telepítés folytatódik.")
+            done(True)
 
         self.background(checks.probe_directml, checked)
 
@@ -795,16 +824,21 @@ class InstallWizard:
             done(True)
             return
         if not RUNTIME_MODEL.is_file() or not self.torch_cuda:
-            self.write("A CUDA modell vagy Torch hiányzik; TensorRT engine nem építhető.")
-            done(False)
+            self.write("FIGYELEM: a CUDA modell vagy Torch hiányzik; TensorRT engine nem épül.")
+            done(True)
             return
         if engine.is_file():
             done(True)
             return
         code = ("from ultralytics import YOLO; YOLO(r'%s').export(format='engine', imgsz=640, half=True, "
                 "batch=1, simplify=True, dynamic=False, device=0)" % RUNTIME_MODEL)
-        self._run_stage([[sys.executable, "-c", code]], PROJECT, "TensorRT engine építése",
-                        lambda ok: done(bool(ok and engine.is_file())))
+
+        def built(ok):
+            if not (ok and engine.is_file()):
+                self.write("FIGYELEM: a TensorRT engine nem épült meg; a YOLO PyTorch CUDA-val fut.")
+            done(True)
+
+        self._run_stage([[sys.executable, "-c", code]], PROJECT, "TensorRT engine építése", built)
 
     def _stage_verify(self, done) -> None:
         vendor = "NVIDIA" if self._has_gpu() else self.vendor()
@@ -813,6 +847,10 @@ class InstallWizard:
             directml=bool(self.directml_ready))
         for issue in issues:
             self.write("Nincs kész: " + issue)
+        for warning in checks.installation_warnings(
+                PROJECT, vendor, torch_cuda=bool(self.torch_cuda),
+                directml=bool(self.directml_ready)):
+            self.write("Figyelmeztetés: " + warning)
         done(not issues)
 
     def _stage_save(self, done) -> None:
@@ -825,6 +863,78 @@ class InstallWizard:
     def _stage_shortcuts(self, done) -> None:
         self._run_stage([checks.shortcut_command(PROJECT)], PROJECT, "parancsikonok",
                         lambda ok: done(bool(ok)))
+
+    def _stage_ollama(self, done, *, ask: bool = True) -> None:
+        """Optional local LLM (user 2026-10-05: "ollamát is telepít meg AI-t?").
+
+        Installs Ollama with winget, starts its server and pulls the model
+        from config/ai_decision.json.  Never fatal: the agent runs without
+        it (the quest-text interpreter just stays idle).
+        """
+        status = checks.ollama_status(PROJECT)
+        model = status["model"]
+        if not model or (status["running"] and status["model_present"]):
+            done(True)
+            return
+        if ask and not messagebox.askyesno(
+                "Helyi MI (opcionális)",
+                "Telepítsem a helyi MI-t a bonyolultabb questek szövegéhez?\n"
+                f"- Ollama {'(már telepítve)' if status['installed'] else '(winget, kb. 1 GB)'}\n"
+                f"- modell: {model} (kb. 2,5 GB letöltés)\n"
+                "A telepítéssel elfogadod az Ollama licencét. Nélküle is fut az agent."):
+            self.write("Helyi MI kihagyva (nem kötelező).")
+            done(True)
+            return
+
+        def skipped(reason: str) -> None:
+            self.write(f"FIGYELEM: helyi MI nincs kész ({reason}); az agent nélküle fut.")
+            done(True)
+
+        def pull() -> None:
+            executable = checks.ollama_executable()
+            if executable is None:
+                skipped("az ollama.exe nem található")
+                return
+            self._run_stage([[str(executable), "pull", model]], PROJECT, f"MI modell letöltése ({model})",
+                            lambda ok: done(True) if ok else skipped("a modell letöltése nem sikerült"))
+
+        def serving(ready) -> None:
+            if ready is not True:
+                skipped("az Ollama szerver nem indult el")
+            elif checks.ollama_status(PROJECT)["model_present"]:
+                done(True)
+            else:
+                pull()
+
+        def start_server() -> None:
+            executable = checks.ollama_executable()
+            if executable is None:
+                skipped("az ollama.exe nem található")
+                return
+            if not checks.ollama_status(PROJECT)["running"]:
+                subprocess.Popen([str(executable), "serve"], cwd=str(PROJECT), stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 creationflags=NO_WINDOW | getattr(subprocess, "DETACHED_PROCESS", 0))
+
+            def wait_for_server() -> bool:
+                import time
+                for _ in range(30):
+                    if checks.ollama_status(PROJECT)["running"]:
+                        return True
+                    time.sleep(1.)
+                return False
+
+            self.background(wait_for_server, serving)
+
+        if status["installed"]:
+            start_server()
+        elif shutil.which("winget"):
+            self._run_stage([["winget", "install", "-e", "--id", "Ollama.Ollama",
+                              "--accept-source-agreements", "--accept-package-agreements"]],
+                            PROJECT, "Ollama telepítése (winget)",
+                            lambda ok: start_server() if ok else skipped("a winget telepítés nem sikerült"))
+        else:
+            skipped("nincs winget; telepítsd kézzel: https://ollama.com")
 
     def start_agent(self) -> None:
         if not messagebox.askyesno("Agent", "Elindítod az agentet (MANUAL módban indul)?"):

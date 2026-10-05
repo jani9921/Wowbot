@@ -23,6 +23,13 @@ class VisualInspectionPolicy:
     # both work: this stops the 7-10 s retry loop, that one learns REJECTED.
     EMPTY_HOVER_SECONDS = 25.
     CORPSE_HOVER_SECONDS = 120.
+    # Live 2026-10-04 19:36: Quartermaster Richter, Captain Garrick and
+    # Private Cole (stable tracks 9/11/51) were hovered in turn four times
+    # in ~25 s although every hover had already named them (user).  A unit
+    # the hover identified, which questing does not need (or which is
+    # already the target), is not hovered again while the view holds.
+    KNOWN_HOVER_SECONDS = 20.          # was 60 (user 2026-10-05: blocked Garrick and Private Cole)
+    KNOWN_HOVER_MOVE_YARDS = 5.
     VIEW_MOVE_YARDS = 3.
     VIEW_TURN_RADIANS = .2
 
@@ -56,6 +63,16 @@ class VisualInspectionPolicy:
                 # quest area went unexplored (user).  A corpse/own-character
                 # hover answers nothing new; skip the spot and its track longer.
                 empty.append({**point, "at": now, "ttl": self.CORPSE_HOVER_SECONDS})
+            elif point is not None and mouse.get("guid"):
+                known = self.__dict__.setdefault("_known_hovers", [])
+                known.append({**point, "at": now, "guid": str(mouse["guid"]),
+                              "name": mouse.get("name"),
+                              "quest_related": mouse.get("quest_related") is True,
+                              "attackable": mouse.get("is_attackable",
+                                                      mouse.get("attackable")) is True,
+                              "quest_signature": self._quest_signature(world.state)})
+        known = self.__dict__.setdefault("_known_hovers", [])
+        known[:] = [item for item in known if now - item["at"] <= self.KNOWN_HOVER_SECONDS][-60:]
         empty[:] = [item for item in empty
                     if now - item["at"] <= item.get("ttl", self.EMPTY_HOVER_SECONDS)][-30:]
 
@@ -75,6 +92,73 @@ class VisualInspectionPolicy:
                     and turned < self.VIEW_TURN_RADIANS):
                 return True
         return False
+
+    def _same_view_spot(self, world, item: dict, x: float, y: float) -> bool:
+        import math
+        if abs(item["x"]-x) > self.EMPTY_HOVER_RADIUS or abs(item["y"]-y) > self.EMPTY_HOVER_RADIUS:
+            return False
+        view, old = self._view(world), item.get("view")
+        if view is None or old is None:
+            return False
+        turned = abs((view[2]-old[2] + math.pi) % math.tau - math.pi)
+        return (math.hypot(view[0]-old[0], view[1]-old[1]) < self.VIEW_MOVE_YARDS
+                and turned < self.VIEW_TURN_RADIANS)
+
+    def _known_unneeded(self, world, x: float, y: float, track_id) -> bool:
+        """The hover already named the unit here and questing does not need it."""
+        target_guid = str((world.state.get("target") or {}).get("guid") or "")
+        for item in reversed(self.__dict__.get("_known_hovers") or ()):
+            same_track = track_id is not None and item.get("track_id") == track_id
+            if not same_track and not self._same_view_spot(world, item, x, y):
+                continue
+            if target_guid and item["guid"] == target_guid:
+                return True           # already selected: hovering adds nothing
+            # Live 2026-10-05 05:39: with no quest, Private Cole was judged
+            # from afar; the agent then walked to the API '!' spot where he
+            # stood but never hovered him again and went to other givers
+            # (user).  Whether a unit is needed depends on where the player
+            # is (API giver proximity) and what is in view, so the verdict
+            # holds only near the spot it was made, and never while
+            # searching for a quest giver.
+            if not self._near_hover_position(world, item):
+                return False
+            if not world.state.get("active_quests") and not item.get("attackable"):
+                return False
+            if item.get("quest_signature") != self._quest_signature(world.state):
+                # Live 2026-10-05 05:38: Captain Garrick was named while the
+                # vendor quest was open; once it completed he was its turn-in
+                # NPC but stayed skipped (user).  "Not needed" holds only for
+                # the quest state it was judged in.
+                return False
+            return not self._hover_identity_needed(world, item)
+        return False
+
+    def _near_hover_position(self, world, item: dict) -> bool:
+        import math
+        view, old = self._view(world), item.get("view")
+        return (view is not None and old is not None
+                and math.hypot(view[0]-old[0], view[1]-old[1]) <= self.KNOWN_HOVER_MOVE_YARDS)
+
+    @staticmethod
+    def _quest_signature(state: dict) -> tuple:
+        return tuple(
+            (str(quest.get("quest_id")), quest.get("is_complete") is True,
+             tuple((objective.get("current"), objective.get("is_complete") is True)
+                   for objective in quest.get("objectives") or () if isinstance(objective, dict)))
+            for quest in state.get("active_quests") or () if isinstance(quest, dict))
+
+    @staticmethod
+    def _hover_identity_needed(world, item: dict) -> bool:
+        if item.get("quest_related"):
+            return True               # its tooltip lists an open objective
+        if item.get("attackable"):
+            return False
+        from .quest_giver_evidence import friendly_npc_relevant, npc_objective_subjects
+        quest_model = getattr(world, "quest_model", None)
+        ready = quest_model.ready() if quest_model is not None else []
+        types = {str(getattr(obj, "type", "") or "") for obj in ready}
+        return friendly_npc_relevant(world.state, item["guid"], types, unit_name=item.get("name"),
+                                     npc_subjects=npc_objective_subjects(ready))
 
     def propose(
         self,
@@ -262,8 +346,10 @@ class VisualInspectionPolicy:
                     confidence=threshold, priority=proposal.priority)
             px, py = proposal.parameters.get("x"), proposal.parameters.get("y")
             if (not on_map and isinstance(px, (int, float)) and isinstance(py, (int, float))
-                    and self._recently_empty(world, float(px), float(py), now,
-                                             proposal.parameters.get("track_id"))):
+                    and (self._recently_empty(world, float(px), float(py), now,
+                                              proposal.parameters.get("track_id"))
+                         or self._known_unneeded(world, float(px), float(py),
+                                                 proposal.parameters.get("track_id")))):
                 continue
             if (blocked_until.get(proposal.key, 0) <= now
                     and recent.get(proposal.key, 0) <= now

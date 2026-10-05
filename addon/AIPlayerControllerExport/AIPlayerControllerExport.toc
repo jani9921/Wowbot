@@ -2,7 +2,7 @@
 ## Title: AI Player Controller Export (Retail 12.1.0)
 ## Notes: Read-only client telemetry export for a private sandbox controller.
 ## Author: AI Player Controller
-## Version: 0.9.54-12.1.0
+## Version: 0.9.55-12.1.0
 ## SavedVariablesPerCharacter: AIPlayerControllerExportDB
 ## AllowAddOnTableAccess: 1
 

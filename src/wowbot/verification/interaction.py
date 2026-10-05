@@ -131,15 +131,20 @@ class InteractionVerifier:
         gossip_opened = new_gossip.get("open") is True and (
             old_gossip.get("open") is not True or new_gossip != old_gossip)
         quest_changed = self._quest_signature(before) != self._quest_signature(after)
+        # Live 2026-10-04 (Quartermaster Richter): the shop opened but the
+        # verifier only knew quest/gossip frames and reported no_response.
+        vendor_opened = ((after.get("vendor_ui") or {}).get("open") is True
+                         and (before.get("vendor_ui") or {}).get("open") is not True)
         expected = str(expected_result or "").upper()
         opened = quest_opened or fast_quest_opened or gossip_opened
         if expected and opened and not self._matches_expected(
                 expected, new_quest, after, gossip_opened, quest_changed):
             return VerificationResult(False, .9, FailureReason.WRONG_UI)
-        if quest_opened or fast_quest_opened or gossip_opened or quest_changed:
+        if quest_opened or fast_quest_opened or gossip_opened or quest_changed or vendor_opened:
             evidence = tuple(name for name, present in (
                 ("quest_ui", quest_opened), ("fast_quest_ui", fast_quest_opened),
-                ("gossip_ui", gossip_opened), ("quest_state", quest_changed)) if present)
+                ("gossip_ui", gossip_opened), ("quest_state", quest_changed),
+                ("vendor_ui", vendor_opened)) if present)
             return VerificationResult(True, .95 if quest_changed else .85, None, evidence)
         return VerificationResult(False, .0, None)
 

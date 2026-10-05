@@ -187,7 +187,7 @@ def required_navigation_steps(status: dict, map_id: int = EXILES_REACH_MAP_ID) -
 
 def installation_issues(project: Path, retail: Path, vendor: str, *,
                         torch_cuda: bool = False, directml: bool = False) -> list[str]:
-    """Final fail-closed check used by the all-in-one flow and offline tests."""
+    """Final fail-closed check: what keeps the agent from running at all."""
     issues = []
     client = validate_retail(retail)
     if not client["ok"]:
@@ -200,11 +200,24 @@ def installation_issues(project: Path, retail: Path, vendor: str, *,
     model = runtime_model_status(project, vendor, torch_cuda=torch_cuda, directml=directml)
     if not model["pt"]:
         issues.append("a futásidejű YOLO .pt modell hiányzik")
-    if vendor == "NVIDIA" and model["backend"] != "TensorRT":
-        issues.append("NVIDIA TensorRT engine nem épült meg erre a gépre")
-    if vendor in {"AMD", "INTEL"} and model["backend"] != "DirectML":
-        issues.append(f"{vendor} DirectML modell/provider nem kész")
     return issues
+
+
+def installation_warnings(project: Path, vendor: str, *, torch_cuda: bool = False,
+                          directml: bool = False) -> list[str]:
+    """Slower-than-possible YOLO paths: the agent runs, but not accelerated.
+
+    Review 2026-10-05: a missing TensorRT engine or DirectML provider used to
+    stop the one-click install before the addon and navigation data, although
+    PyTorch CUDA (or the CPU) runs the same model.
+    """
+    model = runtime_model_status(project, vendor, torch_cuda=torch_cuda, directml=directml)
+    warnings = []
+    if vendor == "NVIDIA" and model["backend"] == "PyTorch CUDA":
+        warnings.append("nincs TensorRT engine: a YOLO PyTorch CUDA-val fut (kicsit lassabb)")
+    elif vendor in {"NVIDIA", "AMD", "INTEL"} and model["backend"] == "CPU":
+        warnings.append(f"{vendor} GPU-gyorsítás nem működik: a YOLO CPU-n fut (lassú)")
+    return warnings
 
 
 def parse_map_ids(text: str) -> list[int]:
@@ -349,12 +362,14 @@ def directml_command(python: str, status: dict) -> list[str] | None:
 
 
 def pip_commands(python: str, status: dict, *, gpu: bool, torch_cuda: bool | None) -> list[list[str]]:
-    """Install only what is missing; CUDA torch comes from the PyTorch index."""
+    """Install only what is missing; CUDA torch comes from the PyTorch index.
+
+    Torch goes first (review 2026-10-05): ``ultralytics`` depends on torch, so
+    installing it first pulled the CPU build from PyPI and the CUDA command
+    that followed reported "already satisfied" -- a fresh NVIDIA PC ended up
+    on the CPU and the one-click install stopped at the CUDA check.
+    """
     commands = []
-    missing = [dist for _module, dist, _purpose, version in status["required"]
-               if version is None and dist != "torch"]
-    if missing:
-        commands.append([python, "-m", "pip", "install", *missing])
     torch_version = next(version for _m, dist, _p, version in status["required"] if dist == "torch")
     if torch_version is None:
         command = [python, "-m", "pip", "install", "torch", "torchvision"]
@@ -362,6 +377,10 @@ def pip_commands(python: str, status: dict, *, gpu: bool, torch_cuda: bool | Non
     elif gpu and torch_cuda is False:
         commands.append([python, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--no-deps",
                          "torch", "torchvision", "--index-url", TORCH_CUDA_INDEX])
+    missing = [dist for _module, dist, _purpose, version in status["required"]
+               if version is None and dist != "torch"]
+    if missing:
+        commands.append([python, "-m", "pip", "install", *missing])
     return commands
 
 
@@ -437,12 +456,53 @@ SHORTCUTS = (("AIPC Agent - automatikus indítás", "AUTO_START.bat"),
 
 def shortcut_command(project: Path) -> list[str]:
     """PowerShell command creating desktop shortcuts to the start files."""
+    def quoted(value) -> str:          # PowerShell single-quoted literal
+        return "'" + str(value).replace("'", "''") + "'"
+
     parts = ["$s = New-Object -ComObject WScript.Shell",
              "$d = [Environment]::GetFolderPath('Desktop')"]
     for title, target in SHORTCUTS:
         path = Path(project) / target
-        parts += [f"$l = $s.CreateShortcut((Join-Path $d '{title}.lnk'))",
-                  f"$l.TargetPath = '{path}'",
-                  f"$l.WorkingDirectory = '{Path(project)}'",
+        parts += [f"$l = $s.CreateShortcut((Join-Path $d {quoted(title + '.lnk')}))",
+                  f"$l.TargetPath = {quoted(path)}",
+                  f"$l.WorkingDirectory = {quoted(Path(project))}",
                   "$l.Save()"]
     return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "; ".join(parts)]
+
+
+OLLAMA_URL = "http://127.0.0.1:11434"
+
+
+def semantic_model_name(project: Path) -> str | None:
+    """The local-LLM model the agent's quest-text interpreter asks for."""
+    try:
+        data = json.loads((Path(project) / "config" / "ai_decision.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    section = data.get("semantic") if isinstance(data, dict) else None
+    return str(section.get("model")) if isinstance(section, dict) and section.get("model") else None
+
+
+def ollama_executable() -> Path | None:
+    found = shutil.which("ollama")
+    if found:
+        return Path(found)
+    local = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"
+    return local if local.is_file() else None
+
+
+def ollama_status(project: Path, *, timeout: float = 1.) -> dict:
+    """Optional local LLM: installed, server answering, model pulled."""
+    import urllib.request
+    model = semantic_model_name(project)
+    result = {"model": model, "installed": ollama_executable() is not None,
+              "running": False, "model_present": False}
+    try:
+        with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=timeout) as response:
+            tags = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return result
+    result["running"] = True
+    names = {str(item.get("name") or "") for item in tags.get("models") or () if isinstance(item, dict)}
+    result["model_present"] = bool(model and (model in names or f"{model}:latest" in names))
+    return result

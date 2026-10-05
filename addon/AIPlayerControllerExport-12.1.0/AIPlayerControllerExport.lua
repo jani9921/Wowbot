@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.54"
+local ADDON_VERSION = "0.9.55"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -1252,14 +1252,30 @@ local function readVendorUI()
             result.repair_x, result.repair_y = rx, ry
         end
     end
-    local numItems = optionalNumber(GetMerchantNumItems and safeCall(GetMerchantNumItems)) or 0
-    for i = 1, math.min(numItems, 12) do
-        local name, _, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost =
-            safeCall(GetMerchantItemInfo, i)
+    -- 0.9.55 (live 2026-10-04, Quartermaster Richter): the shop was open
+    -- with two items on screen but `items` stayed empty -- Retail 12 answers
+    -- through C_MerchantFrame.GetItemInfo (a table); the old global
+    -- GetMerchantItemInfo is only a fallback.  Buttons show page 1 only.
+    local numItems = optionalNumber(GetMerchantNumItems and safeCall(GetMerchantNumItems))
+        or optionalNumber(C_MerchantFrame and C_MerchantFrame.GetNumItems
+                          and safeCall(C_MerchantFrame.GetNumItems)) or 0
+    local page = optionalNumber(_G.MerchantFrame.page) or 1
+    for i = 1, math.min(numItems, 10) do
+        local name, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost
+        local info = C_MerchantFrame and C_MerchantFrame.GetItemInfo
+            and safeCall(C_MerchantFrame.GetItemInfo, i) or nil
+        if type(info) == "table" and accessible(info) then
+            name, price, stackCount, numAvailable = info.name, info.price, info.stackCount, info.numAvailable
+            isPurchasable, isUsable, extendedCost = info.isPurchasable, info.isUsable, info.hasExtendedCost
+        elseif GetMerchantItemInfo then
+            local _
+            name, _, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost =
+                safeCall(GetMerchantItemInfo, i)
+        end
         if accessible(name) and name then
-            local button = _G["MerchantItem" .. i .. "ItemButton"]
+            local button = page == 1 and _G["MerchantItem" .. i .. "ItemButton"] or nil
             local bx, by
-            if button then bx, by = framePoint(button) end
+            if button and frameIsShown(button) then bx, by = framePoint(button) end
             result.items[#result.items + 1] = {
                 slot = i, name = safeText(name, ""), price = optionalNumber(price) or 0,
                 item_id = optionalNumber(GetMerchantItemLink and tonumber((safeText(safeCall(GetMerchantItemLink, i), ""):match("item:(%d+)")))),

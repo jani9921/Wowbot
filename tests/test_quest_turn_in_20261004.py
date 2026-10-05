@@ -65,3 +65,19 @@ def test_selected_ender_is_a_turn_in_candidate():
     quest = Planner(SkillRegistry()).quest
     assert quest._turn_in_candidate(world.state, {"name": "Lady Jaina Proudmoore", "attackable": False})
     assert not quest._turn_in_candidate(world.state, {"name": "Lindie Springstock", "attackable": False})
+
+
+def test_meet_names_the_turn_in_npc_and_an_llm_guess_keeps_the_giver():
+    # Live 2026-10-05: "Meet Bjorn Stouthands west of the Alliance Camp."
+    found = turn_in_from_text({"objectives": []},
+                              {"objectives_text": "Meet Bjorn Stouthands west of the Alliance Camp."})
+    assert found["name"] == "Bjorn Stouthands"
+    assert turn_in_from_text({"objectives": []}, {"objectives_text": "Meet with Captain Garrick."})["name"] \
+        == "Captain Garrick"
+    # The vendor quest's ender was its giver; the model guessed the vendor.
+    state = {"active_quests": [{"quest_id": 55194, "is_complete": True}],
+             "quest_turn_in_names": {"55194": {"name": "Quartermaster Richter", "source": "LLM_SEMANTIC",
+                                               "giver_name": "Captain Garrick"}}}
+    assert turn_in_names(state) == ["Quartermaster Richter", "Captain Garrick"]
+    state["quest_turn_in_names"]["55194"]["source"] = "QUEST_TEXT_PATTERN:OBJECTIVE_TEXT"
+    assert turn_in_names(state) == ["Quartermaster Richter"]

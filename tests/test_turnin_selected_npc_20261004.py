@@ -47,3 +47,15 @@ def test_attackable_or_far_unnamed_target_is_not_a_turn_in_candidate():
     assert not planner.quest._turn_in_candidate(_world(stranger, player=(-180., -2400.)).state, stranger)
     open_quest = {**QUEST, "is_complete": False}
     assert not planner.quest._turn_in_candidate(_world(GARRICK, quest=open_quest).state, GARRICK)
+
+
+def test_a_failed_turn_in_call_is_not_repeated_blindly():
+    """Live 2026-10-05 05:41 (Westward Bound): at the turn-in point Bjorn
+    Stouthands stood farther off; the call was sent four times in 11 s, each
+    out of range, with no move in between."""
+    planner = Planner(SkillRegistry())
+    world = _world(GARRICK)
+    planner.quest.learn_out_of_range(world.state, GARRICK["guid"])
+    proposals = planner.candidates(Goal.parse("Questelj", 1.), world, 1.)
+    assert not any(p.skill == "INTERACT" and p.parameters.get("purpose") == "TURN_IN_CANDIDATE"
+                   for p in proposals)

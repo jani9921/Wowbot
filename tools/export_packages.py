@@ -28,7 +28,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 EXPORT = ROOT.parent / "export"
 
-NEVER = {"config/wow_password.txt", "config/wow_account.txt"}
+NEVER = {"config/wow_password.txt", "config/wow_account.txt",
+         # per-machine paths written by the install wizard
+         "config/local_env.bat"}
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".git", ".runtime-data", "datasets", "runs", ".vscode"}
 SKIP_FILES = ["*.pyc", "*.engine", "runs_*.log", "*.tmp"]
 
@@ -143,6 +145,7 @@ GITIGNORE_EXTRA = """
 # Personal / per-machine (never commit)
 config/wow_password.txt
 config/wow_account.txt
+config/local_env.bat
 output/
 datasets/
 runs/
@@ -179,10 +182,18 @@ def build_github(name: str = "wow-ai-agent") -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, destination)
         count += 1
-    (target / "README.md").write_text(README, encoding="utf-8")
+    # The repository README (edited on GitHub, 2026-10-05) lives in the
+    # project; the built-in text is only for a project without one.
+    if not (target / "README.md").exists():
+        (target / "README.md").write_text(README, encoding="utf-8")
     gitignore = target / ".gitignore"
     existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-    gitignore.write_text(existing.rstrip() + "\n" + GITIGNORE_EXTRA, encoding="utf-8")
+    present = {line.strip() for line in existing.splitlines()}
+    missing = [line for line in GITIGNORE_EXTRA.strip().splitlines()
+               if line.strip() and not line.startswith("#") and line.strip() not in present]
+    if missing:
+        gitignore.write_text(existing.rstrip() + "\n\n# Personal / per-machine (never commit)\n"
+                             + "\n".join(missing) + "\n", encoding="utf-8")
     # Public copy: no local Windows user name in paths.
     home = str(Path.home())
     for path in target.rglob("*"):

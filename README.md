@@ -11,11 +11,17 @@ reading, injection or secret-value bypasses.
 2. Run `INSTALL_WIZARD.bat` → "Minden egyben telepítés" (all-in-one):
    Python packages (CUDA torch on NVIDIA, `onnxruntime-directml` on AMD/Intel), WoW addon,
    navigation data (maps/vmaps/mmaps via the TrinityCore extractors placed in `_retail_`),
-   the YOLO model for this GPU and the start shortcuts.
+   the YOLO model for this GPU and the start shortcuts. A missing TensorRT engine or DirectML
+   provider is reported as a warning (the YOLO then runs on PyTorch CUDA or the CPU); it no
+   longer stops the install.
 3. Optional login file for unattended start: `config/wow_account.txt`, `config/wow_password.txt`
    (created by you, never committed – see `.gitignore`).
-4. The GUI starts with Ollama disabled and has no Ollama switch. The agent does
-   not require Ollama for normal use.
+4. Optional local LLM for complex quest text: the wizard's last step (after a confirmation)
+   installs Ollama with winget, starts it and pulls the model named in
+   `config/ai_decision.json` → `semantic.model` (`qwen3:4b-instruct-2507-q4_K_M`, ~2.5 GB).
+   The quest-text interpreter is on by default and simply stays idle while Ollama is not
+   running; the older Ollama *planner* advisor stays off. Turn the interpreter off with
+   `semantic.enabled: false` or `AIPC_SEMANTIC_ENABLED=0`.
 
 ## Run
 `START_AGENT.bat` (GUI) or `AUTO_START.bat`. See `HOW_TO_USE.md`.

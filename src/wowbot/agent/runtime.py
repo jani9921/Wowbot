@@ -65,12 +65,12 @@ class AgentRuntime:
         # Local-LLM text interpretation (quest text, ability tooltips, NPC
         # speech); asynchronous, cached per user, advisory only.
         from .semantic_advisor import SemanticAdvisor, load_semantic_config
+        # User 2026-10-05: the quest-text interpreter follows its own setting
+        # (config/ai_decision.json "semantic", env AIPC_SEMANTIC_ENABLED) and
+        # runs whenever a local Ollama answers -- also from the GUI.  It is
+        # asynchronous and backs off while Ollama is down.  Only the optional
+        # Ollama *planner* advisor (`ollama`) stays an explicit opt-in.
         semantic_config = load_semantic_config()
-        # Explicit runtime configuration owns both advisory paths.  With no
-        # opt-in (including GUI startup), neither path uses Ollama.
-        semantic_config["enabled"] = bool((ollama or {}).get("enabled", False))
-        if semantic_config["enabled"] and (ollama or {}).get("model"):
-            semantic_config["model"] = str(ollama["model"])
         self.semantic = SemanticAdvisor(semantic_config, self.profile / "semantic_cache.json")
         self.agent.semantic_advisor = self.semantic
         # Per-quest visual prototypes survive restarts (per user profile).

@@ -90,7 +90,7 @@ def test_all_in_one_finishes_with_backend_summary(tmp_path, monkeypatch):
                         lambda title, message: messages.append((title, message)))
     for name in ("_stage_packages", "_stage_tensorrt", "_stage_directml", "_stage_addon",
                  "_stage_maps", "_stage_vmaps", "_stage_mmaps", "_stage_engine",
-                 "_stage_verify", "_stage_save", "_stage_shortcuts"):
+                 "_stage_verify", "_stage_save", "_stage_shortcuts", "_stage_ollama"):
         setattr(app, name, lambda done: done(True))
     app.run_all()
     assert pages == [wizard.STEPS.index("Befejezés")]
@@ -153,8 +153,9 @@ def _status(**versions):
 def test_pip_installs_only_what_is_missing_and_cuda_torch_from_its_index():
     assert checks.pip_commands("py", _status(), gpu=True, torch_cuda=True) == []
     commands = checks.pip_commands("py", _status(dxcam=None, torch=None), gpu=True, torch_cuda=None)
-    assert commands[0] == ["py", "-m", "pip", "install", "dxcam"]
-    assert commands[1][-2:] == ["--index-url", checks.TORCH_CUDA_INDEX]
+    # CUDA torch first: ultralytics would otherwise pull the CPU build.
+    assert commands[0][-2:] == ["--index-url", checks.TORCH_CUDA_INDEX]
+    assert commands[1] == ["py", "-m", "pip", "install", "dxcam"]
     cpu_torch = checks.pip_commands("py", _status(), gpu=True, torch_cuda=False)
     assert "--force-reinstall" in cpu_torch[0] and checks.TORCH_CUDA_INDEX in cpu_torch[0]
     assert checks.pip_commands("py", _status(torch=None), gpu=False, torch_cuda=None) == [
@@ -250,3 +251,42 @@ def test_fresh_pc_autostart_login_env_and_shortcuts(tmp_path):
     assert 'set "AIPC_WOW_EXE=' in env and "Wow.exe" in env
     command = checks.shortcut_command(tmp_path)
     assert command[0] == "powershell" and "AUTO_START.bat" in command[-1]
+
+
+def test_review_2026_10_05_acceleration_gaps_warn_but_do_not_block(tmp_path, monkeypatch):
+    """A missing TensorRT engine / DirectML provider used to stop the
+    one-click install before the addon and navigation data."""
+    from wowbot.install import wizard
+    models = tmp_path / "models"
+    models.mkdir()
+    (models / "world3d_units_3class_v10_e65.pt").write_bytes(b"model")
+    assert checks.installation_warnings(tmp_path, "NVIDIA", torch_cuda=True) == [
+        "nincs TensorRT engine: a YOLO PyTorch CUDA-val fut (kicsit lassabb)"]
+    assert "CPU-n fut" in checks.installation_warnings(tmp_path, "AMD", directml=False)[0]
+    assert checks.installation_warnings(tmp_path, "UNKNOWN") == []
+    app = wizard.InstallWizard.__new__(wizard.InstallWizard)
+    lines, outcomes = [], []
+    app.write = lines.append
+    app._has_gpu = lambda: True
+    app.background = lambda work, done: done(False)              # probe: TensorRT not usable
+    app._run_stage = lambda commands, cwd, title, done: done(False)  # pip install fails too
+    app._stage_tensorrt(outcomes.append)
+    app.torch_cuda = False
+    app._stage_engine(outcomes.append)
+    assert outcomes == [True, True] and all("FIGYELEM" in line for line in lines)
+
+
+def test_shortcut_paths_with_apostrophes_stay_quoted(tmp_path):
+    project = tmp_path / "O'Brien mappa"
+    command = checks.shortcut_command(project)[-1]
+    assert "'" + str(project).replace("'", "''") + "'" in command
+
+
+def test_ollama_status_without_a_server(tmp_path, monkeypatch):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "ai_decision.json").write_text(
+        json.dumps({"semantic": {"model": "qwen3:4b-instruct-2507-q4_K_M"}}), encoding="utf-8")
+    monkeypatch.setattr(checks, "OLLAMA_URL", "http://127.0.0.1:9")      # nothing listens there
+    status = checks.ollama_status(tmp_path, timeout=.3)
+    assert status["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    assert status["running"] is False and status["model_present"] is False

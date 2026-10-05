@@ -463,8 +463,12 @@ def update_world(advisor: SemanticAdvisor | None, world, now: float) -> None:
             continue
         result = advisor.ask("turnin", *request)
         if result and result.get("name"):
+            # A guess, not a text pattern: keep the recorded giver as a second
+            # candidate (live 2026-10-05: the vendor quest's ender was its
+            # giver Captain Garrick, the model said Quartermaster Richter).
             turn_in[qid] = {"name": result["name"], "source": "LLM_SEMANTIC",
-                            "giver": result.get("giver"), "model": advisor.config.get("model")}
+                            "giver": result.get("giver"), "model": advisor.config.get("model"),
+                            "giver_name": (texts.get(qid) or {}).get("giver_name")}
     quest_model = getattr(model, "quest_model", None)
     if quest_model is not None and hints != getattr(quest_model, "semantic_hints", None):
         quest_model.semantic_hints = hints

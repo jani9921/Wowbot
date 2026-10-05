@@ -116,3 +116,73 @@ def test_interact_is_verified_by_the_vendor_shop_opening():
         "vendor_ui": {"open": True, "npc_name": "Quartermaster Richter", "items": []}}, 2.))
     outcome, _ = registry.verify(attempt, world, 2.)
     assert outcome.value == "SUCCESS"
+
+
+def test_primary_buy_objective_does_not_hide_the_sell_at_the_open_shop():
+    """Live 2026-10-04 19:37: the shop was open, the buy row list was empty
+    and the primary objective was the BUY, so the SELL was never planned."""
+    vendor = {"open": True, "npc_name": "Quartermaster Richter", "items": []}
+    junk = {"items": [{"bag": 0, "slot": 2, "item_id": 5118, "count": 1, "sell_price": 71, "quality": 0,
+                       "is_equippable": False, "is_quest_item": False, "x": .93, "y": .28}]}
+    world = _world(target=RICHTER, vendor_ui=vendor, bags_open=True, inventory=junk)
+    world.set_runtime_context(goal=GOAL, commitment=None, active_skill=None, last_result={},
+                              primary_quest={"quest_id": 55194, "objective_id": "55194:0"},
+                              quest_failure_memory=[])
+    top = _top(world, 1)[0]
+    assert (top.skill, top.parameters.get("item_id")) == ("SELL_VENDOR", 5118)
+
+
+def test_canonical_interact_verifier_accepts_the_opened_shop():
+    from wowbot.verification.interaction import InteractionVerifier
+    before = {"target": RICHTER, "vendor_ui": {"open": False}}
+    after = {"target": RICHTER, "vendor_ui": {"open": True, "items": []}}
+    result = InteractionVerifier().evaluate(before, after, expected_guid=RICHTER["guid"])
+    assert result.success and "vendor_ui" in result.evidence
+    assert not InteractionVerifier().evaluate(before, before, expected_guid=RICHTER["guid"]).success
+
+
+def test_addon_reads_retail_12_merchant_rows():
+    """GetMerchantItemInfo is gone in Retail 12; C_MerchantFrame.GetItemInfo
+    returns a table.  Only page-1 rows get a button coordinate."""
+    import pytest
+    from pathlib import Path
+    lupa = pytest.importorskip("lupa")
+    source = (Path(__file__).resolve().parents[1] / "addon" / "AIPlayerControllerExport-12.1.0"
+              / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    start = source.index("local function readVendorUI()")
+    end = source.index("\nend\n", start) + 5
+    harness = '''
+unpack = unpack or table.unpack
+local function accessible(v) return true end
+local function bool(v) return v and true or false end
+local function optionalNumber(v) if type(v) ~= "number" then return nil end return v end
+local function safeText(v, d) if v == nil then return d end return tostring(v) end
+local function safeCall(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local r = {pcall(fn, ...)}
+    if not r[1] then return nil end
+    return select(2, unpack(r))
+end
+local function frameIsShown(f) return f and f.shown end
+local function framePoint(b) return b.x, b.y end
+UnitName = function() return "Quartermaster Richter" end
+UnitGUID = function() return "Creature-0-1" end
+CanMerchantRepair = function() return false end
+GetMerchantNumItems = function() return 2 end
+GetMerchantItemLink = function(i) return "|Hitem:" .. (116 + i) .. ":|h" end
+MerchantFrame = {page = 1, IsVisible = function() return true end}
+MerchantItem1ItemButton = {shown = true, x = .05, y = .82}
+MerchantItem2ItemButton = {shown = true, x = .13, y = .82}
+C_MerchantFrame = {GetItemInfo = function(i)
+    return ({{name = "Tough Jerky", price = 25, stackCount = 1, numAvailable = -1,
+              isPurchasable = true, isUsable = true, hasExtendedCost = false},
+             {name = "Alliance Tabard", price = 25, stackCount = 1, numAvailable = -1,
+              isPurchasable = true, isUsable = true, hasExtendedCost = false}})[i]
+end}
+''' + source[start:end] + '''
+local v = readVendorUI()
+local first = v.items[1]
+return #v.items .. "|" .. first.name .. "|" .. first.price .. "|" .. tostring(first.is_purchasable)
+    .. "|" .. first.x .. "|" .. tostring(first.item_id)
+'''
+    assert lupa.LuaRuntime().execute(harness) == "2|Tough Jerky|25|true|0.05|117"

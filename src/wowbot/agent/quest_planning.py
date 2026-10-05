@@ -113,6 +113,7 @@ class QuestDomain:
 
     TURN_IN_CANDIDATE_YARDS = 35.
     ITEM_RANGE_BLOCK_SECONDS = 20.
+    TURN_IN_RANGE_RETRY_SECONDS = 20.
 
     def _item_target_approach(self, state: dict, target: dict, obj, record, qid, state_time):
         """Walk to a selected item-use target that answered "too far"."""
@@ -191,6 +192,7 @@ class QuestDomain:
         self.interaction_ready_height[guid] = min(.6, required)
         failures = self.__dict__.setdefault("interaction_range_failures", {})
         failures[guid] = failures.get(guid, 0)+1
+        self.__dict__.setdefault("interaction_range_failed_at", {})[guid] = number(state.get("monotonic_time"))
 
     def _remember_target_track(self, guid: str, track_id) -> dict:
         if guid and track_id:
@@ -520,11 +522,16 @@ class QuestDomain:
                 ))
         result.extend(self.location_policy.propose_turnins(
             records, state, primary_context, deferred=deferred_turnins))
+        shop_open = (state.get("vendor_ui") or {}).get("open") is True
         for obj in world.quest_model.ready():
             qid = obj.objective_id.split(":", 1)[0]
             if primary_quest_id and qid != primary_quest_id:
                 continue
-            if primary_objective_id and obj.objective_id != primary_objective_id:
+            # Live 2026-10-04 (Richter): the primary objective was the BUY;
+            # with no buyable row the SELL at the same open shop was skipped
+            # and the agent waited.  Every trade objective uses the open shop.
+            if (primary_objective_id and obj.objective_id != primary_objective_id
+                    and not (shop_open and obj.type in {"BUY", "SELL"})):
                 continue
             record = next((value for value in records.values() if str(value.quest_id) == qid), None)
             location_proposals = self.location_policy.propose_objective(world, obj, record, qid)
@@ -656,6 +663,7 @@ class QuestDomain:
                 money = number(state.get("money"))
                 candidates = [item for item in vendor.get("items", [])
                               if item.get("is_purchasable") is True
+                              and item.get("extended_cost") is not True
                               and number(item.get("x")) is not None and number(item.get("y")) is not None
                               and number(item.get("price")) is not None
                               and money is not None and item["price"] <= money]
@@ -873,7 +881,17 @@ class QuestDomain:
                 map_moves = [p for p in result if p.skill == "MOVE"
                              and p.parameters.get("map_id") == state.get("map_id")
                              and p.key not in self.failed_map_locations]
+                # Live 2026-10-05 05:41 (Westward Bound): at the turn-in point
+                # (5 yd) Bjorn Stouthands stood farther off; this INTERACT was
+                # sent four times in 11 s, each "out of range", with no move
+                # in between.  The first call stays (live 2026-10-04 00:55,
+                # Garrick); after a failed call relocate/approach the NPC
+                # (search, hover, visual approach) before calling again.
+                failed_at = (self.__dict__.get("interaction_range_failed_at") or {}).get(guid)
+                recently_failed = (failed_at is not None and state_time is not None
+                                   and 0 <= state_time-failed_at <= self.TURN_IN_RANGE_RETRY_SECONDS)
                 if (self._turn_in_candidate(state, target)
+                        and not recently_failed
                         and not self.recently_unresponsive(guid, state, state_time)):
                     # Live 2026-10-04 00:55: Captain Garrick (turn-in NPC of
                     # the completed quest) was selected next to the turn-in

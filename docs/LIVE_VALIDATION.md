@@ -7496,9 +7496,39 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
 - Tests: `tests/test_vendor_quest_20261004.py` (6). Full suite: 18 baseline failures only.
 - Not yet live-validated. Open risks: a vendor that opens a gossip menu first ("Let me browse your goods") has no handler yet; with no junk in the bags, the sell objective has no candidate (equippable items are never sold).
 
+## 2026-10-04 19:37 — Richter's shop opened, then WAIT (55194)
+
+- Live (user): the agent inspected three characters before finding Quartermaster Richter, approached, opened the shop (merchant frame with Tough Jerky / Alliance Tabard visible; bags auto-opened), then stood in WAIT ("Több adat szükséges").
+- Log: `vendor_ui.open=true` with an empty `items` table; `bags_open=true` with sellable junk (Large Flat Tooth, Ruined Pelt…). No BUY/SELL/OPEN_BAGS task was ever registered. INTERACT on Richter was verified as `no_response` twice although the shop opened. Replaying the final state with `primary_quest.objective_id=55194:0` (the BUY) reproduced the WAIT: only that objective was planned and it had no buyable row.
+- Root causes / fixes:
+  - Addon 0.9.55: Retail 12 merchant rows come from `C_MerchantFrame.GetItemInfo(i)` (table); `GetMerchantItemInfo` is only a fallback. Rows 1–10, button coordinates only on page 1 and only for visible buttons. Lua harness test via lupa.
+  - Planner: while the shop is open every BUY/SELL objective of the primary quest is planned, not only the primary objective; extended-cost (currency) rows are never bought.
+  - Canonical `InteractionVerifier`: an opened shop (`vendor_ui.open` false→true) verifies INTERACT (evidence `vendor_ui`).
+- Tests: `tests/test_vendor_quest_20261004.py` (+3). Full suite: 18 baseline failures only. Addon installed; needs `/reload`. Not yet live-validated.
+- Open: finding the named NPC took three INSPECTs (hover is the only name source). Nameplates are not an option: the API gives no nameplate screen position (user, confirmed earlier) — do not propose them again.
+
+## 2026-10-04 19:36 — INSPECT circled the same three named NPCs
+
+- Live (user): "4x egymás után körbe-körbe ment ugyanarra a 3 npc-re hover".
+- Log (`profiles/<user>/agent_memory.sqlite3`, 528164–528186): INSPECT hovered Captain Garrick (WORLD3D:11), Private Cole (WORLD3D:51) and Quartermaster Richter (WORLD3D:9, already the target) in turn, four rounds. The tracks were stable and every hover returned the same GUID/name. The only hover memory was for empty hovers and corpses/players.
+- Fix (offline): `VisualInspectionPolicy` remembers the identity each INSPECT returned (track, spot and view). For 60 s, while the view holds, it does not re-hover that track/spot if the unit is the current target, or if it is neither quest-related (its tooltip lists no open objective) nor needed by a ready NPC objective (`friendly_npc_relevant`). Unknown tracks and needed NPCs stay inspectable.
+- Tests: `tests/test_inspect_known_hover_20261004.py` (2). Full suite: 18 baseline failures only. Not yet live-validated.
+
 ## 2026-10-04 — GitHub export installer review (offline only)
 
 - Synced the newer project agent/addon sources into the export; kept export-specific GUI and installer work. No fresh-PC or live WoW installation was run.
 - The all-in-one flow now fails cleanly when navigation extractors are missing, no longer reports shortcut failure as success, and ends on a backend summary (agent logic on CPU; expected YOLO TensorRT / PyTorch CUDA / DirectML / CPU and selected model file).
 - Targeted installer/GUI/agent regressions: 103 passed. The larger suite stopped after 3 failures out of 227 tests; those same three offline route/replay assertions also fail unchanged in the source project, so they are not evidence of a successful live quest or a validated fresh install.
 - Open: an existing TensorRT engine is selected by file presence without a GPU-compatibility inference check; the displayed backend is therefore a prediction until the agent's startup log confirms it. WoW and the TrinityCore extractors must already be available on the target machine.
+
+## 2026-10-05 05:37 — vendor quest done and turned in; slow turn-in search, Westward Bound range loop
+
+- Live (user, addon 0.9.55): Richter's shop opened, BUY_VENDOR and SELL_VENDOR ran, "Stocking Up on Supplies" (55194) completed — first live pass of the vendor flow. The turn-in at Captain Garrick came only after a long search; the agent then visited quest givers until it took "Westward Bound" (55965) from Bjorn Stouthands.
+- Causes:
+  - The known-hover memory (2026-10-04 fix) had judged Captain Garrick "not needed" while 55194 was open and kept skipping him for 60 s after it completed (user diagnosis). "Not needed" now holds only for the quest state (quest/objective progress signature) it was judged in.
+  - 55194's text names no ender; the local LLM (cached answer, Ollama itself was not running) guessed "Quartermaster Richter". An LLM-sourced turn-in now keeps the recorded giver as a second candidate (`turn_in_names`).
+  - 55965 "Meet Bjorn Stouthands west of the Alliance Camp." had no turn-in name: "meet (up) (with) / join <Name>" is now a turn-in text pattern.
+  - Bjorn walked ahead to the turn-in point; the TURN_IN_CANDIDATE INTERACT (116) was sent four times in 11 s, each out_of_range. Within 20 s of a range error that INTERACT now yields to the turn-in route MOVE (replayed on this run's final state: MOVE 114 instead of INTERACT 116).
+  - Before Bjorn, the agent walked to the API '!' spot where Private Cole stood (the relevant giver) but never hovered him again: he had been judged "not needed" from afar under the same track (user: "a 60mp-es inspect szabályod"). The verdict now also expires once the player moves > 5 yd, never applies to friendlies while no quest is active (quest-giver search), and the window is 20 s instead of 60 s.
+- Tests +4 (`test_quest_turn_in_20261004.py`, `test_inspect_known_hover_20261004.py`). The range-retry gate was checked by replay only.
+- Also synced from the GitHub repo into the project: installer/wizard/GUI changes, README, examples; the semantic interpreter again follows `config/ai_decision.json` (on by default, backs off when Ollama is down) instead of being forced off by the GUI.

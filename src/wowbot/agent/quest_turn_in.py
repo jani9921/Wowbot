@@ -26,6 +26,9 @@ _BACK_TO_GIVER = re.compile(
     r"\b(?:report|return|come|head|hurry) back\b(?! to [A-Z])|\b(?:return|report|come back) to me\b|"
     r"\bback to me\b|\bbring (?:it|them|those|these|that|this)(?: back)? to me\b", re.IGNORECASE)
 _NOT_A_PERSON = {"me", "you", "us", "them", "it", "camp", "the camp", "town"}
+# Live 2026-10-05 (Westward Bound): "Meet Bjorn Stouthands west of the
+# Alliance Camp." -- the person to meet is the one the quest is handed to.
+_MEET_NAME = re.compile(r"\b(?i:meet(?: up)?(?: with)?|join)\s+(?:(?i:the)\s+)?" + _NAME)
 
 
 def _texts(quest: dict, texts: dict | None) -> list[tuple[str, str]]:
@@ -51,7 +54,7 @@ def turn_in_from_text(quest: dict, texts: dict | None = None) -> dict | None:
     for source, text in _texts(quest, texts):
         if source == "QUEST_DESCRIPTION":
             continue           # a story names many people; only explicit asks below
-        match = _TO_NAME.search(text)
+        match = _TO_NAME.search(text) or _MEET_NAME.search(text)
         if match and match[1].strip().casefold() not in _NOT_A_PERSON and len(match[1].strip()) >= 3:
             return {"name": match[1].strip(), "source": f"QUEST_TEXT_PATTERN:{source}",
                     "evidence": match[0][:120]}
@@ -74,4 +77,6 @@ def turn_in_names(state: dict, *, complete_only: bool = True) -> list[str]:
         entry = known.get(str(quest.get("quest_id"))) or {}
         if entry.get("name"):
             names.append(str(entry["name"]))
-    return names
+        if str(entry.get("source") or "").startswith("LLM") and entry.get("giver_name"):
+            names.append(str(entry["giver_name"]))     # an LLM guess keeps the giver as candidate
+    return list(dict.fromkeys(names))

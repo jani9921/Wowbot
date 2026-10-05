@@ -52,6 +52,13 @@ varázslót. A **Minden egyben telepítés** sorban végrehajtja a következőke
 7. A Befejezés oldalon kiírja az agent CPU-s logikáját és a YOLO **várható**
    futási módját/modellfájlját (TensorRT, PyTorch CUDA, DirectML vagy CPU).
    A tényleges GPU-futtatás csak az agent indulási naplójával igazolható.
+   Ha a TensorRT, a CUDA vagy a DirectML nem jön össze, az csak
+   **figyelmeztetés**: a telepítés folytatódik, a YOLO lassabb úton fut.
+8. **Helyi MI (opcionális)**: megerősítés után telepíti az Ollamát (winget),
+   elindítja, és letölti a `config\ai_decision.json` szerinti modellt
+   (`qwen3:4b-instruct-2507-q4_K_M`, kb. 2,5 GB). Ez értelmezi a bonyolultabb
+   questek szövegét; nélküle is fut az agent. A Befejezés oldalon külön gomb
+   is van rá.
 
 Az AUTO_START-hoz a fióknevet/jelszót külön kell megadni az Automatikus
 indítás lapon; a jelszó titkosítatlan helyi fájlba kerül. Első indításkor
