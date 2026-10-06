@@ -47,7 +47,9 @@ def test_neutral_quest_item_target_produces_use_on_target():
     assert any(p.skill == "USE_ON_TARGET" and p.parameters["item_id"] == 9001 for p in proposals)
 
 
-def test_exact_special_item_objective_uses_verified_bag_slot_without_actionbar():
+def test_exact_special_item_on_selected_target_uses_interact_before_the_bag_slot():
+    # User 2026-10-06: target, then Interact Target within range (or a
+    # right-click); the bag item only armed a targeting cursor (Re-Sizer).
     objective = {"description": "Re-Sizer v9.0.1 tested on Wandering Boars",
                  "type": "USE_ITEM", "raw_type": "monster", "item_id": 170557,
                  "current": 1, "required": 3}
@@ -62,12 +64,12 @@ def test_exact_special_item_objective_uses_verified_bag_slot_without_actionbar()
                                         "attackable": True, "dead": False})
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), state, 1)
     use = next(p for p in proposals if p.skill == "USE_ON_TARGET")
-    assert use.parameters["activation_source"] == "INVENTORY_COORDINATE"
-    assert (use.parameters["bag"], use.parameters["slot"], use.parameters["x"], use.parameters["y"]) == (0, 9, .81, .22)
+    assert use.parameters["activation_source"] == "INTERACT_KEY"
+    assert use.parameters["binding"] == "INTERACTTARGET"
     assert SkillRegistry().available(use, state)
 
 
-def test_exact_special_item_objective_opens_bags_instead_of_attacking():
+def test_exact_special_item_objective_uses_interact_instead_of_attacking():
     objective = {"description": "Re-Sizer v9.0.1 tested on Wandering Boars",
                  "type": "USE_ITEM", "raw_type": "monster", "item_id": 170557,
                  "current": 1, "required": 3}
@@ -79,9 +81,9 @@ def test_exact_special_item_objective_opens_bags_instead_of_attacking():
                   actionbar=[], target={"guid": "boar-1", "name": "Wandering Boar",
                                         "attackable": True, "dead": False})
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), state, 1)
-    assert any(p.skill == "OPEN_BAGS" and p.parameters.get("purpose") == "QUEST_ITEM"
+    assert any(p.skill == "USE_ON_TARGET" and p.parameters.get("activation_source") == "INTERACT_KEY"
                for p in proposals)
-    assert not any(p.skill == "COMBAT" for p in proposals)
+    assert not any(p.skill in {"COMBAT", "OPEN_BAGS"} for p in proposals)
 
 
 def test_use_on_target_is_reserved_for_the_canonical_quest_item_skill():

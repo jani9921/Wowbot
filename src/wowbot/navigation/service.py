@@ -32,6 +32,7 @@ from wowbot.runtime import world_entity_id
 from .navigation_recovery import NavigationRecoveryMixin
 from .navigation_combat import NavigationCombatMixin
 from .navigation_search import NavigationSearchMixin
+from .z_resolver import ZResolver
 
 
 class NavigationService(NavigationSearchMixin, NavigationCombatMixin, NavigationRecoveryMixin):
@@ -60,6 +61,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             from wowbot.world_geometry import WorldGeometryService
             navmesh = WorldGeometryService.from_environment()
         self._navmesh = navmesh
+        self._z = ZResolver(navmesh)
         self._global_planner = GlobalNavigator(navmesh=self._navmesh, walkable=self.walkable_point)
         self._corridor_builder = PathCorridorBuilder()
         self._local_planner = LocalNavigator()
@@ -144,10 +146,15 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
 
     def start_request(self, request: NavigationRequest, state: dict, now: float) -> None:
         """Accept one typed request and delegate all control to the existing controller."""
+        self._z.observe_player(state, now)
+        state = self._state_with_layer_continuity(state, now)
+        request = self._resolve_destination_z(request, state, now)
         self._active_request = request
         self._danger.observe_hostiles(state, now)
-        state = self._state_with_layer_continuity(state, now)
         self._active_route = self._global_planner.plan(request, state, now, danger_map=self._danger)
+        confidence = number(request.destination.get("z_confidence"))
+        if confidence is not None and confidence < self._z.LOW_CONFIDENCE and self._active_route.anchors:
+            self._active_route = self._short_leg_route(self._active_route)
         self._route_danger_revision = self._danger.revision
         self._route_waypoint_index = self._first_route_index(state)
         self._route_previous_position = self._player_route_position(state)
@@ -386,8 +393,20 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         if self._route_failure_reason:
             return MovementAssessment(MovementPhase.FAILED, True, False,
                                       self._route_failure_reason)
+        falls = self._z.fall_count
+        self._z.observe_player(state, now, route_z=self._route_hint_z(state))
+        if self._z.fall_count > falls and self._active_request is not None:
+            destination = self._active_request.destination
+            target_z = number(destination.get("layer_z", destination.get("z")))
+            if (destination.get("sweep_direction") == "DOWN" and target_z is not None
+                    and target_z > self._player_layer[3] + self.FALL_MIN_DROP_YARDS):
+                # A downward zone-sweep hop above us is passed: the planner
+                # continues the sweep from the layer we landed on.
+                return MovementAssessment(MovementPhase.ARRIVED, True, True,
+                                          "zone_sweep_hop_passed_by_fall")
+            self._replan_from_tracked_layer(state, observation_id, now)
+            return MovementAssessment(MovementPhase.MOVING, False, False, "route_replanned_after_fall")
         state = self._state_with_navmesh_surface(state)
-        self._track_player_layer(state, now)
         if self._intermediate_waypoint_passed(state):
             self._route_waypoint_index += 1
             self.start(self._current_route_destination(), state,
@@ -471,7 +490,9 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             return state
         nearest = min(route.anchors, key=lambda anchor:
                       (float(anchor["x"])-px)**2 + (float(anchor["y"])-py)**2)
-        z_hint = number(nearest.get("z"))
+        resolved = self._z.player
+        z_hint = (resolved.z if resolved is not None and resolved.instance_id == instance_id
+                  and math.hypot(resolved.x-px, resolved.y-py) <= 3. else number(nearest.get("z")))
         projection_key = (instance_id, px, py, z_hint)
         # The projection is a new dict: keep the measurement time, or every
         # repeated FAST sample would look like a fresh position (2026-10-02).
@@ -504,6 +525,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                                  **dict(getattr(self._navmesh, "last_diagnostics", {}))}
                                 if self._navmesh is not None else {"configured": False})
         snapshot["route_waypoint_index"] = self._route_waypoint_index
+        snapshot["z_resolver"] = self._z.snapshot()
         snapshot["route_danger_revision"] = self._route_danger_revision
         snapshot["route_failure_reason"] = self._route_failure_reason
         snapshot["player_surface_projection"] = (dict(self._latest_surface_projection)
@@ -548,48 +570,122 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
     LAYER_CONTINUITY_YARDS = 40.
     LAYER_CONTINUITY_SECONDS = 180.
 
-    def _track_player_layer(self, state: dict, now: float) -> None:
-        """Follow the player's walkable layer from sample to sample."""
-        player = state.get("player_world_position") or {}
-        try:
-            instance_id, x, y = int(player["instance_id"]), float(player["x"]), float(player["y"])
-        except (KeyError, TypeError, ValueError):
+    @property
+    def _player_layer(self) -> tuple | None:
+        """(instance, x, y, z, at) of the player's resolved layer (ZResolver)."""
+        player = self._z.player
+        return (None if player is None else
+                (player.instance_id, player.x, player.y, player.z, player.at))
+
+    @_player_layer.setter
+    def _player_layer(self, value) -> None:
+        if value is None:
+            self._z.player = None
+        else:
+            self._z.seed_player(value[0], value[1], value[2], value[3],
+                                value[4] if value[4] is not None else 0.)
+
+    def _route_hint_z(self, state: dict) -> float | None:
+        """Height of the active route's anchor nearest the player (first fix only)."""
+        route, player = self._active_route, state.get("player_world_position") or {}
+        px, py = number(player.get("x")), number(player.get("y"))
+        if route is None or not route.anchors or px is None or py is None:
+            return None
+        nearest = min(route.anchors, key=lambda anchor:
+                      (float(anchor["x"])-px)**2 + (float(anchor["y"])-py)**2)
+        return number(nearest.get("z"))
+
+    # Live 2026-10-06 (Hrun's pit): the player fell off the spiral (the
+    # addon's FALL_STARTED/FALL_ENDED events); with no client height the
+    # route projection kept him on the upper layer, every replan started
+    # there and the next waypoint sat right above him -- he pushed against
+    # the wall "in a straight line" until stopped (user).  On a fall the
+    # player is placed on the highest walkable layer below the tracked one
+    # and the route is planned again from there.
+    FALL_MIN_DROP_YARDS = 1.5
+    FALL_EVENT_FRESH_SECONDS = 10.
+
+    def _replan_from_tracked_layer(self, state: dict, observation_id: str, now: float) -> None:
+        layered = self._state_with_layer_continuity(state, now)
+        if self._active_request.destination.get("z_resolved_from"):
+            # The landing changes which layer of the target is reachable.
+            self._active_request = self._resolve_destination_z(self._active_request, layered, now)
+        self._active_route = self._global_planner.plan(
+            self._active_request, layered, now, danger_map=self._danger)
+        self._route_danger_revision = self._danger.revision
+        self._route_waypoint_index = self._first_route_index(layered)
+        self._route_previous_position = self._player_route_position(layered)
+        self._active_corridor = self._corridor_builder.build(self._active_route)
+        self._surface_projection_key = None
+        if not self._active_route.anchors:
+            self._route_failure_reason = "required_navmesh_route_unavailable"
+            self._movement.reset()
             return
-        if player.get("z_source") == "NAVMESH_SURFACE" and isinstance(player.get("z"), (int, float)):
-            # Already projected along the active route's corridor.
-            self._player_layer = (instance_id, x, y, float(player["z"]), now)
-            return
-        last = self.__dict__.get("_player_layer")
-        if (last is None or last[0] != instance_id
-                or math.hypot(last[1]-x, last[2]-y) > self.LAYER_CONTINUITY_YARDS
-                or now - last[4] < self.LAYER_TRACK_SECONDS):
-            return
-        projector = getattr(self._navmesh, "project_position", None)
-        if not callable(projector):
-            return
-        try:
-            projected = projector(instance_id, {"x": x, "y": y, "instance_id": instance_id}, z_hint=last[3])
-        except Exception:
-            return
-        if isinstance(projected, dict) and isinstance(projected.get("z"), (int, float)):
-            self._player_layer = (instance_id, x, y, float(projected["z"]), now)
+        self.start(self._current_route_destination(), layered, f"{observation_id}:fall", now)
 
     def _state_with_layer_continuity(self, state: dict, now: float) -> dict:
-        """A new route starts on the tracked layer (an estimate, never observed)."""
+        """A new route starts on the resolved own layer (an estimate, never observed)."""
         player = state.get("player_world_position") or {}
-        last = self.__dict__.get("_player_layer")
-        if last is None or (player.get("z_known") is True and "z" in player):
+        if player.get("z_observed") is True and "z" in player:
             return state
         try:
             instance_id, x, y = int(player["instance_id"]), float(player["x"]), float(player["y"])
         except (KeyError, TypeError, ValueError):
             return state
-        if (last[0] != instance_id or math.hypot(last[1]-x, last[2]-y) > self.LAYER_CONTINUITY_YARDS
-                or not 0 <= now - last[4] <= self.LAYER_CONTINUITY_SECONDS):
+        resolved = self._z.current_player(instance_id, x, y, now)
+        if resolved is None:
             return state
         return {**state, "player_world_position": {
-            **player, "z": last[3], "z_known": True, "z_observed": False,
-            "z_estimated": True, "z_source": "NAVMESH_LAYER_CONTINUITY"}}
+            **player, "z": resolved.z, "z_known": True, "z_observed": False,
+            "z_estimated": True, "z_source": "NAVMESH_LAYER_CONTINUITY",
+            "z_confidence": round(resolved.confidence, 3)}}
+
+    # Z resolver for destinations without a height (user 2026-10-06): the
+    # walkable, reachable layer at/near the target X/Y, scored with VMAP floors,
+    # the player's layer and the minimap floor cue.  A low-confidence target
+    # is approached in a short leg first and resolved again (design §12).
+    LOW_CONFIDENCE_LEG_YARDS = 30.
+
+    def _resolve_destination_z(self, request: NavigationRequest, state: dict, now: float) -> NavigationRequest:
+        destination = dict(request.destination)
+        origin = destination.get("z_resolved_from")
+        if destination.get("coordinate_space") != "WORLD_YARDS":
+            return request
+        if not origin and number(destination.get("z")) is not None and destination.get("z_known") is not False:
+            return request
+        player = state.get("player_world_position") or {}
+        try:
+            instance_id = int(destination.get("instance_id", player.get("instance_id")))
+            x, y = ((float(origin["x"]), float(origin["y"])) if origin
+                    else (float(destination["x"]), float(destination["y"])))
+            px, py = float(player["x"]), float(player["y"])
+        except (KeyError, TypeError, ValueError):
+            return request
+        resolved_player = self._z.current_player(instance_id, px, py, now)
+        hint = destination.get("floor_hint") or {"LOWER": "BELOW", "UPPER": "ABOVE"}.get(
+            str(destination.get("destination_layer") or ""))
+        target = self._z.resolve_target(instance_id, x, y, player=resolved_player, floor_hint=hint)
+        if target is None:
+            return request
+        moved = math.hypot(target.x-x, target.y-y) > self._z.LAYER_RADIUS
+        destination.update({
+            "x": target.x if moved else x, "y": target.y if moved else y, "z": target.z,
+            "z_known": True, "z_observed": False, "z_estimated": True,
+            "z_source": f"Z_RESOLVER_{target.source}", "z_confidence": round(target.confidence, 3),
+            "z_resolved_from": {"x": x, "y": y}, "z_alternatives": list(target.alternatives)[:6]})
+        return replace(request, destination=destination)
+
+    def _short_leg_route(self, route: GlobalRoute) -> GlobalRoute:
+        """The first ``LOW_CONFIDENCE_LEG_YARDS`` of a route to an unsure target."""
+        anchors, travelled = [route.anchors[0]] if route.anchors else [], 0.
+        for left, right in zip(route.anchors, route.anchors[1:]):
+            step = math.dist((float(left["x"]), float(left["y"]), float(left.get("z", 0.))),
+                             (float(right["x"]), float(right["y"]), float(right.get("z", 0.))))
+            anchors.append(right)
+            travelled += step
+            if travelled >= self.LOW_CONFIDENCE_LEG_YARDS:
+                break
+        return replace(route, anchors=tuple(anchors))
 
     # User 2026-10-05: "járja be a zónát, csak párhuzamosan seekeljen is ...
     # itt a quest zóna több Z-n keresztül van, járható navmeshen lefelé illetve
@@ -608,7 +704,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             px, py = float(player["x"]), float(player["y"])
         except (KeyError, TypeError, ValueError):
             return None
-        last = self.__dict__.get("_player_layer")
+        last = self._player_layer
         pz = (last[3] if last is not None
               and math.hypot(last[1]-px, last[2]-py) <= self.LAYER_CONTINUITY_YARDS else None)
 
@@ -652,7 +748,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             return None
         hops = sweep["hops"]
         player = state.get("player_world_position") or {}
-        last = self.__dict__.get("_player_layer")
+        last = self._player_layer
         try:
             px, py = float(player["x"]), float(player["y"])
         except (KeyError, TypeError, ValueError):
@@ -661,6 +757,11 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         for index, hop in enumerate(hops):
             if (math.hypot(hop["x"]-px, hop["y"]-py) <= self.ZONE_SWEEP_VISITED_YARDS
                     and (pz is None or abs(hop["z"]-pz) <= self.ZONE_SWEEP_LAYER_YARDS)):
+                sweep["visited"].add(index)
+            elif pz is not None and (hop["z"] > pz + self.ZONE_SWEEP_LAYER_YARDS if not sweep["upward"]
+                                     else hop["z"] < pz - self.ZONE_SWEEP_LAYER_YARDS):
+                # Already past it on this walk (live 2026-10-06: after a fall
+                # the sweep offered the hop above again and climbed back up).
                 sweep["visited"].add(index)
         order = range(len(hops)-1, -1, -1) if sweep["upward"] else range(len(hops))
         furthest = max((position for position, index in enumerate(order) if index in sweep["visited"]),
@@ -687,7 +788,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             start = {"x": float(player["x"]), "y": float(player["y"]), "instance_id": instance_id}
         except (KeyError, TypeError, ValueError):
             return []
-        last = self.__dict__.get("_player_layer")
+        last = self._player_layer
         if (last is not None and last[0] == instance_id
                 and math.hypot(last[1]-start["x"], last[2]-start["y"]) <= self.LAYER_CONTINUITY_YARDS):
             # Start on the tracked own layer (an estimate: the navmesh may still probe).
@@ -760,7 +861,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             deep = sorted((point for point in points
                            if point["z"] <= surface - self.LOWER_LAYER_MIN_DROP_YARDS),
                           key=lambda point: (point["z"], math.hypot(point["x"]-x, point["y"]-y)))
-            tracked = self.__dict__.get("_player_layer")
+            tracked = self._player_layer
             hint = (tracked[3] if tracked is not None and tracked[0] == instance_id
                     and math.hypot(tracked[1]-px, tracked[2]-py) <= self.LAYER_CONTINUITY_YARDS else None)
             start = project(instance_id, {"x": px, "y": py, "instance_id": instance_id}, z_hint=hint)

@@ -1,9 +1,9 @@
 """Single read-only composition boundary for MAPS, VMAPS and MMAPS.
 
 MMAPS remains route authority.  MAPS contributes terrain/liquid evidence and
-a ground-layer Z hint.  VMAPS is discovered here but is deliberately reported
-as unavailable for queries until its official collision reader is integrated;
-mere file presence must never masquerade as LOS evidence.
+a ground-layer Z hint.  VMAPS answers one question since 2026-10-06 (Z
+resolver): which collision surfaces lie on a vertical line (floors, bridges,
+roofs, cave ceilings).  It is not line-of-sight evidence.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from wowbot.navigation.mmap_navmesh import TrinityMMapNavMesh
 from .terrain_maps import TrinityMapTerrain
+from .vmaps import TrinityVMaps
 
 
 _DEFAULT_RETAIL_ROOT = Path(r"C:\Program Files (x86)\World of Warcraft\_retail_")
@@ -23,6 +24,7 @@ class WorldGeometryService:
         self.navmesh = navmesh
         self.terrain = terrain
         self.vmaps_path = Path(vmaps_path).resolve() if vmaps_path else None
+        self.vmaps = TrinityVMaps(self.vmaps_path) if self.vmaps_path is not None else None
         self.last_surface_projection: dict = {}
         self.last_diagnostics: dict = {
             "available": True,
@@ -30,7 +32,7 @@ class WorldGeometryService:
             "maps_configured": terrain is not None,
             "vmaps_configured": self.vmaps_path is not None,
             "mmaps_configured": navmesh is not None,
-            "vmap_query_status": "NOT_IMPLEMENTED" if self.vmaps_path else "NOT_CONFIGURED",
+            "vmap_query_status": "VERTICAL_SURFACES" if self.vmaps_path else "NOT_CONFIGURED",
         }
 
     @classmethod
@@ -92,12 +94,25 @@ class WorldGeometryService:
         self.last_surface_projection = {
             **self.navmesh.last_surface_projection,
             "terrain": sample.to_dict() if sample is not None else None,
-            "vmap_query_status": "NOT_IMPLEMENTED" if self.vmaps_path else "NOT_CONFIGURED",
+            "vmap_query_status": "VERTICAL_SURFACES" if self.vmaps_path else "NOT_CONFIGURED",
         }
         return projected
 
     def walkable_points_near(self, instance_id: int, point: dict, radius: float) -> list[dict]:
         finder = getattr(self.navmesh, "walkable_points_near", None)
+        return finder(instance_id, point, radius) if callable(finder) else []
+
+    def vmap_surfaces_at(self, instance_id: int, point: dict) -> list[float]:
+        """Every VMAP collision surface height under/over one X/Y, highest first."""
+        if self.vmaps is None:
+            return []
+        try:
+            return self.vmaps.surfaces_at(int(instance_id), float(point["x"]), float(point["y"]))
+        except (KeyError, TypeError, ValueError, OSError):
+            return []
+
+    def walkable_heights_at(self, instance_id: int, point: dict, radius: float = 2.5) -> list[float]:
+        finder = getattr(self.navmesh, "walkable_heights_at", None)
         return finder(instance_id, point, radius) if callable(finder) else []
 
     def find_path(self, instance_id: int, start: dict, destination: dict):
@@ -108,7 +123,7 @@ class WorldGeometryService:
             **self.navmesh.last_diagnostics,
             "maps_configured": self.terrain is not None,
             "vmaps_configured": self.vmaps_path is not None,
-            "vmap_query_status": "NOT_IMPLEMENTED" if self.vmaps_path else "NOT_CONFIGURED",
+            "vmap_query_status": "VERTICAL_SURFACES" if self.vmaps_path else "NOT_CONFIGURED",
         }
         return result
 

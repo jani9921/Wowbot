@@ -61,6 +61,7 @@ class WorldStateProjector:
         self._project_self_avatar_identity(model)
         self._project_self_player_tracks(model.state)
         self._project_visual_prototypes(model)
+        self._project_track_motion(model)
         from .quest_creature_learning import project as project_quest_creatures
         project_quest_creatures(model)
         self._prune_transient_memory(model)
@@ -391,6 +392,15 @@ class WorldStateProjector:
                 "track_id": item.get("track_id"),
             }
         return {}
+
+    @staticmethod
+    def _project_track_motion(model: "WorldModel") -> None:
+        """Screen velocity of each World3D box, for leading hovers (track_motion)."""
+        from .track_motion import TrackMotion
+        motion = model.__dict__.get("track_motion")
+        if motion is None:
+            motion = model.__dict__["track_motion"] = TrackMotion()
+        motion.observe(model.state)
 
     @staticmethod
     def _project_visual_prototypes(model: "WorldModel") -> None:

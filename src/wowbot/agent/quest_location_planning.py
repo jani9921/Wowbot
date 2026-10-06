@@ -531,6 +531,9 @@ class QuestLocationPlanningPolicy:
              "instance_id": position.get("instance_id"), "map_id": state.get("map_id"),
              "quest_id": quest_id, "purpose": "APPROACH_MINIMAP_QUEST_DOT",
              "stop_distance": self.DOT_ARRIVED_YARDS, "require_navmesh": True,
+             # Yellow without an arrow: the objective is on our floor (the Z
+             # resolver prefers that layer, user 2026-10-06).
+             "floor_hint": "SAME",
              "dot_world": [round(dx, 1), round(dy, 1)]},
             confidence=.7, priority=88)
 

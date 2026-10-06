@@ -316,3 +316,42 @@ line.
 6. **§11 route view, step 1 (2026-10-05, offline):** `NavigationService.overlay_snapshot` → runtime ~4 Hz → LIVE VISION's own latest-only queue → `diagnostics/navigation_overlay.py`: heading-up top-down inset (route, next waypoint, zone-sweep hops, destination; colour = height vs the tracked own layer) and a bearing line ("WP 14 yd, 34° jobbra, ↓4 yd"). Step 2 (ground line, §11b) still open.  Zone sweep: `zone_sweep_next` walks the multi-floor zone in 15 yd hops, down then up.
 Rebuild the DLL: `cmake -S native/detour_shim -B native/detour_shim/build -G "Visual Studio 17 2022" -A x64`
 then `cmake --build native/detour_shim/build --config Release`.
+
+## 13. Z resolver (2026-10-06, user design "WOW Z-COORDINATE RESOLVER TERV")
+
+Retail exports no player height, so one component owns every height:
+`navigation/z_resolver.py` (`ZResolver`, `ResolvedPosition`: x, y, z, confidence,
+source, reachable, path_length, alternatives, evidence).
+
+- **Own layer** (`observe_player`, every observation): candidates = the navmesh layers
+  under the player's X/Y (`walkable_heights_at`, native Detour `queryPolygons` +
+  `getPolyHeight` in `aipc_detour.dll` since 2026-10-06, Python tile parser as the
+  fallback).  Continuity: the height may change by at most 1.2 x horizontal travel +
+  2.5 yd (slope + step/jump); a new FALL_ENDED event moves the player to the highest
+  layer ≥ 1.5 yd below; no layer within reach = `continuity_broken` (confidence 0.4);
+  first fix with several layers = route anchor / terrain hint, confidence 0.5,
+  alternatives kept.  The route projection uses the resolved layer as its hint; new
+  routes start on it (estimated, so the Torgok/Wrathion start-layer probe still runs).
+- **Target height** (`resolve_target`, destinations without Z, e.g. a minimap dot or a
+  quest POI): candidates = layers at X/Y + walkable polygon centres within 8 yd
+  (`walkable_points_near`); score +80 navmesh, +50 VMAP floor (a collision surface
+  at the polygon), −80 VMAP surface < 2 yd above (no headroom), +30 within 10 yd of
+  the player's layer, −50 more than 60 yd away, floor cue (SAME yellow dot ±8 yd:
+  +20/−20; BELOW/ABOVE arrow or lower-layer text: +20/−50), and for the 5 nearest
+  candidates a Detour path from the own layer: +100 reachable / −100 not, −40 long
+  detour (> 3x straight + 40 yd).  Confidence = score / 280.  Below 0.6 the MOVE walks
+  only the first 30 yd of the route and resolves again (§12 of the user design).
+  After a fall a resolver-chosen target is resolved again from the new layer.
+- **VMAP** (`world_geometry/vmaps.py`, `TrinityVMaps`): reads TrinityCore `VMAP_4.E`
+  tiles (`vmaps/<map>/<map>_<tx>_<ty>.vmtile`, model spawns) and models (`<name>.vmo`,
+  group vertices/triangles) and intersects one vertical ray with every triangle
+  (numpy, both faces, internal frame `(mid−x, mid−y, z)`, `R = Rz(rot.y)·Ry(rot.x)·Rx(rot.z)`).
+  Validated on Hrun's pit: VMAP surfaces match the navmesh layers within 0.1–0.6 yd;
+  ~1 ms per query after the first model load.
+- Zone sweep: after a fall the downward sweep treats hops above the landing as passed.
+
+Measured (Hrun's pit, the 2026-10-06 fall): fall detected 86.9 → 74.9; the yellow
+cocoon dot (76.8, −2264.0) resolved to a reachable ledge at 66.6 (4.8 yd from the dot,
+path 52.8 yd, VMAP floor, confidence 0.86) instead of the rim (94.8) the old
+"shortest reachable layer" chose.  Open: a first fix inside a cave without history
+picks by terrain (the rim) with confidence 0.5.

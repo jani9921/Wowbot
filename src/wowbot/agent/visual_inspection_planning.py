@@ -352,10 +352,12 @@ class VisualInspectionPolicy:
                     confidence=threshold, priority=proposal.priority)
             px, py = proposal.parameters.get("x"), proposal.parameters.get("y")
             if (not on_map and isinstance(px, (int, float)) and isinstance(py, (int, float))
-                    and (self._recently_empty(world, float(px), float(py), now,
-                                              proposal.parameters.get("track_id"))
-                         or self._known_unneeded(world, float(px), float(py),
-                                                 proposal.parameters.get("track_id")))):
+                    and self._recently_empty(world, float(px), float(py), now,
+                                             proposal.parameters.get("track_id"))):
+                # User 2026-10-05: a unit the hover already named is hovered
+                # again when chosen (no `_known_unneeded` block any more); the
+                # hover/target round trips were made faster instead.  Empty
+                # spots, corpses and the own character stay suppressed.
                 continue
             if (blocked_until.get(proposal.key, 0) <= now
                     and recent.get(proposal.key, 0) <= now

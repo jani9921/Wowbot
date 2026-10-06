@@ -15,6 +15,10 @@ from wowbot.agent.models import Command, number
 
 HOVER_CONFIRM_SECONDS = .45
 MAX_HOVERS = 3
+# After the click the target must show within this much of fresh target
+# samples, or the box is hovered again (live 2026-10-05: one click on an empty
+# spot waited out the whole 8 s TARGET deadline).
+CLICK_CONFIRM_SECONDS = .7
 # Live 2026-10-03 13:20: a porcupine corpse was hovered three times at the
 # same remembered point (where its live box was) and never named; a corpse
 # lies lower/sideways after the death animation.  Without a live box the
@@ -41,11 +45,14 @@ def live_track_point(world_state: dict, track_id, *, lower: bool = False) -> tup
                 and str(item.get("track_id")) == str(track_id)):
             box = item.get("bbox") if isinstance(item.get("bbox"), dict) else {}
             frame = item.get("frame_size") if isinstance(item.get("frame_size"), dict) else {}
+            from wowbot.agent.track_motion import predicted_point
+            y = None
             if lower and None not in (number(box.get("top")), number(box.get("bottom")),
                                       number(frame.get("height"))) and number(frame.get("height")):
                 y = (number(box["top"]) + .75*(number(box["bottom"])-number(box["top"]))) / number(frame["height"])
-                return valid_point(item.get("x"), y)
-            return valid_point(item.get("x"), item.get("y"))
+            # Lead a moving box (user 2026-10-05: the pointer lagged behind).
+            return valid_point(*(predicted_point(item, world_state, y=y)
+                                 or (item.get("x"), item.get("y") if y is None else y)))
     return None
 
 
@@ -55,11 +62,16 @@ def hover_confirm_step(context: dict, world_state: dict, now: float, *,
                        search_offsets: tuple = ()):
     """Return ("CLICK"|"HOVER"|"WAIT"|"FAILED"|"EMPTY", commands)."""
     mouse = world_state.get("mouseover") or {}
-    if expected_guid and str(mouse.get("guid") or "") == str(expected_guid):
+    hovered_at = number(context.get("hovered_at"))
+    sample = number(world_state.get("mouseover_sample_time"))
+    # Only a mouseover sampled after the hover confirms it.  Live 2026-10-05
+    # 616937: the confirm read the mouseover of the previous INSPECT spot
+    # (sampled before the hover), clicked, and nothing was under the pointer.
+    fresh = hovered_at is None or sample is None or sample >= hovered_at
+    if fresh and expected_guid and str(mouse.get("guid") or "") == str(expected_guid):
         if mouse.get("lootable") is False:
             return "EMPTY", ()
         return "CLICK", (Command("CLICK_CURRENT_CURSOR", button=click_button),)
-    hovered_at = number(context.get("hovered_at"))
     if hovered_at is not None and now - hovered_at < HOVER_CONFIRM_SECONDS:
         return "WAIT", ()
     hovers = int(context.get("hovers") or 0)

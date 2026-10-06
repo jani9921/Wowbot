@@ -37,10 +37,22 @@ class WorldAddonReducer:
         "actionbar_fast", "combat_last_spell_id", "combat_last_cast_at",
     })
 
+    @staticmethod
+    def _mark_player_units(state: dict) -> None:
+        """Live 2026-10-05: the addon exports no is_player for target and
+        mouseover; another player selected instead of Jaina was approached
+        like an NPC.  A Player- GUID is authoritative."""
+        for key in ("target", "mouseover"):
+            unit = state.get(key)
+            if (isinstance(unit, dict) and unit.get("is_player") is None
+                    and str(unit.get("guid") or "").startswith("Player-")):
+                unit["is_player"] = True
+
     def apply(self, model: "WorldModel", observation: Observation, previous: dict,
               *, defer_rebuild: bool = False) -> bool:
         model.latest = observation
         state = observation.payload
+        self._mark_player_units(state)
         if state.get("transport_kind") == "FAST":
             return self._apply_fast(model, state, observation,
                                     defer_rebuild=defer_rebuild)

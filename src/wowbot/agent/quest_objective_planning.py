@@ -26,7 +26,8 @@ class QuestObjectivePlanningMixin:
             # with no buyable row the SELL at the same open shop was skipped
             # and the agent waited.  Every trade objective uses the open shop.
             if (primary_objective_id and obj.objective_id != primary_objective_id
-                    and not (shop_open and obj.type in {"BUY", "SELL"})):
+                    and not (shop_open and obj.type in {"BUY", "SELL"})
+                    and not self._item_subject_at_hand(obj, state)):
                 continue
             record = next((value for value in records.values() if str(value.quest_id) == qid), None)
             location_proposals = self.location_policy.propose_objective(world, obj, record, qid)
@@ -66,9 +67,19 @@ class QuestObjectivePlanningMixin:
             inventory_item = next((item for item in (state.get("inventory") or {}).get("items", [])
                                    if str(item.get("item_id")) == str(item_id)
                                    and item.get("is_locked") is not True), None)
+            special_item = bool(inventory_item) and any(
+                str((quest.get("special_item") or {}).get("item_id")) == str(item_id)
+                for quest in state.get("active_quests") or ())
             activation = None
             if action:
                 activation = {"binding": action.get("action"), "activation_source": "ACTIONBAR"}
+            elif special_item and selected_item_target:
+                # Retail's interact uses an active quest's special item on its
+                # objective target (live 2026-10-04, Re-Sizer).  User
+                # 2026-10-06: target first, then Interact Target within range
+                # (or a right-click) -- not the bag item, whose use only armed
+                # a targeting cursor (live 2026-10-05).
+                activation = {"binding": "INTERACTTARGET", "activation_source": "INTERACT_KEY"}
             elif (state.get("bags_open") is True and inventory_item
                   and inventory_item.get("coordinate_space") == "CLIENT_BOTTOM_LEFT"
                   and number(inventory_item.get("x")) is not None
@@ -79,18 +90,11 @@ class QuestObjectivePlanningMixin:
                     "x": inventory_item.get("x"), "y": inventory_item.get("y"),
                     "coordinate_space": "CLIENT_BOTTOM_LEFT",
                 }
-            elif inventory_item and selected_item_target and any(
-                    str((quest.get("special_item") or {}).get("item_id")) == str(item_id)
-                    for quest in state.get("active_quests") or ()):
-                # Live 2026-10-04 10:44: the Re-Sizer credit came from the
-                # Interact key on the selected boar -- Retail's interact uses
-                # an active quest's special item on its objective target.
-                activation = {"binding": "INTERACTTARGET", "activation_source": "INTERACT_KEY"}
             guid = str(target.get("guid") or "") if target else ""
             last_result = (world.runtime_context.get("last_result") or {}) if hasattr(world, "runtime_context") else {}
             from wowbot.verification.interaction import classify_ui_error
             item_position_failure = (
-                last_result.get("skill") == "USE_ON_TARGET"
+                last_result.get("skill") in {"USE_ON_TARGET", "ASSIST"}
                 and any(token in str(last_result.get("reason") or "").casefold()
                         for token in ("range", "facing", "line_of_sight", "sight")))
             ui_position_error = classify_ui_error(state.get("ui_error"), state.get("ui_error_code"))
@@ -113,7 +117,7 @@ class QuestObjectivePlanningMixin:
                 subjects and target and target.get("name")
                 and subject_matches_name(subjects, target.get("name"))
                 and not target.get("dead", target.get("is_dead")))
-            if (target_matches_item_use and not action and inventory_item
+            if (target_matches_item_use and not action and inventory_item and not special_item
                     and state.get("bags_open") is not True):
                 result.append(Proposal.make(
                     "OPEN_BAGS", "Quest special item pontos bag-slotjának megnyitása",
@@ -151,7 +155,8 @@ class QuestObjectivePlanningMixin:
                     result.append(Proposal.make(
                         "TARGET", "Quest item névvel egyező mouseover targetjének kijelölése",
                         {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"],
-                         "objective_id": obj.objective_id},
+                         "objective_id": obj.objective_id,
+                         "quest_ids": [record.quest_id if record else qid]},
                         confidence=obj.confidence, priority=79))
             vendor = state.get("vendor_ui") or {}
             if obj.type == "BUY" and vendor.get("open") is True:
@@ -229,6 +234,24 @@ class QuestObjectivePlanningMixin:
                                              "objective_id": obj.objective_id,
                                              "quest_ids": [record.quest_id if record else qid]},
                                             confidence=obj.confidence, priority=75))
+
+    @staticmethod
+    def _item_subject_at_hand(obj, state: dict) -> bool:
+        """The unit an item objective is used on is hovered or selected now.
+
+        Live 2026-10-05 (Emergency First Aid): the primary objective was the
+        kit on Bjorn; Kee-La was hovered three times and then selected, but
+        her objective -- same quest, same First Aid Kit -- was skipped as
+        "not primary", so the kit was never used.
+        """
+        if (obj.target_object or {}).get("item_id") is None:
+            return False
+        subjects = use_on_subjects({**obj.raw, "description": obj.description})
+        units = [state.get("target") or {}, state.get("mouseover") or {}]
+        return bool(subjects) and any(
+            isinstance(unit, dict) and unit.get("name")
+            and not unit.get("dead", unit.get("is_dead"))
+            and subject_matches_name(subjects, unit["name"]) for unit in units)
 
     def _item_target_approach(self, state: dict, target: dict, obj, record, qid, state_time):
         """Walk to a selected item-use target that answered "too far"."""

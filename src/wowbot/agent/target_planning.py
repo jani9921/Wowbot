@@ -28,7 +28,11 @@ def is_player_unit(unit: dict, state: dict) -> bool:
     """Authoritative exclusion: a player mouseover is never an NPC fact."""
     if not isinstance(unit, dict):
         return False
+    # Live 2026-10-05: the addon exports no is_player for target/mouseover; a
+    # click meant for Jaina selected another player standing in front of
+    # her and the agent followed him 47 yd.  The GUID type is authoritative.
     return (bool(unit.get("is_player"))
+            or str(unit.get("guid") or "").startswith("Player-")
             or str(unit.get("unit_type") or "").upper() == "PLAYER"
             or bool(unit.get("guid") and unit.get("guid") == state.get("character_guid")))
 
@@ -46,6 +50,8 @@ def _hover_box(state: dict, guid: str) -> dict:
     x, y = number((subject or {}).get("x")), number((subject or {}).get("y"))
     if subject is None or x is None or y is None or not (0 < x < 1 and 0 < y < 1):
         return {}
+    from .track_motion import predicted_point
+    x, y = predicted_point(subject, state) or (x, y)
     return {"hover_x": x, "hover_y": y, "track_id": subject.get("track_id")}
 
 

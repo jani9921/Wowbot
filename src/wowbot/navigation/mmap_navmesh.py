@@ -230,6 +230,12 @@ class TrinityMMapNavMesh:
         dt, grid = self._world_to_detour(point), self._world_grid(point)
         if dt is None or grid is None or not self.supports(instance_id):
             return []
+        native = self._native_map(instance_id)
+        if native is not None and native.has_layer_queries:
+            return [self._detour_to_world(centre, instance_id) for _ref, centre in native.polys_near(
+                (dt[0], 0., dt[2]), extents=(radius, self.NATIVE_LAYER_HALF_HEIGHT, radius),
+                include=self.allowed_flags)
+                if math.hypot(centre[0]-dt[0], centre[2]-dt[2]) <= radius]
         index, _polygons = self._surface_index(instance_id, grid)
         low = self._surface_bin(dt[0]-radius, dt[2]-radius)
         high = self._surface_bin(dt[0]+radius, dt[2]+radius)
@@ -242,7 +248,39 @@ class TrinityMMapNavMesh:
                         found[poly.key] = self._detour_to_world(centre, instance_id)
         return list(found.values())
 
+    def walkable_heights_at(self, instance_id: int, point: dict, radius: float = 2.5) -> list[float]:
+        """Heights of every walkable layer at one X/Y (or within ``radius``).
+
+        Planning-only: after a fall the player is re-placed on the layer
+        below without disturbing ``project_position``'s continuity state.
+        """
+        instance_id = int(instance_id)
+        dt, grid = self._world_to_detour(point), self._world_grid(point)
+        if dt is None or grid is None or not self.supports(instance_id):
+            return []
+        native = self._native_map(instance_id)
+        if native is not None and native.has_layer_queries:
+            # Detour itself (C++): the same polygons the routes use.
+            layers = native.layers_at((dt[0], 0., dt[2]), extents=(.5, self.NATIVE_LAYER_HALF_HEIGHT, .5),
+                                      include=self.allowed_flags)
+            if not layers and radius > 0:
+                layers = [(centre[1], ref) for ref, centre in native.polys_near(
+                    (dt[0], 0., dt[2]), extents=(radius, self.NATIVE_LAYER_HALF_HEIGHT, radius),
+                    include=self.allowed_flags)
+                    if math.hypot(centre[0]-dt[0], centre[2]-dt[2]) <= radius]
+            return sorted({round(float(height), 2) for height, _ref in layers})
+        index, _polygons = self._surface_index(instance_id, grid)
+        bin_key = self._surface_bin(dt[0], dt[2])
+        heights = {round(height, 2) for poly in index.get(bin_key, ())
+                   for height in (self._polygon_height_at(poly, dt[0], dt[2]),)
+                   if height is not None}
+        if not heights:
+            heights = {round(float(item["z"]), 2) for item in self.walkable_points_near(instance_id, point, radius)
+                       if isinstance(item.get("z"), (int, float))}
+        return sorted(heights)
+
     SURFACE_CONTINUITY_YARDS = 15.
+    NATIVE_LAYER_HALF_HEIGHT = 1500.
     NATIVE_SURFACE_EXTENTS = ((1.5, 4., 1.5), (3., 10., 3.))
 
     def _native_project(self, native, instance_id: int, point: dict, dt: tuple,

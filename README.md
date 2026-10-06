@@ -45,6 +45,18 @@ kap, így egy jól működő korábbi verzió bármikor elővehető:
 | `v2026.10.05-1` | vendor questek, leadás-keresés, telepítő + Ollama, változásnapló (a modulbontás előtt) |
 | `v2026.10.05-2` | a nagy Python-fájlok szétbontása (működés változatlan) |
 | `v2026.10.05-3` | quest-lény memória, addon 0.9.56, gödör/barlang és quest-zóna bejárás, minimap szint-nyilak, útvonal a Live Visionben, körbeforgás javítása |
+| `v2026.10.06-1` | Z resolver (saját szint + célpont-magasság, VMAP-olvasó, Detour DLL szint-lekérdezés), esés-kezelés, gyorsabb kijelölés, quest-tárgy Interact Targettel, NPC-utasítás követése harcban, ismert hibák listája |
+
+## Ismert hibák és gyenge pontok
+Teljes lista: [KNOWN_ISSUES.md](KNOWN_ISSUES.md) (🔴 hiba · 🟠 gyenge pont · 🧪 javítva, élőben még nem igazolt). A legfontosabbak:
+- 🔴 A gubókat és más quest-objektumokat (játékobjektumok) még nem nyitja ki.
+- 🔴 Kicsi NPC a képernyő szélén / felugró ablak alatt (pl. gnóm, kis kliensablakban): nem látja, és a kijelölt,
+  de nem látott egységet nem keresi újra.
+- 🔴 A quest-zóna bejárása egyetlen útvonalat követ, nincs egységes zóna-térkép.
+- 🟠 Barlangon belüli indításkor az első szint-becslés a felső szintet választhatja.
+- 🟠 Kis kliensablakban a minimap szint-nyilai nem láthatók.
+- 🧪 Z resolver, esés-kezelés, gyorsabb kijelölés, quest-tárgy Interact Targettel: élő teszt kell.
+- 🔴 15 bukó teszt (régebbi elvárások, felülvizsgálandók).
 
 ## Változások (bug fixes + implementációk)
 Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás és egy oldalon:
@@ -52,7 +64,7 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-05</b> — 9 új funkció, 16 javítás</summary>
+<summary><b>2026-10-05</b> — 9 új funkció, 26 javítás</summary>
 
 #### Új funkciók / implementációk
 - 🧪 **Telepítő – helyi MI lépés:** megerősítés után telepíti az Ollamát (winget), elindítja és
@@ -84,7 +96,48 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 #### Bug fixes
 
+##### Új karakter, egyórás futás (Exile's Reach, 9 quest leadva)
+- 🧪 **Emergency First Aid: Kee-Lát háromszor hoverezte, a felhasználó ki is jelölte, mégsem használta rajta a
+  First Aid Kitet.** Csak az „elsődleges” objective-et (Bjorn) nézte, Kee-La objective-jét – ugyanaz a quest,
+  ugyanaz a tárgy – kihagyta, és a keresési MOVE közben sem állt meg. → Ha egy tárgyas objective célpontja van
+  a kurzor alatt vagy kijelölve, az is sorra kerül; a quest-útvonal/pötty MOVE megáll, ha egy nyitott
+  objective-ben név szerint szereplő egység kerül a kurzor alá.
+- 🧪 **Jainánál egy másik játékost jelölt ki (előtte állt), és 47 yardot ment utána a quest felvétele helyett.**
+  Az addon nem küld „játékos” jelzőt a targetről/mouseoverről. → A `Player-` GUID játékosnak számít, NPC-ként
+  sosem közelíti meg és nem szólítja meg.
+- 🧪 **Captain Garrick (Enhanced Combat Tactics): „Charge at me again” – háromszor kérte, az agent Slamet
+  nyomott.** A rotáció a Charge-ot harconként egyszer engedi (nyitó). → Friss NPC-utasításban megnevezett
+  képességnél ez a korlát feloldódik, utasításonként egyszer; a WoW használhatóság/hatótáv/cooldown jelzése
+  továbbra is érvényes.
+- 🧪 **Gyorsabb kijelölés (felhasználó: „gyorsabbá/pörgősebbé”):** a kijelölés a hover előtti, régi
+  mouseover-re kattintott (a semmibe), majd 8 mp-ig várt → csak a hover utáni minta számít, és ha 0,7 mp alatt
+  nincs új target, újra-hoverel vagy azonnal sikertelen. Az üres INSPECT 5,6 mp helyett ~0,4 mp. A már
+  megnevezett egység újra-hoverelésének tiltása kikerült (az üres pont/holttest/saját karakter tiltás marad).
+  A futásban a sikertelen INSPECT/TARGET ~7 percet vitt el.
+- 🧪 **Re-Sizer: kóválygott, a felhasználó vitte a vadkanokhoz és csinálta meg a 2/3, 3/3-at.** A távoli vadkanon az
+  Interact nem csinált semmit, ezután a táskából jobb klikkelte a tárgyat, ami csak „élesítette” a kurzort; a
+  következő vadkan-kijelölés bal klikkje sütötte el (1/3). → A felhasználó szabálya szerint: kijelölés, majd
+  Interact Target megfelelő távolságon belül (vagy jobb klikk a célponton); ha 1,5 mp alatt nem indul a
+  használat, odamegy és újrapróbálja. A táskás út csak tartalék, utána a célpontra kattint. (Élő teszt kell.)
+- **Scout-o-Matic leadás (~3,5 perc):** Lindie Springstock (gnóm) a képernyő szélén, a „new gear” felugró
+  ablak alatt állt; a 980×508-as képen a YOLO nem látta, ezért 70 mp-ig állt mellette, majd keresési cellákat
+  járt. Nincs javítva: nagyobb kliensablak kell, vagy a kijelölt, de doboz nélküli egység újrakeresése.
+- 🧪 **Az egér lemaradt a mozgó trackről:** a hover oda céloz, ahol az egység a kurzor odaérésekor várhatóan
+  lesz (a doboz mért sebessége × a kép kora + egérkésés, legfeljebb 0,5 mp és 12 % képernyő); fordulás közben nem.
+
 ##### Navigáció: gödör/barlang, quest-zóna
+- ✅ **A zóna-bejárás szakaszai érkezéskor lezárulnak** (élőben 2026-10-06: a szakaszok ~2 mp alatt sikeresek,
+  nincs többé körbeforgás).
+- 🧪 **Z resolver (a felhasználó terve szerint):** egyetlen helyen dől el a karakter saját szintje (a navmesh
+  szintjei + folytonosság + esés) és a célpontok magassága: járható navmesh-poligon, VMAP-padló (és elég
+  belmagasság), útvonallal elérhető a mostani szintről, a minimap-pötty szintjelzése szerint; bizonytalan célnál
+  csak 30 yardot megy, aztán újraszámol. Új VMAP-olvasó (TrinityCore collision), és a Detour DLL-be (C++)
+  került a szint-lekérdezés (ezerszer gyorsabb). A gubó-pötty felé már nem a peremre tervez, hanem a 66,6-os
+  párkányra.
+- 🧪 **A spirálról leesve légvonalban akart visszamenni a fenti pontra (nekiment a falnak).** Az addon nem küld
+  magasságot, így leesés után is fent hitte magát. → Az esés-esemény (FALL_ENDED) után a lenti szintre teszi
+  magát és onnan tervez újra; ha a lefelé bejárás egy fenti szakaszát ugrotta át, azt teljesítettnek veszi és
+  lentről folytatja.
 - 🧪 **A spirál alján, a barlang bejáratánál 30 mp-ig körbe-körbe forgott, centinként lépkedett** (a zóna-bejárás
   4. pontja 0,1–0,5 yardra volt, „megérkezett”, mégsem állt meg). Két hiba együtt okozta: a navmesh-útvonal vége
   Detour-pontosságú, 0,000075 yarddal eltért a kért céltól, ezért minden vezérlőlépés újratervezett, és az

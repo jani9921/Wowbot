@@ -105,9 +105,32 @@ def movement_assessment_event(attempt, assessment, previous: tuple[str, str] | N
 
 def target_named_by_open_objective(state: dict[str, Any]) -> bool:
     """The selected unit's name appears in an unfinished quest objective."""
-    target = state.get("target") or {}
-    name = str(target.get("name") or "").strip().casefold()
-    if not target.get("guid") or not name:
+    return _named_by_open_objective(state, state.get("target") or {})
+
+
+OBJECTIVE_HOVER_MAX_AGE_SECONDS = .5
+
+
+def mouseover_named_by_open_objective(state: dict[str, Any]) -> bool:
+    """A fresh mouseover (not the selected unit) is named by an open objective.
+
+    Live 2026-10-05 (Emergency First Aid): Kee-La passed under the cursor
+    three times during the search MOVEs; the MOVE went on and the planner,
+    which would select her, never ran.
+    """
+    mouse = state.get("mouseover") or {}
+    if (mouse.get("is_player") is True or mouse.get("dead", mouse.get("is_dead"))
+            or str(mouse.get("guid") or "") == str((state.get("target") or {}).get("guid") or "")):
+        return False
+    now, sample = number(state.get("monotonic_time")), number(state.get("mouseover_sample_time"))
+    if now is not None and sample is not None and not 0 <= now-sample <= OBJECTIVE_HOVER_MAX_AGE_SECONDS:
+        return False
+    return _named_by_open_objective(state, mouse)
+
+
+def _named_by_open_objective(state: dict[str, Any], unit: dict[str, Any]) -> bool:
+    name = str(unit.get("name") or "").strip().casefold()
+    if not unit.get("guid") or not name:
         return False
     return any(name in str(objective.get("description") or "").casefold()
                for quest in state.get("active_quests") or ()
@@ -184,6 +207,10 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         "SEARCH_LOCAL_OBJECTIVE_AREA", "FIND_QUEST_GIVER_AREA",
         "LOCATE_API_QUEST_GIVER", "SEARCH_TURN_IN_AREA",
     }
+    if not (reference_reach or quest_route or purpose == "APPROACH_MINIMAP_QUEST_DOT"):
+        return None
+    if mouseover_named_by_open_objective(world_state):
+        return {"reason": "objective_unit_under_cursor", "kind": "OBJECTIVE_UNIT_HOVERED"}
     if not (reference_reach or quest_route):
         return None
     if purpose == "LOCATE_QUEST_OBJECTIVE_REGION":

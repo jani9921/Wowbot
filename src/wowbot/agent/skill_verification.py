@@ -9,6 +9,8 @@ from .models import Outcome, number
 from .world import WorldModel
 from .skill_contracts import _world_map_open
 
+INSPECT_EMPTY_HOVER_SECONDS = .4
+
 
 class SkillVerificationMixin:
     """Methods of SkillRegistry (skills.py); moved verbatim."""
@@ -134,12 +136,27 @@ class SkillVerificationMixin:
             cursor = after.get("cursor_position") or {}
             x, y = number(cursor.get("nx")), number(cursor.get("ny"))
             params = attempt.proposal.parameters
-            at_probe = x is not None and y is not None and math.hypot(x-params["x"], y-params["y"]) <= .015
+            # The hover may lead a moving box (track_motion): probe the sent point.
+            probe_x, probe_y = next(((command.x, command.y) for command in getattr(attempt, "commands", None) or ()
+                                     if getattr(command, "kind", None) == "HOVER"
+                                     and command.x is not None and command.y is not None),
+                                    (params["x"], params["y"]))
+            at_probe = x is not None and y is not None and math.hypot(x-probe_x, y-probe_y) <= .015
             # A fresh mouseover GUID is addon-confirmed identity and needs no cursor
             # corroboration (cursor_position is null whenever WoW is in mouse-look
             # camera mode). Tooltip-text diffs are weaker heuristics and keep
             # requiring at_probe when cursor telemetry is available.
             success = identity or (at_probe and (world_tooltip or tooltip))
+            sample = number(after.get("mouseover_sample_time"))
+            if (not success and at_probe and not mouse.get("guid")
+                    and not (mouse.get("tooltip_text") or mouse.get("tooltip"))
+                    and not map_mouse.get("tooltip")
+                    and sample is not None and sample >= attempt.started_at + INSPECT_EMPTY_HOVER_SECONDS):
+                # The pointer is on the probe and a sample taken well after
+                # the hover names nothing: answer now instead of waiting out
+                # the 5 s contract (live 2026-10-05: 49 empty INSPECTs, 5.6 s
+                # each).  WoW names a unit under the pointer the next frame.
+                return Outcome.FAILURE, "expected_observation_missing"
         elif name == "TARGET":
             guid = attempt.proposal.parameters.get("guid")
             expected_name = str(attempt.proposal.parameters.get("expected_name") or "").casefold().strip()

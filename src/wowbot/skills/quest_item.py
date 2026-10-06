@@ -27,6 +27,13 @@ class UseItemSkill:
     succeeds solely through the normalized quest progress verifier.
     """
 
+    # Live 2026-10-05 (Re-Sizer): Interact on a far boar did nothing for 5 s
+    # (no error); the bag item then only armed a targeting cursor, which the
+    # next left click on a boar fired.  User 2026-10-06: target, then
+    # Interact Target within range, or right-click.
+    INTERACT_EFFECT_SECONDS = 1.5
+    ARMED_CURSOR_CLICK_SECONDS = .4
+
     def __init__(self, bindings=None, verifier: QuestProgressVerifier | None = None):
         self.bindings = bindings
         self.verifier = verifier or QuestProgressVerifier()
@@ -131,6 +138,12 @@ class UseItemSkill:
             # Retail's Interact key uses an active quest's special item on
             # its objective target (live 2026-10-04, Re-Sizer v9.0.1).
             if self.bindings is not None and not self.bindings.contains("INTERACTTARGET"):
+                # User 2026-10-06: "...vagy jobb klikk" -- right-click the
+                # target's own box instead.
+                right_click = self._start_right_click(state, world_state, expected_guid,
+                                                      item_id, quest_ids, objective_ids, now=state.started_at)
+                if right_click is not None:
+                    return right_click
                 return SkillResult(SkillStatus.BLOCKED, FailureReason.UNSUPPORTED_MECHANIC,
                                    replan_required=True,
                                    metadata={"reason": "interact_binding_required"})
@@ -188,11 +201,91 @@ class UseItemSkill:
             if kind in kinds:
                 return SkillResult(SkillStatus.FAILURE, reason, retryable=True, replan_required=True,
                                    metadata={"ui_error_kind": kind})
+        if world_state.get("is_casting") is True or world_state.get("is_channeling") is True:
+            context["cast_seen"] = True
+        source = context.get("activation_source")
+        if source == "UNIT_RIGHT_CLICK" and not (context.get("target_click") or {}).get("done"):
+            from .hover_confirm import hover_confirm_step
+            click = context["target_click"]
+            outcome, commands = hover_confirm_step(click, world_state, now,
+                                                   expected_guid=str(context.get("guid") or ""),
+                                                   click_button="RIGHT")
+            if outcome == "CLICK":
+                click.update(done=True, clicked_at=now)
+            if outcome in {"CLICK", "HOVER"}:
+                return SkillResult(SkillStatus.RUNNING, commands=commands)
+            if outcome == "FAILED":
+                return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
+                                   retryable=True, replan_required=True)
+            return SkillResult(SkillStatus.RUNNING)
+        activated_at = number((context.get("target_click") or {}).get("clicked_at"))             if source == "UNIT_RIGHT_CLICK" else float(state.started_at)
+        elapsed = now - float(activated_at if activated_at is not None else state.started_at)
+        if (source in {"INTERACT_KEY", "UNIT_RIGHT_CLICK"} and not context.get("cast_seen")
+                and elapsed >= self.INTERACT_EFFECT_SECONDS):
+            # Nothing started: the target is beyond interact range.  The
+            # planner approaches it and tries again.
+            return SkillResult(SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
+                               retryable=True, replan_required=True,
+                               metadata={"detail": "interact_no_effect"})
+        if (source in {"INVENTORY_COORDINATE", "ACTIONBAR"} and not context.get("cast_seen")
+                and elapsed >= self.ARMED_CURSOR_CLICK_SECONDS):
+            click = self._target_click(context, world_state, now)
+            if click is not None:
+                return click
         if now >= state.attempt.deadline:
             return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,
                                retryable=True, replan_required=True)
         state.phase = UseItemPhase.WAIT.value
         return SkillResult(SkillStatus.RUNNING)
+
+    @staticmethod
+    def _target_track(world_state: dict, guid) -> object:
+        target = world_state.get("target") or {}
+        return (target.get("screen_position") or {}).get("track_id") or (
+            (world_state.get("confirmed_mouseover_anchors") or {}).get(str(guid)) or {}).get("track_id")
+
+    def _start_right_click(self, state: ActiveSkillState, world_state: dict, guid,
+                           item_id, quest_ids, objective_ids, *, now: float) -> SkillResult | None:
+        from .hover_confirm import hover_confirm_step, live_track_point
+        track = self._target_track(world_state, guid)
+        if live_track_point(world_state, track) is None:
+            return None
+        click = {"track_id": track, "hovers": 0}
+        state.skill_context["quest_item"] = {
+            "guid": guid, "item_id": item_id, "binding": "",
+            "activation_source": "UNIT_RIGHT_CLICK", "target_click": click,
+            "quest_ids": quest_ids, "objective_ids": objective_ids,
+        }
+        outcome, commands = hover_confirm_step(click, world_state, now, expected_guid=str(guid),
+                                               click_button="RIGHT")
+        if outcome == "CLICK":
+            click.update(done=True, clicked_at=now)
+        state.phase = UseItemPhase.USE.value
+        return SkillResult(SkillStatus.RUNNING, commands=commands)
+
+    @staticmethod
+    def _target_click(context: dict, world_state: dict, now: float) -> SkillResult | None:
+        """Click the selected target's live box: an item that armed a
+        targeting cursor fires on it, any other click just reselects it."""
+        from .hover_confirm import hover_confirm_step, live_track_point
+        click = context.get("target_click")
+        if click is None:
+            track = UseItemSkill._target_track(world_state, context.get("guid"))
+            if live_track_point(world_state, track) is None:
+                return None
+            click = context["target_click"] = {"track_id": track, "hovers": 0}
+        if click.get("done"):
+            return None
+        outcome, commands = hover_confirm_step(click, world_state, now,
+                                               expected_guid=str(context.get("guid") or ""))
+        if outcome == "CLICK":
+            click["done"] = True
+        if outcome in {"CLICK", "HOVER"}:
+            return SkillResult(SkillStatus.RUNNING, commands=commands,
+                               metadata={"armed_cursor_target_click": outcome})
+        if outcome == "FAILED":
+            click["done"] = True
+        return None
 
 
 # Compatibility imports; UseItemSkill is the canonical design component.

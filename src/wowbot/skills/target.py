@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 from wowbot.agent.models import Command, number
-from .hover_confirm import hover_confirm_step, valid_point
+from .hover_confirm import CLICK_CONFIRM_SECONDS, MAX_HOVERS, hover_confirm_step, valid_point
 from wowbot.runtime import (ActiveSkillState, FailureReason, Intent, SkillResult,
                             SkillStatus, world_entity_id)
 
@@ -65,6 +65,8 @@ class TargetSkill:
                                replan_required=True,
                                metadata={"detail": "target intent has no safe click or configured restore binding"})
         state.phase = TargetPhase.APPLY_TARGET.value
+        if context.get("expected_guid") and not context.get("restore_last_target"):
+            context["clicked_at"] = state.started_at
         return SkillResult(SkillStatus.RUNNING, commands=commands)
 
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
@@ -79,6 +81,7 @@ class TargetSkill:
                                                    expected_guid=str(expected_guid or ""))
             if outcome == "CLICK":
                 context["hover_pending"] = False
+                context["clicked_at"] = now
                 state.phase = TargetPhase.APPLY_TARGET.value
                 return SkillResult(SkillStatus.RUNNING, commands=commands)
             if outcome == "HOVER":
@@ -92,6 +95,18 @@ class TargetSkill:
         if expected_guid:
             if observed_guid == expected_guid:
                 return SkillResult(SkillStatus.SUCCESS, metadata={"target_guid": observed_guid})
+            clicked_at = number(context.get("clicked_at"))
+            target_time = number(world_state.get("target_sample_time"))
+            if (clicked_at is not None and target_time is not None
+                    and target_time >= clicked_at + CLICK_CONFIRM_SECONDS):
+                # The click missed: hover the box again at once (user
+                # 2026-10-05: "gyorsabbá/pörgősebbé tenni a kijelöléseket").
+                if context.get("hover_point") and int(context.get("hovers") or 0) < MAX_HOVERS:
+                    context.update(hover_pending=True, clicked_at=None, hovered_at=None)
+                    return self.verify(state, world_state, now)
+                return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
+                                   retryable=True, replan_required=True,
+                                   metadata={"detail": "click showed no target change"})
             previous_guid = ((state.before_snapshot or {}).get("target") or {}).get("guid")
             if (observed_guid and observed_guid == previous_guid
                     and now < state.attempt.deadline):

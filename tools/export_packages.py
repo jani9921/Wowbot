@@ -35,7 +35,8 @@ SKIP_DIRS = {"__pycache__", ".pytest_cache", ".git", ".runtime-data", "datasets"
 SKIP_FILES = ["*.pyc", "*.engine", "runs_*.log", "*.tmp"]
 
 MIGRATION_EXTRA_SKIP = ["data/tdb_spawn_catalog.*.sqlite3"]
-GITHUB_SKIP = ["data/*.sqlite3", "weights/*", "native/recastnavigation/*", "native/recastnavigation"]
+GITHUB_SKIP = ["data/*.sqlite3", "weights/*", "native/recastnavigation/*", "native/recastnavigation",
+               "native/bin/*.bak", "native/build*"]
 GITHUB_MODELS = {"world3d_units_3class_v10_e65.pt", "world3d_units_3class_v10_e65.onnx",
                  "world3d_units_3class_v10_e65_512.pt", "world3d_units_3class_v10_e65_512.onnx"}
 

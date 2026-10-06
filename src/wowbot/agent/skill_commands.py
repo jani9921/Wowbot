@@ -46,7 +46,12 @@ class SkillCommandsMixin:
         if name == "TARGET" and params.get("restore_last_target"):
             return (Command("BIND", "TARGETLASTTARGET"),)
         if name in {"TARGET", "GATHER", "HERB", "MINE", "USE", "INSPECT"}:
-            return (Command("HOVER" if name == "INSPECT" else "CLICK", x=params["x"], y=params["y"],
+            from .track_motion import candidate_for_track, predicted_point
+            box = (candidate_for_track(world.state, params.get("track_id"))
+                   if name in {"TARGET", "INSPECT"} and params.get("source") == "WORLD3D" else None)
+            # A moving unit is hovered where it will be (user 2026-10-05).
+            x, y = (predicted_point(box, world.state) if box is not None else None) or (params["x"], params["y"])
+            return (Command("HOVER" if name == "INSPECT" else "CLICK", x=x, y=y,
                             button="RIGHT" if name in {"GATHER", "HERB", "MINE", "USE"} else "LEFT"),)
         if name == "REPAIR":
             return (Command("CLICK", x=params["x"], y=params["y"]),)

@@ -56,6 +56,13 @@ def load_library(path: Path = DLL_PATH):
                                        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_ulonglong)]
     lib.aipc_nav_poly_height.restype = ctypes.c_int
     lib.aipc_nav_poly_height.argtypes = [ctypes.c_void_p, ctypes.c_ulonglong, f3, f3]
+    # 2026-10-06 (Z resolver): layer and polygon queries; an older DLL lacks them.
+    for name in ("aipc_nav_layers_at", "aipc_nav_polys_near"):
+        if hasattr(lib, name):
+            function = getattr(lib, name)
+            function.restype = ctypes.c_int
+            function.argtypes = [ctypes.c_void_p, f3, f3, ctypes.c_ushort, ctypes.c_ushort,
+                                 f3, ctypes.POINTER(ctypes.c_ulonglong), ctypes.c_int]
     return lib
 
 
@@ -119,6 +126,29 @@ class NativeDetourMap:
                                          exclude, ctypes.byref(ref), point):
             return None
         return ref.value, (point[0], point[1], point[2])
+
+
+    @property
+    def has_layer_queries(self) -> bool:
+        return hasattr(self.lib, "aipc_nav_layers_at") and hasattr(self.lib, "aipc_nav_polys_near")
+
+    def layers_at(self, position: tuple, *, extents: tuple, include: int,
+                  exclude: int = 0, limit: int = 64) -> list[tuple[float, int]]:
+        """(height, polygon ref) of every walkable layer at a Detour position."""
+        heights = (ctypes.c_float * limit)()
+        refs = (ctypes.c_ulonglong * limit)()
+        count = self.lib.aipc_nav_layers_at(self.handle, _vec(position), _vec(extents), include,
+                                            exclude, heights, refs, limit)
+        return [(heights[i], refs[i]) for i in range(count)]
+
+    def polys_near(self, center: tuple, *, extents: tuple, include: int,
+                   exclude: int = 0, limit: int = 2048) -> list[tuple[int, tuple[float, float, float]]]:
+        """(polygon ref, centre) of the walkable polygons in a box (Detour coordinates)."""
+        points = (ctypes.c_float * (3 * limit))()
+        refs = (ctypes.c_ulonglong * limit)()
+        count = self.lib.aipc_nav_polys_near(self.handle, _vec(center), _vec(extents), include,
+                                             exclude, points, refs, limit)
+        return [(refs[i], (points[3*i], points[3*i+1], points[3*i+2])) for i in range(count)]
 
 
 def path_cost(points) -> float:

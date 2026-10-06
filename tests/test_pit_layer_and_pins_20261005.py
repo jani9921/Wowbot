@@ -222,6 +222,9 @@ class _LayerMesh:
     def supports(self, instance_id):
         return True
 
+    def walkable_heights_at(self, instance_id, point, radius=2.5):
+        return sorted(self.layers)
+
 
 def test_a_new_route_starts_on_the_tracked_layer_not_on_the_rim_above():
     """Live 12:55: after a spider fight on the 64 yd ledge the route restarted
@@ -229,11 +232,11 @@ def test_a_new_route_starts_on_the_tracked_layer_not_on_the_rim_above():
     from wowbot.navigation.service import NavigationService
     mesh = _LayerMesh()
     nav = NavigationService(navmesh=mesh)
-    on_route = {"player_world_position": {"x": 83., "y": -2269., "z": 64., "z_source": "NAVMESH_SURFACE",
-                                          "instance_id": 2175}}
-    nav._track_player_layer(on_route["player_world_position"] and on_route, 10.)
+    # 2026-10-06: the Z resolver follows the own layer (first fix from the route).
+    on_route = {"player_world_position": {"x": 83., "y": -2269., "instance_id": 2175}}
+    nav._z.observe_player(on_route, 10., route_z=64.)
     moved = {"player_world_position": {"x": 78.6, "y": -2272.2, "instance_id": 2175, "z_known": False}}
-    nav._track_player_layer(moved, 12.)
+    nav._z.observe_player(moved, 12.)
     started = nav._state_with_layer_continuity(moved, 20.)["player_world_position"]
     assert (started["z"], started["z_estimated"], started["z_source"]) == (64., True, "NAVMESH_LAYER_CONTINUITY")
     # Far away or long ago: the terrain fallback (and its layer probe) stays.

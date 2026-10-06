@@ -6,6 +6,7 @@ navigation, or global combat-controller state.
 from __future__ import annotations
 
 from enum import StrEnum
+import re
 
 from wowbot.agent.models import Command, number
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus, world_entity_id
@@ -449,7 +450,7 @@ class CombatSkill:
             state.phase = CombatPhase.VERIFY_ABILITY.value
             return SkillResult(SkillStatus.RUNNING)
         uses = context.setdefault("ability_uses", {})
-        action = self._choose_action(world_state, uses=uses, now=now)
+        action = self._choose_action(world_state, uses=uses, now=now, context=context)
         if action is None:
             auto_attack = self._auto_attack_fallback(state, world_state, now)
             if auto_attack is not None:
@@ -838,10 +839,49 @@ class CombatSkill:
         return {"kind": "WORLD_COMBAT", "expected_guid": str(expected_guid),
                 "stop_distance": float(desired_range)}
 
+    # Live 2026-10-05 (Enhanced Combat Tactics): Captain Garrick said "Charge
+    # at me again to close the distance" three times; Charge is a once-per-
+    # fight opener in the rotation, so the agent kept pressing Slam and the
+    # user had to Charge.  A fresh NPC instruction naming an ability lifts
+    # the opener limits for that ability, once per instruction; WoW's own
+    # usable/range/cooldown gates still hold.
+    INSTRUCTION_FRESH_SECONDS = 12.
+    INSTRUCTION_WAIVED = frozenset({"movement_opener_already_used", "melee_range_confirmed"})
+
+    @staticmethod
+    def _words(text) -> str:
+        return " " + re.sub(r"[^a-z0-9]+", " ", str(text or "").casefold()).strip() + " "
+
+    def _pending_instruction(self, world_state: dict, context: dict) -> tuple[str, float] | None:
+        events = [event for event in world_state.get("events") or ()
+                  if isinstance(event, dict) and event.get("event_type") == "NPC_INSTRUCTION"]
+        if not events:
+            return None
+        event = max(events, key=lambda item: number(item.get("sequence")) or -1.)
+        sequence = number(event.get("sequence"))
+        said_at, state_at = number(event.get("timestamp")), number(world_state.get("timestamp"))
+        if sequence is None or sequence == context.get("followed_instruction_sequence"):
+            return None
+        if said_at is not None and state_at is not None and state_at - said_at > self.INSTRUCTION_FRESH_SECONDS:
+            return None
+        return self._words((event.get("payload") or {}).get("message")), sequence
+
     def _choose_action(self, world_state: dict, *, uses: dict | None = None,
-                       now: float | None = None) -> dict | None:
+                       now: float | None = None, context: dict | None = None) -> dict | None:
         if now is not None:
             self.ability_rules.observe_casts(world_state, now)
+        pending = self._pending_instruction(world_state, context) if context is not None else None
+        if pending is not None:
+            message, sequence = pending
+            candidates = {candidate.ability_id: candidate
+                          for candidate in self.ability_rules.evaluate(world_state, uses=uses, now=now)}
+            for raw in self.ability_rules.actionbar(world_state):
+                candidate = candidates.get(raw.get("id", raw.get("spell_id")))
+                name = self._words(raw.get("name"))
+                if (candidate is not None and name.strip() and name in message
+                        and set(candidate.rejection_reasons) <= self.INSTRUCTION_WAIVED):
+                    context["followed_instruction_sequence"] = sequence
+                    return dict(raw)
         return self.ability_rules.choose(world_state, uses=uses, now=now)
 
     def _invalid_target_recovery(self, state: ActiveSkillState,

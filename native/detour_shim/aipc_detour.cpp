@@ -152,3 +152,57 @@ AIPC_API int aipc_nav_poly_height(void* handle, unsigned long long ref, const fl
     *out_height = height;
     return 1;
 }
+
+// Every walkable layer under/over one position (Z resolver, 2026-10-06):
+// the polygons of a tall box around ``position`` whose footprint contains
+// it, with the height of each at that X/Z.  Returns the number written.
+AIPC_API int aipc_nav_layers_at(void* handle, const float* position, const float* extents,
+                                unsigned short include, unsigned short exclude,
+                                float* out_heights, unsigned long long* out_refs, int max_out) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || max_out <= 0) return 0;
+    dtQueryFilter filter = make_filter(include, exclude);
+    dtPolyRef polys[512];
+    int count = 0;
+    if (dtStatusFailed(nav->query->queryPolygons(position, extents, &filter, polys, &count, 512))) return 0;
+    int written = 0;
+    for (int i = 0; i < count && written < max_out; ++i) {
+        float height = 0;
+        if (dtStatusFailed(nav->query->getPolyHeight(polys[i], position, &height))) continue;
+        out_heights[written] = height;
+        out_refs[written] = static_cast<unsigned long long>(polys[i]);
+        ++written;
+    }
+    return written;
+}
+
+// Centres of the walkable polygons in a box (planning-only destination
+// candidates).  Returns the number written; out_points holds x,y,z triples.
+AIPC_API int aipc_nav_polys_near(void* handle, const float* center, const float* extents,
+                                 unsigned short include, unsigned short exclude,
+                                 float* out_points, unsigned long long* out_refs, int max_out) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || max_out <= 0) return 0;
+    dtQueryFilter filter = make_filter(include, exclude);
+    const int capacity = 2048;
+    dtPolyRef* polys = new dtPolyRef[capacity];
+    int count = 0;
+    if (dtStatusFailed(nav->query->queryPolygons(center, extents, &filter, polys, &count, capacity))) {
+        delete[] polys;
+        return 0;
+    }
+    int written = 0;
+    for (int i = 0; i < count && written < max_out; ++i) {
+        const dtMeshTile* tile = nullptr;
+        const dtPoly* poly = nullptr;
+        if (dtStatusFailed(nav->mesh->getTileAndPolyByRef(polys[i], &tile, &poly)) || !poly
+                || poly->getType() != DT_POLYTYPE_GROUND || poly->vertCount == 0) continue;
+        float sum[3] = {0, 0, 0};
+        for (int v = 0; v < poly->vertCount; ++v) dtVadd(sum, sum, &tile->verts[poly->verts[v] * 3]);
+        dtVscale(&out_points[written * 3], sum, 1.0f / poly->vertCount);
+        out_refs[written] = static_cast<unsigned long long>(polys[i]);
+        ++written;
+    }
+    delete[] polys;
+    return written;
+}
