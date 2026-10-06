@@ -1,7 +1,41 @@
 # Ismert hibák és gyenge pontok
 
-Állapot: 2026-10-06. Forrás: az élő tesztek naplója ([docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md))
-és a hibajavítások listája ([BUGFIXES.md](BUGFIXES.md)).
+Állapot: 2026-10-07. A **nyitott/lezárt feladatok hiteles állapota** a
+[GitHub Issues](https://github.com/jani9921/Wowbot/issues) oldalon van. Az alábbi
+részletes megfigyelések a 2026-10-06-i élő tesztek pillanatképét őrzik; nem
+helyettesítik az issue-k aktuális státuszát. Forrás:
+[docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md) és [BUGFIXES.md](BUGFIXES.md).
+
+## Nyitott GitHub-backlog
+
+- [Quest flow — live reliability](https://github.com/jani9921/Wowbot/milestone/1):
+  [Ralia #1](https://github.com/jani9921/Wowbot/issues/1),
+  [loot #2](https://github.com/jani9921/Wowbot/issues/2),
+  [gubó-kredit és sebesség #3](https://github.com/jani9921/Wowbot/issues/3),
+  [közeli quest-adók #4](https://github.com/jani9921/Wowbot/issues/4),
+  [item use #5](https://github.com/jani9921/Wowbot/issues/5),
+  [harci GUID-váltás #6](https://github.com/jani9921/Wowbot/issues/6).
+- [Multilevel navigation & minimap](https://github.com/jani9921/Wowbot/milestone/2):
+  [Z resolver #7](https://github.com/jani9921/Wowbot/issues/7),
+  [szintenkénti zóna-bejárás #8](https://github.com/jani9921/Wowbot/issues/8),
+  [falnak futás #9](https://github.com/jani9921/Wowbot/issues/9),
+  [felbontás/minimap #10](https://github.com/jani9921/Wowbot/issues/10),
+  [VMAP/LOS #11](https://github.com/jani9921/Wowbot/issues/11).
+- [Vision & targeting](https://github.com/jani9921/Wowbot/milestone/3):
+  [kis/takart NPC #12](https://github.com/jani9921/Wowbot/issues/12),
+  [ismeretlen jelöltek #13](https://github.com/jani9921/Wowbot/issues/13),
+  [hamis ! #14](https://github.com/jani9921/Wowbot/issues/14),
+  [gyors hover élő teszt #15](https://github.com/jani9921/Wowbot/issues/15).
+- [Runtime & regression health](https://github.com/jani9921/Wowbot/milestone/4):
+  [addon-csomagok #16](https://github.com/jani9921/Wowbot/issues/16),
+  [bukó tesztek #17](https://github.com/jani9921/Wowbot/issues/17),
+  [memóriaadatbázis #18](https://github.com/jani9921/Wowbot/issues/18),
+  [TensorRT kompatibilitás #19](https://github.com/jani9921/Wowbot/issues/19).
+
+A lentebb felsorolt platformkorlátok és már élőben igazolt működések nem
+automatikusan nyitott hibák. Új hiba esetén külön issue, reprodukció és
+elfogadási feltétel kell; a részletes futási bizonyíték továbbra is a
+`docs/LIVE_VALIDATION.md`-be kerül.
 
 **Jelölés:** 🔴 hiba, nincs javítva · 🟠 gyenge pont / korlát · 🧪 javítva, de élőben még nem igazolt · ✅ élőben működik
 
