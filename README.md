@@ -73,11 +73,6 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 - ✅ **A barlangos quest („Who Lurks in the Pit”) élőben végig lement** (21:41, ~13 perc): 5/5 gubó, Hrun megölve,
   Ralia. Gyenge teljesítménnyel és kézi segítséggel — a funkció (Z resolver + többszintes quest) **átnézendő,
   átgondolandó, optimalizálandó** (lásd KNOWN_ISSUES, „Átnézendő”).
-- ✅ **Gubó-kezelés átvéve a munkapéldányból** (`uj-mappa-2026-09-28-1918`, a felhasználó által ChatGPT-vel
-  fejlesztett változat, a `projekt` 09:57-es másolatára építve): egy kiválasztott sárga pöttyhöz ragaszkodik (a
-  karakter nyila eltakarhatja), odaérve helyben keres; a fel/le nyíl két friss mintával, összefüggő navmesh-útvonallal
-  vezet a jelzett szintre; az addon FAST csomagja viszi a gubó nevét és az `indoors` jelzést; az OBJECT_USE hover →
-  friss minta → jobb klikk → F7 tartalék. Élőben (20:07, munkapéldány) egy gubó: **0/5 → 1/5**.
 - 🧪 **Falnak futás:** 4 mp egy helyben, folyamatos előre-gombbal → elakadt, a kiszabadító lépés indul.
 - 🧪 **Útvonal a járható sáv közepén** (Detour DLL, C++): minden portálon át pont, a fal/szakadék szélétől 1,5 yd-ra,
   sűrűbb pontok (spirál: 56 → 83 pont); a köztes pontot 2,5 yd-on belül veszi el.
