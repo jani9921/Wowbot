@@ -1,5 +1,7 @@
 # Kritikusút-kódaudit — 2026-10-07
 
+Frissítés: a teljes forrásleltárt, az addon FAST-transport [#72](https://github.com/jani9921/Wowbot/issues/72) és a memóriaírási sor [#73](https://github.com/jani9921/Wowbot/issues/73) új reprodukcióját, valamint a rétegenkénti bizonyítási szinteket a [teljes kódbázis-audit](FULL_CODEBASE_AUDIT_2026-10-07.md) tartalmazza. Ez a dokumentum a korábbi kritikusút-mérések részleteit őrzi meg.
+
 Ez a `projekt` élő forrásmásolatának **célzott, mély kritikusút-auditja**, nem a 390 Python-modul soronkénti áttekintése. A korábbi `DOMAIN_PROGRESS.md` százalékai leltárbecslések; az audit nem tekinti őket bizonyított készültségnek. A hét fő érintett runtime/vision/memory forrásfájl hash-e egyezett a GitHub exportéval. Az addon vagy WoW kliens nem kapott inputot, és sem a `projekt`, sem a futási adatok nem módosultak.
 
 ## Ellenőrzött útvonalak
