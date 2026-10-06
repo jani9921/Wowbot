@@ -1,5 +1,7 @@
 # Képességterületi kódaudit — 2026-10-07
 
+> **Korrekció:** az alábbi százalékok előzetes képességleltár-becslések, **nem** lezárt, mély kódaudit eredményei. A későbbi kritikusút-audit új runtime/vision/combat/memory hibákat igazolt; ezért ezekből a számokból nem következik készültségi vagy live-validációs állítás. A bizonyítékokat és a nyitott audit-határokat lásd: [CODE_AUDIT_2026-10-07.md](CODE_AUDIT_2026-10-07.md).
+
 Ezek **óvatos, 0–100%-os használhatósági becslések**, nem lefutott tesztek aránya és nem készültségi ígéret. A jelenlegi `projekt` forrás 390 Python-moduljának leltára, a 13 terület éles adatforrás → WorldModel → planner → skill/input → sikerellenőrzés útvonala, a teljes regressziós kör és a dokumentált felhasználói élő futások alapján készültek. A GitHub export `src`, `addon`, `config`, `tests`, `tools` fájljai az auditkor megegyeztek a `projekt` másolatával; a kihagyott eltérések két ideiglenes `.tmp` és két helyi, nem publikálandó fiókfájl voltak.
 
 A százalék az **aktuális felhasználói képességet** becsüli. 0% itt azt jelenti, hogy nincs összekötött éles adat→cselekvés→eredmény út, nem azt, hogy egyetlen sor kód sincs. Részleges élő siker kézi segítséggel nagyjából 40–60%; ismételten önálló, változatos helyzetekben elfogadott ciklus nélkül 75% fölé nem megyünk. 100% csak a terület dokumentált teljes élő elfogadásakor lehetséges. A GitHub milestone saját sávja ettől különböző adat: **lezárt issue / összes issue**.
