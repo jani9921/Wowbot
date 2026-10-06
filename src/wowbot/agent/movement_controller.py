@@ -63,6 +63,8 @@ class ReachMovementController:
     candidate_seconds = .8
     supported_seconds = 1.6
     no_progress_sample_interval = .25
+    wall_contact_seconds = 4.
+    wall_contact_max_displacement = .65
     max_reach_seconds = 90.
 
     def __init__(self, bindings=None, *, progress_monitor: ProgressMonitor | None = None,
@@ -91,6 +93,10 @@ class ReachMovementController:
         # even when observations arrive at 30-40 Hz. Samples are already
         # downsampled below, so this remains bounded and small.
         self.no_progress: deque[MovementSample] = deque(maxlen=32)
+        # A separate absolute-position window survives tiny per-frame
+        # improvements that would clear the ordinary no-progress score.
+        self.wall_samples: deque[MovementSample] = deque(maxlen=32)
+        self.forward_started_at: float | None = None
         self.evidence_sources: set[str] = set()
         self.evidence_observations: list[str] = []
         self.control_updates = 0
@@ -291,6 +297,11 @@ class ReachMovementController:
         finishes a skill -- and on the same sample it saw no fresh position,
         so it reported "awaiting" and the MOVE never ended.
         """
+        if self.terminal_reason and self.phase is MovementPhase.SUPPORTED_STUCK:
+            # FAST may see another fresh, jittering position before the
+            # medium skill tick records this failure. Never re-arm W until an
+            # explicit start(). ARRIVED retains its evidence-update behavior.
+            return MovementAssessment(self.phase, True, False, self.terminal_reason)
         assessment = self._observe_once(state, observation_id, now, commanded=commanded)
         if assessment.terminal and self.destination:
             self.terminal_reason = assessment.reason
@@ -400,6 +411,12 @@ class ReachMovementController:
         if self.started_at is not None and now-self.started_at >= self.max_reach_seconds:
             self.phase = MovementPhase.FAILED
             return MovementAssessment(self.phase, True, False, "movement_safety_deadline")
+        if self._forward_wall_contact(sample, position_time, tolerance, now):
+            self.evidence_sources.update({"POSITION_PLATEAU", "FORWARD_COMMAND_NO_TRANSLATION",
+                                          "MOTION_POSITION_MISMATCH"})
+            self.evidence_observations.append(observation_id)
+            self.phase = MovementPhase.SUPPORTED_STUCK
+            return MovementAssessment(self.phase, True, False, "supported_stuck")
         epsilon = (self.world_progress_epsilon
                    if self.destination.get("coordinate_space") == "WORLD_YARDS"
                    else self.map_progress_epsilon)
@@ -521,6 +538,40 @@ class ReachMovementController:
         self.phase = MovementPhase.NO_PROGRESS_YET
         return MovementAssessment(self.phase, False, False, "no_progress_yet")
 
+    def _forward_wall_contact(self, sample: MovementSample, position_time: float | None,
+                              tolerance: float, now: float) -> bool:
+        """Confirm a wall despite sub-yard position jitter resetting per-frame progress.
+
+        This only uses fresh world-position measurements, several seconds of
+        uninterrupted forward commands and the client's running state. A
+        turn-only lease, stale coordinate, or ordinary slow approach cannot
+        establish wall contact by itself.
+        """
+        if ((self.destination or {}).get("coordinate_space") != "WORLD_YARDS"
+                or position_time is None or self.destination.get("follow_group_leader")
+                or self.destination.get("follow_quest_entity")):
+            return False
+        if not self.wall_samples or now-self.wall_samples[-1].at >= self.no_progress_sample_interval:
+            self.wall_samples.append(sample)
+        while self.wall_samples and now-self.wall_samples[0].at > self.wall_contact_seconds + .75:
+            self.wall_samples.popleft()
+        if (sample.distance <= tolerance + 3.
+                or self.forward_started_at is None
+                or now-self.forward_started_at < self.wall_contact_seconds
+                or self.last_command_at is None or now-self.last_command_at > .5
+                or len(self.wall_samples) < 8
+                or now-self.wall_samples[0].at < self.wall_contact_seconds):
+            return False
+        first = self.wall_samples[0]
+        if max(math.hypot(item.x-first.x, item.y-first.y)
+               for item in (*self.wall_samples, sample)) > self.wall_contact_max_displacement:
+            return False
+        # Client speed/moving is independent from the world-position samples:
+        # pressed against a wall it still reports a running animation.
+        running = sum(item.moving is True and item.speed is not None and item.speed > .1
+                      for item in self.wall_samples)
+        return running >= .6 * len(self.wall_samples)
+
     def command(self, state: dict, observation_id: str, now: float) -> tuple[Command, ...]:
         # The agent loop can revisit the same merged observation while the
         # input scheduler is still holding its previous movement lease.  A
@@ -564,6 +615,8 @@ class ReachMovementController:
             self.last_command_at = now
             self.control_updates += 1
             self.command_history.append((now, "JUMP_FORWARD", .32))
+            if self.forward_started_at is None:
+                self.forward_started_at = now
             self.progress_monitor.record_command("MOVEFORWARD")
             return (command,)
         if turn_in_place:
@@ -576,18 +629,23 @@ class ReachMovementController:
             command = Command("BIND", turn, duration)
             self.steering_mode = "TURN_LEFT" if error > 0 else "TURN_RIGHT"
             self.phase = MovementPhase.STEERING
+            self.forward_started_at = None
         elif soft_steer:
             duration = max(.04, (.06 if near else .08) * self.turn_duration_scale)
             command = Command("BIND", "MOVEFORWARD", duration, simultaneous=(turn,))
             self.steering_mode = "SOFT_LEFT" if error > 0 else "SOFT_RIGHT"
             if self.phase not in {MovementPhase.NO_PROGRESS_YET, MovementPhase.CANDIDATE_STUCK}:
                 self.phase = MovementPhase.STEERING
+            if self.forward_started_at is None:
+                self.forward_started_at = now
         else:
             duration = .10 if near else .32
             command = Command("BIND", "MOVEFORWARD", duration)
             self.steering_mode = "STRAIGHT"
             if self.phase not in {MovementPhase.NO_PROGRESS_YET, MovementPhase.CANDIDATE_STUCK}:
                 self.phase = MovementPhase.MOVING
+            if self.forward_started_at is None:
+                self.forward_started_at = now
         self.last_command_observation_id = observation_id
         self.last_command_at = now
         self.control_updates += 1
@@ -619,6 +677,8 @@ class ReachMovementController:
                 "false_stuck_count": self.recovery_count if self.phase == MovementPhase.MOVING else 0,
                 "turn_duration_scale": self.turn_duration_scale,
                 "no_progress_samples": len(self.no_progress),
+                "wall_contact_samples": len(self.wall_samples),
+                "forward_started_at": self.forward_started_at,
                 "no_progress_span_seconds": round(
                     self.no_progress[-1].at-self.no_progress[0].at, 4)
                     if len(self.no_progress) >= 2 else 0.,

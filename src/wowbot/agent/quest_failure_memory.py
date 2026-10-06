@@ -19,6 +19,13 @@ class QuestFailureRecord:
 class QuestFailureMemory:
     """Prevent immediate retries without declaring a quest/object impossible."""
 
+    # Live 2026-10-06 21:17: a 0.3 s stale view (the character still coasting)
+    # suppressed every cocoon use for 15 s and the agent walked away.  These
+    # object-use failures are transient or need only a few steps closer.
+    SHORT_COOLDOWNS = {("OBJECT_USE", "stale_observation"): 2.,
+                       ("OBJECT_USE", "identity_uncertain"): 3.,
+                       ("OBJECT_USE", "out_of_range"): 5.}
+
     def __init__(self, cooldown_seconds: float = 15.0):
         self.cooldown_seconds = float(cooldown_seconds)
         self._records: dict[tuple[str, str, str, str], QuestFailureRecord] = {}
@@ -32,7 +39,8 @@ class QuestFailureMemory:
         if quest_id is None and objective_id is None:
             return None
         key = self._key(quest_id, objective_id, target_ref, skill)
-        record = QuestFailureRecord(*key, str(reason), float(now), float(now) + self.cooldown_seconds)
+        cooldown = self.SHORT_COOLDOWNS.get((str(skill), str(reason).lower()), self.cooldown_seconds)
+        record = QuestFailureRecord(*key, str(reason), float(now), float(now) + cooldown)
         self._records[key] = record
         return record
 

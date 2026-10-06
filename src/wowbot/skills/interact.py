@@ -37,6 +37,8 @@ class InteractSkill:
         return (Command("BIND", "INTERACTTARGET"),)
 
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
+        if state.intent.parameters.get("activation_source") == "SOFT_INTERACT":
+            return self._begin_soft_interact(state, world_state)
         expected = world_entity_id(state.intent.target_ref or state.intent.parameters.get("guid"))
         target = world_state.get("target") or {}
         state.skill_context["interaction"] = {
@@ -84,6 +86,29 @@ class InteractSkill:
         context["hover_verified"] = bool(hover_points)
         state.phase = InteractPhase.INTERACT.value
         context["last_interact_at"] = now
+        return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent))
+
+    def _begin_soft_interact(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
+        """Live 2026-10-06 22:12: at Private Cole's "!" the client's
+        soft-interact unit was Private Cole, while the hard target was still
+        Lady Jaina from the last turn-in; the agent tried Jaina for a minute.
+        The Interact key acts on the soft-interact unit; success is the
+        quest/gossip/vendor window, so no hard-target identity is compared."""
+        soft_guid = str(state.intent.parameters.get("soft_guid") or "")
+        soft = next((row for row in world_state.get("soft_targets") or ()
+                     if isinstance(row, dict)
+                     and str(row.get("source_unit") or "").casefold() == "softinteract"
+                     and str(row.get("guid") or "") == soft_guid), None)
+        state.skill_context["interaction"] = {
+            "expected_guid": None, "soft_guid": soft_guid, "direct_interaction_retries": 0,
+            "reposition_retries": 0, "reacquire_retries": 0, "unknown_observations": 0,
+            "last_interact_at": state.attempt.started_at}
+        if (not soft_guid or soft is None or soft.get("is_attackable") is True
+                or soft.get("is_dead") is True):
+            state.phase = InteractPhase.FAILED.value
+            return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
+                               retryable=True, replan_required=True)
+        state.phase = InteractPhase.INTERACT.value
         return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent))
 
     @staticmethod

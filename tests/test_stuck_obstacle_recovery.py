@@ -20,9 +20,9 @@ DESTINATION = {"x": 0., "y": 100., "instance_id": 2175, "coordinate_space": "WOR
                "stop_distance": 4.}
 
 
-def _wall_state(at, *, moving=True):
+def _wall_state(at, *, moving=True, x=0., y=0.):
     return state(at, orientation=math.pi/2, movement={"speed": 7. if moving else 0., "moving": moving},
-                 player_world_position={"x": 0., "y": 0., "instance_id": 2175,
+                 player_world_position={"x": x, "y": y, "instance_id": 2175,
                                         "coordinate_space": "WORLD_YARDS", "sample_time": at})
 
 
@@ -42,6 +42,70 @@ def test_running_into_a_wall_tries_one_running_jump_before_stuck():
     assert jumps[0].binding == "MOVEFORWARD" and jumps[0].duration <= .35
     # The jump did not help: the ordinary supported-stuck recovery follows.
     assert result.phase == MovementPhase.SUPPORTED_STUCK
+
+
+def test_small_position_jitter_cannot_hide_a_four_second_wall_contact():
+    controller = ReachMovementController()
+    controller.start(DESTINATION, _wall_state(1.), "o0", 1.)
+    controller.command(_wall_state(1.), "o0", 1.)
+    result = None
+    # Alternating 0.08 yd jitter periodically looks like per-frame target
+    # progress, but no actual movement has occurred over the full window.
+    for index in range(1, 220):
+        at = 1. + index/30.
+        sample = _wall_state(at, y=.08 if index % 2 else 0.)
+        result = controller.observe(sample, f"o{index}", at)
+        if result.terminal:
+            break
+        controller.command(sample, f"o{index}", at)
+    assert result is not None and result.phase == MovementPhase.SUPPORTED_STUCK
+    assert result.reason == "supported_stuck"
+    assert at < 6.
+    assert "POSITION_PLATEAU" in controller.snapshot()["stuck_evidence_sources"]
+    # The FAST lane may receive another fresh, jittering position before the
+    # medium skill tick consumes the terminal result. It must not re-arm W.
+    fresh = _wall_state(at + .1, y=.16)
+    repeated = controller.observe(fresh, "after-stuck", at + .1)
+    assert repeated.terminal and repeated.reason == "supported_stuck"
+    assert controller.command(fresh, "after-stuck", at + .1) == ()
+
+
+def test_real_translation_and_turn_only_do_not_confirm_wall_contact():
+    moving = ReachMovementController()
+    moving.start(DESTINATION, _wall_state(1.), "o0", 1.)
+    moving.command(_wall_state(1.), "o0", 1.)
+    for index in range(1, 180):
+        at = 1. + index/30.
+        sample = _wall_state(at, y=.45 * (at-1.))
+        result = moving.observe(sample, f"o{index}", at)
+        assert result.phase != MovementPhase.SUPPORTED_STUCK
+        moving.command(sample, f"o{index}", at)
+
+    turning = ReachMovementController()
+    destination = {**DESTINATION, "x": 100., "y": 0.}
+    initial = _wall_state(1.)
+    turning.start(destination, initial, "t0", 1.)
+    # A turn-only command clears the uninterrupted forward window.
+    turning.forward_started_at = 1.
+    turn = turning.command(initial, "t0", 1.)[0]
+    assert turn.binding in {"TURNLEFT", "TURNRIGHT"}
+    assert turning.forward_started_at is None
+
+
+def test_a_fresh_unsampled_step_cancels_the_wall_plateau():
+    controller = ReachMovementController()
+    controller.start(DESTINATION, _wall_state(1.), "o0", 1.)
+    controller.command(_wall_state(1.), "o0", 1.)
+    for index in range(1, 120):
+        at = 1. + index/30.
+        sample = _wall_state(at, y=.08 if index % 2 else 0.)
+        result = controller.observe(sample, f"o{index}", at)
+        assert not result.terminal
+        controller.command(sample, f"o{index}", at)
+    # The next fresh point arrives before the downsampled evidence window is
+    # due to append, but it proves the character has broken free.
+    freed = _wall_state(5., y=1.)
+    assert controller.observe(freed, "freed", 5.).phase != MovementPhase.SUPPORTED_STUCK
 
 
 def test_jump_rides_a_forward_lease_as_a_transient_key(tmp_path):

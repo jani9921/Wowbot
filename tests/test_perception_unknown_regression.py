@@ -33,7 +33,7 @@ from wowbot.vision.world3d.scene import build_scene_roi
 
 
 WORLD_FIXTURE = Path(r"C:\Program Files (x86)\World of Warcraft\_retail_\Screenshots\WoWScrnShot_090826_101519.jpg")
-MINIMAP_FIXTURE = Path(r"C:\Users\<user>\AppData\Local\Temp\codex-clipboard-6ece8a7a-ef73-4cfc-b1a4-33ac09699058.png")
+MINIMAP_FIXTURE = Path(r"C:\Users\benei\AppData\Local\Temp\codex-clipboard-6ece8a7a-ef73-4cfc-b1a4-33ac09699058.png")
 
 
 def _bgra(path: Path):

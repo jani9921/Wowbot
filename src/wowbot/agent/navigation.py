@@ -15,12 +15,18 @@ import hashlib
 
 
 DESTINATION_RETRY_COOLDOWN_SECONDS = 5.0
+# ~4 yd on a zone map: the player must actually have walked this much without
+# getting closer before a destination counts as "circling".
+STALL_TRAVEL_MAP_UNITS = .004
 
 
 class AgentNavigator:
     def __init__(self):
         self.graphs = {}
         self.progress = {}
+        # key -> (last player position, map distance travelled since the
+        # last progress mark).
+        self.progress_motion = {}
         self.last_route = []
         self.blocked = {}
         self.obstacle_trials = {}
@@ -231,9 +237,23 @@ class AgentNavigator:
         if self.blocked.get(key, 0) > now:
             return False
         previous = self.progress.get(key)
+        position_of = getattr(world, "player_position", None)
+        position = position_of() if callable(position_of) else None
         if previous is None or distance < previous[0] - .0003:
             self.progress[key] = (distance, now)
-        elif now-previous[1] > 12:
+            self.progress_motion[key] = (position, 0.)
+            return True
+        last, travelled = self.progress_motion.get(key, (position, 0.))
+        if position is not None and last is not None:
+            travelled += math.hypot(position[0]-last[0], position[1]-last[1])
+        self.progress_motion[key] = (position, travelled)
+        if position is not None and travelled < STALL_TRAVEL_MAP_UNITS:
+            # Live 2026-10-06 09:42: the route was blocked after a 6 s INSPECT
+            # with the player standing still.  Standing (INSPECT, combat,
+            # loot) is no evidence of circling; restart the window.
+            self.progress[key] = (previous[0], now)
+            return True
+        if now-previous[1] > 12:
             # A lack-of-progress trend is enough to stop blindly repeating
             # this exact route, but it is not proof that the destination is
             # unreachable.  Live logs showed the former 30 s quarantine as

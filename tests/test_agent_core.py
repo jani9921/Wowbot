@@ -1421,10 +1421,13 @@ def test_entity_identity_location_role_and_state_are_separate():
 
 def test_navigation_circling_guard():
     world = WorldModel()
-    world.ingest(Observation.create(state(), 1))
+    world.ingest(Observation.create(state(position={"x": .6, "y": .8}), 1))
     nav = AgentNavigator()
     destination = {"map_id": 1609, "x": .8, "y": .8}
     assert nav.permits(world, destination, 1)
+    # Circling at a constant distance: walked, never closer.  (Standing
+    # still -- INSPECT, loot -- is not circling, live 2026-10-06.)
+    world.ingest(Observation.create(state(14., position={"x": .8, "y": .6}), 14))
     assert not nav.permits(world, destination, 14)
     assert not nav.permits(world, destination, 15)
     # The route quarantine is deliberately short: the old 30-second value

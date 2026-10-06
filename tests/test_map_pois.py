@@ -70,9 +70,13 @@ def test_api_giver_is_ignored_with_an_active_quest_or_in_combat():
 
 def test_reached_giver_area_hands_over_to_local_search_and_is_revisited_later():
     policy = MapPoiPlanningPolicy()
-    near = _world(map_pois={"available_quests": [_quest(2, 6., 0.), _quest(5, 200., 0.)]})
-    # Inside the arrival radius: no MOVE to it, the next giver is offered.
-    assert [m.parameters["quest_id"] for m in policy.quest_giver_moves(near)] == [5]
+    near = _world(map_pois={"available_quests": [_quest(2, 3., 0.), _quest(5, 200., 0.)]})
+    # Live 2026-10-06 22:12: reaching one giver must not send the agent to
+    # the next one at once (it walked 80 yd back from Henry Garrick).
+    assert policy.quest_giver_moves(near) == []
+    later_near = _world(map_pois=near.state["map_pois"],
+                        monotonic_time=1. + MapPoiPlanningPolicy.GIVER_LOCAL_SECONDS + 1.)
+    assert [m.parameters["quest_id"] for m in policy.quest_giver_moves(later_near)] == [5]
     far = _world(map_pois={"available_quests": [_quest(7, 120., 0.)]}, monotonic_time=10.)
     move = policy.quest_giver_moves(far)[0]
     policy.mark_reached(move.parameters, 20.)
@@ -148,3 +152,54 @@ def test_status_summarizes_poi_knowledge():
     assert status["available_quests"] == 1 and status["taxi_nodes"] == 0
     assert status["instance_entrances"] == [
         {"name": "Molten Core", "kind": "RAID", "journal_instance_id": 741}]
+
+
+
+def test_at_the_giver_the_soft_interact_npc_is_used_once():
+    """Live 2026-10-06 22:12: 4-5 yd from Private Cole's "!" the client's
+    soft-interact unit was Private Cole while Jaina was still targeted."""
+    soft = {"source_unit": "softinteract", "guid": "Creature-0-1-2-3-156801-01", "npc_id": 156801,
+            "name": "Private Cole", "unit_type": "NPC", "is_attackable": False, "is_dead": False}
+    policy = MapPoiPlanningPolicy()
+    world = _world(map_pois={"available_quests": [{**_quest(58914, 3.8, 0.), "is_campaign": True},
+                                                  {**_quest(55196, 90., 0.), "is_campaign": True}]},
+                   soft_targets=[soft], target={"name": "Lady Jaina Proudmoore"})
+    pickup = policy.quest_giver_moves(world)
+    assert [(m.skill, m.parameters["activation_source"], m.parameters["soft_guid"]) for m in pickup] == [
+        ("INTERACT", "SOFT_INTERACT", soft["guid"])]
+    # The same NPC is not tried again at once, and the far giver still waits.
+    again = _world(**{**world.state, "monotonic_time": 2.})
+    assert policy.quest_giver_moves(again) == []
+
+
+def test_a_giver_left_during_the_local_window_is_walked_back_to():
+    policy = MapPoiPlanningPolicy()
+    pois = {"available_quests": [_quest(2, 3., 0.), _quest(5, 200., 0.)]}
+    policy.quest_giver_moves(_world(map_pois=pois))           # reached (3 yd)
+    drifted = _world(map_pois={"available_quests": [_quest(2, 10., 0.), _quest(5, 200., 0.)]},
+                     monotonic_time=5.)
+    assert [m.parameters["quest_id"] for m in policy.quest_giver_moves(drifted)] == [2]
+
+
+def test_soft_interact_pickup_begins_without_a_matching_hard_target():
+    from wowbot.agent.models import Attempt, Prediction, Proposal as P
+    from wowbot.runtime import ActiveSkillRuntime, Intent, SkillStatus
+    from wowbot.skills.interact import InteractSkill
+    params = {"activation_source": "SOFT_INTERACT", "soft_guid": "Creature-0-1-2-3-156801-01",
+              "purpose": "PICKUP_API_QUEST"}
+    before = {"target": {"guid": "Creature-0-1-2-3-156807-01", "name": "Lady Jaina Proudmoore"},
+              "soft_targets": [{"source_unit": "softinteract", "guid": params["soft_guid"],
+                                "unit_type": "NPC", "is_attackable": False}]}
+    attempt = Attempt("a", P.make("INTERACT", "t", params), before, "o", 1., 5., (),
+                      Prediction("p", "a", "s", 1., 5., "o"))
+    state = ActiveSkillRuntime().start(intent=Intent("INTERACT", params, None, None),
+                                       attempt=attempt, now=1., before_snapshot=before)
+    started = InteractSkill().begin(state, before)
+    assert started.status is SkillStatus.RUNNING
+    assert [c.binding for c in started.commands] == ["INTERACTTARGET"]
+    opened = {**before, "gossip_ui": {"open": True, "available_quests": [{"quest_id": 58914}]}}
+    assert InteractSkill().verify(state, opened, 2.).status is SkillStatus.SUCCESS
+    gone = {**before, "soft_targets": []}
+    state2 = ActiveSkillRuntime().start(intent=Intent("INTERACT", params, None, None),
+                                        attempt=attempt, now=1., before_snapshot=before)
+    assert InteractSkill().begin(state2, gone).status is SkillStatus.FAILURE

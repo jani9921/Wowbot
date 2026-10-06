@@ -115,6 +115,10 @@ class WorldGeometryService:
         finder = getattr(self.navmesh, "walkable_heights_at", None)
         return finder(instance_id, point, radius) if callable(finder) else []
 
+    def walkable_layers_at(self, instance_id: int, point: dict, radius: float = 2.5) -> list[dict]:
+        finder = getattr(self.navmesh, "walkable_layers_at", None)
+        return finder(instance_id, point, radius) if callable(finder) else []
+
     def find_path(self, instance_id: int, start: dict, destination: dict):
         start = self._with_terrain_hint(instance_id, start)
         destination = self._with_terrain_hint(instance_id, destination)

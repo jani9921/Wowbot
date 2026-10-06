@@ -337,7 +337,7 @@ source, reachable, path_length, alternatives, evidence).
   (`walkable_points_near`); score +80 navmesh, +50 VMAP floor (a collision surface
   at the polygon), −80 VMAP surface < 2 yd above (no headroom), +30 within 10 yd of
   the player's layer, −50 more than 60 yd away, floor cue (SAME yellow dot ±8 yd:
-  +20/−20; BELOW/ABOVE arrow or lower-layer text: +20/−50), and for the 5 nearest
+  +20/−20; BELOW/ABOVE arrow or lower-layer text: +20/−50), and for up to 8
   candidates a Detour path from the own layer: +100 reachable / −100 not, −40 long
   detour (> 3x straight + 40 yd).  Confidence = score / 280.  Below 0.6 the MOVE walks
   only the first 30 yd of the route and resolves again (§12 of the user design).
@@ -355,3 +355,65 @@ cocoon dot (76.8, −2264.0) resolved to a reachable ledge at 66.6 (4.8 yd from 
 path 52.8 yd, VMAP floor, confidence 0.86) instead of the rim (94.8) the old
 "shortest reachable layer" chose.  Open: a first fix inside a cave without history
 picks by terrain (the rim) with confidence 0.5.
+
+The user-operated 11:56 cave run credited the first cocoon (1/5), then exposed
+another edge case: a real lower polygon was 4.5 yd from the sampled X/Y while
+the exact column contained only an upper rim polygon. Nearby continuity now
+searches 5 yd; if no reachable floor is found it keeps the last tracked height
+as an uncertain hypothesis (0.4) and a required 3D route fails closed. An old
+upper alternative can converge only from an ambiguous *first fix*, never from
+a broken tracked floor or a pending fall. The controller also confirms a wall
+after 4 s of fresh, nearly stationary world positions despite tiny per-frame
+distance improvements, provided forward input and running telemetry persist.
+Real-telemetry/navmesh replay is offline evidence; the second cocoon and wall
+stop still need user-operated live validation.
+
+## 14. Generic multi-floor quest routing (2026-10-06, offline only)
+
+The cocoon run exposed a general failure mode: identical map X/Y can refer to
+different walkable floors, while a minimap objective marker has no stable ID.
+The correction stays inside the common quest planner and NavigationService:
+
+- A yellow dot is a same-space location hypothesis, never object identity.
+  `QuestDotFocus` commits to one quest-associated world point through brief
+  occlusion, then performs a bounded local visual/hover search. A new dot is
+  selected only after credit/context changes or that search budget expires;
+  the old point is not retried in an endless back-and-forth loop.
+- A located ABOVE/BELOW marker requires two **different fresh capture samples**
+  and an unambiguous quest association. Its direction constrains the navmesh
+  target layer; it does not authorize a straight-line move, a guessed Z, or an
+  immediate blind downward sweep. A same-space dot for the active quest wins
+  over an unrelated floor arrow.
+- The arrow is relative to the **player's** current floor. At a stacked start
+  column it still cannot identify that floor by itself: an upper player at
+  z≈95 and a lower player at z≈40 could both see a BELOW objective (at z≈61
+  and z≈−2 respectively). The 2026-10-06 outdoor-start probe therefore also
+  requires a current boolean `movement.indoors == false` from the addon, the
+  terrain-matching upper navmesh layer, a reachable VMAP-backed target, and a
+  ≤2 s arrow sample. This only raises the upper-layer hypothesis to 0.7 for a
+  25 yd / 45 s bounded route; the lower alternative remains. A unique layer
+  reached continuously confirms it; contradiction or budget expiry stops the
+  route. Missing/unknown indoor telemetry continues to fail closed. This is
+  offline-tested, not a live-validated player Z measurement.
+- The one Z resolver retains alternative player floors on an ambiguous first
+  fix; repeated samples at the same stacked X/Y do not magically raise its
+  confidence. Target candidates preserve same-height but disconnected pockets
+  and require a complete Detour route. Zone-sweep hops and 3D search cells are
+  visited only after a fresh, nearby player-layer fix matches their Z.
+- A completed quest's known-Z turn-in point is not "arrived" from X/Y alone.
+  A reached route retains its resolved floor for the subsequent bounded NPC
+  search, preventing a visit to that same X/Y on another floor from counting.
+  Search-cell MOVE retries keep the cell Z; a same-X/Y different-Z position
+  does not mark it reached. The local turn-in search stops after 120 seconds
+  and waits for new quest, map, target-identity or floor evidence instead of
+  indefinitely replaying the same cells.
+
+Still open: when the client gives no height or floor cue for a turn-in or
+objective, the correct floor cannot be inferred from X/Y alone. Starting in a
+stacked area without movement history remains ambiguous and fails closed for
+required routes except for the bounded outdoor probe above; entrance/exit
+verification and a live, credit-confirmed
+multi-floor quest are needed before this can be called autonomous cave
+questing. The surface-label cave graph is diagnostic, not yet an authoritative
+route-layer selector. User manual movement in the source run is not agent
+success evidence.

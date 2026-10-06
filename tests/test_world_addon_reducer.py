@@ -86,6 +86,15 @@ def test_fast_addon_reducer_preserves_map_context_for_resolver_and_query() -> No
     assert model.belief("map_context", now=1.)["value"]["active_map_id"] == 1409
 
 
+def test_fast_addon_reducer_preserves_outdoor_flag_for_player_layer_probe() -> None:
+    model = WorldModel()
+    assert model.ingest(_observation({
+        "transport_kind": "FAST", "movement": {"moving": False, "speed": 0.,
+                                                  "indoors": False},
+    }, 1., "fast-outdoor"))
+    assert model.state["movement"]["indoors"] is False
+
+
 def test_fast_closed_quest_ui_invalidates_stale_full_reward_dialog() -> None:
     model = WorldModel()
     assert model.ingest(_observation({

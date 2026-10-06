@@ -15,6 +15,7 @@ from .tooltip_quest import effective_mouseover
 from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
 from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
+from .quest_dot_focus import QuestDotFocus
 
 
 
@@ -91,6 +92,58 @@ def minimap_objective_dots(state: dict, *, turn_in_yards: float = 30.,
             result.append((x, y, str(open_quests[0].get("quest_id"))))
     return result
 
+
+def minimap_vertical_objective_cues(state: dict) -> list[tuple[float, float, str, str, float]]:
+    """Located up/down arrows, with cautious quest association.
+
+    An arrow gives a *relative floor*, not an observed Z or guaranteed
+    objective identity.  With multiple nearby quest POIs, ambiguous arrows
+    remain unassociated instead of being assigned to the nearest by fiat.
+    """
+    candidate = next((item for item in state.get("visual_candidates") or ()
+                      if isinstance(item, dict) and item.get("kind") == "minimap_floor_markers"
+                      and item.get("markers")), None)
+    position = state.get("player_world_position") or {}
+    px, py = number(position.get("x")), number(position.get("y"))
+    geometry = state.get("minimap_geometry") or {}
+    view = (number(candidate.get("view_radius_yards"))
+            or number(geometry.get("view_radius_yards"))) if candidate else None
+    if candidate is None or px is None or py is None or not view:
+        return []
+    markers = [marker for marker in candidate["markers"]
+               if isinstance(marker, dict) and marker.get("floor") in {"BELOW", "ABOVE"}
+               and isinstance(marker.get("offset"), (list, tuple))
+               and len(marker["offset"]) == 2
+               and all(number(value) is not None and math.isfinite(float(value))
+                       and abs(float(value)) <= 1. for value in marker["offset"])]
+    if not markers:
+        return []
+    from wowbot.vision.minimap_quest_area import offsets_to_world
+    points = offsets_to_world([marker["offset"] for marker in markers],
+                              player_x=px, player_y=py, view_radius_yards=view,
+                              rotate=bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap"))),
+                              facing=number(state.get("orientation"))) or []
+    open_ids = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
+                if isinstance(quest, dict) and quest.get("is_complete") is not True}
+    pois = []
+    for location in state.get("quest_locations") or ():
+        where = world_point(location) if isinstance(location, dict) else None
+        if where is not None and str(location.get("quest_id")) in open_ids:
+            pois.append((str(location["quest_id"]), float(where["x"]), float(where["y"])))
+    result = []
+    for marker, (x, y) in zip(markers, points):
+        nearby = sorted((math.hypot(x-qx, y-qy), qid) for qid, qx, qy in pois
+                        if math.hypot(x-qx, y-qy) <= 150.)
+        if nearby and (len(nearby) == 1 or nearby[1][0]-nearby[0][0] >= 25.):
+            qid = nearby[0][1]
+        elif not nearby and len(open_ids) == 1 and not pois:
+            qid = next(iter(open_ids))
+        else:
+            continue
+        result.append((x, y, qid, marker["floor"],
+                       number(candidate.get("observed_at")) or number(state.get("monotonic_time")) or 0.))
+    return result
+
 class QuestLocationPlanningPolicy:
     """Resolve explicit quest locations without owning movement or input."""
 
@@ -105,11 +158,13 @@ class QuestLocationPlanningPolicy:
         self.reached_quest_locations: dict[tuple, str] = {}
         self.quest_search_regions: dict[tuple[str, int], dict] = {}
         self.map_pois = MapPoiPlanningPolicy()
-        # quest_id -> (x, y) of the API turn-in point the MOVE arrived at.
-        self.turn_in_arrivals: dict[str, tuple[float, float]] = {}
+        # quest_id -> (x, y, route z or None) of the turn-in region reached.
+        self.turn_in_arrivals: dict[str, tuple[float, float, float | None]] = {}
         from .quest_area_memory import QuestAreaMemory
         # Objective areas learned from the minimap's blue outline.
         self.quest_areas = QuestAreaMemory()
+        self.dot_focus = QuestDotFocus()
+        self._vertical_focus: dict | None = None
 
     # Live 2026-10-02 21:27: the turn-in POI (-423, -2611) lay ~14 yd from
     # Jaina.  The MOVE arrived within 6 yd, was proposed again, made no more
@@ -189,7 +244,11 @@ class QuestLocationPlanningPolicy:
             if (location.get("purpose") == "LOCATE_TURN_IN_REGION"
                     and location.get("coordinate_space") == "WORLD_YARDS"
                     and x is not None and y is not None):
-                self.turn_in_arrivals[str(location["quest_id"])] = (x, y)
+                z = (number(location.get("z"))
+                     if (location.get("z_known") is not False
+                         and (number(location.get("z_confidence")) or 0.) >= .7)
+                     else None)
+                self.turn_in_arrivals[str(location["quest_id"])] = (x, y, z)
         self.map_pois.mark_reached(location, number(state.get("monotonic_time")) or 0.)
 
     @staticmethod
@@ -221,12 +280,25 @@ class QuestLocationPlanningPolicy:
         if (position.get("instance_id") is not None and destination.get("instance_id") is not None
                 and str(position["instance_id"]) != str(destination["instance_id"])):
             return False
+        # A turn-in pin can share X/Y with a cave floor.  If the waypoint
+        # carries a trusted height, proximity on the wrong floor is not
+        # arrival and must not switch MOVE to NPC search.
+        arrived = self.turn_in_arrivals.get(str(quest_id))
+        nearby_arrival = (arrived is not None and math.hypot(arrived[0]-dx, arrived[1]-dy) <= 5.)
+        player_z, target_z = number(position.get("z")), number(destination.get("z"))
+        if target_z is None and nearby_arrival and len(arrived) > 2:
+            target_z = arrived[2]
+        if (player_z is not None and target_z is not None
+                and position.get("z_known") is not False
+                and (position.get("z_observed") is True
+                     or (number(position.get("z_confidence")) or 0.) >= .7)
+                and destination.get("z_known") is not False
+                and abs(player_z-target_z) > 5.):
+            return False
         distance = math.hypot(px-dx, py-dy)
         if distance <= self.TURN_IN_ARRIVED_YARDS:
             return True
-        arrived = self.turn_in_arrivals.get(str(quest_id))
-        return (arrived is not None and math.hypot(arrived[0]-dx, arrived[1]-dy) <= 5.
-                and distance <= self.TURN_IN_SEARCH_RADIUS_YARDS)
+        return bool(nearby_arrival and distance <= self.TURN_IN_SEARCH_RADIUS_YARDS)
 
     OBJECTIVE_AREA_ARRIVED_YARDS = 20.
 
@@ -279,9 +351,26 @@ class QuestLocationPlanningPolicy:
                    if isinstance(item, dict) and "MINIMAP" in str(item.get("source") or "")]
         labels = {str(label).lower() for item in minimap for label in item.get("candidate_labels") or ()}
         below_cue = "objective_below_like" in labels
+        above_cue = "objective_above_like" in labels
         same_space = "same_space_like" in labels or any(
             str(dot[2]) == str(qid) for dot in minimap_objective_dots(state))
-        if not below_cue and same_space:
+        focus = self.dot_focus.focus
+        now = number(state.get("monotonic_time"))
+        if (focus is not None and focus.quest_id == str(qid) and now is not None
+                and (now-focus.last_seen <= self.dot_focus.BLIND_SECONDS
+                     or (focus.search_started is not None
+                         and now-focus.search_started < self.dot_focus.LOCAL_SEARCH_SECONDS))):
+            # The player arrow can cover the committed yellow dot for a few
+            # frames.  Do not reintroduce a lower-floor sweep in that gap.
+            same_space = True
+        # An unrelated lower-floor marker must not veto a same-space dot for
+        # this quest.  In a multi-objective cave both can appear together.
+        if same_space:
+            return None
+        if above_cue or any(item.get("kind") == "minimap_floor_markers" and item.get("markers")
+                            for item in minimap):
+            # A located floor cue is handled by the directional route below.
+            # In particular, ABOVE must never start a blind downward sweep.
             return None
         key = (str(qid), round(number(destination.get("x")) or 0.), round(number(destination.get("y")) or 0.))
         try:
@@ -314,6 +403,13 @@ class QuestLocationPlanningPolicy:
                 "instance_id": destination.get("instance_id"),
                 "map_id": destination.get("map_id"),
                 "radius": self.TURN_IN_SEARCH_AREA_YARDS}
+        z = number(destination.get("z"))
+        if z is None:
+            arrived = self.turn_in_arrivals.get(str(quest_id))
+            if arrived is not None and math.hypot(arrived[0]-area["x"], arrived[1]-area["y"]) <= 5.:
+                z = arrived[2] if len(arrived) > 2 else None
+        if z is not None:
+            area["z"] = z
         return Proposal.make(
             "SEEK_VISUAL_CUE",
             "Leadási hely elérve: a leadó NPC (?) keresése körbenézéssel és a környék bejárásával",
@@ -471,6 +567,7 @@ class QuestLocationPlanningPolicy:
     # walking player back; 15 yd is inside Charge's 8-25 yd band, and the
     # minimap dot is only ~5 yd/px precise at the default zoom anyway.
     DOT_ARRIVED_YARDS = 15.
+    DOT_OBJECT_YARDS = 6.
     DOT_ASSOCIATION_YARDS = 150.
     DOT_TURN_IN_YARDS = 30.
     LOCAL_AREA_FOCUS_SECONDS = 120.
@@ -497,7 +594,7 @@ class QuestLocationPlanningPolicy:
             focus.pop(other)
         return local if now - started <= self.LOCAL_AREA_FOCUS_SECONDS else None
 
-    def minimap_dot_move(self, world) -> Proposal | None:
+    def minimap_dot_move(self, world, *, preferred_quest: str | None = None) -> Proposal | None:
         """Walk to the nearest yellow quest-objective dot on the minimap.
 
         User 2026-10-04: Captain Garrick (Enhanced Combat Tactics) showed as
@@ -516,26 +613,146 @@ class QuestLocationPlanningPolicy:
             return None
         position = state.get("player_world_position") or {}
         px, py = number(position.get("x")), number(position.get("y"))
+        if px is None or py is None:
+            return None
         candidates = minimap_objective_dots(state, turn_in_yards=self.DOT_TURN_IN_YARDS,
                                             association_yards=self.DOT_ASSOCIATION_YARDS)
-        if not candidates:
+        now = number(state.get("monotonic_time")) or 0.
+        focus = self.dot_focus.select(state, candidates, x=px, y=py, now=now,
+                                      preferred_quest=preferred_quest)
+        if focus is None:
             return None
-        dx, dy, quest_key = min(candidates, key=lambda item: math.hypot(item[0]-px, item[1]-py))
-        if math.hypot(dx-px, dy-py) <= self.DOT_ARRIVED_YARDS:
-            return None        # there: local hover/tooltip search identifies the NPC
+        dx, dy, quest_key = focus.x, focus.y, focus.quest_id
         quest_id = next((quest.get("quest_id") for quest in open_quests
                          if str(quest.get("quest_id")) == quest_key), quest_key)
+        from .object_interaction_flow import open_object_objective
+        # A quest object (cocoon) must be close enough to be seen and used.
+        stop = (self.DOT_OBJECT_YARDS if open_object_objective(state, quest_id)
+                else self.DOT_ARRIVED_YARDS)
+        if math.hypot(dx-px, dy-py) <= stop:
+            self.dot_focus.arrived(now)
+            return None        # there: the local hover/tooltip/object search takes over
         return Proposal.make(
             "MOVE", "Sárga quest-pötty a minimapon: odamegyek, ott azonosítom az NPC-t",
             {"x": round(dx, 1), "y": round(dy, 1), "coordinate_space": "WORLD_YARDS",
              "instance_id": position.get("instance_id"), "map_id": state.get("map_id"),
              "quest_id": quest_id, "purpose": "APPROACH_MINIMAP_QUEST_DOT",
-             "stop_distance": self.DOT_ARRIVED_YARDS, "require_navmesh": True,
+             "stop_distance": stop, "require_navmesh": True,
              # Yellow without an arrow: the objective is on our floor (the Z
              # resolver prefers that layer, user 2026-10-06).
              "floor_hint": "SAME",
-             "dot_world": [round(dx, 1), round(dy, 1)]},
+             "dot_world": [round(dx, 1), round(dy, 1)],
+             "quest_dot_key": f"{quest_key}:{round(focus.selected_at, 3)}"},
             confidence=.7, priority=88)
+
+    def minimap_vertical_move(self, world, *, preferred_quest: str | None = None) -> Proposal | None:
+        """Route to an arrowed objective through connected navmesh floors."""
+        state = world.state
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if px is None or py is None or (state.get("target") or {}).get("guid"):
+            return None
+        now = number(state.get("monotonic_time")) or 0.
+        same = self.dot_focus.focus
+        if same is not None and (preferred_quest is None or same.quest_id == preferred_quest):
+            self._vertical_focus = None
+            return None
+        cues = minimap_vertical_objective_cues(state)
+        focus = self._vertical_focus
+        context = (state.get("session_id"), state.get("map_id"), position.get("instance_id"))
+        if (focus is not None and (focus["context"] != context
+                                  or QuestDotFocus._progress(state, focus["quest_id"]) != focus["progress"]
+                                  or (preferred_quest is not None and focus["quest_id"] != preferred_quest))):
+            focus = self._vertical_focus = None
+        if focus is not None:
+            opposite = any(qid == focus["quest_id"] and floor != focus["floor"]
+                           and math.hypot(x-focus["x"], y-focus["y"]) <= 14.
+                           and stamp > focus["sample_at"]
+                           for x, y, qid, floor, stamp in cues)
+            if opposite:
+                # A fresh floor-direction reversal is an explicit context
+                # change, unlike an arrow disappearing for one frame.
+                focus = self._vertical_focus = None
+        if focus is not None:
+            matching = [(math.hypot(x-focus["x"], y-focus["y"]), x, y, stamp)
+                        for x, y, qid, floor, stamp in cues
+                        if qid == focus["quest_id"] and floor == focus["floor"]
+                        and math.hypot(x-focus["x"], y-focus["y"]) <= 14.]
+            if matching:
+                _, x, y, stamp = min(matching)
+                if stamp > focus["sample_at"]:
+                    focus["hits"] += 1
+                    focus["sample_at"] = stamp
+                    focus["last_seen"] = now
+                    focus["x"], focus["y"] = .7*focus["x"]+.3*x, .7*focus["y"]+.3*y
+            elif now-focus["last_seen"] > 8.:
+                focus = self._vertical_focus = None
+        if focus is None:
+            available = [(math.hypot(x-px, y-py), x, y, qid, floor, stamp)
+                         for x, y, qid, floor, stamp in cues
+                         if preferred_quest is None or qid == preferred_quest]
+            if not available:
+                return None
+            _, x, y, qid, floor, stamp = min(available)
+            focus = self._vertical_focus = {"x": x, "y": y, "quest_id": qid, "floor": floor,
+                                           "sample_at": stamp, "last_seen": now, "hits": 1,
+                                           "context": context,
+                                           "progress": QuestDotFocus._progress(state, qid)}
+        if focus["hits"] < 2:
+            return None
+        return Proposal.make(
+            "MOVE", "Minimap fel/le quest-jel: összefüggő 3D útvonal a jelzett szintre",
+            {"x": round(focus["x"], 1), "y": round(focus["y"], 1),
+             "coordinate_space": "WORLD_YARDS", "instance_id": position.get("instance_id"),
+             "map_id": state.get("map_id"), "quest_id": focus["quest_id"],
+             "purpose": "APPROACH_MINIMAP_OTHER_FLOOR_OBJECTIVE",
+             "floor_hint": focus["floor"], "require_navmesh": True, "stop_distance": 6.,
+             "floor_cue_observed_at": focus["sample_at"]},
+            confidence=.7, priority=82,
+            evidence=("minimap_floor_arrow", "navmesh_route_required"))
+
+    def _minimap_dot_local_search(self, state: dict) -> Proposal | None:
+        """At the committed dot, search its own room before another dot/level.
+
+        A yellow marker is location evidence, not object identity.  The
+        existing SEEK/hover/tooltip and quest-credit stages still own that.
+        """
+        focus = self.dot_focus.focus
+        if focus is None or focus.search_started is None or (state.get("target") or {}).get("guid"):
+            return None
+        now = number(state.get("monotonic_time")) or 0.
+        if now-focus.search_started >= self.dot_focus.LOCAL_SEARCH_SECONDS:
+            return None
+        quest = next((quest for quest in state.get("active_quests") or ()
+                      if isinstance(quest, dict) and str(quest.get("quest_id")) == focus.quest_id), None)
+        if quest is None or quest.get("is_complete") is True:
+            return None
+        objective = next((item for item in quest.get("objectives") or ()
+                          if isinstance(item, dict) and not item.get("is_complete")), None)
+        if objective is None:
+            return None
+        if not self.dot_focus.permit_local_search(now):
+            return None
+        from .quest_semantics import world_object_subjects
+        object_goal = str(objective.get("raw_type") or "").lower() == "object"
+        subjects = world_object_subjects(objective) if object_goal else []
+        query = (subjects[0] if subjects else str(objective.get("description") or "quest objective"))
+        area = {"x": focus.x, "y": focus.y, "radius": 18.,
+                "instance_id": focus.instance_id, "map_id": focus.map_id,
+                "coordinate_space": "WORLD_YARDS", "floor_hint": "SAME"}
+        return Proposal.make(
+            "SEEK_VISUAL_CUE", "Elért sárga quest-pötty: helyi célkeresés ugyanazon a szinten",
+            {"source": "WORLD3D", "kind": "active_visual_search",
+             "purpose": "SEARCH_LOCAL_OBJECT" if object_goal else "SEARCH_LOCAL_OBJECTIVE_AREA",
+             "search_capability": "SEARCH_LOCAL_OBJECT" if object_goal else "SEARCH_LOCAL_ENTITY",
+             "query": query, "expected_tooltips": subjects,
+             "search_area": area, "quest_id": quest.get("quest_id"),
+             "objective_id": objective.get("objective_id"),
+             "objective_type": objective.get("type"), "scan_budget": 4,
+             "time_budget": min(22., self.dot_focus.LOCAL_SEARCH_SECONDS-(now-focus.search_started)),
+             "quest_dot_key": f"{focus.quest_id}:{round(focus.selected_at, 3)}"},
+            confidence=.75, priority=86,
+            evidence=("same_space_quest_dot_arrived", "identity_not_yet_confirmed"))
 
     def propose_known_locations(
         self, world, runtime_map_scan_started: float | None = None,
@@ -544,10 +761,17 @@ class QuestLocationPlanningPolicy:
         state = world.state
         result: list[Proposal] = []
         local_quest = self._local_area_focus(state)
-        dot_move = self.minimap_dot_move(world)
+        dot_move = self.minimap_dot_move(world, preferred_quest=local_quest)
         if dot_move is not None and (local_quest is None
                                      or str(dot_move.parameters.get("quest_id")) == local_quest):
             result.append(dot_move)
+        elif dot_move is None:
+            local_dot_search = self._minimap_dot_local_search(state)
+            if local_dot_search is not None:
+                result.append(local_dot_search)
+        vertical_move = self.minimap_vertical_move(world, preferred_quest=local_quest)
+        if vertical_move is not None:
+            result.append(vertical_move)
         searched: list[tuple[float, float]] = []
         for location in state.get("quest_locations", []):
             where = point(location)

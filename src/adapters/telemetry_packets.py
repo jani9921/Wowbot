@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import base64
+import math
 import zlib
 import time
 
@@ -145,6 +146,24 @@ class PacketAssembler:
         self.full_received_at = 0.
         self.last_fast_payload = {}
 
+    def _restore_timestamp(self, value: dict) -> None:
+        """Live 2026-10-06 09:42 (hunter pet tooltip): the bounded FAST
+        variants carry no epoch ``timestamp``.  WorldModel read 0 < latest
+        and dropped every packet as out-of-order for 25 s while the receive
+        clock still looked fresh: the agent stood frozen.  Rebuild it from the
+        last stamped sample and the addon's own monotonic clock, floored so
+        it never runs ahead of the addon's integer-second ``time()``."""
+        if value.get("timestamp") is not None:
+            return
+        anchor = (self.last_fast_payload if self.last_fast_payload.get("timestamp") is not None
+                  else self.full or {})
+        if anchor.get("timestamp") is None:
+            return
+        base = _num(anchor.get("timestamp"))
+        delta = _num(value.get("monotonic_time"), None), _num(anchor.get("monotonic_time"), None)
+        elapsed = max(0., delta[0]-delta[1]) if None not in delta else 0.
+        value["timestamp"] = math.floor(base + elapsed)
+
     def feed(self, payload: str, now: float | None = None) -> dict | None:
         now = time.monotonic() if now is None else now
         parts = payload.split("|", 6)
@@ -164,6 +183,7 @@ class PacketAssembler:
             if not isinstance(value, dict):
                 raise ValueError("AIPC5 FAST must be object")
             _complete_fast_sample(value)
+            self._restore_timestamp(value)
             self.last_fast = seq
             self.last_fast_payload = value
             if self.full is None:

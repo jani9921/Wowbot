@@ -204,6 +204,8 @@ class VisualInspectionPolicy:
         }
 
         from .quest_giver_evidence import subject_has_quest_symbol
+        from .object_interaction_flow import only_object_objectives_open
+        objects_only = only_object_objectives_open(world.state)
         world3d = [item for item in world.state.get("visual_candidates") or ()
                    if isinstance(item, dict) and item.get("source") == "WORLD3D"]
         for marker in markers:
@@ -313,6 +315,9 @@ class VisualInspectionPolicy:
             # hovered).  The hover itself verifies identity by GUID.
             symbol_subject = (marker.get("source") == "WORLD3D"
                               and subject_has_quest_symbol(marker, world3d))
+            if (learned_subject and not (supported_overhead or symbol_subject)
+                    and not marker.get("quest_related") and objects_only):
+                continue
             minimum_scale = .05 if supported_overhead or symbol_subject else .09
             if (not on_map and "subject" in str(kind)
                     and visual_scale is not None and visual_scale < minimum_scale):

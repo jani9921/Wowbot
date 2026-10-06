@@ -32,10 +32,10 @@ reading, injection or secret-value bypasses.
 reference. It is **not** selected automatically: choose a cache explicitly in
 the GUI, and verify it matches the bindings of the running WoW client. On a
 new machine, the addon export can create a fresh cache for that client.
-Wow Options : Interact target F7
-            :Enable interact key
-            Sticky targeting
-            
+
+WoW-beállítások: `Interact Target` = F7, `Enable Interact Key` bekapcsolva,
+`Sticky Targeting` bekapcsolva.
+
 ## Verziók
 Minden nagyobb javítás vagy implementáció előtt a GitHubon lévő állapot verziócímkét (git tag)
 kap, így egy jól működő korábbi verzió bármikor elővehető:
@@ -67,7 +67,92 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-05</b> — 9 új funkció, 26 javítás</summary>
+<summary><b>2026-10-06</b> — 4 új funkció, 18 javítás</summary>
+
+#### Új funkciók / implementációk
+- ✅ **A barlangos quest („Who Lurks in the Pit”) élőben végig lement** (21:41, ~13 perc): 5/5 gubó, Hrun megölve,
+  Ralia. Gyenge teljesítménnyel és kézi segítséggel — a funkció (Z resolver + többszintes quest) **átnézendő,
+  átgondolandó, optimalizálandó** (lásd KNOWN_ISSUES, „Átnézendő”).
+- ✅ **Gubó-kezelés átvéve a munkapéldányból** (`uj-mappa-2026-09-28-1918`, a felhasználó által ChatGPT-vel
+  fejlesztett változat, a `projekt` 09:57-es másolatára építve): egy kiválasztott sárga pöttyhöz ragaszkodik (a
+  karakter nyila eltakarhatja), odaérve helyben keres; a fel/le nyíl két friss mintával, összefüggő navmesh-útvonallal
+  vezet a jelzett szintre; az addon FAST csomagja viszi a gubó nevét és az `indoors` jelzést; az OBJECT_USE hover →
+  friss minta → jobb klikk → F7 tartalék. Élőben (20:07, munkapéldány) egy gubó: **0/5 → 1/5**.
+- 🧪 **Falnak futás:** 4 mp egy helyben, folyamatos előre-gombbal → elakadt, a kiszabadító lépés indul.
+- 🧪 **Útvonal a járható sáv közepén** (Detour DLL, C++): minden portálon át pont, a fal/szakadék szélétől 1,5 yd-ra,
+  sűrűbb pontok (spirál: 56 → 83 pont); a köztes pontot 2,5 yd-on belül veszi el.
+
+#### Bug fixes
+- 🧪 **Kinyitott gubó, mégis „nem kapott kreditet”** (munkapéldány 20:07: a kredit 2 mp-cel a határidő után jött a
+  teljes állapotban, a FAST csomagból kimaradt; 15 mp-ig tiltotta a következő gubót). → Kattintás/F7 után kivárja
+  az utána mintavételezett teljes állapotot (legfeljebb +10 mp), csak akkor mondja sikertelennek.
+- 🧪 **Megállt egy hunter petet hoverelni, tovább nem ment a spirálról** (09:42). A pet hosszú neve miatt a FAST
+  csomag a tartalék változatra váltott, abban nincs időbélyeg; a WorldModel 0-t látott, „régi csomagnak” vette, és
+  25 mp-ig minden csomagot eldobott, miközben a telemetria frissnek látszott. → Az összerakó pótolja az időbélyeget,
+  a WorldModel nem dobja el az időbélyeg nélkülit.
+- 🧪 **„Az út ideiglenesen tiltva” egy INSPECT után:** a 12 mp-es „nem közeledik” szabály az álldogálást (hover,
+  harc, loot) is körözésnek vette. → Csak akkor tiltja a célt, ha a karakter ténylegesen ment (≥ ~4 yd), de nem
+  közeledett.
+- 🧪 **Gubós feladat alatt pet, pók, fáklya hoverelése:** ha minden nyitott objective tárgy (gubó), a creature-doboz
+  nem szakítja meg a mozgást és nem kap INSPECT-et (quest-jeles egység továbbra is igen).
+- 🧪 **A barlangban indított agent nem mozdult (`ambiguous_player_layer`, 3 bukás → 45 mp WAIT).** Az első
+  szint-becslés a peremet (z≈98) választotta a 45–60-as barlangszint helyett, és bizonytalan szintről minden MOVE
+  azonnal elbukott. → Ha az addon szerint bent vagyunk (`indoors`) és a terepnek megfelelő legfelső szint alatt
+  8+ yd-dal vannak padlók, a felszín nem lehet a szintünk; bizonytalan szintnél 12 yd-os próbaszakaszt megy a
+  legvalószínűbb szintről (nem a teljes utat), a mozgás közben kizárja a lehetetlen szinteket. Visszajátszás
+  (20:08): 60,5 → 55,4 → 51,3 → 48,0, bizonyosság 0,95.
+
+- 🧪 **Gubó „You are too far away.”** (21:16, egy szinttel lejjebb lévő gubó; kétszer 8 mp várakozás, aztán
+  otthagyta). → A hibaüzenetre azonnal OUT_OF_RANGE; 6 mp-ig nem kattint újra, hanem a gubó-doboz felé közelít, a
+  „közel vagyok” dobozméret minden ilyen hibánál 25 %-kal nő (sikeres nyitásnál a doboz ~0,19–0,24 magas volt).
+- 🧪 **Gubó mozgás közben: „elavult nézet”, 15 mp tiltás, otthagyta** (21:17). → Megvárja, hogy a karakter megálljon,
+  újra rámutat ugyanoda és friss azonosítást kér (legfeljebb kétszer); ilyen átmeneti hibák után az OBJECT_USE csak
+  2–5 mp-ig szünetel, nem 15-ig.
+- 🧪 **Jobb klikk után a kliens odafordította/odaléptette a karaktert, de a nyitás nem indult** (21:15, 15 mp várakozás).
+  → Megálláskor egyszer újra kattint oda, ahol friss minta szerint a gubó van az egér alatt (csak ha a karakter
+  nézete változott; ha csak az egér mozdult, nem).
+- 🧪 **Felszaladt a bejárathoz, majd vissza** (21:16, 32 mp). Egy magasság nélküli keresési cellát a resolver a
+  peremre tett. → A keresési rács a játékos szintjén keres (`floor_hint: SAME`); barlangban a csak más szinten
+  (15+ yd) elérhető cellát kihagyja.
+
+- 🧪 **A bejárat alatti lejtőn oda-vissza fordult 30 mp-ig** (21:29). A lejtő fölé benyúlik a perem navmesh-poligonja;
+  a szint-követés a peremet (z 93,5) tartotta, miközben a karakter a lejtőn (~78) ment, így a következő útvonalpontot
+  „másik szintnek” vette, nem hagyta el, és a vezérlő 3D-ben a végső cél magasságával mért (15,9 yd egy 1 yd-ra lévő
+  pontig). → Ha két szint is lehetséges, a követett útvonal magassága dönt; a köztes pont a saját magasságát kapja;
+  ha a karakter már egy későbbi szakaszon jár, a kihagyott pont elhagyottnak számít (nem fordul vissza).
+- 🧪 **A spirálon a szakadék szélén ment** (felhasználó). A legrövidebb út a kanyar belső (szakadék felőli) szélére
+  simul. → Detour DLL: minden útvonalpontot a legközelebbi navmesh-széltől (fal vagy szakadék) 2,5 yd-ra tol a
+  sétányon belül; a köztes pontot 1,5 yd-on belül veszi el (a 2,5 yd a kanyarokat a szakadék felé vágta).
+
+- 🧪 **A quest kész után visszaindult a gödörbe** (21:54, taxi után). A célpont (Ralia) ismeretlen magasságát a REACH_OBJECT
+  0-ra írta; a navigáció ezt ismert z=0-nak vette (a gödör alja). → Ismeretlen magasságnál a navigáció dönt, a saját
+  szintet előnyben részesítve.
+- 🧪 **Felfelé nyílnál a gubó alá ment** (21:44): a „feljebb” szűrő 3 yd-ot kért, így ugyanazon a padlón 3 yd-dal
+  magasabb pontot választott. → Legalább 6 yd (egy emelet).
+- 🧪 **30× azonnal „sikeres” bejárási MOVE ugyanarra a peremi pontra** (21:44, 4 mp): a navigáció elhagyottnak
+  ítélte a pontot, de a bejárás nem jegyezte fel. → A döntés a bejárásba is bekerül.
+- 🧪 **Útközben 7× azonnal bukott a MOVE `ambiguous_player_layer` miatt.** → 4 mp türelem: addig a tervezett
+  útvonalon megy (az útvonal segít tisztázni a szintet).
+
+- 🧪 **Addon 0.9.58 — a teljes állapot ritkán állt össze** (21:41: 199 / ~880; a tooltip, a quest-kredit és az
+  események másodpercekkel késtek, sok INSPECT emiatt bukott). Ok: minden ~6 oldalas állapotot csak egyszer
+  mutatott, a képkockák ~20 %-a nem jut el hozzánk, egy elveszett oldal sosem jött újra. → Minden állapotot legalább
+  kétszer mutat, és minden 4. csomag állapot-oldal (eddig minden 6.). Szimuláció: összeállás 23 % → ~78 %,
+  leghosszabb kiesés 12 mp → 3 mp; a FAST kb. 10 %-kal ritkább. Telepítve a WoW mappába; `/reload` kell.
+
+- 🧪 **Quest nélkül két „!” quest-adó között ingázott, egyiknél sem vette fel a questet** (22:12; Private Cole
+  58914 és Henry Garrick 55196). Cole „!”-jánál a kijelölt Lady Jainát próbálta egy percig (nem válaszolt), Henry
+  Garricknál 8,5 yd-ra „megérkezett”, és azonnal visszaindult 80 yd-ot Cole-hoz. → Az „!” pontot 4 yd-ig közelíti
+  meg (7–9 yd-ról a mellette álló Richter volt a soft-interact célpont, 4–5 yd-ról Cole); ott a kliens soft-interact
+  NPC-jét az interact gombbal szólítja meg (NPC-nként egyszer, hard target nélkül, a quest/gossip ablak a siker);
+  a pontnál a soft-interact NPC megelőzi a korábban kijelölt egységet; odaérés után 10 mp-ig nem indul a másik
+  adóhoz.
+- ✅ **Addon 0.9.58 élőben:** 3653 oldal / 229 teljes állapot (16 oldal/állapot; előtte 22) — kb. 75 % összeállás.
+
+</details>
+
+<details>
+<summary><b>2026-10-05</b> — 9 új funkció, 27 javítás</summary>
 
 #### Új funkciók / implementációk
 - 🧪 **Telepítő – helyi MI lépés:** megerősítés után telepíti az Ollamát (winget), elindítja és
@@ -131,6 +216,12 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 ##### Navigáció: gödör/barlang, quest-zóna
 - ✅ **A zóna-bejárás szakaszai érkezéskor lezárulnak** (élőben 2026-10-06: a szakaszok ~2 mp alatt sikeresek,
   nincs többé körbeforgás).
+- 🧪 **A spirálon „leesett”, előre-hátra szaladgált, a gubó fölött egy helyben forgott.** Az ugrásokat és a lejtőn
+  lefelé futást is esésnek vette, és egy 1 mp-es „esésből” 90 yarddal lejjebb (a gödör aljára) tette magát; utána
+  a peremre; így a 60,8-as gubó-párkány 35 yarddal alatta volt, miközben vízszintesen rajta állt. → Az esést a
+  következő minták alapján dönti el (ha a régi padló még alatta van, ugrás volt; legfeljebb 40 yardos esés); MOVE
+  nélkül is követi a szintet; poligon-szélen a környék padlóját tartja; más szinten lévő útvonalpontot nem vesz
+  elhagyottnak; ha vízszintesen a célon áll, de más szinten, nem forog tovább; a bejárás átugrott szakaszai készek.
 - 🧪 **Z resolver (a felhasználó terve szerint):** egyetlen helyen dől el a karakter saját szintje (a navmesh
   szintjei + folytonosság + esés) és a célpontok magassága: járható navmesh-poligon, VMAP-padló (és elég
   belmagasság), útvonallal elérhető a mostani szintről, a minimap-pötty szintjelzése szerint; bizonytalan célnál

@@ -422,6 +422,59 @@ class AutonomousLoop:
                 if self.commitment:
                     self.commitment.last_updated = now
                 return chosen
+        # Live 2026-10-06: after a DEFEND kill the planner already offered a
+        # confirmed own-corpse LOOT (priority 108), yet an interrupted
+        # minimap-dot LOCATION commitment resumed MOVE for 4.8 seconds first.
+        # A fresh, owned corpse must interrupt unrelated navigation before
+        # its screen anchor becomes stale.  This is not a generic dead-target
+        # guess: CombatPlanning supplied exact GUID + confirmed corpse anchor.
+        if not world.state.get("is_in_combat"):
+            corpse_actions = [proposal for proposal in proposals
+                              if proposal.skill in {"LOOT", "VISUAL_APPROACH"}
+                              and proposal.parameters.get("corpse_anchor") is True
+                              and proposal.parameters.get("guid", proposal.parameters.get("corpse_guid"))
+                              and world.corpse_is_owned(
+                                  proposal.parameters.get("guid", proposal.parameters.get("corpse_guid")), now)]
+            if corpse_actions:
+                chosen = max(corpse_actions, key=lambda proposal: (proposal.priority,
+                                                                    proposal.confidence))
+                self._set_phase(self._phase_for(chosen.skill, bool(self.commitment)), now,
+                                "confirmed_own_corpse_preempts_navigation")
+                if self.commitment:
+                    self.commitment.last_updated = now
+                return chosen
+            # A screen-space object has been named by addon mouseover on the
+            # current cursor.  The destination LOCATION commitment has done
+            # its job; it must not keep returning a map-relocation WAIT while
+            # the quest cocoon is literally under the pointer (12:53 live).
+            from .tooltip_quest import effective_mouseover
+            from .models import number
+            cursor = world.state.get("cursor_position") or {}
+            mouse = effective_mouseover(world.state)
+            observed_identity = mouse.get("tooltip") or mouse.get("name")
+            object_actions = [proposal for proposal in proposals
+                              if proposal.skill == "OBJECT_USE"
+                              and proposal.parameters.get("activation_source") != "INTERACT_KEY"
+                              and proposal.parameters.get("mouseover_tooltip")
+                                  == observed_identity
+                              and (mouse.get("tooltip") or
+                                   (mouse.get("quest_related") is True
+                                    and any(str(mouse.get("quest_id")) == str(qid)
+                                            for qid in proposal.parameters.get("quest_ids") or ())))
+                              and None not in (number(cursor.get("nx")),
+                                               number(cursor.get("ny")),
+                                               number(proposal.parameters.get("x")),
+                                               number(proposal.parameters.get("y")))
+                              and abs(number(cursor["nx"])-number(proposal.parameters["x"])) <= .004
+                              and abs(number(cursor["ny"])-number(proposal.parameters["y"])) <= .004]
+            if object_actions:
+                chosen = max(object_actions, key=lambda proposal: (proposal.priority,
+                                                                     proposal.confidence))
+                self._set_phase(self._phase_for(chosen.skill, bool(self.commitment)), now,
+                                "confirmed_quest_object_preempts_navigation")
+                if self.commitment:
+                    self.commitment.last_updated = now
+                return chosen
         if self.commitment:
             if self.commitment.session_id != world.session_id:
                 self._release("SESSION_CHANGED", now, "committed_session_changed")

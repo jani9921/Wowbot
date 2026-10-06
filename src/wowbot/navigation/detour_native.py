@@ -56,6 +56,14 @@ def load_library(path: Path = DLL_PATH):
                                        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_ulonglong)]
     lib.aipc_nav_poly_height.restype = ctypes.c_int
     lib.aipc_nav_poly_height.argtypes = [ctypes.c_void_p, ctypes.c_ulonglong, f3, f3]
+    # 2026-10-06: a path along the middle of the walkway (user: "the
+    # character walked down along the cave wall and fell off the spiral").
+    if hasattr(lib, "aipc_nav_find_path_centered"):
+        lib.aipc_nav_find_path_centered.restype = ctypes.c_int
+        lib.aipc_nav_find_path_centered.argtypes = [
+            ctypes.c_void_p, f3, f3, f3, ctypes.c_ushort, ctypes.c_ushort, ctypes.c_int, ctypes.c_float,
+            f3, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_ulonglong)]
     # 2026-10-06 (Z resolver): layer and polygon queries; an older DLL lacks them.
     for name in ("aipc_nav_layers_at", "aipc_nav_polys_near"):
         if hasattr(lib, name):
@@ -108,13 +116,19 @@ class NativeDetourMap:
             self.handle = None
 
     def find_path(self, start: tuple, end: tuple, *, extents: tuple, include: int,
-                  exclude: int = 0) -> tuple[int, list[tuple[float, float, float]], int, tuple[int, int]]:
+                  exclude: int = 0, margin: float | None = None,
+                  ) -> tuple[int, list[tuple[float, float, float]], int, tuple[int, int]]:
         points = (ctypes.c_float * (MAX_POINTS * 3))()
         count, poly_count = ctypes.c_int(0), ctypes.c_int(0)
         refs = (ctypes.c_ulonglong * 2)()
-        code = self.lib.aipc_nav_find_path(
-            self.handle, _vec(start), _vec(end), _vec(extents), include, exclude, MAX_POLYS,
-            points, MAX_POINTS, ctypes.byref(count), ctypes.byref(poly_count), refs)
+        if margin is not None and hasattr(self.lib, "aipc_nav_find_path_centered"):
+            code = self.lib.aipc_nav_find_path_centered(
+                self.handle, _vec(start), _vec(end), _vec(extents), include, exclude, MAX_POLYS,
+                float(margin), points, MAX_POINTS, ctypes.byref(count), ctypes.byref(poly_count), refs)
+        else:
+            code = self.lib.aipc_nav_find_path(
+                self.handle, _vec(start), _vec(end), _vec(extents), include, exclude, MAX_POLYS,
+                points, MAX_POINTS, ctypes.byref(count), ctypes.byref(poly_count), refs)
         corners = [(points[3 * i], points[3 * i + 1], points[3 * i + 2]) for i in range(count.value)]
         return code, corners, poly_count.value, (refs[0], refs[1])
 

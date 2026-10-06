@@ -10,6 +10,7 @@ class SearchCell:
     cell_id: str
     x: float
     y: float
+    z: float | None = None
     visits: int = 0
     detections: int = 0
     last_visited: float | None = None
@@ -40,7 +41,9 @@ class SearchCoveragePlanner:
                 except (KeyError, TypeError, ValueError):
                     continue
                 if math.isfinite(px) and math.isfinite(py):
-                    cells.append(SearchCell(f"{key}:explicit:{index}", px, py))
+                    pz = point.get("z")
+                    pz = float(pz) if isinstance(pz, (int, float)) and math.isfinite(pz) else None
+                    cells.append(SearchCell(f"{key}:explicit:{index}", px, py, pz))
         if not cells:
             for row in range(grid):
                 for column in range(grid):
@@ -53,12 +56,14 @@ class SearchCoveragePlanner:
                     if distance > radius:
                         scale = radius / distance
                         dx, dy = dx * scale, dy * scale
-                    cells.append(SearchCell(f"{key}:{row}:{column}", x+dx, y+dy))
+                    rz = region.get("z")
+                    rz = float(rz) if isinstance(rz, (int, float)) and math.isfinite(rz) else None
+                    cells.append(SearchCell(f"{key}:{row}:{column}", x+dx, y+dy, rz))
         self._regions[key] = {"region": dict(region), "radius": radius,
                               "cells": cells, "completed": False}
 
     def observe(self, region_id: str, *, player_x: float | None, player_y: float | None,
-                target_detected: bool, now: float) -> None:
+                target_detected: bool, now: float, player_z: float | None = None) -> None:
         data = self._regions.get(str(region_id))
         if data is None:
             return
@@ -69,6 +74,11 @@ class SearchCoveragePlanner:
             return
         threshold = data["radius"] / 4.
         for cell in data["cells"]:
+            # A cave floor directly below a visited surface point is not
+            # covered.  Unknown own Z cannot certify a Z-labelled cell.
+            if (cell.z is not None and
+                    (player_z is None or abs(player_z-cell.z) > 5.)):
+                continue
             if math.hypot(player_x-cell.x, player_y-cell.y) <= threshold:
                 cell.visits += 1
                 cell.last_visited = float(now)
@@ -89,7 +99,8 @@ class SearchCoveragePlanner:
             return None
         return bool(data["completed"] or all(cell.visits >= 1 for cell in data["cells"]))
 
-    def next_waypoint(self, region_id: str, *, player_x: float | None, player_y: float | None) -> dict | None:
+    def next_waypoint(self, region_id: str, *, player_x: float | None, player_y: float | None,
+                      player_z: float | None = None) -> dict | None:
         data = self._regions.get(str(region_id))
         if data is None or data["completed"]:
             return None
@@ -97,6 +108,8 @@ class SearchCoveragePlanner:
             distance = (math.hypot((player_x if player_x is not None else cell.x)-cell.x,
                                    (player_y if player_y is not None else cell.y)-cell.y)
                         if player_x is not None and player_y is not None else 0.)
+            if cell.z is not None and player_z is not None:
+                distance = math.hypot(distance, cell.z-player_z)
             return cell.visits, distance, cell.cell_id
         chosen = min(data["cells"], key=rank)
         if chosen.visits >= 1:
@@ -106,6 +119,9 @@ class SearchCoveragePlanner:
         result = {"x": chosen.x, "y": chosen.y, "map_id": region.get("map_id"),
                 "search_region_id": str(region_id), "search_cell_id": chosen.cell_id,
                 "purpose": "SEARCH_REGION_COVERAGE"}
+        if chosen.z is not None:
+            result.update({"z": chosen.z, "z_known": True, "z_estimated": True,
+                           "z_source": "NAVMESH_SEARCH_CELL", "layer_z": chosen.z})
         if region.get("coordinate_space") == "WORLD_YARDS":
             result.update({
                 "coordinate_space": "WORLD_YARDS",

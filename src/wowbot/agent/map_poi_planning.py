@@ -28,6 +28,24 @@ def map_poi_records(state: dict, kind: str) -> list[dict]:
     return [record for record in records or () if isinstance(record, dict)]
 
 
+def soft_interact_giver_waiting(state: dict, selected_guid: str) -> bool:
+    """At an API "!" pin (≤ SOFT_INTERACT_YARDS) another friendly NPC is the
+    client's soft-interact unit: it, not the selected unit, is the giver."""
+    point = _player_point(state)
+    if point is None:
+        return False
+    px, py, _instance = point
+    near = any(math.hypot(destination["x"]-px, destination["y"]-py)
+               <= MapPoiPlanningPolicy.SOFT_INTERACT_YARDS
+               for _distance, _record, destination in reachable_records(state, "available_quests"))
+    return near and any(
+        isinstance(row, dict) and str(row.get("source_unit") or "").casefold() == "softinteract"
+        and str(row.get("unit_type") or "").upper() in {"NPC", "CREATURE"}
+        and row.get("is_attackable") is not True and row.get("guid")
+        and str(row.get("guid")) != str(selected_guid or "")
+        for row in state.get("soft_targets") or ())
+
+
 def entrance_kind(record: dict) -> str:
     """RAID / DUNGEON from the Encounter Journal pin atlas, else UNKNOWN."""
     atlas = str(record.get("atlas_name") or "").lower()
@@ -67,7 +85,17 @@ def reachable_records(state: dict, kind: str) -> list[tuple[float, dict, dict]]:
 class MapPoiPlanningPolicy:
     """Turn API map POIs into navmesh MOVE proposals; owns no input."""
 
-    ARRIVAL_YARDS = 10.
+    # Live 2026-10-06 22:12: 7-9 yd from Private Cole's "!" the client's
+    # soft-interact unit was Quartermaster Richter next to him; at 4-5 yd it
+    # was Private Cole.  Walk right up to the giver.
+    ARRIVAL_YARDS = 4.
+    # After reaching a giver, stay with it (soft-interact pickup, local
+    # search) instead of walking to the next giver at once (live 22:12: the
+    # agent reached Henry Garrick's "!", turned round and walked 80 yd back).
+    GIVER_LOCAL_SECONDS = 10.
+    GIVER_AREA_YARDS = 15.
+    SOFT_INTERACT_YARDS = 6.
+    SOFT_RETRY_SECONDS = 30.
     # Reached without accepting a quest: the local search (World3D cue,
     # sweep, roam) owns the area; come back to this giver only later.
     REVISIT_SECONDS = 300.
@@ -156,7 +184,16 @@ class MapPoiPlanningPolicy:
         if self._settling_after_turn_in(state, now):
             return []
         result = []
-        for distance, record, destination in self._giver_candidates(state):
+        candidates = self._giver_candidates(state)
+        for row in candidates:
+            arrived = self._giver_params(row)
+            if row[0] <= self.ARRIVAL_YARDS and not self._recently_reached(arrived, now):
+                self.mark_reached(arrived, now)
+        focused = [row for row in candidates if row[0] <= self.GIVER_AREA_YARDS
+                   and self._reached_within(self._giver_params(row), now, self.GIVER_LOCAL_SECONDS)]
+        for distance, record, destination in candidates:
+            if focused and record is not focused[0][1]:
+                continue                       # stay with the giver just reached
             params = {
                 **destination,
                 "quest_id": record.get("quest_id"),
@@ -168,11 +205,18 @@ class MapPoiPlanningPolicy:
                 "stop_distance": self.ARRIVAL_YARDS,
                 "require_navmesh": True,
             }
-            if self._recently_reached(params, now):
-                continue
-            if distance <= self.ARRIVAL_YARDS:
-                # Already in the giver's area: local perception takes over.
+            if distance <= self.ARRIVAL_YARDS and not self._recently_reached(params, now):
+                # Already at the giver: the soft-interact pickup and the local
+                # perception take over.
                 self.mark_reached(params, now)
+            if distance <= self.SOFT_INTERACT_YARDS:
+                pickup = self._soft_interact_pickup(state, params, record, now)
+                if pickup is not None:
+                    result.append(pickup)
+                    continue
+            if distance <= self.ARRIVAL_YARDS:
+                continue
+            if self._recently_reached(params, now) and not focused:
                 continue
             campaign = record.get("is_campaign") is True
             params["is_campaign"] = campaign
@@ -185,6 +229,44 @@ class MapPoiPlanningPolicy:
             if len(result) >= self.MAX_ROUTES:
                 break
         return result
+
+    @staticmethod
+    def _giver_params(row) -> dict:
+        _distance, record, destination = row
+        return {**destination, "quest_id": record.get("quest_id"),
+                "location_map_x": record.get("x"), "location_map_y": record.get("y"),
+                "purpose": API_QUEST_GIVER_PURPOSE}
+
+    def _reached_within(self, params: dict, now: float, seconds: float) -> bool:
+        reached = self.reached_at.get(self.key(params))
+        return reached is not None and 0 <= now-reached < seconds
+
+    def _soft_interact_pickup(self, state: dict, params: dict, record: dict, now: float) -> Proposal | None:
+        """At the giver's "!": the client's soft-interact friendly NPC is the
+        one in front of us; the Interact key opens its quest/gossip window.
+        Each NPC is tried once per giver (a vendor next to it is not retried)."""
+        tried = self.__dict__.setdefault("_soft_tried", {})
+        for row in state.get("soft_targets") or ():
+            if (not isinstance(row, dict)
+                    or str(row.get("source_unit") or "").casefold() != "softinteract"
+                    or str(row.get("unit_type") or "").upper() not in {"NPC", "CREATURE"}
+                    or row.get("is_attackable") is True or row.get("is_dead") is True
+                    or not row.get("guid")):
+                continue
+            key = (self.key(params), str(row["guid"]))
+            if 0 <= now - tried.get(key, -1e9) < self.SOFT_RETRY_SECONDS:
+                continue
+            tried[key] = now
+            return Proposal.make(
+                "INTERACT", "Quest-adó \"!\" helyén a kliens soft-interact NPC-je: interact billentyű",
+                {"activation_source": "SOFT_INTERACT", "soft_guid": row["guid"],
+                 "npc_id": row.get("npc_id"), "npc_name": row.get("name"),
+                 "purpose": "PICKUP_API_QUEST", "quest_id": record.get("quest_id"),
+                 "is_campaign": record.get("is_campaign") is True},
+                # One key press per NPC and giver: above a stale selected-
+                # friendly approach (102), cannot loop.
+                confidence=.8, priority=104, evidence=("api_giver_reached", "soft_interact_npc"))
+        return None
 
     def entrance_moves(self, world, goal: Goal, now: float | None = None) -> list[Proposal]:
         """DUNGEON/raid goal outside the instance: walk to the API entrance."""

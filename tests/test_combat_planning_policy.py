@@ -494,7 +494,12 @@ def test_late_campfire_event_names_the_object_under_a_still_cursor():
         Goal.parse("Questelj", 3.), world, 3.) if p.skill == "OBJECT_USE"]
     assert use
     state = active("OBJECT_USE", use[0].parameters, world.state, deadline=100)
-    clicked = ObjectUseSkill().begin(state, world.state)
+    skill = ObjectUseSkill()
+    hovered = skill.begin(state, world.state)
+    assert [c.kind for c in hovered.commands] == ["HOVER"]
+    fresh = {**world.state, "monotonic_time": 3.3,
+             "cursor_sample_time": 3.3, "mouseover_sample_time": 3.3}
+    clicked = skill.verify(state, fresh, 3.3)
     assert [(c.kind, c.button) for c in clicked.commands] == [("CLICK", "RIGHT")]
     # The cursor moves on: the old event no longer names what is under it.
     moved = {**fast, "frame_id": "fast:4", "monotonic_time": 4., "cursor_position": {"nx": .7, "ny": .3}}

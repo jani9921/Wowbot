@@ -153,14 +153,18 @@ def quest_zone_entered(params: dict, world_state: dict[str, Any]) -> dict[str, A
     minimap = [item for item in world_state.get("visual_candidates") or ()
                if isinstance(item, dict) and "MINIMAP" in str(item.get("source") or "")]
     labels = {str(label).lower() for item in minimap for label in item.get("candidate_labels") or ()}
-    if {"objective_below_like", "objective_above_like"} & labels:
-        return None
+    from .quest_location_planning import minimap_objective_dots
+    quest = str(params.get("quest_id"))
+    same_space = any(str(dot[2]) == quest for dot in minimap_objective_dots(world_state))
+    if same_space:
+        # The cave minimap can show an unrelated above/below objective at the
+        # same time.  It must not veto this quest's same-space yellow marker.
+        return {"reason": "quest_zone_entered_same_space", "kind": "QUEST_ZONE_ENTERED",
+                "evidence": "MINIMAP_YELLOW_OBJECTIVE_DOT"}
     if params.get("destination_layer") == "LOWER":
-        from .quest_location_planning import minimap_objective_dots
-        quest = str(params.get("quest_id"))
-        if any(str(dot[2]) == quest for dot in minimap_objective_dots(world_state)):
-            return {"reason": "quest_zone_entered_same_space", "kind": "QUEST_ZONE_ENTERED",
-                    "evidence": "MINIMAP_YELLOW_OBJECTIVE_DOT"}
+        # A blue 2D area on the rim does not establish arrival below it.
+        return None
+    if {"objective_below_like", "objective_above_like"} & labels:
         return None
     area = next((item for item in minimap if item.get("kind") == "minimap_quest_area"
                  and (item.get("quest_area") or {}).get("player_inside") is True), None)
@@ -211,6 +215,14 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         return None
     if mouseover_named_by_open_objective(world_state):
         return {"reason": "objective_unit_under_cursor", "kind": "OBJECTIVE_UNIT_HOVERED"}
+    from .object_interaction_flow import open_object_objective, quest_object_candidates
+    if (open_object_objective(world_state, params.get("quest_id"))
+            and (quest_object_candidates(world_state)
+                 or any(isinstance(target, dict) and target.get("unit_type") == "GAMEOBJECT"
+                        for target in world_state.get("soft_targets") or ()))):
+        # User 2026-10-06: the sweep walked past two cocoons the learned
+        # detector saw.  The planner walks to the object and uses it.
+        return {"reason": "quest_object_visible", "kind": "QUEST_OBJECT_VISIBLE"}
     if not (reference_reach or quest_route):
         return None
     if purpose == "LOCATE_QUEST_OBJECTIVE_REGION":
@@ -242,6 +254,8 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         else None)
     learned_handoff_area = (destination_distance is not None
                             and destination_distance <= MOVEMENT_HANDOFF_RADIUS_YARDS)
+    from .object_interaction_flow import only_object_objectives_open
+    objects_only = only_object_objectives_open(world_state)
     best: tuple[
         tuple[float, float, float], dict[str, Any], set[str], float, int
     ] | None = None
@@ -298,6 +312,9 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
                 # creatures; addon identity decides who the NPC is.
                 relevant = (quest_cue or (
                     learned_subject and learned_handoff_area))
+            elif objects_only:
+                # A cocoon objective: a passing creature/pet is no cue.
+                relevant = quest_cue
             else:
                 relevant = quest_cue or (learned_subject and learned_handoff_area)
         confidence = number(candidate.get("confidence")) or 0.

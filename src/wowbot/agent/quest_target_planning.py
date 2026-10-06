@@ -130,11 +130,19 @@ class QuestSelectedTargetMixin:
                     {"guid": guid, "purpose": "RESTORE_WORLD3D_FOR_APPROACH"},
                     priority=110)]
             if block and distance is not None and distance > stop_distance:
+                # Live 2026-10-06 21:54: Ralia's position had no height; the
+                # former ``or 0.`` became a known z=0 and the route went back
+                # down into Hrun's pit.  An unknown height is resolved by the
+                # navigation (a selected, visible unit: our own floor first).
+                target_z = number(target_position.get("z"))
+                height = ({"z": target_z} if target_z is not None
+                          and target_position.get("z_known") is not False
+                          else {"z_known": False, "floor_hint": "SAME"})
                 result.append(Proposal.make(
                     "REACH_OBJECT", "A commitolt interakciós objektum elérése világkoordinátán",
                     {"target_guid": target.get("guid"), "guid": target.get("guid"),
                      "purpose": "INTERACT", "coordinate_space": "WORLD_YARDS",
-                     "x": tx, "y": ty, "z": number(target_position.get("z")) or 0.,
+                     "x": tx, "y": ty, **height,
                      "instance_id": target_position.get("instance_id"),
                      "map_id": state.get("map_id"), "stop_distance": stop_distance,
                      "range_block_started_at": block.get("started_at")},

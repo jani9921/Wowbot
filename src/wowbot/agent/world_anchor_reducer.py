@@ -106,8 +106,34 @@ class WorldAnchorReducer:
         if x is not None and y is not None:
             last = memory.get("cursor")
             if last is None or abs(last[0]-x) > .004 or abs(last[1]-y) > .004:
+                from .tooltip_quest import cursor_view
                 memory["cursor"] = (x, y)
                 memory["cursor_moved_at"] = now
+                memory["cursor_view"] = cursor_view(state)
+        mouse = state.get("mouseover") or {}
+        mouse_sample = number(state.get("mouseover_sample_time"))
+        fresh_mouse = (mouse_sample is None or -.5 <= now-mouse_sample <= 1.5)
+        live_object = (fresh_mouse and isinstance(mouse, dict) and mouse.get("quest_related") is True
+                       and mouse.get("quest_id") is not None and not mouse.get("guid"))
+        continuity = memory.get("live_continuity") or {}
+        if (live_object and x is not None and y is not None
+                and continuity.get("sequence") == memory.get("sequence")
+                and str(continuity.get("quest_id")) == str(mouse.get("quest_id"))
+                and (mouse_sample is None or continuity.get("sample_time") is None
+                     or mouse_sample >= continuity["sample_time"])
+                and 0 <= now - float(continuity.get("at") or 0.) <= 2.):
+            # The addon continues to report the same quest-object class
+            # under the cursor, without a new MOUSEOVER_CHANGED while the
+            # pointer slides inside that object's screen area.  Carry the
+            # event's name only across uninterrupted fresh FAST samples.
+            # Reprocessing the same FAST sample must not move the remembered
+            # name to a newer cursor or renew its freshness indefinitely.
+            if (mouse_sample is None or continuity.get("sample_time") is None
+                    or mouse_sample > continuity["sample_time"]):
+                memory["live_continuity"] = {**continuity, "cursor": (x, y), "at": now,
+                                              "sample_time": mouse_sample}
+        else:
+            memory.pop("live_continuity", None)
         changes = [event for event in state.get("events") or ()
                    if isinstance(event, dict) and event.get("event_type") == "MOUSEOVER_CHANGED"]
         if not changes:
@@ -119,6 +145,19 @@ class WorldAnchorReducer:
         memory.update(sequence=sequence, payload=dict(latest.get("payload") or {}),
                       ingested_at=now, event_cursor=memory.get("cursor"),
                       still_for=(now - float(memory.get("cursor_moved_at", now))))
+        payload = memory["payload"]
+        state_epoch, event_epoch = number(state.get("timestamp")), number(latest.get("timestamp"))
+        event_current = (state_epoch is None or event_epoch is None
+                         or 0 <= state_epoch-event_epoch <= 3.)
+        if (live_object and event_current and x is not None and y is not None
+                and payload.get("tooltip") and not payload.get("guid")
+                and str(payload.get("quest_id")) == str(mouse.get("quest_id"))):
+            memory["live_continuity"] = {"sequence": sequence,
+                                          "quest_id": mouse.get("quest_id"),
+                                          "cursor": (x, y), "at": now,
+                                          "sample_time": mouse_sample}
+        else:
+            memory.pop("live_continuity", None)
 
     @staticmethod
     def _note_unique_kill_target(model: "WorldModel", unit: dict, guid: str, state: dict,

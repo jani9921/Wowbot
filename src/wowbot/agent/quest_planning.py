@@ -150,6 +150,14 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
             now = number(state.get("monotonic_time"))
             handled = (handled_at is not None and now is not None
                        and 0 <= now-handled_at <= self.HANDLED_TARGET_RELEASE_SECONDS)
+            # Live 2026-10-06 22:12: at Private Cole's "!" the client's soft-
+            # interact unit was Cole while Lady Jaina (taken from a hover next
+            # to him) stayed selected; her approach ended planning for a
+            # minute.  Standing at an API giver, its soft-interact NPC goes
+            # first (MapPoiPlanningPolicy._soft_interact_pickup).
+            from .map_poi_planning import soft_interact_giver_waiting
+            if soft_interact_giver_waiting(state, guid):
+                return False
             return not handled or selected_npc_shows_quest_symbol(state, guid)
         from .quest_giver_evidence import npc_objective_subjects
         ready = world.quest_model.ready()

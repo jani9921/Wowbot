@@ -78,6 +78,17 @@ def test_target_verification_projects_terminal_without_dispatch_authority():
     assert not step.dispatch_failure_terminal
 
 
+def test_object_use_supervision_passes_hover_then_click_commands_to_executor_boundary():
+    value = supervisor(SkillResult(SkillStatus.RUNNING,
+                                   commands=(Command("CLICK", x=.4, y=.6, button="RIGHT"),)))
+    attempt, active, world = context("OBJECT_USE")
+    step = value.step(attempt, active, world, world_observation_id="obs:2",
+                      visual_observation_id="visual:2", now=2.)
+    assert [command.kind for command in step.commands] == ["CLICK"]
+    assert step.event_type == "OBJECT_USE_CONTROL_UPDATE"
+    assert step.terminal_outcome is None
+
+
 def test_interaction_approach_returns_commands_but_cannot_dispatch_them():
     runtime_step = SimpleNamespace(
         commands=(Command("BIND", "MOVEFORWARD"),), movement_lane=True,

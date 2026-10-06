@@ -12,6 +12,21 @@ local function compactText(value, limit)
     if type(value) ~= "string" or #value == 0 or #value > limit then return nil end
     return value
 end
+local function compactMouseoverName(mouse, limit)
+    if type(mouse) ~= "table" then return nil end
+    local name = compactText(mouse.name, limit)
+    if name then return name end
+    local data = mouse.tooltip_data
+    -- Retail game objects have no UnitName/GUID. Keep the current structured
+    -- tooltip's short name on FAST instead of waiting for paged STATE.
+    if mouse.quest_related and (mouse.guid == nil or mouse.guid == "")
+            and type(data) == "table" and data.is_unit ~= true
+            and not (type(data.unit_guid) == "string" and #data.unit_guid > 0)
+            and not (type(data.guid) == "string" and #data.guid > 0) then
+        return compactText(data.unit_name, limit)
+    end
+    return nil
+end
 -- Live 2026-10-02: every FAST packet fell back to the bounded variants, which
 -- carried no world position, so movement saw a 1-3 s old position from the
 -- paged STATE and reported "stuck" while running.  Keep X/Y (0.01 yd) and the
@@ -99,11 +114,14 @@ local function split(text)
 end
 function ns.EncodeJSON(value) return encode(value) end
 function ns.NextPacket(data, fastData)
-    -- The pixel bridge is a single visible channel. Five fresh FAST_STATE
-    -- packets followed by one paged STATE packet gives a nominal 50 Hz
-    -- control lane at the addon's 60 Hz transport ticker, while preserving
-    -- 10 STATE pages/s for loss-tolerant full snapshot assembly.
-    laneSlot = (laneSlot + 1) % 6
+    -- The pixel bridge is a single visible channel. Three fresh FAST_STATE
+    -- packets followed by one paged STATE packet (0.9.58; was five).
+    -- Live 2026-10-06: the client ran ~37 ticks/s, the capture kept ~80 %
+    -- of them, and each page was shown only once before the next snapshot
+    -- was encoded: 23 % of the ~6-page snapshots ever completed (tooltips,
+    -- quest credit and events seconds late).  More page slots plus every
+    -- snapshot shown at least twice (below) let a lost page come back.
+    laneSlot = (laneSlot + 1) % 4
     if laneSlot ~= 0 then
         local sample = fastData or data
         local v = {
@@ -123,7 +141,8 @@ function ns.NextPacket(data, fastData)
             health=sample.health, max_health=sample.max_health, is_dead=sample.is_dead, is_ghost=sample.is_ghost,
             is_in_combat=sample.is_in_combat, is_mounted=sample.is_mounted, is_casting=sample.is_casting,
             movement=sample.movement and {speed=sample.movement.speed,moving=sample.movement.moving,
-                falling=sample.movement.falling,swimming=sample.movement.swimming} or false,
+                falling=sample.movement.falling,swimming=sample.movement.swimming,
+                indoors=sample.movement.indoors} or false,
             player_present=sample.player_present, ui_error=sample.ui_error,
             ui_error_at=sample.ui_error_at, ui_error_sequence=sample.ui_error_sequence,
             ui_error_code=sample.ui_error_code,
@@ -134,7 +153,7 @@ function ns.NextPacket(data, fastData)
                 screen_position=sample.target.screen_position} or false,
             target_sample_time=sample.monotonic_time,
             soft_targets=compactSoftTargets(sample.soft_targets),
-            mouseover=sample.mouseover and {guid=sample.mouseover.guid, name=sample.mouseover.name,
+            mouseover=sample.mouseover and {guid=sample.mouseover.guid, name=compactMouseoverName(sample.mouseover,96),
                 npc_id=sample.mouseover.npc_id, unit_type=sample.mouseover.unit_type,
                 structured_unit=sample.mouseover.structured_unit,
                 is_attackable=sample.mouseover.is_attackable, is_dead=sample.mouseover.is_dead,
@@ -236,13 +255,14 @@ function ns.NextPacket(data, fastData)
                 player_world_position=sample.player_world_position or false,
                 orientation=sample.orientation, movement=sample.movement and {
                     speed=sample.movement.speed,moving=sample.movement.moving,
-                    falling=sample.movement.falling,swimming=sample.movement.swimming} or false,
+                    falling=sample.movement.falling,swimming=sample.movement.swimming,
+                    indoors=sample.movement.indoors} or false,
                 target=sample.target and {guid=sample.target.guid,name=sample.target.name,npc_id=sample.target.npc_id,
                     attackable=sample.target.attackable,dead=sample.target.dead,
                     world_position=sample.target.world_position or false} or false,
                 target_sample_time=sample.monotonic_time,
                 mouseover=sample.mouseover and {guid=sample.mouseover.guid,
-                    name=sample.mouseover.name,npc_id=sample.mouseover.npc_id,
+                    name=compactMouseoverName(sample.mouseover,96),npc_id=sample.mouseover.npc_id,
                     unit_type=sample.mouseover.unit_type,
                     structured_unit=sample.mouseover.structured_unit,
                     is_attackable=sample.mouseover.is_attackable,
@@ -285,13 +305,14 @@ function ns.NextPacket(data, fastData)
                     world_map_open=sample.map_context.world_map_open} or false,
                 position=sample.position and {x=sample.position.x,y=sample.position.y} or false,
                 orientation=sample.orientation, movement=sample.movement and {
-                    speed=sample.movement.speed,moving=sample.movement.moving} or false,
+                    speed=sample.movement.speed,moving=sample.movement.moving,
+                    indoors=sample.movement.indoors} or false,
                 target=sample.target and {guid=compactText(sample.target.guid,128),
                     name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,
                     attackable=sample.target.attackable,dead=sample.target.dead} or false,
                 mouseover=sample.mouseover and {
                     guid=compactText(sample.mouseover.guid,128),
-                    name=compactText(sample.mouseover.name,96),
+                    name=compactMouseoverName(sample.mouseover,64),
                     npc_id=sample.mouseover.npc_id,
                     unit_type=compactText(sample.mouseover.unit_type,24),
                     structured_unit=sample.mouseover.structured_unit,
@@ -332,7 +353,8 @@ function ns.NextPacket(data, fastData)
                 player_present=sample.player_present,input_blocked=sample.input_blocked,
                 loading=sample.loading,
                 movement=sample.movement and {
-                    speed=sample.movement.speed,moving=sample.movement.moving} or false,
+                    speed=sample.movement.speed,moving=sample.movement.moving,
+                    indoors=sample.movement.indoors} or false,
                 target=sample.target and {
                     guid=compactText(sample.target.guid,128),
                     npc_id=sample.target.npc_id,attackable=sample.target.attackable,
@@ -359,19 +381,43 @@ function ns.NextPacket(data, fastData)
                     world_map_open=sample.map_context.world_map_open} or false,
                 orientation=sample.orientation,
                 movement=sample.movement and {
-                    speed=sample.movement.speed,moving=sample.movement.moving} or false,
+                    speed=sample.movement.speed,moving=sample.movement.moving,
+                    indoors=sample.movement.indoors} or false,
                 target=sample.target and {
                     guid=compactText(sample.target.guid,128),
                     name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,
                     attackable=sample.target.attackable,dead=sample.target.dead} or false,
                 mouseover=sample.mouseover and {
                     guid=compactText(sample.mouseover.guid,128),
-                    name=compactText(sample.mouseover.name,96),
+                    name=compactMouseoverName(sample.mouseover,64),
                     npc_id=sample.mouseover.npc_id,
                     structured_unit=sample.mouseover.structured_unit,
                     is_attackable=sample.mouseover.is_attackable,
                     is_dead=sample.mouseover.is_dead,
                     quest_related=sample.mouseover.quest_related,quest_id=sample.mouseover.quest_id} or false,
+                cursor_position=sample.cursor_position and {
+                    nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
+            }
+            text = encode(v)
+        end
+        if #text > 850 and not sample.is_in_combat then
+            -- Final non-combat edge: retain the exact game-object name and
+            -- pointer with movement/target control even in a rich sample.
+            v = {
+                telemetry_lane="FAST_STATE", monotonic_time=sample.monotonic_time,
+                map_id=sample.map_id,
+                player_world_position=compactWorldPosition(sample.player_world_position),
+                orientation=sample.orientation,
+                movement=sample.movement and {speed=sample.movement.speed,
+                    moving=sample.movement.moving,indoors=sample.movement.indoors} or false,
+                target=sample.target and {guid=compactText(sample.target.guid,128),
+                    npc_id=sample.target.npc_id,attackable=sample.target.attackable,
+                    dead=sample.target.dead} or false,
+                mouseover=sample.mouseover and {
+                    guid=compactText(sample.mouseover.guid,128),
+                    name=compactMouseoverName(sample.mouseover,64),
+                    quest_related=sample.mouseover.quest_related,
+                    quest_id=sample.mouseover.quest_id} or false,
                 cursor_position=sample.cursor_position and {
                     nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
             }
@@ -385,7 +431,9 @@ function ns.NextPacket(data, fastData)
             return "AIPC5|" .. session .. "|" .. sourceSequence .. "|0|1|FAST|" .. text
         end
     end
-    if #pages == 0 or (cursor == 1 and round >= 1 and stateTime ~= data.monotonic_time) then
+    -- Every snapshot at least two full rounds: a page lost in the first is
+    -- re-sent in the second and the assembler fills the gap.
+    if #pages == 0 or (cursor == 1 and round >= 2 and stateTime ~= data.monotonic_time) then
         local v = {}
         for k,value in pairs(data) do
             if k ~= "heartbeat" and k ~= "latest_event" and k ~= "visible_units" then v[k]=value end

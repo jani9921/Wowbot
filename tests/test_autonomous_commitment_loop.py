@@ -67,6 +67,60 @@ def test_target_death_transitions_same_commitment_to_loot():
     assert result["autonomous_loop"]["phase"] == "INTERACTING"
 
 
+def test_confirmed_own_corpse_loot_preempts_resumed_location_move():
+    loop = AutonomousLoop()
+    goal = Goal.parse("Questelj", 1)
+    initial = world(target_state(target=False))
+    move = Proposal.make("MOVE", "minimap dot", {"x": 16.4, "y": -2222.6,
+                                                  "coordinate_space": "WORLD_YARDS"}, priority=92)
+    assert loop.choose([move], move, goal, initial, 1).skill == "MOVE"
+    commitment_id = loop.commitment.commitment_id
+    after_kill = world(target_state(2, target=False))
+    after_kill.owned_corpse_guids["mob-1"] = 2.
+    loot = Proposal.make("LOOT", "confirmed own corpse", {"guid": "mob-1",
+                     "corpse_anchor": True, "x": .48, "y": .17}, priority=108)
+    assert loop.choose([move, loot], move, goal, after_kill, 2).skill == "LOOT"
+    assert loop.commitment.commitment_id == commitment_id
+
+
+def test_confirmed_quest_object_under_cursor_preempts_map_relocation_wait():
+    loop = AutonomousLoop()
+    goal = Goal.parse("Questelj", 1)
+    initial = world(target_state(target=False))
+    move = Proposal.make("MOVE", "quest dot", {"x": 16.4, "y": -2222.6,
+                                                "coordinate_space": "WORLD_YARDS"}, priority=92)
+    loop.choose([move], move, goal, initial, 1)
+    hovered = target_state(2, target=False)
+    hovered.update(mouseover={"tooltip": "Thick Cocoon ~ Who Lurks in the Pit",
+                               "quest_related": True, "quest_id": 55639},
+                   cursor_position={"nx": .475, "ny": .29})
+    current = world(hovered)
+    use = Proposal.make("OBJECT_USE", "confirmed cocoon",
+                        {"x": .475, "y": .29,
+                         "mouseover_tooltip": "Thick Cocoon ~ Who Lurks in the Pit",
+                         "quest_ids": [55639]}, priority=92)
+    assert loop.choose([move, use], move, goal, current, 2).skill == "OBJECT_USE"
+
+
+def test_fast_named_cocoon_preempts_entrance_search_commitment():
+    loop = AutonomousLoop()
+    goal = Goal.parse("Questelj", 1)
+    initial = world(target_state(target=False))
+    entrance = Proposal.make("SEEK_VISUAL_CUE", "find entrance",
+                             {"purpose": "SEARCH_ENTRANCE", "quest_id": 55639}, priority=99)
+    loop.choose([entrance], entrance, goal, initial, 1)
+    hovered = target_state(2, target=False)
+    hovered.update(mouseover={"name": "Thick Cocoon", "quest_related": True,
+                              "quest_id": 55639},
+                   cursor_position={"nx": .57909, "ny": .519})
+    current = world(hovered)
+    use = Proposal.make("OBJECT_USE", "fast named cocoon",
+                        {"x": .57909, "y": .519,
+                         "mouseover_tooltip": "Thick Cocoon",
+                         "quest_ids": [55639]}, priority=92)
+    assert loop.choose([entrance, use], entrance, goal, current, 2).skill == "OBJECT_USE"
+
+
 def test_target_loss_needs_three_distinct_observations_before_replan():
     loop = AutonomousLoop()
     goal = Goal.parse("Questelj", 1)

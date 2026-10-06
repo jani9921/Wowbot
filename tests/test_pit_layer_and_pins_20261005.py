@@ -116,8 +116,12 @@ def test_pin_routes_wait_for_the_new_pins_after_a_turn_in():
     assert policy.quest_giver_moves(world(1., [{"quest_id": 55965, "is_campaign": True}], old_pins)) == []      # campaign in progress
     assert policy.quest_giver_moves(world(2., [], old_pins)) == []                        # just turned in: settle
     assert policy.quest_giver_moves(world(6., [], old_pins)) == []
-    new = policy.quest_giver_moves(world(9., [], old_pins + [pin(55639, 97., -2249.)]))
-    # The new pin is 2 yd away (reached, local search) -> the next route is Cole's.
+    new_pins = old_pins + [pin(55639, 97., -2249.)]
+    # The new pin is 2 yd away (reached): stay with it for the local window
+    # (2026-10-06 22:12: no walking off to the next giver at once) ...
+    assert policy.quest_giver_moves(world(9., [], new_pins)) == []
+    # ... then the next route is Cole's.
+    new = policy.quest_giver_moves(world(9. + MapPoiPlanningPolicy.GIVER_LOCAL_SECONDS + 1., [], new_pins))
     assert [p.parameters["quest_id"] for p in new][:1] == [58914]
     assert 55639 not in [p.parameters["quest_id"] for p in new]
     assert policy.quest_giver_moves(world(20., [], old_pins))                            # settle window over
@@ -153,7 +157,10 @@ def test_minimap_grey_dot_below_is_a_strong_cue_and_yellow_means_same_space():
     yellow.state["visual_candidates"][0]["view_radius_yards"] = 160.
     purposes = [(m.parameters.get("purpose"), m.parameters.get("destination_layer")) for m in _moves(policy, yellow)]
     assert purposes == [("APPROACH_MINIMAP_QUEST_DOT", None)]  # same space: walk to the dot, no descent
-    assert len(_moves(policy, _world(t=41.))) == 1             # without the dot the sweep goes on
+    # One missed minimap frame must retain the committed yellow-dot target;
+    # otherwise the competing lower-floor sweep sends us back and forth.
+    missing = _moves(policy, _world(t=41.))
+    assert len(missing) == 1 and missing[0].parameters["purpose"] == "APPROACH_MINIMAP_QUEST_DOT"
 
 
 def test_minimap_vocabulary_has_the_floor_classes():

@@ -3,11 +3,24 @@
 Split out of service.py (2026-10-05); unchanged.
 """
 from __future__ import annotations
+import math
 from wowbot.agent.models import number
 
 
 class NavigationSearchMixin:
     """Methods of NavigationService (service.py); moved verbatim."""
+
+    def _search_player_z(self, position: dict, now: float | None) -> float | None:
+        """Use only a fresh layer fix for this exact player position."""
+        layer = getattr(getattr(self, "_z", None), "player", None)
+        px, py = number(position.get("x")), number(position.get("y"))
+        if (layer is None or layer.confidence < .7 or px is None or py is None
+                or now is None or layer.at is None
+                or str(layer.instance_id) != str(position.get("instance_id"))
+                or not 0 <= now-layer.at <= 3.
+                or math.hypot(layer.x-px, layer.y-py) > 5.):
+            return None
+        return layer.z
 
     def permits(self, world, destination: dict, now: float) -> bool:
         self._danger.observe_hostiles(world.state, now)
@@ -37,8 +50,10 @@ class NavigationSearchMixin:
         position = ((state.get("player_world_position") or {})
                     if region.get("coordinate_space") == "WORLD_YARDS"
                     else (state.get("position") or {}))
+        player_z = (self._search_player_z(position, now)
+                    if region.get("coordinate_space") == "WORLD_YARDS" else None)
         self._search_coverage.observe(region_id, player_x=number(position.get("x")),
-                                      player_y=number(position.get("y")),
+                                      player_y=number(position.get("y")), player_z=player_z,
                                       target_detected=target_detected, now=now)
 
     def mark_search_cell_visited(self, region_id: str, cell_id: str, now: float) -> None:
@@ -73,8 +88,11 @@ class NavigationSearchMixin:
         position = ((state.get("player_world_position") or {})
                     if region.get("coordinate_space") == "WORLD_YARDS"
                     else (state.get("position") or {}))
+        player_z = (self._search_player_z(position, number(state.get("monotonic_time")))
+                    if region.get("coordinate_space") == "WORLD_YARDS" else None)
         return self._search_coverage.next_waypoint(region_id, player_x=number(position.get("x")),
-                                                   player_y=number(position.get("y")))
+                                                   player_y=number(position.get("y")),
+                                                   player_z=player_z)
 
     def waypoint(self, world, destination: dict) -> dict:
         return self._routes.waypoint(world, destination)
@@ -87,4 +105,7 @@ class NavigationSearchMixin:
         return self._routes.observe_failed_move(before, after, destination, observation_id, now)
 
     def observe_topology(self, state: dict, observation_id: str, now: float) -> list[dict]:
+        tracker = getattr(self, "track_player_layer", None)
+        if callable(tracker):
+            tracker(state, now)
         return self._routes.observe_topology(state, observation_id, now)

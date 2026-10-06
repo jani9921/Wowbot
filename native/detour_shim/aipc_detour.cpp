@@ -4,6 +4,7 @@
 // (DT_POLYREF64; measured 2026-10-03: link records are 16 bytes).  The
 // Python side strips TrinityCore's 20-byte mmtile wrapper and passes the raw
 // Detour tile data.  Coordinates are Detour coordinates (y is up).
+#include <cmath>
 #include <cstring>
 
 #include "DetourCommon.h"
@@ -17,6 +18,31 @@ struct AipcNav {
     dtNavMesh* mesh = nullptr;
     dtNavMeshQuery* query = nullptr;
 };
+
+// The shared edge of two neighbouring polygons (dtNavMeshQuery's own
+// getPortalPoints is private); a partial tile-border link is narrowed.
+bool portal_points(const dtNavMesh* mesh, dtPolyRef from, dtPolyRef to, float* left, float* right) {
+    const dtMeshTile* tile = nullptr;
+    const dtPoly* poly = nullptr;
+    if (dtStatusFailed(mesh->getTileAndPolyByRef(from, &tile, &poly)) || !poly
+            || poly->getType() != DT_POLYTYPE_GROUND) return false;
+    for (unsigned int i = poly->firstLink; i != DT_NULL_LINK; i = tile->links[i].next) {
+        const dtLink& link = tile->links[i];
+        if (link.ref != to || link.edge >= poly->vertCount) continue;
+        const float* a = &tile->verts[poly->verts[link.edge] * 3];
+        const float* b = &tile->verts[poly->verts[(link.edge + 1) % poly->vertCount] * 3];
+        if (link.side != 0xff && (link.bmin != 0 || link.bmax != 255)) {
+            const float scale = 1.0f / 255.0f;
+            dtVlerp(left, a, b, link.bmin * scale);
+            dtVlerp(right, a, b, link.bmax * scale);
+        } else {
+            dtVcopy(left, a);
+            dtVcopy(right, b);
+        }
+        return true;
+    }
+    return false;
+}
 
 dtQueryFilter make_filter(unsigned short include, unsigned short exclude) {
     dtQueryFilter filter;
@@ -205,4 +231,133 @@ AIPC_API int aipc_nav_polys_near(void* handle, const float* center, const float*
     }
     delete[] polys;
     return written;
+}
+
+// Path along the middle of the walkway (user 2026-10-06, Hrun's spiral: "the
+// character walked down along the cave wall and fell off the spiral").  The
+// string-pulled path touches polygon edges at every bend.  Here every portal
+// crossing is a point (DT_STRAIGHTPATH_ALL_CROSSINGS), pushed toward its
+// portal's midpoint by up to ``margin`` (never past the middle); heights come
+// from the polygon the point lies in; nearly straight runs are thinned.
+// Return codes as aipc_nav_find_path.
+AIPC_API int aipc_nav_find_path_centered(void* handle, const float* start, const float* end,
+                                         const float* extents, unsigned short include, unsigned short exclude,
+                                         int max_polys, float margin, float* out_points, int max_points,
+                                         int* out_point_count, int* out_poly_count, unsigned long long* out_refs) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav) return -3;
+    *out_point_count = 0;
+    *out_poly_count = 0;
+    dtQueryFilter filter = make_filter(include, exclude);
+    dtPolyRef start_ref = 0, end_ref = 0;
+    float start_point[3], end_point[3];
+    if (dtStatusFailed(nav->query->findNearestPoly(start, extents, &filter, &start_ref, start_point)) || !start_ref)
+        return -1;
+    if (dtStatusFailed(nav->query->findNearestPoly(end, extents, &filter, &end_ref, end_point)) || !end_ref)
+        return -2;
+    if (max_polys > 65536) max_polys = 65536;
+    dtPolyRef* polys = new dtPolyRef[max_polys];
+    int poly_count = 0;
+    dtStatus status = nav->query->findPath(start_ref, end_ref, start_point, end_point, &filter,
+                                           polys, &poly_count, max_polys);
+    if (dtStatusFailed(status) || poly_count <= 0) {
+        delete[] polys;
+        return -3;
+    }
+    bool complete = polys[poly_count - 1] == end_ref;
+    float target[3];
+    if (complete) dtVcopy(target, end_point);
+    else nav->query->closestPointOnPoly(polys[poly_count - 1], end_point, target, nullptr);
+    const int capacity = max_points * 4 + 16;
+    float* raw = new float[capacity * 3];
+    unsigned char* flags = new unsigned char[capacity];
+    dtPolyRef* refs = new dtPolyRef[capacity];
+    int raw_count = 0;
+    status = nav->query->findStraightPath(start_point, target, polys, poly_count, raw, flags, refs,
+                                          &raw_count, capacity, DT_STRAIGHTPATH_ALL_CROSSINGS);
+    *out_poly_count = poly_count;
+    out_refs[0] = static_cast<unsigned long long>(start_ref);
+    out_refs[1] = static_cast<unsigned long long>(end_ref);
+    if (dtStatusFailed(status) || raw_count <= 0) {
+        delete[] polys; delete[] raw; delete[] flags; delete[] refs;
+        return -3;
+    }
+    // Centre each crossing on its portal (between the previous point's
+    // polygon and this point's polygon); keep the start and the end.
+    for (int i = 1; i + 1 < raw_count; ++i) {
+        float left[3], right[3];
+        if (!portal_points(nav->mesh, refs[i - 1], refs[i], left, right)) continue;
+        float mid[3];
+        dtVlerp(mid, left, right, 0.5f);
+        float to_mid[3];
+        dtVsub(to_mid, mid, &raw[i * 3]);
+        to_mid[1] = 0;
+        float distance = dtVlen(to_mid);
+        float half_width = 0.5f * dtVdist2D(left, right);
+        float shift = margin < half_width * 0.7f ? margin : half_width * 0.7f;
+        if (distance > 1e-4f) {
+            if (shift > distance) shift = distance;
+            dtVmad(&raw[i * 3], &raw[i * 3], to_mid, shift / distance);
+        }
+        // User 2026-10-06 ("a spirálon ... eléggé a szélén megy, jobb lenne ha
+        // bentebb menne"): a portal is a short polygon edge, so its midpoint
+        // is not the walkway's middle.  Push the point away from the nearest
+        // navmesh boundary (wall or drop) until it has ``margin`` clearance,
+        // sliding on the mesh; a narrow walkway stops where clearance no
+        // longer improves.
+        for (int pass = 0; pass < 3 && margin > 0.f; ++pass) {
+            float hit_dist = 0.f, hit_pos[3], hit_normal[3];
+            if (dtStatusFailed(nav->query->findDistanceToWall(refs[i], &raw[i * 3], margin, &filter,
+                                                              &hit_dist, hit_pos, hit_normal))
+                    || hit_dist >= margin * 0.95f)
+                break;
+            hit_normal[1] = 0.f;
+            float normal_length = dtVlen(hit_normal);
+            if (normal_length < 1e-4f) break;
+            float wanted[3];
+            dtVmad(wanted, &raw[i * 3], hit_normal, (margin - hit_dist) / normal_length);
+            float moved[3];
+            dtPolyRef visited[16];
+            int visited_count = 0;
+            if (dtStatusFailed(nav->query->moveAlongSurface(refs[i], &raw[i * 3], wanted, &filter, moved,
+                                                            visited, &visited_count, 16))
+                    || visited_count <= 0)
+                break;
+            float again = 0.f, again_pos[3], again_normal[3];
+            dtPolyRef moved_ref = visited[visited_count - 1];
+            if (dtStatusFailed(nav->query->findDistanceToWall(moved_ref, moved, margin, &filter,
+                                                              &again, again_pos, again_normal))
+                    || again <= hit_dist + 0.05f)
+                break;
+            dtVcopy(&raw[i * 3], moved);
+            refs[i] = moved_ref;
+        }
+        float height = raw[i * 3 + 1];
+        if (dtStatusSucceed(nav->query->getPolyHeight(refs[i], &raw[i * 3], &height))) raw[i * 3 + 1] = height;
+    }
+    // Thin nearly straight, level runs; keep every bend of the walkway.
+    int written = 0;
+    for (int i = 0; i < raw_count && written < max_points; ++i) {
+        bool keep = i == 0 || i + 1 == raw_count;
+        if (!keep && written > 0) {
+            const float* a = &out_points[(written - 1) * 3];
+            const float* b = &raw[i * 3];
+            const float* c = &raw[(i + 1) * 3];
+            float ab[3], bc[3];
+            dtVsub(ab, b, a);
+            dtVsub(bc, c, b);
+            float lab = sqrtf(ab[0] * ab[0] + ab[2] * ab[2]);
+            float lbc = sqrtf(bc[0] * bc[0] + bc[2] * bc[2]);
+            float cosine = (lab > 1e-4f && lbc > 1e-4f) ? (ab[0] * bc[0] + ab[2] * bc[2]) / (lab * lbc) : 1.0f;
+            float climb = fabsf(bc[1] / (lbc > 0.5f ? lbc : 0.5f) - ab[1] / (lab > 0.5f ? lab : 0.5f));
+            keep = cosine < 0.985f || climb > 0.25f || lab > 12.0f;   // ~10 degrees, slope change, long run
+        }
+        if (keep) {
+            dtVcopy(&out_points[written * 3], &raw[i * 3]);
+            ++written;
+        }
+    }
+    *out_point_count = written;
+    delete[] polys; delete[] raw; delete[] flags; delete[] refs;
+    return complete ? 1 : 2;
 }

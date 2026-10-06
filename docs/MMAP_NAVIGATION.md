@@ -70,7 +70,7 @@ authoritative.
 
 ## Evidence (2026-09-21)
 
-- Supplied archive: `C:\Users\<user>\Downloads\mmaps.zip`, 6,182,217,370 bytes,
+- Supplied archive: `C:\Users\benei\Downloads\mmaps.zip`, 6,182,217,370 bytes,
   28,619 entries.
 - Map 2175: one `.mmap` header and 329 `.mmtile` files.
 - Wrapper format observed: Trinity mmap v7, Detour ABI v16, Detour mesh v7.

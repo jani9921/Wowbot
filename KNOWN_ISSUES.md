@@ -3,17 +3,46 @@
 Állapot: 2026-10-06. Forrás: az élő tesztek naplója ([docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md))
 és a hibajavítások listája ([BUGFIXES.md](BUGFIXES.md)).
 
-**Jelölés:** 🔴 hiba, nincs javítva · 🟠 gyenge pont / korlát · 🧪 javítva, de élőben még nem igazolt
+**Jelölés:** 🔴 hiba, nincs javítva · 🟠 gyenge pont / korlát · 🧪 javítva, de élőben még nem igazolt · ✅ élőben működik
 
 ---
+
+## ⚠️ Átnézendő: Z resolver és a barlangos (többszintes) quest — működik, de nincs kész
+
+A felhasználó döntése (2026-10-06 este): **a funkció működik, de átnézendő, átgondolandó, optimalizálandó.** A „Who
+Lurks in the Pit” (55639) quest élőben végig lement (5/5 gubó → Hrun megölve → Ralia), de gyenge teljesítménnyel:
+~13 perc, sok kézi beavatkozással (egyszer kézzel kellett arrébb vinni, a Ralia-repülést kézzel kellett indítani).
+A 21:41-es futás hibái (részletek: `docs/LIVE_VALIDATION.md`):
+
+- 🟠 Sok ismételt, eredménytelen lépés: 12 sikertelen helyi keresés (SEEK), 11 sikertelen hover-ellenőrzés (INSPECT),
+  30× azonnal „sikeres” bejárási MOVE ugyanarra a pontra (🧪 javítva), 7× `ambiguous_player_layer` (🧪 4 mp türelem).
+- 🟠 Felfelé nyílnál ugyanarra a padlóra ment (3 yd „feljebb”) a gubó párkánya helyett (🧪 javítva: legalább 6 yd, azaz
+  egy emelet); ha több emelet is van fölötte, lépcsőzetesen megy fel.
+- 🟠 Harc: a pók GUID-ja harc közben kicserélődik (…C54D3F → …454D3F), a DEFEND ilyenkor újraindul (~2 mp); a
+  harcba-közelítést (VISUAL_APPROACH) és a MOVE-ot a „harc kezdődött” megszakítás azonnal leállítja.
+- 🟠 Loot: többször „nem nyílt meg a loot ablak” / „nincs holttest”.
+- 🟠 Az `input_blocked` (chat/menü fókusz) biztonsági okból MANUAL-ba kapcsol — kézi beavatkozás után újra kell indítani.
+- 🔴 „Ride Ralia Dreamchaser”: lent kijelölte Raliát, de a megközelítés elvesztette; nem beszélt vele, a repülést kézzel
+  kellett indítani. A végén fent (taxi után) ismeretlen magasság miatt vissza akart menni a gödörbe (🧪 javítva).
+- 🟠 A Z resolver szabályai (folytonosság, esés, útvonal-tiebreak, próbaszakasz, `indoors`, emeletnyi különbség) sok
+  élő esetre egyenként lettek foltozva — egységes átgondolás kell (lásd a zóna-térkép pontot lent).
+- 🧪 **Quest-adó felvétele quest nélkül** (22:12): két „!” között ingázott; most 4 yd-ig megy, a soft-interact NPC-t
+  szólítja meg, 10 mp-ig marad. Élőben még nem igazolt; ha a soft-interact rossz NPC-t ad, a pontonkénti egyszeri
+  próbálkozás után a helyi keresés veszi át.
+- 🧪 A teljes addon-állapot ritkán állt össze (ebben a futásban 199 / 4390 oldal), ezért a tooltip, a kredit és az
+  események késtek — ez sok INSPECT-hibát és lassú reakciót okozott. Addon 0.9.58: minden állapot kétszer, sűrűbb
+  oldalak (szimuláció: ~78 %). Ha élőben 95 % alatt marad: oldalanként 2 képkockás tartás (FAST ~20 %-kal ritkább).
+  100 % elkapás nem lehetséges: amit a játék két képernyőfrissítés között rajzol, az egyik sosem jelenik meg.
 
 ## Navigáció, magasság (Z)
 
 - 🧪 **Z resolver** (a karakter saját szintje és a célpontok magassága egy helyen: navmesh + VMAP + útvonal-elérhetőség
-  + minimap-szintjelzés). Visszajátszáson jó, élőben még nem futott.
-- 🧪 **Leesés a spirálról:** az esés után a lenti szintről tervez újra, a lefelé bejárás fenti szakaszait átugorja.
-- 🟠 **Első szint-becslés barlangban, előzmény nélkül:** ha az agent a barlangon belül indul, az első becslés a terep
-  alapján a felső szintet (peremet) választhatja (0,5-ös bizonytalansággal jelzi). Ajánlott fent indítani.
+  + minimap-szintjelzés). Élőben működik a barlangos questen, de lásd fent: átnézendő.
+- 🧪 **Leesés a spirálról:** az esést a következő minták alapján dönti el (ugrás ≠ esés), a lenti szintről tervez újra,
+  a bejárás már elhagyott szakaszait átugorja; vízszintesen a célon, de más szinten nem forog tovább.
+- 🧪 **Első szint-becslés barlangban, előzmény nélkül:** az addon `indoors` jelzése alapján a felszínt (peremet)
+  kizárja; bizonytalan szintnél 12 yd-os próbaszakaszt megy, mozgás közben tisztul. Ha több barlangszint is
+  lehetséges, az első szakasz rossz szintről is indulhat (falnak futásnál 4 mp után megáll).
 - 🟠 **A minimap-pötty helye pontatlan** (néhány yard): a resolver ezért 8 yardos körzetben keresi a járható szintet.
 - 🟠 **Falnak ütközés:** a „nem halad” állapotból lassan (10+ mp) lesz „elakadt”, a kiszabadító lépések későn indulnak.
 - 🔴 **Egységes zóna-térkép hiányzik:** a quest-zóna bejárása egyetlen útvonalat követ (le, majd fel), nem a kék
@@ -24,9 +53,10 @@
 
 ## Quest-tárgyak, játékobjektumok
 
-- 🔴 **Gubók és más quest-objektumok (pl. „Trapped Expedition Member rescued from cocoons”):** az agent nem nyitja
-  ki őket. Az addon a „soft interact” célpontot csak egységekre exportálja, objektumra nem; a képfelismerés
-  (YOLO) az objektumokat nem ismeri.
+- ✅ **Gubók és más quest-objektumok (pl. „Trapped Expedition Member rescued from cocoons”):** hover → friss addon-minta
+  → jobb klikk → F7 tartalék; élőben 5/5 (21:41-es futás). „Too far” esetén közelít, mozgás közben megvárja a
+  megállást (🧪). Teljesítmény: lásd a fenti „Átnézendő” részt.
+- 🧪 **A teljes addon-állapot ritkán állt össze** (lásd fent, addon 0.9.58).
 - 🧪 **Quest-tárgy használata célponton** (Re-Sizer, First Aid Kit): kijelölés → Interact Target → ha nem hat,
   odamegy és újra. Lehet, hogy élőben elsőre nem működik; a táskás használat tartalék.
 - 🟠 **Célzókurzoros tárgyak:** az addon nem jelzi, hogy élesítve van-e a célzókurzor (`SpellIsTargeting`); az agent

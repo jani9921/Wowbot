@@ -9,7 +9,7 @@ from wowbot.vision.world3d.v2 import World3DPerceptionV2
 
 
 SCREENSHOT = Path(r"C:\Program Files (x86)\World of Warcraft\_retail_\Screenshots\WoWScrnShot_090826_101519.jpg")
-FALSE_POSITIVE_REFERENCE = Path(r"C:\Users\<user>\Downloads\image-1789125653376.png")
+FALSE_POSITIVE_REFERENCE = Path(r"C:\Users\benei\Downloads\image-1789125653376.png")
 
 
 @pytest.mark.skipif(not SCREENSHOT.exists(), reason="live reference screenshot is not installed")

@@ -114,14 +114,15 @@ def test_fast_packet_carries_compact_world_map_context() -> None:
     assert body["map_context"]["world_map_open"] is True
 
 
-def test_transport_multiplexes_five_fresh_fast_samples_per_state_page():
+def test_transport_multiplexes_three_fresh_fast_samples_per_state_page():
+    """0.9.58: one STATE page per four packets (was six), see Transport.lua."""
     lua = lua_runtime()
     lua.execute('''state={monotonic_time=1,timestamp=1001,character_name="Test"}
                    fast={monotonic_time=2,timestamp=1002,orientation=1.25,
                          movement={speed=7,moving=true}}''')
-    packets = [lua.eval("ns.NextPacket(state, fast)") for _ in range(30)]
-    assert sum("|FAST|" in packet for packet in packets) == 25
-    assert sum("|STATE|" in packet or "|STATE_Z|" in packet for packet in packets) == 5
+    packets = [lua.eval("ns.NextPacket(state, fast)") for _ in range(32)]
+    assert sum("|FAST|" in packet for packet in packets) == 24
+    assert sum("|STATE|" in packet or "|STATE_Z|" in packet for packet in packets) == 8
     fast_body = json.loads(packets[0].split("|", 6)[6])
     assert fast_body["telemetry_lane"] == "FAST_STATE"
     assert fast_body["fast_sample_time"] == 2
@@ -338,6 +339,34 @@ def test_compact_fast_packet_preserves_quest_related_mouseover_handoff():
     assert body["mouseover"]["quest_related"] is True
     assert body["mouseover"]["quest_id"] == 55174
     assert body["cursor_position"] == {"nx": .77, "ny": .61}
+
+
+def test_field_rich_fast_packet_keeps_structured_quest_object_name_with_cursor():
+    """Live 19:47: a cocoon change event arrived ~12 s after the hover.
+    Its short structured name must travel with the FAST cursor instead."""
+    lua = lua_runtime()
+    lua.execute('''data={monotonic_time=701592.234,timestamp=1791308841,
+        map_id=1409,orientation=5.9,player_present=true,
+        player_world_position={x=81.47,y=-2277.03,instance_id=2175},
+        movement={speed=0,moving=false,indoors=true},
+        map_context={active_map_id=1409,parent_map_id=2175,
+            map_name=string.rep("Long cave name ",30)},
+        mouseover={quest_related=true,quest_id=55639,
+            tooltip=string.rep("Thick Cocoon ~ Who Lurks in the Pit ",30),
+            tooltip_data={raw_type=21,guid="",unit_guid="",object_id=0,
+                unit_name="Thick Cocoon"}},
+        cursor_position={nx=.57909,ny=.51900},
+        quest_digest={{id=55639,complete=false,done=0,need=5}},
+        quest_state_revision=string.rep("revision",70),
+        actionbar_fast={{100,true,false,0},{1464,false,true,0}}}''')
+    packet = lua.eval("ns.NextPacket(data)")
+    assert "|FAST|" in packet
+    body = json.loads(packet.split("|", 6)[6])
+    assert len(packet.split("|", 6)[6].encode("utf-8")) <= 850
+    assert body["mouseover"]["name"] == "Thick Cocoon"
+    assert body["mouseover"]["quest_id"] == 55639
+    assert body["cursor_position"] == {"nx": .57909, "ny": .519}
+    assert body["player_world_position"]["x"] == 81.47
 
 
 def test_fast_packet_preserves_structured_unit_name_when_guid_is_unavailable():
@@ -656,3 +685,20 @@ def test_dead_units_report_whether_they_hold_loot():
     ''')
     lua2.execute("now=5; tickers[1].callback()")
     assert json.loads(lua2.eval("ns.EncodeJSON(AIPlayerControllerExportDB.latest)"))["target"]["lootable"] is True
+
+
+
+def test_every_snapshot_is_shown_twice_so_a_lost_page_comes_back():
+    """Live 2026-10-06: each ~6-page snapshot was shown once; with ~20 % of
+    frames not captured only 23 % ever completed.  A changing snapshot is now
+    re-encoded only after two full rounds."""
+    lua = lua_runtime()
+    lua.execute('data={monotonic_time=1,timestamp=1001,character_name="Test",text=string.rep("abc",800)}')
+    seen = {}
+    for i in range(200):
+        lua.execute(f"data.monotonic_time={1+i*.01}")
+        parts = lua.eval("ns.NextPacket(data)").split("|", 6)
+        if parts[5] in {"STATE", "STATE_Z"}:
+            seen.setdefault(parts[2], []).append(parts[3])
+    finished = list(seen.values())[:-1]
+    assert finished and all(len(pages) >= 2*len(set(pages)) for pages in finished)

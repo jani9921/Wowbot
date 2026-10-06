@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.56"
+local ADDON_VERSION = "0.9.58"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -507,6 +507,8 @@ end
 
 local function readPlayerMovement()
     local speed = safeNumber(safeCall(GetUnitSpeed, "player"), 0)
+    local indoors = safeCall(IsIndoors)
+    if type(indoors) ~= "boolean" then indoors = nil end
     return {
         speed = speed,
         moving = speed > 0,
@@ -514,7 +516,8 @@ local function readPlayerMovement()
         flying = bool(safeCall(IsFlying)),
         swimming = bool(safeCall(IsSwimming)),
         falling = bool(safeCall(IsFalling)),
-        indoors = bool(safeCall(IsIndoors)),
+        -- A failed/secret API call is unknown, not evidence that we are outside.
+        indoors = indoors,
     }
 end
 
@@ -1757,6 +1760,25 @@ local function readSoftTargets()
                 evidence_role = "CANDIDATE_HINT",
                 confirmed = false,
             }
+        elseif unitToken == "softinteract" then
+            -- 0.9.57 (user 2026-10-06, Hrun's pit): a game object (Thick
+            -- Cocoon) is a soft-interact target too, but UnitExists() is
+            -- false for it; its GUID and name still identify it, and the
+            -- Interact key uses it.
+            local guid = safeUnitCall(UnitGUID, unitToken)
+            if guid and guidType(guid) == "OBJECT" then
+                local name = safeUnitCall(UnitName, unitToken)
+                local objectID = guid:match("^[^%-]+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-%x+$")
+                result[#result + 1] = {
+                    source_unit = unitToken,
+                    guid = guid,
+                    object_id = objectID and tonumber(objectID) or nil,
+                    name = name,
+                    unit_type = "GAMEOBJECT",
+                    evidence_role = "CANDIDATE_HINT",
+                    confirmed = false,
+                }
+            end
         end
     end
     return result

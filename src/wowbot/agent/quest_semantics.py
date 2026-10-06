@@ -90,6 +90,8 @@ def world_object_subjects(objective: dict) -> list[str]:
         r"\b(?:cook|burn)\b.{0,60}?\b(?:on|at|in)\s+(?:the\s+)?([a-z][a-z '\-]+)",
         r"\buse\b.{0,50}?\b(?:on|at)\s+(?:the\s+)?([a-z][a-z '\-]+)",
         r"\b(?:open|examine|inspect|interact with)\s+(?:the\s+)?([a-z][a-z '\-]+)",
+        # "Trapped Expedition Member rescued from cocoons" (Hrun's pit, 2026-10-06)
+        r"\b(?:rescued|freed|released|saved|pulled)\s+from\s+(?:the\s+)?([a-z][a-z '\-]+)",
     ]
     result = []
     for pattern in patterns:

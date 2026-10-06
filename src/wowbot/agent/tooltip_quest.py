@@ -9,6 +9,9 @@ name, so a stale tooltip of another unit is never used.
 from __future__ import annotations
 
 import re
+import math
+
+from .models import number
 
 _COUNT = re.compile(r"^(\d+)\s*/\s*(\d+)\b")
 
@@ -119,6 +122,38 @@ def creature_tooltip_open(unit: dict, state: dict | None = None) -> bool:
 
 
 MOUSEOVER_EVENT_STILL_SECONDS = .8
+MOUSEOVER_EVENT_MAX_STILL_SECONDS = 3.
+MOUSEOVER_EVENT_MAX_AGE_SECONDS = 3.
+
+
+def cursor_view(state: dict) -> dict:
+    """Screen geometry at a hover: cursor coordinates alone do not anchor it."""
+    position = state.get("player_world_position") or {}
+    return {"orientation": number(state.get("orientation")),
+            "camera_yaw": number(state.get("camera_yaw_estimate")),
+            "player_x": number(position.get("x")),
+            "player_y": number(position.get("y"))}
+
+
+def same_cursor_view(origin: dict | None, state: dict, *, check_camera: bool = True) -> bool:
+    """A prior hover cannot identify a pixel after the view/player has moved."""
+    current = cursor_view(state)
+    if not isinstance(origin, dict):
+        return not any(value is not None for value in current.values())
+    old, new = origin.get("orientation"), current["orientation"]
+    if old is not None and new is not None:
+        angular = abs((new-old+math.pi) % (2*math.pi)-math.pi)
+        if angular > .07:
+            return False
+    old, new = origin.get("camera_yaw"), current["camera_yaw"]
+    if check_camera and old is not None and new is not None and abs(new-old) > 18.:
+        return False
+    if all(origin.get(key) is not None and current[key] is not None
+           for key in ("player_x", "player_y")):
+        if math.hypot(current["player_x"]-origin["player_x"],
+                      current["player_y"]-origin["player_y"]) > .5:
+            return False
+    return True
 
 
 def effective_mouseover(state: dict, memory: dict | None = None) -> dict:
@@ -133,12 +168,29 @@ def effective_mouseover(state: dict, memory: dict | None = None) -> dict:
     still reports a quest-related non-unit of the same quest.
     """
     mouse = dict(state.get("mouseover") or {})
-    if mouse.get("tooltip") or mouse.get("guid"):
+    if mouse.get("tooltip") or mouse.get("guid") or mouse.get("name"):
         return mouse
-    remembered = _remembered_object(
-        state, mouse, memory if memory is not None else state.get("mouseover_object_memory"))
+    object_memory = memory if memory is not None else state.get("mouseover_object_memory")
+    remembered = _remembered_object(state, mouse, object_memory)
     if remembered is not None:
         return remembered
+    # A tracked event was considered and rejected.  The live FAST quest flag
+    # may still confirm the object during the first <.8 s of cursor dwell,
+    # before the remembered-event rule matures (Campfire replay).  But a view
+    # change/aged event must never be resurrected by the loose fallback.
+    if object_memory is not None:
+        now = number(state.get("monotonic_time"))
+        ingested = number(object_memory.get("ingested_at"))
+        cursor = state.get("cursor_position") or {}
+        ex, ey = (object_memory.get("event_cursor") or (None, None))
+        x, y = number(cursor.get("nx")), number(cursor.get("ny"))
+        if (mouse.get("quest_related") is not True
+                or not same_cursor_view(object_memory.get("cursor_view"), state)
+                or (number(object_memory.get("still_for")) or 0.) > MOUSEOVER_EVENT_MAX_STILL_SECONDS
+                or None in (x, y, ex, ey) or abs(x-ex) > .004 or abs(y-ey) > .004
+                or (now is not None and ingested is not None
+                    and not -.5 <= now-ingested <= MOUSEOVER_EVENT_MAX_AGE_SECONDS)):
+            return mouse
     if mouse.get("quest_related") is not True:
         return mouse
     events = [event for event in state.get("events") or ()
@@ -170,8 +222,32 @@ def _remembered_object(state: dict, mouse: dict, memory: dict | None) -> dict | 
     payload = memory["payload"]
     metadata = payload.get("tooltip_data") or {}
     tooltip = str(payload.get("tooltip") or "")
+    continuity = memory.get("live_continuity") or {}
+    cursor = state.get("cursor_position") or {}
+    x, y = number(cursor.get("nx")), number(cursor.get("ny"))
+    now = number(state.get("monotonic_time"))
+    live = (mouse.get("quest_related") is True
+            and str(mouse.get("quest_id")) == str(payload.get("quest_id"))
+            and continuity.get("sequence") == memory.get("sequence")
+            and str(continuity.get("quest_id")) == str(mouse.get("quest_id"))
+            and now is not None and number(continuity.get("at")) is not None
+            and -.5 <= now-float(continuity["at"]) <= 1.5)
+    if (live and tooltip and not payload.get("guid") and not metadata.get("guid")
+            and not metadata.get("unit_guid") and None not in (x, y)
+            and continuity.get("cursor") is not None
+            and abs(x-continuity["cursor"][0]) <= .004
+            and abs(y-continuity["cursor"][1]) <= .004):
+        return {**mouse, "tooltip": tooltip,
+                "name": metadata.get("unit_name") or tooltip.split(" ~ ", 1)[0],
+                "object_id": payload.get("object_id"),
+                "identity_source": "CONTINUOUS_LIVE_QUEST_OBJECT_MOUSEOVER"}
+    now, ingested_at = number(state.get("monotonic_time")), number(memory.get("ingested_at"))
+    still_for = number(memory.get("still_for")) or 0.
     if (not tooltip or payload.get("guid") or metadata.get("guid") or metadata.get("unit_guid")
-            or float(memory.get("still_for") or 0.) < MOUSEOVER_EVENT_STILL_SECONDS
+            or not MOUSEOVER_EVENT_STILL_SECONDS <= still_for <= MOUSEOVER_EVENT_MAX_STILL_SECONDS
+            or (now is not None and ingested_at is not None
+                and not -.5 <= now-ingested_at <= MOUSEOVER_EVENT_MAX_AGE_SECONDS)
+            or not same_cursor_view(memory.get("cursor_view"), state)
             or memory.get("event_cursor") is None or memory.get("cursor") != memory.get("event_cursor")):
         return None
     if mouse.get("quest_id") is not None and str(mouse.get("quest_id")) != str(payload.get("quest_id")):

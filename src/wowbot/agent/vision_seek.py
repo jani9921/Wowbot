@@ -146,15 +146,46 @@ class SeekVisualCueController:
         if self.target_track_id:
             exact = next((item for item in candidates if item.get("track_id") == self.target_track_id), None)
             if exact is not None:
-                return exact
+                return self._local_object_hypothesis(exact, state) or exact
             if self.target_signature_id:
-                return next((item for item in candidates
-                             if (item.get("visual_signature") or {}).get("signature_id")
-                             == self.target_signature_id), None)
+                exact = next((item for item in candidates
+                              if (item.get("visual_signature") or {}).get("signature_id")
+                              == self.target_signature_id), None)
+                return self._local_object_hypothesis(exact, state) or exact if exact else None
             return None
+        local_objects = [probe for item in candidates
+                         if (probe := self._local_object_hypothesis(item, state)) is not None]
+        if local_objects:
+            return max(local_objects, key=lambda item:
+                       (number(item.get("confidence")) or 0.)
+                       + .03*(number(item.get("stable_frames")) or 0.)
+                       + .1*(number(item.get("bbox_height_fraction")) or 0.))
         viable = [(self._score(item), item) for item in candidates]
         viable = [(score, item) for score, item in viable if score >= 1.15]
         return max(viable, key=lambda pair: pair[0])[1] if viable else None
+
+    def _local_object_hypothesis(self, item: dict | None, state: dict) -> dict | None:
+        """Quest-scoped weak outline: hover only, never inferred identity/use."""
+        if (not isinstance(item, dict)
+                or self.intent.get("search_capability") != "SEARCH_LOCAL_OBJECT"
+                or self.intent.get("quest_id") is None
+                or item.get("source") != "WORLD3D"):
+            return None
+        labels = {str(value).lower() for value in item.get("candidate_labels") or ()}
+        appearance = item.get("appearance") if isinstance(item.get("appearance"), dict) else {}
+        labels.update(str(value).lower() for value in appearance.get("anchor_candidate_labels") or ())
+        lifecycle = str(item.get("lifecycle") or item.get("track_state") or "ACTIVE").upper()
+        confidence = number(item.get("confidence")) or 0.
+        stable = number(item.get("stable_frames")) or 0.
+        observed_at = number(item.get("observed_at", item.get("last_seen")))
+        now = number(state.get("monotonic_time"))
+        if ("quest_object_like" not in labels or lifecycle not in {"ACTIVE", "STABLE"}
+                or confidence < .40 or stable < 2
+                or number(item.get("x")) is None or number(item.get("y")) is None
+                or (observed_at is not None and now is not None
+                    and not 0 <= now-observed_at <= .8)):
+            return None
+        return {**item, "hover_only_hypothesis": True}
 
     @staticmethod
     def _phase_for_servo(phase: VisualApproachPhase) -> SeekVisualCuePhase:
@@ -174,6 +205,8 @@ class SeekVisualCueController:
         can look like an overhead symbol and would otherwise make the agent
         walk toward scenery before obtaining any identity evidence.
         """
+        if item.get("hover_only_hypothesis") is True:
+            return True
         kind = str(item.get("detector_kind") or item.get("kind") or "").lower()
         if kind != "unknown_subject_probe":
             return False
@@ -213,7 +246,9 @@ class SeekVisualCueController:
                     for value in self.intent.get("expected_tooltips") or ()]
         if expected:
             tooltip = f" {words(str(mouse.get('tooltip') or '')).strip()} "
-            return any(value and f" {value} " in tooltip for value in expected)
+            from .object_interaction_flow import name_matches
+            return (any(value and f" {value} " in tooltip for value in expected)
+                    or name_matches(expected, mouse.get("unit_name") or mouse.get("name")))
         return bool(mouse.get("guid") and mouse.get("guid") != state.get("character_guid"))
 
     def observe(self, state: dict, observation_id: str, now: float) -> SeekVisualCueAssessment:

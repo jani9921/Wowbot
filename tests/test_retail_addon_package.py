@@ -16,7 +16,7 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     toc = (CANONICAL / "AIPlayerControllerExport.toc").read_text(encoding="utf-8")
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     assert "## Interface: 120100" in toc
-    assert "## Version: 0.9.56-12.1.0" in toc
+    assert "## Version: 0.9.58-12.1.0" in toc
     assert 'local PROTOCOL_VERSION = "AIPC5"' in lua
     assert toc.index("Transport.lua") < toc.index("AIPlayerControllerExport.lua")
     assert "local SCHEMA_VERSION = 4" in lua
@@ -56,6 +56,13 @@ def test_fast_player_world_xy_comes_from_the_fresh_map_sample() -> None:
     assert lua.count("currentPlayerWorldPosition(mapID, pos,") == 2
     assert "z = optionalNumber(z)" in lua
     assert "z_known = optionalNumber(z) ~= nil" in lua
+
+
+def test_indoor_sensor_survives_each_compact_transport_profile() -> None:
+    lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    transport = (CANONICAL / "Transport.lua").read_text(encoding="utf-8")
+    assert 'if type(indoors) ~= "boolean" then indoors = nil end' in lua
+    assert transport.count("indoors=sample.movement.indoors") == 6
 
 
 def test_ui_errors_are_attempt_correlatable_on_full_and_fast_lanes() -> None:
@@ -237,3 +244,13 @@ return first.quest_id .. "," .. first.ender_name .. "," .. first.ender_guid .. "
     assert "completion_log_text = completionLogText and" in body
     handler = source[source.index('if event == "QUEST_DETAIL" or event == "QUEST_PROGRESS"'):]
     assert 'rememberQuestText(dialogQuestID, "ender_guid", safeUnitCall(UnitGUID, "npc"))' in handler
+
+
+def test_soft_interact_game_objects_are_exported() -> None:
+    """0.9.57 (user 2026-10-06): the Thick Cocoon is a soft-interact game
+    object; UnitExists() is false for it, so its GUID/name go out separately."""
+    source = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    body = source[source.index("local function readSoftTargets"):source.index("local function readNameplates")]
+    assert 'elseif unitToken == "softinteract" then' in body
+    assert 'guidType(guid) == "OBJECT"' in body
+    assert 'unit_type = "GAMEOBJECT"' in body

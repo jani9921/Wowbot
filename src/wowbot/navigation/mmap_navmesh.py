@@ -279,8 +279,36 @@ class TrinityMMapNavMesh:
                        if isinstance(item.get("z"), (int, float))}
         return sorted(heights)
 
+    def walkable_layers_at(self, instance_id: int, point: dict, radius: float = 2.5) -> list[dict]:
+        """Read-only floor candidates with polygon identity at one X/Y.
+
+        Heights alone cannot distinguish two adjacent/interior navmesh
+        surfaces at nearly the same Z.  This does not mutate the active route
+        or the surface projection's continuity cache.
+        """
+        instance_id = int(instance_id)
+        dt, grid = self._world_to_detour(point), self._world_grid(point)
+        if dt is None or grid is None or not self.supports(instance_id):
+            return []
+        native = self._native_map(instance_id)
+        if native is not None and native.has_layer_queries:
+            layers = native.layers_at((dt[0], 0., dt[2]),
+                                      extents=(.5, self.NATIVE_LAYER_HALF_HEIGHT, .5),
+                                      include=self.allowed_flags)
+            if layers:
+                return [{"z": float(height), "layer_id": ("detour", int(ref))}
+                        for height, ref in layers]
+        index, _polygons = self._surface_index(instance_id, grid)
+        return [{"z": float(height), "layer_id": poly.key}
+                for poly in index.get(self._surface_bin(dt[0], dt[2]), ())
+                for height in (self._polygon_height_at(poly, dt[0], dt[2]),)
+                if height is not None]
+
     SURFACE_CONTINUITY_YARDS = 15.
     NATIVE_LAYER_HALF_HEIGHT = 1500.
+    # Keep up to this far from the walkway's edges (walls, drops) where it is
+    # wide enough; every portal crossing is a waypoint (user 2026-10-06).
+    PATH_CENTER_MARGIN = 2.5
     NATIVE_SURFACE_EXTENTS = ((1.5, 4., 1.5), (3., 10., 3.))
 
     def _native_project(self, native, instance_id: int, point: dict, dt: tuple,
@@ -523,7 +551,8 @@ class TrinityMMapNavMesh:
         for extents in (() if result is not None else self.KNOWN_Z_EXTENTS):
             extents_used = (extents if end_z_known and start_z_known
                             else (extents[0], self.UNKNOWN_Z_VERTICAL, extents[2]))
-            result = native.find_path(start_dt, end_dt, extents=extents_used, include=include)
+            result = native.find_path(start_dt, end_dt, extents=extents_used, include=include,
+                                      margin=self.PATH_CENTER_MARGIN)
             if result[0] not in (-1, -2):
                 break
         def estimated(point: dict, known: bool) -> bool:

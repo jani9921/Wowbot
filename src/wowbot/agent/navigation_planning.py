@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 
-from .models import Proposal
+from .models import Proposal, number
 from .navigation_situation import NavigationSituationPolicy
 
 
@@ -228,6 +228,7 @@ class NavigationProposalAdapter:
     TURN_IN_SWEEP_TIMEOUT_SECONDS = 30.
     TURN_IN_CELL_TIMEOUT_SECONDS = 25.
     TURN_IN_CELL_ARRIVED_YARDS = 3.5
+    TURN_IN_SEARCH_MAX_SECONDS = 120.
 
     def _turn_in_area_search(self, proposal: Proposal, world, now: float,
                              last_result: dict | None) -> Proposal:
@@ -241,11 +242,37 @@ class NavigationProposalAdapter:
             return proposal
         search = self._turn_in_search
         last = last_result if isinstance(last_result, dict) else {}
-        spot = f"{params.get('quest_id')}:{round(ax)}:{round(ay)}"
+        spot = ":".join(map(str, (params.get("quest_id"), world.state.get("session_id"),
+                                  world.state.get("map_id"), area.get("instance_id"),
+                                  round(ax), round(ay), number(area.get("z")))))
+        trusted_z = (number(position.get("z"))
+                     if (position.get("z_observed") is True
+                         or (number(position.get("z_confidence")) or 0.) >= .7)
+                     else None)
         if search.get("spot") != spot:
             search.clear()
             search.update(spot=spot, generation=0, swept=False, cell=None,
-                          sweep_started=now, seen_action=last.get("action_id"))
+                          sweep_started=now, started=now, origin_z=trusted_z,
+                          seen_action=last.get("action_id"))
+        elif search.get("origin_z") is None and trusted_z is not None:
+            search["origin_z"] = trusted_z
+        if now-search["started"] >= self.TURN_IN_SEARCH_MAX_SECONDS:
+            if (trusted_z is not None and search.get("origin_z") is not None
+                    and abs(trusted_z-search["origin_z"]) >= 8.):
+                # A verified floor change is new evidence: allow one fresh
+                # bounded search on that layer, not a permanent WAIT.
+                search.update(generation=0, swept=False, cell=None,
+                              sweep_started=now, started=now, origin_z=trusted_z,
+                              seen_action=last.get("action_id"))
+            else:
+                return Proposal.make(
+                    "WAIT", "Leadó NPC: korlátos helyi keresés kimerült; új quest- vagy emeletbizonyítékra vár",
+                    {"purpose": "SEARCH_TURN_IN_AREA", "quest_id": params.get("quest_id"),
+                     "search_area": area, "replan_scope": "QUEST_OR_FLOOR_EVIDENCE",
+                     "waiting_for": ["QUEST_STATE_CHANGED", "MAP_CONTEXT_CHANGED",
+                                     "TARGET_IDENTITY_CHANGED", "PLAYER_LAYER_CHANGED"]},
+                    confidence=proposal.confidence, priority=proposal.priority,
+                    evidence=proposal.evidence + ("turn_in_local_search_exhausted",))
         region_id = f"turn_in:{spot}:{search['generation']}"
         self.navigation.begin_search_region(region_id, area)
         if (last.get("skill") == "SEEK_VISUAL_CUE" and last.get("purpose") == "SEARCH_TURN_IN_AREA"
@@ -254,9 +281,14 @@ class NavigationProposalAdapter:
             search["swept"] = True
         cell = search.get("cell")
         if cell is not None:
-            cell_id, cx, cy, started = cell
-            if (math.hypot(px-cx, py-cy) <= self.TURN_IN_CELL_ARRIVED_YARDS
-                    or now-started > self.TURN_IN_CELL_TIMEOUT_SECONDS):
+            cell_id, cx, cy, cz, started = cell
+            near_xy = math.hypot(px-cx, py-cy) <= self.TURN_IN_CELL_ARRIVED_YARDS
+            player_z = number(position.get("z"))
+            same_layer = (cz is None or (player_z is not None
+                          and (position.get("z_observed") is True
+                               or (number(position.get("z_confidence")) or 0.) >= .7)
+                          and abs(player_z-cz) <= 5.))
+            if ((near_xy and same_layer) or now-started > self.TURN_IN_CELL_TIMEOUT_SECONDS):
                 self.navigation.mark_search_cell_visited(region_id, cell_id, now)
                 search.update(cell=None, swept=False, sweep_started=now)
             else:
@@ -269,7 +301,8 @@ class NavigationProposalAdapter:
             # Every cell was visited: start the same small area over.
             search.update(generation=search["generation"]+1, swept=False, sweep_started=now)
             return proposal
-        cell = (waypoint.get("search_cell_id"), float(waypoint["x"]), float(waypoint["y"]), now)
+        cell = (waypoint.get("search_cell_id"), float(waypoint["x"]),
+                float(waypoint["y"]), number(waypoint.get("z")), now)
         search["cell"] = cell
         return self._turn_in_cell_move(proposal, cell, area, waypoint)
 
@@ -280,6 +313,9 @@ class NavigationProposalAdapter:
                      "instance_id": area.get("instance_id"), "world_map_id": area.get("instance_id"),
                      "map_id": area.get("map_id"), "search_cell_id": cell[0],
                      "stop_distance": 2.5})
+        if cell[3] is not None:
+            base.update({"z": cell[3], "z_known": True, "z_estimated": True,
+                         "z_source": "NAVMESH_SEARCH_CELL", "layer_z": cell[3]})
         return Proposal.make(
             "MOVE", "Leadó NPC keresése: a leadási pont következő környékbeli cellája, ott körbenézés",
             {**base, "quest_id": proposal.parameters.get("quest_id"),
@@ -325,16 +361,30 @@ class NavigationProposalAdapter:
         self.navigation.observe_search_region(
             region_id, world.state, now, target_detected=target_detected)
         waypoint = self.navigation.next_search_waypoint(region_id, world.state)
+        on_floor = getattr(self.navigation, "search_cell_on_player_floor", None)
+        for _ in range(16):
+            if waypoint is None or not callable(on_floor) or on_floor(waypoint):
+                break
+            # A cell only reachable on another floor is not searched from here.
+            self.navigation.mark_search_cell_visited(region_id, waypoint.get("search_cell_id"), now)
+            waypoint = self.navigation.next_search_waypoint(region_id, world.state)
         if waypoint is None:
             if roam:
                 base = region_id.rsplit(":", 1)[0]
                 self._area_generations[base] = self._area_generations.get(base, 0) + 1
             return proposal
+        floor = {}
+        if waypoint.get("z") is None:
+            # Live 2026-10-06 21:16: a height-less cell over Hrun's pit was
+            # resolved onto the rim; the agent ran up the spiral to the
+            # entrance and back down.  The grid searches the player's own
+            # floor; arrows/dots own floor changes.
+            floor = {"floor_hint": area.get("floor_hint") or "SAME"}
         return Proposal.make(
             "MOVE", "Quest keresési régió szisztematikus következő cellája",
             {**waypoint, "quest_id": proposal.parameters.get("quest_id"),
              "objective_id": proposal.parameters.get("objective_id"),
              "objective_type": proposal.parameters.get("objective_type"),
              "search_area": area, "purpose": "SEARCH_LOCAL_OBJECTIVE_AREA",
-             "require_navmesh": True},
+             "require_navmesh": True, **floor},
             proposal.confidence, proposal.priority, proposal.evidence)

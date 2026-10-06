@@ -6,6 +6,7 @@ from __future__ import annotations
 from .models import Proposal, number
 from .world import WorldModel
 from .quest_semantics import target_matches_structured_entity, use_on_subjects, subject_matches_name
+from .quest_giver_evidence import is_game_object_objective
 
 
 class QuestObjectivePlanningMixin:
@@ -56,6 +57,32 @@ class QuestObjectivePlanningMixin:
                 subjects and target and target.get("name")
                 and subject_matches_name(subjects, target.get("name"))
                 and not target.get("dead", target.get("is_dead")))
+            if obj.type in {"USE_OBJECT", "INTERACT"} and is_game_object_objective(obj):
+                flow = self.location_policy.object_interaction
+                flow.note_result((world.runtime_context.get("last_result") or {})
+                                 if hasattr(world, "runtime_context") else {}, state)
+                object_steps = flow.propose_object_steps(obj, record, state)
+                from .tooltip_quest import effective_mouseover
+                identity = self.location_policy.object_interaction.expected_identity(obj)
+                cursor = state.get("cursor_position") or {}
+                mouse = effective_mouseover(state)
+                if (not flow.range_blocked(state)
+                        and self.location_policy.object_interaction.mouseover_matches(
+                        identity, mouse)
+                        and (mouse.get("tooltip") or
+                             str(mouse.get("quest_id")) == str(record.quest_id if record else qid))
+                        and all(number(cursor.get(k)) is not None for k in ("nx", "ny"))):
+                    object_steps = [Proposal.make(
+                        "OBJECT_USE", "Quest-objektum az egér alatt (tooltip egyezik): használat",
+                        {"x": cursor["nx"], "y": cursor["ny"], "object_id": identity.get("object_id"),
+                         "mouseover_tooltip": mouse.get("tooltip") or mouse.get("name"),
+                         "expected_tooltips": identity.get("expected_tooltips"),
+                         "objective_id": obj.objective_id,
+                         "quest_ids": [record.quest_id if record else qid]},
+                        confidence=.85, priority=92)] + object_steps
+                if object_steps:
+                    result.extend(object_steps)
+                    continue
             if (any(proposal.skill == "SEEK_VISUAL_CUE" for proposal in location_proposals)
                     and not selected_item_target):
                 # Live 2026-10-04 10:50: the local search SEEK also skipped

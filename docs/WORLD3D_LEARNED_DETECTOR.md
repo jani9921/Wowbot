@@ -57,7 +57,7 @@ monitor disabled.
 
 Audited source:
 
-`C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\datasets\wowpedia_mobs_npc`
+`C:\Users\benei\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\datasets\wowpedia_mobs_npc`
 
 Observed facts:
 
@@ -79,7 +79,7 @@ for live promotion.
 Reproduce the audit:
 
 ```powershell
-python tools/audit_world3d_yolo_dataset.py "C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\datasets\wowpedia_mobs_npc"
+python tools/audit_world3d_yolo_dataset.py "C:\Users\benei\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\datasets\wowpedia_mobs_npc"
 ```
 
 The command returns a non-zero status until full-frame collapse, split leakage,

@@ -123,7 +123,7 @@ A 0.8.0 megvalósítás és korlátai: AGENT_0.8.0.md. Valós tesztbizonyíték:
 | ADDON-20 | GROUP TELEMETRY (MASTER_ADDON_PROMPT.md:788) | Hiányos: group/raid telemetria még nincs. |
 | ADDON-21 | INSTANCE / PVP TELEMETRY (MASTER_ADDON_PROMPT.md:816) | Hiányos: instance/PvP telemetria még nincs. |
 | ADDON-22 | MOUNT TELEMETRY (MASTER_ADDON_PROMPT.md:851) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
-| ADDON-23 | MOVEMENT TELEMETRY (MASTER_ADDON_PROMPT.md:873) | Részleges, offline tesztelt: külön AIPC5 `FAST_STATE` sáv friss position/world-position/orientation/speed/moving/target/mouseover adatot ad névlegesen 26,7 Hz-en; a World Model csak a gyors contract mezőit frissíti, a lassú quest/inventory tényeket nem. Live frekvencia- és késleltetésmérés szükséges. |
+| ADDON-23 | MOVEMENT TELEMETRY (MASTER_ADDON_PROMPT.md:873) | Részleges, offline tesztelt: külön AIPC5 `FAST_STATE` sáv friss position/world-position/orientation/speed/moving/target/mouseover adatot ad névlegesen 26,7 Hz-en; a World Model csak a gyors contract mezőit frissíti, a lassú quest/inventory tényeket nem. A `movement.indoors` most minden kompakt transport profilban megmarad; ismeretlen API-érték nem válik hamis `false` jellé. Ennek valós kliensbeli beérkezése, valamint a live frekvencia- és késleltetésmérés még szükséges. |
 | ADDON-24 | DEATH / RECOVERY TELEMETRY (MASTER_ADDON_PROMPT.md:894) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-25 | UI / GAME STATE (MASTER_ADDON_PROMPT.md:922) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-26 | EVENT-DRIVEN DESIGN (MASTER_ADDON_PROMPT.md:944) | Részleges, offline tesztelt: nehéz snapshot 5 Hz-en marad, a bounded fast-state sampler külön 20–40 Hz-es contractot szolgál; runtime nem ismétli FAST mintánként a lassú quest/semantic-memory projekciókat. Live elfogadás szükséges. |
@@ -176,6 +176,37 @@ Első kód/adatút-audit és milestone-leltár: M0_REPOSITORY_AUDIT.md. A részl
 | M25 | PvP                | domain knowledge a közös Brain fölött                                             Részleges, offline tesztelt; queue/match/live hiányzik |
 | M26 | Goal Manager       | persistent high-level goal, priority/progress/recovery                            Részleges, offline tesztelt; hosszú horizont/live hiányzik |
 | M27 | Long-run autonomy  | tartós observe→plan→skill→verify→learn→replan futás                               Részleges, offline tesztelt; soak/live elfogadás hiányzik |
+
+2026-10-06, M20 / master §48, §61, §63: a felhasználói futásban az első gubó
+1/5 creditje élőben igazolt, de az utána következő MOVE a téves felső
+Z-szint miatt falba vezetett. A Z-kontinuitás és a több másodperces falnál
+beragadás-védelem javítása **offline tesztelt**; a második gubóhoz vezető út,
+a recovery és a teljes barlangi quest élő validációja továbbra is hiányzik.
+
+2026-10-06, M14 / M20 / M21, barlangi 55639 gubók: három új felhasználói
+futásból a stale-cursor jobbklikk, az OBJECT_USE ellenőrzési fázisban elvesző
+parancs, a FAST mouseover-név elvesztése és a combat utáni LOOT késleltetése
+azonosítható. A friss hover utáni addon-minta, a lokális skill-stage, a bounded
+mouseover-kontinuitás, a megerősített objektumhasználat LOCATION/WAIT fölé
+sorolása és a saját hullák azonnali LOOT-ja javított, regresszióval és mentett
+telemetria-replayjel ellenőrzött. Élő gubó-credit ezekkel a módosításokkal még
+**nem igazolt**; az F7 fallback sem, mert nem volt megfelelő soft GAMEOBJECT.
+
+2026-10-06 19:17, M14 / M21: az első gubó új élő próbája 0/5 maradt.
+Az OBJECT_USE csak HOVER-t küldött, majd `stale_observation`-nel megszakadt;
+nem történt gubó-jobbklikk vagy -F7. A később naplózott F7 a pók LOOT-ja
+volt, sikeres loot-verifikációval. A félrevezető optical-flow yaw miatt
+téves view-stale visszautasítás és a soft-target nélkül sosem aktiválódó
+gubó-F7 fallback javítása **offline tesztelt**, élő credit még hiányzik.
+
+2026-10-06 19:46–19:48, M2 / M14 / M17 / M21: az új élő futásban a
+`quest_object_like` gubódoboz és a helyes questhez kötött FAST hover egyszerre
+megvolt, de a strukturált „Thick Cocoon” név csak ≈12 s múlva érkezett a
+teljes STATE-ben; OBJECT_USE nem indult, a SEEK után az agent visszament
+átjárókeresésre/MOVE-ra, az objective 0/5 maradt. A rövid game-object név
+bounded FAST exportja, name-only objective-egyezés és a névvel igazolt
+OBJECT_USE átjárókeresés fölé sorolása **offline tesztelt**; telepített Lua
+újratöltése és élő quest-credit elfogadása még szükséges.
 
 ## Forrásazonosítók
 

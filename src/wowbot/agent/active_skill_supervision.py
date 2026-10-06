@@ -85,7 +85,13 @@ class ActiveSkillSupervisor:
             if runtime_step.terminal_result is not None:
                 return self._project(skill, runtime_step.terminal_result, state)
             return self._runtime(runtime_step, skill, state)
-        if skill in {"WAIT_EVENT", "OBJECT_USE", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION",
+        if skill == "OBJECT_USE":
+            result = self.m0_skills.verify(active_state, state, now)
+            if result.status is SkillStatus.RUNNING and result.commands:
+                return ActiveSkillSupervisionStep(commands=tuple(result.commands),
+                                                  event_type="OBJECT_USE_CONTROL_UPDATE")
+            return self._project(skill, result, state)
+        if skill in {"WAIT_EVENT", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION",
                      "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
             return self._project(
                 skill, self.m0_skills.verify(active_state, state, now), state)

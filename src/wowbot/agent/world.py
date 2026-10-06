@@ -405,7 +405,9 @@ class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
         # control sample. Receive order remains authoritative across lanes;
         # timestamp regression is rejected only within the same/FAST lane.
         latest_kind = self.latest.payload.get("transport_kind") if self.latest else None
-        if (self.latest and obs.timestamp < self.latest.timestamp
+        # A packet without a timestamp (0) is not "older": the bounded FAST
+        # variants omit it (live 2026-10-06: 25 s of FAST dropped this way).
+        if (self.latest and obs.timestamp and obs.timestamp < self.latest.timestamp
                 and (is_fast_state or latest_kind != "FAST")):
             # Same principle as the duplicate-observation_id return above: an
             # out-of-order packet is still proof of a live pipeline, just not

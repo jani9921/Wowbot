@@ -96,3 +96,23 @@ def _world(value, frame):
     from wowbot.agent.models import Observation
     value.world.ingest(Observation.create(frame, frame["monotonic_time"]))
     return value.world
+
+
+def test_at_an_api_giver_the_soft_interact_npc_outranks_the_selected_unit():
+    """Live 2026-10-06 22:12: Lady Jaina (picked from a hover next to Cole)
+    stayed selected at Private Cole's "!" while the client's soft-interact
+    unit was Cole; her approach ended planning for a minute."""
+    jaina = {"guid": "Creature-0-3113-2175-63341-156807-0000C115E3", "name": "Lady Jaina Proudmoore",
+             "npc_id": 156807, "unit_type": "NPC", "attackable": False}
+    value, _ = agent()
+    soft = [{**COLE, "source_unit": "softinteract", "is_dead": False}]
+    frame = _frame(1., target=jaina, mouseover=None, soft_targets=soft,
+                   player_world_position={"x": 187.5, "y": -2283.6, "instance_id": 2175,
+                                          "coordinate_space": "WORLD_YARDS"})
+    world = _world(value, frame)
+    assert not value.planner.quest._friendly_target_relevant(world, Goal.parse("Questelj", 1.), jaina)
+    far = _frame(1., target=jaina, mouseover=None, soft_targets=soft)        # 5.5 yd: not at the pin
+    assert value.planner.quest._friendly_target_relevant(
+        _world(value, {**far, "player_world_position": {"x": 230., "y": -2300., "instance_id": 2175,
+                                                        "coordinate_space": "WORLD_YARDS"}}),
+        Goal.parse("Questelj", 1.), jaina)
