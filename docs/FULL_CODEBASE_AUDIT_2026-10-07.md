@@ -1,4 +1,6 @@
-# Teljes kódbázis-audit — 2026-10-07
+# Kódbázis-leltár és első kritikusút-audit — 2026-10-07
+
+**Státuszkorrekció:** ez nem befejezett, 390 modulos soronkénti audit. A felhasználó kifejezetten az összes modul teljes kézi, futási útvonalankénti vizsgálatát kérte. Ezt most külön, [fájlonkénti auditnaplóban](LINE_BY_LINE_AUDIT_LEDGER_2026-10-07.tsv) követjük; az `UNREVIEWED` és `FILE_READ_CALL_GRAPH_PARTIAL` állapotok nem jelentik, hogy a modul hibamentes. A korábbi „teljes audit” megnevezés túlzó volt.
 
 ## Hatókör és bizonyítási szint
 
@@ -28,6 +30,16 @@ Az összes publikált forrás- és tesztfájlt hash alapján összevetettem a k�
 2. **[#69](https://github.com/jani9921/Wowbot/issues/69) World3D frissességi szerződés**. A lejárt boxot a query továbbadja; ezzel a track-ID és NPC/objektum-kiválasztás elemzése előtt a cselekvési jelöltek érvényessége sérülhet. A WorldModel-reprodukcióban t=2 track t=100 FAST után még jelölt volt, noha a belief `STALE`.
 3. **[#71](https://github.com/jani9921/Wowbot/issues/71) és [#73](https://github.com/jani9921/Wowbot/issues/73) háttéríró megbízhatóság**. Egy szimulált írási hibát `drain_writes()==True` követett 0 tárolt sorral. Egy külön, blokkolt íróval végzett tesztben 1000 enqueue → 1000 várakozó batch, 10 ms drain-timeout → `False`; a hívók ezt nem ellenőrzik. A torlódás éles előfordulását és gyakoriságát nem mértük.
 4. **[#30](https://github.com/jani9921/Wowbot/issues/30), [#17](https://github.com/jani9921/Wowbot/issues/17), [#34](https://github.com/jani9921/Wowbot/issues/34)**: élesítési kapu, regressziós szerződések és biztonságos quest-travel fallback. Csak ezek után érdemes a 24–30 Hz és többórás önálló futás következtetéseit elfogadási eredményként kezelni.
+
+## A soronkénti audit újabb leletei
+
+- **[#74](https://github.com/jani9921/Wowbot/issues/74):** már futó FULL_AI mellett a GUI „30 mp próba” gombja nem állít be lejárati időt. Reprodukció: `test_seconds=30`, `test_deadline=None`.
+- **[#75](https://github.com/jani9921/Wowbot/issues/75):** perception-reset után újrahasznált track-ID átveheti egy korábbi NPC cache-elt vizuális identitását. Az éles `_append_visual_projection()` izolált próbájában az új Kee-La-signature helyett Jaina maradt az `ENTITY_MEMORY` jelöltje.
+- **[#76](https://github.com/jani9921/Wowbot/issues/76):** a vizuális felismerés stabilizálója nem törli más trackek lejárt evidence-ét. 10 000 egyedi track után 10 000 bejegyzést tartott, és újabb `update()` továbbra is mindet bejárta.
+- **[#77](https://github.com/jani9921/Wowbot/issues/77):** a binding-validáló `ready=True` értéket adhat akkor is, ha a friss kliens `control_bindings` mezője már ellentmond a kiválasztott cache-nek, csak a katalóguslap még nem érkezett meg. Reprodukció: cache `MOVEFORWARD=W`, élő vezérlés `MOVEFORWARD=Q`, eredmény `mismatches=[]`.
+- **[#78](https://github.com/jani9921/Wowbot/issues/78):** a Windows-billentyűküldő határ nem ellenőrzi újra a kiválasztott PID előtérállapotát közvetlenül `SendInput` előtt; a fölötte lévő executor ellenőrzése és a küldés között fókuszváltási rés marad. Fake backenddel a `key()` előtér nélkül is kiadott eseményt. Élő téves ablakba gépelést nem állítok.
+
+Ezek kódszintű reprodukciók, nem a felhasználó egy-egy konkrét korábbi live futásának automatikus okmegállapításai. A 390 modul auditja folyamatban van.
 
 Nem nyitottam külön issue-t minden gyanús kódra. Például a runtime `close()` 2 s után továbbmegy akkor is, ha a főszál még él; ez versenyhelyzet-gyanú, de külön reprodukció és életciklus-teszt nélkül nem állítom bizonyított hibának. Az addon két könyvtárának kódja egyezik; az éles futó verzió külön ellenőrizendő [#32](https://github.com/jani9921/Wowbot/issues/32). A statikus keresés nem talált játékprocessz-memória olvasást/írást vagy injektálást; a Windows `kernel32` említések saját folyamat-prioritáshoz és diagnosztikához tartoznak. Ez nem formális biztonsági bizonyíték.
 
