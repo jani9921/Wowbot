@@ -6,31 +6,28 @@ részletes megfigyelések a 2026-10-06-i élő tesztek pillanatképét őrzik; n
 helyettesítik az issue-k aktuális státuszát. Forrás:
 [docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md) és [BUGFIXES.md](BUGFIXES.md).
 
-## Nyitott GitHub-backlog
+## Képességterületi GitHub-mérföldkövek
 
-- [Quest flow — live reliability](https://github.com/jani9921/Wowbot/milestone/1):
-  [Ralia #1](https://github.com/jani9921/Wowbot/issues/1),
-  [loot #2](https://github.com/jani9921/Wowbot/issues/2),
-  [gubó-kredit és sebesség #3](https://github.com/jani9921/Wowbot/issues/3),
-  [közeli quest-adók #4](https://github.com/jani9921/Wowbot/issues/4),
-  [item use #5](https://github.com/jani9921/Wowbot/issues/5),
-  [harci GUID-váltás #6](https://github.com/jani9921/Wowbot/issues/6).
-- [Multilevel navigation & minimap](https://github.com/jani9921/Wowbot/milestone/2):
-  [Z resolver #7](https://github.com/jani9921/Wowbot/issues/7),
-  [szintenkénti zóna-bejárás #8](https://github.com/jani9921/Wowbot/issues/8),
-  [falnak futás #9](https://github.com/jani9921/Wowbot/issues/9),
-  [felbontás/minimap #10](https://github.com/jani9921/Wowbot/issues/10),
-  [VMAP/LOS #11](https://github.com/jani9921/Wowbot/issues/11).
-- [Vision & targeting](https://github.com/jani9921/Wowbot/milestone/3):
-  [kis/takart NPC #12](https://github.com/jani9921/Wowbot/issues/12),
-  [ismeretlen jelöltek #13](https://github.com/jani9921/Wowbot/issues/13),
-  [hamis ! #14](https://github.com/jani9921/Wowbot/issues/14),
-  [gyors hover élő teszt #15](https://github.com/jani9921/Wowbot/issues/15).
-- [Runtime & regression health](https://github.com/jani9921/Wowbot/milestone/4):
-  [addon-csomagok #16](https://github.com/jani9921/Wowbot/issues/16),
-  [bukó tesztek #17](https://github.com/jani9921/Wowbot/issues/17),
-  [memóriaadatbázis #18](https://github.com/jani9921/Wowbot/issues/18),
-  [TensorRT kompatibilitás #19](https://github.com/jani9921/Wowbot/issues/19).
+A [képességbecslés és bizonyítékai](docs/DOMAIN_PROGRESS.md) a régi M0–M27
+kapukat történeti kiindulásként, a jelenlegi kódot és a friss élő futásokat
+aktuális bizonyítékként kezeli. A GitHub natív progress bar csak a lezárt
+issue-k aránya, nem a becsült készültség.
+
+| Domain milestone | Nyitott feladatok |
+|---|---|
+| [Questing](https://github.com/jani9921/Wowbot/milestone/1) | [Ralia #1](https://github.com/jani9921/Wowbot/issues/1), [gubó #3](https://github.com/jani9921/Wowbot/issues/3), [quest-adók #4](https://github.com/jani9921/Wowbot/issues/4) |
+| [Herbalism](https://github.com/jani9921/Wowbot/milestone/5) | [élő ciklus #20](https://github.com/jani9921/Wowbot/issues/20) |
+| [Mining](https://github.com/jani9921/Wowbot/milestone/6) | [élő ciklus #21](https://github.com/jani9921/Wowbot/issues/21) |
+| [Fishing](https://github.com/jani9921/Wowbot/milestone/7) | [élő ciklus #22](https://github.com/jani9921/Wowbot/issues/22) |
+| [Vision](https://github.com/jani9921/Wowbot/milestone/3) | [kis NPC #12](https://github.com/jani9921/Wowbot/issues/12), [jelölt-kóválygás #13](https://github.com/jani9921/Wowbot/issues/13), [hamis ! #14](https://github.com/jani9921/Wowbot/issues/14), [hover #15](https://github.com/jani9921/Wowbot/issues/15) |
+| [Skills](https://github.com/jani9921/Wowbot/milestone/8) | [loot #2](https://github.com/jani9921/Wowbot/issues/2), [item use #5](https://github.com/jani9921/Wowbot/issues/5) |
+| [Combat](https://github.com/jani9921/Wowbot/milestone/9) | [GUID-váltás #6](https://github.com/jani9921/Wowbot/issues/6) |
+| [Navigation](https://github.com/jani9921/Wowbot/milestone/2) | [Z resolver #7](https://github.com/jani9921/Wowbot/issues/7), [zóna-bejárás #8](https://github.com/jani9921/Wowbot/issues/8), [stuck #9](https://github.com/jani9921/Wowbot/issues/9), [minimap #10](https://github.com/jani9921/Wowbot/issues/10), [VMAP #11](https://github.com/jani9921/Wowbot/issues/11) |
+| [World Model & Memory](https://github.com/jani9921/Wowbot/milestone/10) | [memóriaadatbázis #18](https://github.com/jani9921/Wowbot/issues/18) |
+| [Runtime & Setup](https://github.com/jani9921/Wowbot/milestone/4) | [addon-csomagok #16](https://github.com/jani9921/Wowbot/issues/16), [TensorRT #19](https://github.com/jani9921/Wowbot/issues/19) |
+| [Autonomy & Verification](https://github.com/jani9921/Wowbot/milestone/11) | [regressziós tesztek #17](https://github.com/jani9921/Wowbot/issues/17) |
+| [Dungeon/PvE](https://github.com/jani9921/Wowbot/milestone/12) | [élő instance #23](https://github.com/jani9921/Wowbot/issues/23) |
+| [PvP](https://github.com/jani9921/Wowbot/milestone/13) | [élő match #24](https://github.com/jani9921/Wowbot/issues/24) |
 
 A lentebb felsorolt platformkorlátok és már élőben igazolt működések nem
 automatikusan nyitott hibák. Új hiba esetén külön issue, reprodukció és
