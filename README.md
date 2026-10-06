@@ -32,7 +32,10 @@ reading, injection or secret-value bypasses.
 reference. It is **not** selected automatically: choose a cache explicitly in
 the GUI, and verify it matches the bindings of the running WoW client. On a
 new machine, the addon export can create a fresh cache for that client.
-
+Wow Options : Interact target F7
+            :Enable interact key
+            Sticky targeting
+            
 ## Verziók
 Minden nagyobb javítás vagy implementáció előtt a GitHubon lévő állapot verziócímkét (git tag)
 kap, így egy jól működő korábbi verzió bármikor elővehető:
