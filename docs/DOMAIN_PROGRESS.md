@@ -1,84 +1,29 @@
-# Képességterületi előrehaladás — 2026-10-07
+# Képességterületi kódaudit — 2026-10-07
 
-Ez **óvatos becslés**, nem automatikus teszteredmény és nem „elkészült”
-minősítés. A régi M0–M27 kapuk a fejlesztés történeti kiindulását adják; a
-mai állapotot a jelenlegi forrás, a regressziós tesztek és a
-[legutóbbi felhasználói élő futások](LIVE_VALIDATION.md) alapján értékeljük.
-Egy szintetikus replay nem helyettesít élő elfogadást. A GitHub milestone
-saját százaléka külön adat: **lezárt issue-k / összes issue**. Az alábbi
-képességbecslést a milestone leírása mutatja; a kettőt nem szabad összekeverni.
+Ezek **óvatos, 0–100%-os használhatósági becslések**, nem lefutott tesztek aránya és nem készültségi ígéret. A jelenlegi `projekt` forrás 390 Python-moduljának leltára, a 13 terület éles adatforrás → WorldModel → planner → skill/input → sikerellenőrzés útvonala, a teljes regressziós kör és a dokumentált felhasználói élő futások alapján készültek. A GitHub export `src`, `addon`, `config`, `tests`, `tools` fájljai az auditkor megegyeztek a `projekt` másolatával; a kihagyott eltérések két ideiglenes `.tmp` és két helyi, nem publikálandó fiókfájl voltak.
 
-## Pontozás
+A százalék az **aktuális felhasználói képességet** becsüli. 0% itt azt jelenti, hogy nincs összekötött éles adat→cselekvés→eredmény út, nem azt, hogy egyetlen sor kód sincs. Részleges élő siker kézi segítséggel nagyjából 40–60%; ismételten önálló, változatos helyzetekben elfogadott ciklus nélkül 75% fölé nem megyünk. 100% csak a terület dokumentált teljes élő elfogadásakor lehetséges. A GitHub milestone saját sávja ettől különböző adat: **lezárt issue / összes issue**.
 
-| Bizonyíték | Maximum | Értelmezés |
-|---|---:|---|
-| Közös architektúrába bekötve | 15 | WorldModel/planner/skill/verification út, nem külön brain |
-| Funkcionális lefedettség | 25 | A terület lényeges ciklusai és fail-closed ágai |
-| Offline regresszió | 20 | Releváns automata tesztek/replayek; részleges bukások levonva |
-| Élő komponensbizonyíték | 20 | A felhasználó által futtatott kliensben tényleges állapotváltozás |
-| Önálló end-to-end élő elfogadás | 20 | Reprezentatív teljes ciklus kézi rásegítés nélkül |
+Teljes tesztkör a `projekt` másolatban: **2454 passed, 5 skipped, 15 failed**. A bukások nem bizonyítottan mind azonos gyökerűek; több quest/travel/search elvárást érintenek. Új live tesztet az audit során nem indítottunk.
 
-A részpontok 5-ös lépésekben becslések. A legutolsó oszlop minden területen
-0, amíg a mai kódon ilyen teljes live kapu nincs igazolva. A 100% csak
-az összes szükséges kapu elfogadásával jelenthető ki.
+| GitHub mérföldkő | Becsült használhatóság | Mit igazol a jelenlegi kód és élő napló? | Legfontosabb nyitott kapu |
+|---|---:|---|---|
+| [Questing](https://github.com/jani9921/Wowbot/milestone/1) | **50%** | Quest-log, dialog, objective, turn-in és credit út éles; több questet leadott, de kézi rásegítéssel és regressziókkal. | [#34](https://github.com/jani9921/Wowbot/issues/34) travel WAIT-loop, [#37](https://github.com/jani9921/Wowbot/issues/37) credit-eszkaláció, [#38](https://github.com/jani9921/Wowbot/issues/38) forráshierarchia; stabil önálló lánc. |
+| [Navigation](https://github.com/jani9921/Wowbot/milestone/2) | **45%** | MMAP/VMAP, Z resolver, minimap és stuck-recovery használatban; barlangba és gubókhoz eljutott. | Többszintes route, fal/rámpa, fallback regresszió; [#33](https://github.com/jani9921/Wowbot/issues/33) útvonal-tapasztalat nincs az éles szolgáltatásban. |
+| [Vision](https://github.com/jani9921/Wowbot/milestone/3) | **45%** | YOLO/World3D, minimap, hover és követés ténylegesen futott. | [#35](https://github.com/jani9921/Wowbot/issues/35) ID/box folytonosság, [#40](https://github.com/jani9921/Wowbot/issues/40) tartós feed-Hz, kis/takart NPC és hamis jel. |
+| [Runtime & Setup](https://github.com/jani9921/Wowbot/milestone/4) | **40%** | A kiválasztott PID, addon/pixelstrip, GPU-s látás és helyi GUI futott; installerben backend-választó ágak vannak. | [#30](https://github.com/jani9921/Wowbot/issues/30) élesítési kapu, [#32](https://github.com/jani9921/Wowbot/issues/32) futó addon verzió, [#39](https://github.com/jani9921/Wowbot/issues/39) tiszta gépes install; nincs több hardveren elfogadva. |
+| [Herbalism](https://github.com/jani9921/Wowbot/milestone/5) | **0%** | ResourceDomain/HERB kattintási váz és szintetikus teszt van, de éles node-adat nincs. | [#25](https://github.com/jani9921/Wowbot/issues/25) producer → [#20](https://github.com/jani9921/Wowbot/issues/20) élő teljes ciklus. |
+| [Mining](https://github.com/jani9921/Wowbot/milestone/6) | **0%** | ResourceDomain/MINE és site-memória váz van, de éles node-adat nincs. | [#25](https://github.com/jani9921/Wowbot/issues/25) producer → [#21](https://github.com/jani9921/Wowbot/issues/21) élő teljes ciklus. |
+| [Fishing](https://github.com/jani9921/Wowbot/milestone/7) | **0%** | Cast-parancs és szintetikus bobber-állapotú planner ág van; a FISH jelenleg a castot, nem a kifogott halat igazolja. | [#26](https://github.com/jani9921/Wowbot/issues/26) bobber/kapás producer + [#27](https://github.com/jani9921/Wowbot/issues/27) teljes verifikáció → [#22](https://github.com/jani9921/Wowbot/issues/22) élő ciklus. |
+| [Skills](https://github.com/jani9921/Wowbot/milestone/8) | **45%** | Közös skill/verification út és valós object-use, item-use, loot, dialog használat. | Loot/item-use élő hibatűrés, [#36](https://github.com/jani9921/Wowbot/issues/36) typed VehicleSkill bekötése. |
+| [Combat](https://github.com/jani9921/Wowbot/milestone/9) | **45%** | Valós pókharcok és Hrun kill; célzás, rotáció, eseménykorreláció és verifikáció kódja éles. | [#6](https://github.com/jani9921/Wowbot/issues/6) GUID-váltás, range/facing/LOS, több cél és megszakítás ismételt élő elfogadása. |
+| [World Model & Memory](https://github.com/jani9921/Wowbot/milestone/10) | **45%** | Addon FAST/FULL tények, evidence, SQLite, háttéríró és visszatöltés működő alap. | [#18](https://github.com/jani9921/Wowbot/issues/18) növekedés, [#25](https://github.com/jani9921/Wowbot/issues/25) hiányzó resource producer, cross-view azonosság. |
+| [Autonomy & Verification](https://github.com/jani9921/Wowbot/milestone/11) | **30%** | Közös goal/supervisor/anti-loop/verification út és hosszú, részben sikeres futás. | Kézi beavatkozások, hamis siker/kudarc és a 15 bukó teszt [#17](https://github.com/jani9921/Wowbot/issues/17); tartós önálló soak nincs. |
+| [Dungeon/PvE](https://github.com/jani9921/Wowbot/milestone/12) | **0%** | DungeonDomain csak kézzel injektált instance/group állapotból tudna tervezni. | [#28](https://github.com/jani9921/Wowbot/issues/28) éles állapot → [#23](https://github.com/jani9921/Wowbot/issues/23) élő ciklus. |
+| [PvP](https://github.com/jani9921/Wowbot/milestone/13) | **0%** | PvPDomain csak kézzel injektált match/objective állapotból adna MOVE-ot. | [#29](https://github.com/jani9921/Wowbot/issues/29) éles állapot → [#24](https://github.com/jani9921/Wowbot/issues/24) élő ciklus. |
 
-| GitHub domain milestone | Régi kapuk (történeti) | Arch. /15 | Funkció /25 | Offline /20 | Live /20 | End-to-end /20 | Becsült készültség |
-|---|---|---:|---:|---:|---:|---:|---:|
-| [Questing](https://github.com/jani9921/Wowbot/milestone/1) | M10–M12, M21, M26 | 15 | 15 | 20 | 15 | 0 | **65%** |
-| [Herbalism](https://github.com/jani9921/Wowbot/milestone/5) | M22 | 15 | 5 | 10 | 0 | 0 | **30%** |
-| [Mining](https://github.com/jani9921/Wowbot/milestone/6) | M22, AGENT-54 | 15 | 5 | 10 | 0 | 0 | **30%** |
-| [Fishing](https://github.com/jani9921/Wowbot/milestone/7) | M22, AGENT-55 | 15 | 10 | 10 | 0 | 0 | **35%** |
-| [Vision](https://github.com/jani9921/Wowbot/milestone/3) | M2–M4, M17, M19 | 15 | 15 | 20 | 15 | 0 | **65%** |
-| [Skills](https://github.com/jani9921/Wowbot/milestone/8) | M13–M14, M21 | 15 | 15 | 20 | 15 | 0 | **65%** |
-| [Combat](https://github.com/jani9921/Wowbot/milestone/9) | M23, AGENT-49 | 15 | 10 | 15 | 15 | 0 | **55%** |
-| [Navigation](https://github.com/jani9921/Wowbot/milestone/2) | M20, AGENT-48 | 15 | 15 | 20 | 15 | 0 | **65%** |
-| [World Model & Memory](https://github.com/jani9921/Wowbot/milestone/10) | M4–M9 | 15 | 15 | 15 | 10 | 0 | **55%** |
-| [Runtime & Setup](https://github.com/jani9921/Wowbot/milestone/4) | M1–M2, addon kapuk | 15 | 15 | 15 | 10 | 0 | **55%** |
-| [Autonomy & Verification](https://github.com/jani9921/Wowbot/milestone/11) | M12, M14, M26–M27 | 15 | 10 | 15 | 10 | 0 | **50%** |
-| [Dungeon/PvE](https://github.com/jani9921/Wowbot/milestone/12) | M24 | 15 | 5 | 10 | 0 | 0 | **30%** |
-| [PvP](https://github.com/jani9921/Wowbot/milestone/13) | M25 | 15 | 0 | 10 | 0 | 0 | **25%** |
+## Miért nulla az öt vázkódos terület?
 
-## Mi támasztja alá, és mi hiányzik?
+Az éles `src/wowbot/agent/world_query.py` olvassa a `resource_observations`, `fishing`, `instance_state`, `group_state`, `pvp_state` mezőket, a `planning_domains.py` pedig ezekből állítana elő terveket. A `src` és `addon` jelenlegi kódjában nincs e mezők éles írója. A tesztek injektált állapottal bizonyítják a planner ágát, nem a játéktól az eredményig tartó funkciót. Ezt korábban túlértékeltem.
 
-- **Questing:** a 2026-10-05-i egyórás felhasználói futásban kilenc questet
-  leadott; a 2026-10-06-i barlangos quest eljutott 5/5 gubóig, Hrunig és
-  Ralia ride creditig. Több lépéshez kézi segítség kellett (például item
-  használat és Ralia taxi), az új giver-fix és több object-use ág csak
-  offline ellenőrzött. Ez live részleges működés, nem önálló teljesítés.
-- **Herbalism / Mining:** a közös ResourceDomain megerősített node-ból
-  javasol MOVE és HERB/MINE skillt; verifikált site memória és full-bag
-  gate offline tesztelt. Nincs dokumentált élő teljes gather/inventory
-  ciklus, ezért nincs live pont.
-- **Fishing:** cast → aktív várás → megerősített kapás → GATHER/loot
-  állapotút és idegen spellcast kizárása offline tesztelt. Élő kapás és
-  inventory-ciklus hiányzik.
-- **Vision:** YOLO/World3D, minimap és hover a valós questfutásokban
-  működött, de track-ID folytonosság, kis/takart NPC-k, hamis quest-jel és
-  kameraelfordulás melletti stabil újrafelismerés nyitott.
-- **Skills:** a közös registry és verification út offline széles; a
-  gubó OBJECT_USE élőben kreditre vezetett. Az item-use, vendor és
-  általános interakció minden ága nem live elfogadott.
-- **Combat:** valós pókharcok és Hrun kill igazoltak; GUID-váltás,
-  DEFEND-újraindulás, range/rotáció és multi-target továbbra is nyitott.
-- **Navigation:** a zone-sweep érkezés, barlangba lejutás és gubó
-  megközelítése live működött. Fel/le Z-választás, falnak futás,
-  szintenkénti teljes bejárás és kézi segítség nélküli útvonal nincs
-  elfogadva.
-- **World Model & Memory:** FAST/FULL addon állapot és quest/world state
-  ténylegesen táplált élő döntéseket; cross-view identity, tartós memória
-  és adatbázis-növekedés korlátai nyitottak.
-- **Runtime & Setup:** valós addon/pixelstrip és GPU-s látás futott, de a
-  0.9.58 teljes STATE összeállási aránya ~75% volt, és a telepítő
-  hardverválasztása/tiszta gépes end-to-end elfogadása hiányzik.
-- **Autonomy & Verification:** hosszú, egyórás futásban több quest
-  előrehaladt, de a felhasználó többször belenyúlt, és vannak hamis
-  negatív/sikertelen ciklusok. Tartós önálló soak/live kapu nincs meg.
-- **Dungeon/PvE / PvP:** a közös planner offline domain-proposaljai és
-  néhány kapu létezik. Instance/queue/match, group/mechanika és teljes
-  élő ciklus egyiknél sincs igazolva.
-
-Források: [MASTER_COVERAGE.md](MASTER_COVERAGE.md),
-[LIVE_VALIDATION.md](LIVE_VALIDATION.md),
-[KNOWN_ISSUES.md](../KNOWN_ISSUES.md). Százalék csak új bizonyíték vagy
-elfogadási kapu változása után módosítható; live tesztet a felhasználó
- indít, az asszisztens a naplót elemzi.
+A régi M0–M27 kapuk történeti alapok, nem a mai képességek automatikus igazolásai. Részletes követés: [CURRENT_SOURCE_COVERAGE.md](CURRENT_SOURCE_COVERAGE.md), [LIVE_VALIDATION.md](LIVE_VALIDATION.md), [KNOWN_ISSUES.md](../KNOWN_ISSUES.md). A felhasználó indítja az élő teszteket; az asszisztens a naplókat elemzi.
