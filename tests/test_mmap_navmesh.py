@@ -312,3 +312,27 @@ def test_mmap_module_has_no_input_or_runtime_authority():
     assert "InputExecutor" not in source
     assert "Command(" not in source
     assert "WorldModel" not in source
+
+
+def test_close_releases_cached_native_maps_once_and_never_reloads():
+    """Issue #85: TrinityMMapNavMesh.close left native Detour handles open."""
+    from wowbot.navigation.mmap_navmesh import TrinityMMapNavMesh
+
+    class Native:
+        closed = 0
+        def close(self):
+            Native.closed += 1
+
+    class Source:
+        closes = 0
+        def close(self):
+            Source.closes += 1
+
+    mesh = TrinityMMapNavMesh.__new__(TrinityMMapNavMesh)
+    mesh.source = Source()
+    mesh._native_maps = {1: Native(), 2: None, 3: Native()}
+    mesh.close()
+    mesh.close()
+    assert Native.closed == 2 and Source.closes == 2
+    assert "_native_maps" not in mesh.__dict__
+    assert mesh._native_map(1) is None

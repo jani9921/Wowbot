@@ -128,6 +128,18 @@ class TrinityMMapNavMesh:
             return None
 
     def close(self) -> None:
+        """Release every cached native Detour map, then the tile source.
+
+        Issue #85: the native handles (aipc_nav_create) were only freed at
+        process exit.  Idempotent; a closed mesh never reloads a native map.
+        """
+        self.__dict__["_native_closed"] = True
+        for native in self.__dict__.pop("_native_maps", {}).values():
+            if native is not None:
+                try:
+                    native.close()
+                except Exception as error:   # cleanup must not mask shutdown
+                    self.__dict__["native_error"] = f"{type(error).__name__}: {error}"
         self.source.close()
 
     def supports(self, instance_id: int) -> bool:
@@ -452,6 +464,8 @@ class TrinityMMapNavMesh:
 
     def _native_map(self, instance_id: int):
         """Lazily load every tile of the map into native Detour; None = fallback."""
+        if self.__dict__.get("_native_closed"):
+            return None
         cache = self.__dict__.setdefault("_native_maps", {})
         if instance_id in cache:
             return cache[instance_id]
