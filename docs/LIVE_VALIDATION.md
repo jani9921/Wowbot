@@ -7832,3 +7832,26 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
   - With 25 quests the digest does not fit at all, and with an error present the digest is dropped, so the single-strip FAST budget is the structural limit. User proposal: a wider top pixel strip carrying separate FAST and STATE lanes, masked out of YOLO.
   - STALE_OBSERVATION at cocoon 1.
   - Leaving the barrow during the area search.
+
+---
+
+## 2026-10-07 — addon 0.9.61: two-lane top pixel strip (offline-tested, not yet live)
+
+- Why: in the 11:13 run (above), full FAST samples were 1.1–1.5 KB. The 850-byte single-strip budget therefore always fell back to a bounded variant. The STATE was also sent only on one rendered frame of every four, while the capture kept ~27 of up to 60 frames/s, so 3348 pages produced only 108 snapshots. User decision: one long strip along the top, masked out of YOLO.
+- Layout (`AIPlayerControllerExport.lua`, `computePixelLayout`):
+  - 32 rows of cells exactly 4 physical pixels square, starting at 12 px from the top-left.
+  - The strip runs right up to `MinimapCluster:GetLeft()` − 8 px (a 220-unit reserve when the minimap position is unknown).
+  - FAST lane: 224 columns (packet ≤ 1784 bytes). STATE lane: the remaining columns, between 64 and 224. A 1600×829 client gets 224 + 129 columns.
+  - Re-laid out on `DISPLAY_SIZE_CHANGED`/`UI_SCALE_CHANGED`. With fewer than 240 columns (~1200 px wide clients) it falls back to the former single strip.
+- Framing:
+  - Each lane carries header (8 cells), marker byte 254, column count (2 bytes), length (2 bytes), payload and checksum. The STATE lane starts right after the FAST lane's columns.
+  - A legacy length's high byte is at most 3, so old and new strips cannot be confused.
+  - Only changed cells are redrawn, so a held STATE page costs nothing on its second frame.
+- Transport (`Transport.lua`): `NextLanePackets` returns a FAST packet (the richest variant up to the lane budget) and a STATE page every frame, each page held for two frames (`STATE_PAGE_HOLD`). The single-strip `NextPacket` is unchanged.
+- Python side:
+  - `pixel_bridge._decode_lanes` returns both packets newline-joined. A torn STATE lane keeps the frame's FAST packet.
+  - `PacketAssembler.feed`/`feed_lanes` feeds FAST first, so a snapshot completed in the same frame merges it; one bad lane does not discard the other.
+  - The page bound was raised to 4096 bytes. The sensor reports `two_lane_frames`.
+  - The YOLO `addon_hud` hard mask is now the full-width top band of max(18 % of height, 148 px).
+- Tests: `tests/test_two_lane_strip_20261007.py` (+7; the addon's own drawing code is rasterised and decoded). Full suite: 33 baseline failures, 2510 passed.
+- Next user run: install the addon and `/reload`. Then check in `agent_status.json` `sensor_diagnostics…two_lane_frames > 0`, `completed_full_states / state_pages` (it was 108/3348) and `completed_full_state_hz`, and watch the client FPS with the wider strip.

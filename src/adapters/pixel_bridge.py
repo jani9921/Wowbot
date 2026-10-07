@@ -216,7 +216,7 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
 
 
 def _cell_classes(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
-                  pitch: float, start: int, count: int):
+                  pitch: float, start: int, count: int, columns: int = 128):
     """Vectorized classify_rgb for grid cells ``start..start+count``.
 
     Returns an int8 array, or None when any cell is outside the frame or has
@@ -224,7 +224,6 @@ def _cell_classes(buffer: bytes, width: int, height: int, center_x: float, cente
     Live 2026-09-30: the per-cell Python loop pinned the pixel-sensor thread at
     80-92 % of a core while strip discovery retried geometries.
     """
-    columns = 128
     index = np.arange(start, start + count)
     # np.rint and Python round() both round half to even, so cell positions
     # are identical to the former scalar implementation.
@@ -261,11 +260,68 @@ def _header_present(buffer: bytes, width: int, height: int, center_x: float, cen
     return classes is not None and tuple(int(value) for value in classes) == HEADER
 
 
+# Two-lane strip (addon 0.9.61): after the header, a lane marker byte, the
+# lane's column count and its length frame each lane; the STATE lane starts
+# right after the FAST lane's columns on the same rows.  A legacy length's
+# high byte is at most 3, so the marker can never be read as one.
+LANE_MARKER = 254
+LANE_ROWS = 32
+_ROW_ZERO = 1 << 30
+
+
+def _decode_lane(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
+                 pitch: float) -> Optional[tuple[str, int]]:
+    """One framed lane at its header: (packet, column count) or None."""
+    head = _cell_classes(buffer, width, height, center_x, center_y, pitch, 0, 28, columns=_ROW_ZERO)
+    if head is None or tuple(int(value) for value in head[:8]) != HEADER:
+        return None
+    marker, columns_high, columns_low, length_high, length_low = _bytes_from_cells(head[8:])
+    columns = columns_high * 256 + columns_low
+    length = length_high * 256 + length_low
+    if marker != LANE_MARKER or not 28 <= columns <= 1024 or not 1 <= length <= 8*columns - 8:
+        return None
+    body = _cell_classes(buffer, width, height, center_x, center_y, pitch, 28, (length + 1) * 4,
+                         columns=columns)
+    if body is None:
+        return None
+    decoded = _bytes_from_cells(body)
+    values, checksum = decoded[:length], decoded[length]
+    if checksum != sum(values) % 256:
+        return None
+    try:
+        payload = bytes(values).decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return (payload, columns) if payload.startswith("AIPC5|") else None
+
+
+def _decode_lanes(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
+                  pitch: float) -> Optional[str]:
+    """Both lanes, newline-joined (packets never contain a raw newline).
+
+    The STATE lane is located by the FAST lane's column count, so a torn
+    FAST lane loses this frame; a torn STATE lane keeps the FAST packet.
+    """
+    first = _decode_lane(buffer, width, height, center_x, center_y, pitch)
+    if first is None:
+        return None
+    payload, columns = first
+    second = _decode_lane(buffer, width, height, center_x + columns * pitch, center_y, pitch)
+    return payload if second is None else payload + "\n" + second[0]
+
+
+def split_lane_payload(payload: str) -> list[str]:
+    """The AIPC5 packets of one decoded frame (one, or one per lane)."""
+    return [part for part in payload.split("\n") if part]
+
+
 def _decode_grid(buffer: bytes, width: int, height: int, center_x: int, center_y: int, pitch: float) -> Optional[str]:
     length_cells = _cell_classes(buffer, width, height, center_x, center_y, pitch, 8, 8)
     if length_cells is None:
         return None
     high, low = _bytes_from_cells(length_cells)
+    if high == LANE_MARKER:
+        return _decode_lanes(buffer, width, height, center_x, center_y, pitch)
     length = high * 256 + low
     if not 1 <= length <= 1000:
         return None

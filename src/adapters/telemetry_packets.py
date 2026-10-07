@@ -176,14 +176,38 @@ class PacketAssembler:
         elapsed = max(0., mono-anchor_mono) if mono is not None else 0.
         value["timestamp"] = math.floor(base + elapsed)
 
+    def feed_lanes(self, packets: list[str], now: float | None = None) -> dict | None:
+        """All packets of one two-lane frame: FAST first, so a snapshot the
+        STATE lane completes in the same frame already merges it; the
+        completed snapshot then wins as the frame's result.  One bad lane does
+        not discard the other."""
+        now = time.monotonic() if now is None else now
+        ordered = sorted(packets, key=lambda packet: 0 if packet.split("|", 6)[5:6] == ["FAST"] else 1)
+        result, errors = None, []
+        for packet in ordered:
+            try:
+                value = self.feed(packet, now)
+            except ValueError as error:
+                errors.append(error)
+                continue
+            if value is not None and (result is None or value.get("transport_kind") != "FAST"):
+                result = value
+        if result is None and errors and len(errors) == len(ordered):
+            raise errors[0]
+        return result
+
     def feed(self, payload: str, now: float | None = None) -> dict | None:
         now = time.monotonic() if now is None else now
+        if "\n" in payload:
+            return self.feed_lanes([part for part in payload.split("\n") if part], now)
         parts = payload.split("|", 6)
         if len(parts) != 7 or parts[0] != "AIPC5":
             raise ValueError("invalid AIPC5 packet")
         _, session, seq_raw, index_raw, count_raw, kind, body = parts
         seq, index, count = int(seq_raw), int(index_raw), int(count_raw)
-        if kind not in {"FAST", "STATE", "STATE_Z"} or seq < 0 or not 1 <= count <= 160 or not 0 <= index < count or len(body.encode()) > 900:
+        # A single-strip body is at most ~950 bytes; a two-lane strip lane at
+        # most 8*1024-8.  4096 bounds both (the capture buffer slot size).
+        if kind not in {"FAST", "STATE", "STATE_Z"} or seq < 0 or not 1 <= count <= 160 or not 0 <= index < count or len(body.encode()) > 4096:
             raise ValueError("invalid AIPC5 bounds")
         if session != self.session:
             self.__init__()

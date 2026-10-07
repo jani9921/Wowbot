@@ -101,6 +101,7 @@ class PixelSensor:
         self.published_updates = 0
         self.fresh_fast_packets = 0
         self.completed_full_states = 0
+        self.lane_frames = 0
         self.last_decoded_at = None
         self.last_published_at = None
         self.last_packet_identity = None
@@ -165,20 +166,24 @@ class PixelSensor:
         self.decoded_packets += 1
         self.last_decoded_at = now
         self.decoded_packet_rate.mark(now)
-        parts = payload.split("|", 6)
-        packet_identity = tuple(parts[1:6]) if len(parts) == 7 else None
+        # A two-lane strip (addon 0.9.61) decodes to one packet per lane.
+        lanes = [packet.split("|", 6) for packet in payload.split("\n") if packet]
+        identities = tuple(tuple(parts[1:6]) if len(parts) == 7 else None for parts in lanes)
+        packet_identity = identities[0] if len(identities) == 1 else identities
         if packet_identity != self.last_packet_identity:
             self.last_packet_identity = packet_identity
             self.last_packet_changed_at = now
             self.repeated_packet_frames = 0
         else:
             self.repeated_packet_frames += 1
-        if len(parts) == 7 and parts[5] == "FAST":
-            self.fast_packets += 1
-            self.fast_packet_rate.mark(now)
-        elif len(parts) == 7 and parts[5] in {"STATE", "STATE_Z"}:
-            self.state_pages += 1
-            self.state_page_rate.mark(now)
+        self.lane_frames += len(lanes) > 1
+        for parts in lanes:
+            if len(parts) == 7 and parts[5] == "FAST":
+                self.fast_packets += 1
+                self.fast_packet_rate.mark(now)
+            elif len(parts) == 7 and parts[5] in {"STATE", "STATE_Z"}:
+                self.state_pages += 1
+                self.state_page_rate.mark(now)
         result = self.assembler.feed(payload, now)
         if result is not None:
             self.last_published_at = now
@@ -221,6 +226,7 @@ class PixelSensor:
             "source_publish_hz": self.publish_rate.hz(now),
             "completed_full_states": self.completed_full_states,
             "completed_full_state_hz": self.completed_full_rate.hz(now),
+            "two_lane_frames": self.lane_frames,
             "last_decoded_age": (None if self.last_decoded_at is None
                                  else round(max(0., now-self.last_decoded_at), 3)),
             "last_published_age": (None if self.last_published_at is None
