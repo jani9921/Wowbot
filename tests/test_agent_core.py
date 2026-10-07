@@ -1461,6 +1461,28 @@ def test_high_level_goals(text, domain):
     assert Goal.parse(text, 1).domain == domain
 
 
+def test_area_loot_keeps_distant_and_other_floor_corpses_pending():
+    """Issue #91: two kills within 30 s but far apart / on another floor."""
+    world = WorldModel()
+    near, far, below, unknown = (f"Creature-0-1-2-3-150228-0000001{c}" for c in "ABCD")
+    def at(x, y, z, t):
+        world.ingest(Observation.create(state(t, player_world_position={
+            "x": x, "y": y, "z": z, "instance_id": 2175,
+            "coordinate_space": "WORLD_YARDS"}), t))
+    at(100., 200., 10., 1.)
+    world.mark_combat_kill(near, 1.)
+    at(160., 200., 10., 5.)
+    world.mark_combat_kill(far, 5.)
+    at(104., 200., -15., 8.)
+    world.mark_combat_kill(below, 8.)
+    at(101., 201., 10., 12.)
+    world.owned_corpse_guids[unknown] = 9.      # own kill, position never seen
+    world.mark_corpse_looted(near, 12.)
+    world.mark_area_looted(12., window=30., origin_guid=near)
+    assert near not in world.owned_corpse_guids
+    assert {far, below, unknown} <= set(world.owned_corpse_guids)
+
+
 def test_area_loot_retires_recent_kills_and_failed_corpses_are_released():
     """Live 2026-10-01 18:45-18:49: after one successful loot, Retail area loot
     had emptied the other corpses, which then failed loot_ui_not_opened; one
@@ -1468,8 +1490,10 @@ def test_area_loot_retires_recent_kills_and_failed_corpses_are_released():
     world = WorldModel()
     a, b, old = ("Creature-0-1-2-3-150228-0000000A", "Creature-0-1-2-3-150228-0000000B",
                  "Creature-0-1-2-3-150228-0000000C")
+    here = {"x": 100., "y": 200., "z": 10., "instance_id": 2175,
+            "coordinate_space": "WORLD_YARDS"}
     world.ingest(Observation.create(state(1, target={"guid": a, "attackable": True},
-                                          is_in_combat=True), 1))
+                                          is_in_combat=True, player_world_position=here), 1))
     world.mark_combat_kill(old, 1.)
     world.mark_combat_kill(a, 40.)
     world.mark_combat_kill(b, 50.)

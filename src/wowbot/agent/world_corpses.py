@@ -7,14 +7,58 @@ from .models import number
 from .models import json_copy as deepcopy
 
 
+def _world_point(value) -> tuple | None:
+    if not isinstance(value, dict):
+        return None
+    x, y = number(value.get("x")), number(value.get("y"))
+    instance = value.get("instance_id")
+    if x is None or y is None or instance is None:
+        return None
+    return float(x), float(y), number(value.get("z")), str(instance)
+
+
 class WorldCorpseMixin:
     """Methods of WorldModel (world.py); moved verbatim."""
 
-    def mark_area_looted(self, at: float | None = None, *, window: float = 30.) -> None:
-        """Retire own corpses killed within ``window`` s (Retail area loot)."""
+    # Retail area loot covers corpses around the opened one, not every recent
+    # kill.  Conservative bounds; one storey of Z separates cave floors.
+    AREA_LOOT_RADIUS_YARDS = 20.
+    AREA_LOOT_MAX_DZ_YARDS = 6.
+
+    def _kill_position(self, guid: str) -> tuple | None:
+        """Best world-space estimate of where an own kill happened."""
+        target = self.state.get("target") or {}
+        if str(target.get("guid") or "") == guid:
+            point = _world_point(target.get("world_position"))
+            if point is not None:
+                return point
+        return _world_point(self.state.get("player_world_position"))
+
+    def _same_loot_area(self, origin: tuple | None, other: tuple | None) -> bool:
+        if origin is None or other is None or origin[3] != other[3]:
+            return False
+        if ((origin[0]-other[0])**2 + (origin[1]-other[1])**2) ** .5 > self.AREA_LOOT_RADIUS_YARDS:
+            return False
+        return (origin[2] is None or other[2] is None
+                or abs(origin[2]-other[2]) <= self.AREA_LOOT_MAX_DZ_YARDS)
+
+    def mark_area_looted(self, at: float | None = None, *, window: float = 30.,
+                         origin_guid: str | None = None) -> None:
+        """Retire own corpses that Retail area loot covered with the opened one.
+
+        Issue #91: retiring every kill of the last ``window`` s dropped far
+        away (or other-floor) corpses that were never looted.  Only kills
+        near the opened corpse, on its floor and instance, are retired; a
+        corpse with unknown position stays pending (its own bounded loot
+        failures retire it).
+        """
         now = self.last_received if at is None else float(at)
+        positions = self.__dict__.get("kill_positions", {})
+        origin = positions.get(str(origin_guid or "")) or _world_point(
+            self.state.get("player_world_position"))
         for guid, killed_at in list(self.owned_corpse_guids.items()):
-            if killed_at is not None and 0 <= now-float(killed_at) <= window:
+            if (killed_at is not None and 0 <= now-float(killed_at) <= window
+                    and self._same_loot_area(origin, positions.get(guid))):
                 self.mark_corpse_looted(guid, now)
 
     def note_loot_failure(self, guid: str | None, at: float | None = None,
@@ -54,6 +98,9 @@ class WorldCorpseMixin:
         observed_at = number(at)
         killed_at = self.last_received if observed_at is None else observed_at
         self.owned_corpse_guids[guid] = killed_at
+        position = self._kill_position(guid)
+        if position is not None:
+            self.__dict__.setdefault("kill_positions", {})[guid] = position
         anchor = self.mouseover_screen_anchors.get(guid)
         boxed = self.last_target_boxes.get(guid)
         if (boxed and isinstance(boxed.get("bbox"), dict)

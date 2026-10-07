@@ -81,3 +81,21 @@ def test_meet_names_the_turn_in_npc_and_an_llm_guess_keeps_the_giver():
     assert turn_in_names(state) == ["Quartermaster Richter", "Captain Garrick"]
     state["quest_turn_in_names"]["55194"]["source"] = "QUEST_TEXT_PATTERN:OBJECTIVE_TEXT"
     assert turn_in_names(state) == ["Quartermaster Richter"]
+
+
+def test_nearby_turn_in_poi_admits_only_the_named_ender():
+    """Issue #92: a completed quest's turn-in POI within 35 yd made *any*
+    friendly NPC relevant, so an unrelated Kee-La could be targeted while
+    Jaina was the named ender."""
+    def state(names):
+        return {"active_quests": [{"quest_id": 42, "is_complete": True}],
+                "player_world_position": {"x": 100., "y": 100., "instance_id": 2175,
+                                          "coordinate_space": "WORLD_YARDS"},
+                "quest_locations": [{"quest_id": 42, "x": 120., "y": 100.,
+                                     "instance_id": 2175, "coordinate_space": "WORLD_YARDS"}],
+                "quest_turn_in_names": names}
+    named = state({"42": {"name": "Lady Jaina Proudmoore"}})
+    assert not friendly_npc_relevant(named, "Creature-unrelated", set(), unit_name="Kee-La")
+    assert friendly_npc_relevant(named, "Creature-jaina", set(), unit_name="Lady Jaina Proudmoore")
+    # Ender still unknown: the POI remains the bounded search-area fallback.
+    assert friendly_npc_relevant(state({}), "Creature-unrelated", set(), unit_name="Kee-La")
