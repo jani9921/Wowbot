@@ -31,7 +31,7 @@ src/wowbot/agent/capture_selection.py	45	FILE_READ_CALL_GRAPH_PARTIAL	capture-pe
 src/wowbot/agent/capture_worker.py	202	FILE_READ_CALL_GRAPH_PARTIAL	#79,#98
 src/wowbot/agent/collect_strategy.py	70	FILE_READ_CALL_GRAPH_PARTIAL	agent-memory-evidence-objective-path
 src/wowbot/agent/combat_controller.py	197	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/agent/combat_planning.py	623	FILE_READ_CALL_GRAPH_PARTIAL	#95
+src/wowbot/agent/combat_planning.py	623	FILE_READ_CALL_GRAPH_PARTIAL	#95; loot producer #100
 src/wowbot/agent/coordinates.py	33	FILE_READ_CALL_GRAPH_PARTIAL	input-coordinate-path
 src/wowbot/agent/credit_failure_escalation.py	74	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/cross_view.py	101	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -69,7 +69,7 @@ src/wowbot/agent/memory_rejection.py	116	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/memory_terminal.py	54	FILE_READ_CALL_GRAPH_PARTIAL	agent-memory-evidence-objective-path
 src/wowbot/agent/memory.py	406	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/models.py	345	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/agent/movement_controller.py	652	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/movement_controller.py	652	FILE_READ_CALL_GRAPH_PARTIAL	wrong-layer arrival #101
 src/wowbot/agent/navigation_planning.py	373	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/navigation_situation.py	208	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/navigation_terminal.py	72	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -81,7 +81,7 @@ src/wowbot/agent/objective_locator.py	67	FILE_READ_CALL_GRAPH_PARTIAL	agent-memo
 src/wowbot/agent/observation_ingestion.py	42	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
 src/wowbot/agent/obstacle_perception.py	45	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
 src/wowbot/agent/offline_replay.py	98	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/agent/outcome_bookkeeping.py	110	FILE_READ_CALL_GRAPH_PARTIAL	#91
+src/wowbot/agent/outcome_bookkeeping.py	110	FILE_READ_CALL_GRAPH_PARTIAL	#91; false loot success #100
 src/wowbot/agent/passive_wait.py	76	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/perception_background.py	133	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
 src/wowbot/agent/perception_context.py	83	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path
@@ -247,7 +247,7 @@ src/wowbot/navigation/planner.py	50	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
 src/wowbot/navigation/progress.py	229	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
 src/wowbot/navigation/reachability.py	39	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
 src/wowbot/navigation/search_coverage.py	126	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
-src/wowbot/navigation/service.py	1094	FILE_READ_CALL_GRAPH_PARTIAL	navigation-replan #83
+src/wowbot/navigation/service.py	1094	FILE_READ_CALL_GRAPH_PARTIAL	navigation-replan #83; entity Z #101
 src/wowbot/navigation/spatial_context.py	96	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
 src/wowbot/navigation/state_machine.py	21	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
 src/wowbot/navigation/stuck_classifier.py	61	FILE_READ_CALL_GRAPH_PARTIAL	navigation-path
@@ -294,8 +294,8 @@ src/wowbot/skills/interact.py	420	FILE_READ_CALL_GRAPH_PARTIAL	skills-interactio
 src/wowbot/skills/interaction_recovery.py	35	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/interaction_result.py	125	FILE_READ_CALL_GRAPH_PARTIAL	skills-target-combat-path
 src/wowbot/skills/interaction_runtime.py	144	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
-src/wowbot/skills/loot_runtime.py	63	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
-src/wowbot/skills/loot.py	176	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
+src/wowbot/skills/loot_runtime.py	63	FILE_READ_CALL_GRAPH_PARTIAL	loot approach #101
+src/wowbot/skills/loot.py	176	FILE_READ_CALL_GRAPH_PARTIAL	loot verification #100; approach #101
 src/wowbot/skills/movement_phase_contract.py	57	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/movement.py	52	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/object_use.py	252	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
@@ -314,7 +314,7 @@ src/wowbot/verification/base.py	23	FILE_READ_CALL_GRAPH_PARTIAL	verification-pat
 src/wowbot/verification/combat_error_classifier.py	58	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/verification/combat.py	108	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/verification/interaction.py	162	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
-src/wowbot/verification/loot.py	135	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
+src/wowbot/verification/loot.py	135	FILE_READ_CALL_GRAPH_PARTIAL	kill credit false loot #100
 src/wowbot/verification/movement.py	31	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/verification/quest_dialog.py	69	FILE_READ_CALL_GRAPH_PARTIAL	verification-path #82
 src/wowbot/verification/quest.py	193	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
