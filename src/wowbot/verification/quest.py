@@ -30,6 +30,43 @@ class QuestProgressAssessment:
         return self.status is not QuestProgressStatus.NO_CHANGE
 
 
+def _number(value):
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def fast_digest_progress(before: dict, after: dict, quest_ids=()) -> list[str]:
+    """Quest ids whose FAST ``quest_digest`` "done" count rose.
+
+    The digest (sum of objective counts per quest) arrives on the FAST lane,
+    seconds before the paged snapshot's ``active_quests`` (live 2026-10-07: a
+    cocoon credit failed 1.2 s before its snapshot arrived).  The baseline is
+    the higher of the previous digest and the previous snapshot's own sum, so
+    a stale digest next to a newer snapshot never reads as progress; without
+    any baseline nothing is claimed.
+    """
+    wanted = {str(value) for value in quest_ids if value is not None}
+    old_digest = {str(item.get("id")): _number(item.get("done"))
+                  for item in before.get("quest_digest") or () if isinstance(item, dict)}
+    old_sum = {}
+    for quest in before.get("active_quests") or ():
+        if isinstance(quest, dict) and quest.get("quest_id") is not None:
+            counts = [_number(objective.get("current", objective.get("current_count")))
+                      for objective in quest.get("objectives") or () if isinstance(objective, dict)]
+            if counts and None not in counts:
+                old_sum[str(quest["quest_id"])] = sum(counts)
+    result = []
+    for item in after.get("quest_digest") or ():
+        if not isinstance(item, dict) or item.get("id") is None:
+            continue
+        quest_id, done = str(item["id"]), _number(item.get("done"))
+        if wanted and quest_id not in wanted:
+            continue
+        known = [value for value in (old_digest.get(quest_id), old_sum.get(quest_id)) if value is not None]
+        if done is not None and known and done > max(known):
+            result.append(quest_id)
+    return result
+
+
 class QuestProgressVerifier:
     """Compare normalized quest projections without changing the quest plan."""
 
@@ -86,7 +123,11 @@ class QuestProgressVerifier:
             and isinstance(event.get("payload") or {}, dict)
             and event not in (before.get("events") or ())
         }
-        old_accepted = {str(value) for value in before.get("accepted_quest_ids") or ()}
+        # The FAST digest's accepted ids are absent from a snapshot that is
+        # newer than the last FAST sample; a quest that was already active
+        # when they reappear was not just accepted.
+        old_accepted = ({str(value) for value in before.get("accepted_quest_ids") or ()}
+                        | set(old))
         new_accepted = {str(value) for value in after.get("accepted_quest_ids") or ()}
         for quest_id in sorted(wanted_quests):
             if quest_id not in old and quest_id in new:
@@ -159,6 +200,22 @@ class QuestProgressVerifier:
                 )
                 changed_quests.add(quest_id)
                 changed_objectives.add(objective_id)
+
+        # FAST digest progress is per quest.  It credits an objective only
+        # when the quest has a single objective (unambiguous); otherwise the
+        # paged snapshot's per-objective counts remain the authority.
+        digest_quests = set(fast_digest_progress(before, after, wanted_quests)) if wanted_quests else set()
+        for quest_id in sorted(digest_quests - changed_quests):
+            objectives = (new.get(quest_id) or old.get(quest_id) or {}).get("objectives") or {}
+            wanted_here = {objective_id for objective_id in wanted_objectives
+                           if objective_id.partition(":")[0] == quest_id
+                           or (":" not in objective_id and len(wanted_quests) == 1)}
+            if wanted_here and len(objectives) != 1:
+                continue
+            evidence.append(f"quest_digest_progress:{quest_id}")
+            statuses.append(QuestProgressStatus.QUEST_PROGRESSING)
+            changed_quests.add(quest_id)
+            changed_objectives.update(wanted_here)
 
         precedence = (
             QuestProgressStatus.QUEST_COMPLETE,

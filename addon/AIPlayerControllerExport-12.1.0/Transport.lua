@@ -439,6 +439,37 @@ function ns.NextPacket(data, fastData)
             }
             text = encode(v)
         end
+        -- Live 2026-10-07: every live FAST sample fell back to a bounded
+        -- variant without quest_digest/ui_error, so quest credit and "You are
+        -- too far away." reached the agent only with the paged STATE (3-21 s
+        -- later; a cocoon credit failed 1.2 s before its snapshot arrived).
+        -- Re-add these small fields to whichever variant was chosen when the
+        -- packet still fits; the error is the more time-critical one.
+        if #text <= 850 then
+            local digest = v.quest_digest == nil and type(sample.quest_digest) == "table"
+            local uiError = v.ui_error == nil and compactText(sample.ui_error, 96) ~= nil
+            for _, extra in ipairs({{digest, uiError}, {false, uiError}, {digest, false}}) do
+                if extra[1] or extra[2] then
+                    local richer = {}
+                    for key, value in pairs(v) do richer[key] = value end
+                    if extra[1] then
+                        richer.quest_digest = sample.quest_digest
+                        richer.quest_state_revision = sample.quest_state_revision
+                    end
+                    if extra[2] then
+                        richer.ui_error = compactText(sample.ui_error, 96)
+                        richer.ui_error_at = sample.ui_error_at
+                        richer.ui_error_code = sample.ui_error_code
+                        richer.ui_error_sequence = sample.ui_error_sequence
+                    end
+                    local encoded = encode(richer)
+                    if #encoded <= 850 then
+                        text = encoded
+                        break
+                    end
+                end
+            end
+        end
         if #text <= 850 then
             if sourceTime ~= sample.monotonic_time then
                 sourceTime=sample.monotonic_time

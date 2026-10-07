@@ -67,12 +67,12 @@ class SkillVerificationMixin:
             # quest-linked loot/gather/use progress is visible in well under a
             # second instead of waiting out verify()'s timeout for the next
             # slow page.
-            quest_ids = set(quest_ids or [])
-            old = {d.get("id"): number(d.get("done")) for d in before.get("quest_digest") or []}
+            # A missing baseline is no evidence (it read as 0 -> any count).
+            from wowbot.verification.quest import fast_digest_progress
+            wanted = {str(value) for value in quest_ids or ()}
             return [d.get("id") for d in after.get("quest_digest") or []
-                    if (not quest_ids or d.get("id") in quest_ids)
-                    and number(d.get("done")) is not None
-                    and number(d.get("done")) > (old.get(d.get("id")) or 0)]
+                    if isinstance(d, dict) and str(d.get("id")) in set(
+                        fast_digest_progress(before, after, wanted))]
         success = False
         if name == "WAIT":
             success = True

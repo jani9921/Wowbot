@@ -912,7 +912,7 @@ def test_arming_rejects_a_running_addon_that_differs_from_the_project(tmp_path):
                            sensor=sensor, executor=exe, vision=False)
     try:
         assert runtime.expected_addon_version          # read from the repo toc
-        runtime.expected_addon_version = "0.9.59"
+        runtime.expected_addon_version = "0.9.60"
         runtime.agent.set_goal("Menj oda", 1, {"destination": {"map_id": 1609, "x": .5, "y": .4}})
         runtime.mode("FULL_AI")
         runtime.arm_at, runtime.arm_deadline = 2, 12
@@ -920,10 +920,10 @@ def test_arming_rejects_a_running_addon_that_differs_from_the_project(tmp_path):
         result = runtime.step(2)
         assert result["mode"] == "MANUAL" and not exe.commands
         assert result["result"]["addon_version_mismatch"] == {"running": "0.9.56",
-                                                              "expected": "0.9.59"}
+                                                              "expected": "0.9.60"}
         runtime.mode("FULL_AI")
         runtime.arm_at, runtime.arm_deadline = 3, 13
-        sensor.payload = {**state(3), "addon_version": "0.9.59"}
+        sensor.payload = {**state(3), "addon_version": "0.9.60"}
         assert runtime.step(3)["mode"] == "FULL_AI"
     finally:
         runtime.close()

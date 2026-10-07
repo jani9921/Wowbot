@@ -63,7 +63,9 @@ def test_object_use_still_fails_when_a_newer_snapshot_shows_no_credit():
     skill2.begin(run2, _cocoon())
     run2.phase = "VERIFY"
     skill2.verify(run2, _cocoon(), 1.2)
-    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 19.5).status is SkillStatus.FAILURE
+    # 2026-10-07: the grace is 25 s (a live snapshot stalled 21 s).
+    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 19.5).status is SkillStatus.RUNNING
+    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 34.5).status is SkillStatus.FAILURE
 
 
 # -- FAST packets without an epoch timestamp ---------------------------------

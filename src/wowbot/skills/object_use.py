@@ -24,7 +24,10 @@ class ObjectUseSkill:
     # objective suppressed for 15 s.  After a use was sent, wait (bounded)
     # for a full snapshot sampled at least this long after it.
     CREDIT_SNAPSHOT_AFTER_USE_SECONDS = 1.
-    CREDIT_GRACE_SECONDS = 10.
+    # Live 2026-10-07: the paged snapshot stalled 21 s; the credit arrived
+    # 1.2 s after a 10 s grace.  Only while no snapshot newer than the use
+    # has arrived (FAST quest_digest credits immediately from 0.9.60).
+    CREDIT_GRACE_SECONDS = 25.
     # Live 2026-10-06 21:16: a cocoon one floor lower answered the right-click
     # and F7 with "You are too far away." and the skill waited out 8 s twice.
     OUT_OF_RANGE_TEXTS = ("too far", "out of range")
