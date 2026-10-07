@@ -52,7 +52,7 @@ src/wowbot/agent/executor.py	191	FILE_READ_CALL_GRAPH_PARTIAL	execution-path
 src/wowbot/agent/fast_movement_lane.py	58	FILE_READ_CALL_GRAPH_PARTIAL	#70
 src/wowbot/agent/goal_manager.py	291	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/golden_sessions.py	42	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
-src/wowbot/agent/gui.py	546	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/gui.py	546	FILE_READ_CALL_GRAPH_PARTIAL	#97
 src/wowbot/agent/inspection_terminal.py	73	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/interaction_range.py	12	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
 src/wowbot/agent/learning_memory.py	145	FILE_READ_CALL_GRAPH_PARTIAL	-
