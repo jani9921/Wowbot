@@ -198,7 +198,10 @@ class ObjectInteractionFlow:
                  "object_guid": soft.get("guid"), "object_id": soft.get("object_id"),
                  "object_name": soft.get("name"), "objective_id": objective.objective_id,
                  "quest_ids": quest_ids},
-                confidence=.85, priority=70, evidence=("soft_interact_object",)))
+                # Issue #99: an identity-matched soft-interact object is in
+                # range now; the visible-box SEEK (90/93) used to starve this
+                # verified use.  Quest credit is still verified by the skill.
+                confidence=.85, priority=95, evidence=("soft_interact_object",)))
         return steps
 
     def propose_local_search(self, objective, record, search_area: dict) -> list[Proposal]:

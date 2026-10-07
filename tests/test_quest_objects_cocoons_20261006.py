@@ -68,7 +68,9 @@ def test_the_soft_interact_cocoon_is_used_with_the_interact_key():
         _objective(), None, {"visual_candidates": [BOX], "soft_targets": [SOFT]})
     assert steps[0].skill == "SEEK_VISUAL_CUE"
     use = steps[1]
-    assert (use.skill, use.parameters["activation_source"], use.priority) == ("OBJECT_USE", "INTERACT_KEY", 70)
+    # Issue #99: the identity-matched soft target outranks the box SEEK.
+    assert (use.skill, use.parameters["activation_source"]) == ("OBJECT_USE", "INTERACT_KEY")
+    assert use.priority > steps[0].priority
     skill = ObjectUseSkill()
     state = SimpleNamespace(intent=SimpleNamespace(parameters=use.parameters, objective_ref="55639:0"),
                             skill_context={}, phase=None)
@@ -173,3 +175,31 @@ def test_cocoon_name_survives_pointer_slide_only_while_live_quest_hover_is_conti
                "monotonic_time": 4., "mouseover_sample_time": 4.}
     reducer.track_mouseover_object(model, resumed, Observation.create(resumed, 4.))
     assert not effective_mouseover({**resumed, "mouseover_object_memory": model.mouseover_object_memory}).get("name")
+
+
+def test_planner_ranks_a_matching_soft_target_use_above_the_box_seek():
+    """Issue #99: with a visible cocoon box AND the matching soft-interact
+    object, ProposalRanker chose SEEK_VISUAL_CUE and the F7 use starved."""
+    from test_exile_reach_starting_mechanics import world
+    from wowbot.agent.models import Goal
+    from wowbot.agent.planner import Planner
+    from wowbot.agent.proposal_ranking import ProposalRanker
+    from wowbot.agent.skills import SkillRegistry
+    state = world(active_quests=[QUEST], visual_candidates=[BOX], soft_targets=[SOFT],
+                  player_world_position={"x": 80., "y": -2250., "instance_id": 2175,
+                                         "coordinate_space": "WORLD_YARDS"})
+    registry = SkillRegistry()
+    proposals = Planner(registry).candidates(Goal.parse("Questelj", 1), state, 1)
+    assert any(p.skill == "SEEK_VISUAL_CUE" for p in proposals)
+    ranked = ProposalRanker.rank(proposals, goal=Goal.parse("Questelj", 1), world=state, now=1.,
+                                 registry=registry, memory=None, blocked_until={}, recent={},
+                                 evidence=())
+    assert ranked.proposals[0].skill == "OBJECT_USE"
+    assert ranked.proposals[0].parameters["object_id"] == 341534
+    # A soft target that is not the objective's object changes nothing.
+    other = world(active_quests=[QUEST], visual_candidates=[BOX],
+                  soft_targets=[{**SOFT, "object_id": 1, "name": "Crate"}],
+                  player_world_position={"x": 80., "y": -2250., "instance_id": 2175,
+                                         "coordinate_space": "WORLD_YARDS"})
+    proposals = Planner(registry).candidates(Goal.parse("Questelj", 1), other, 1)
+    assert not any(p.skill == "OBJECT_USE" for p in proposals)

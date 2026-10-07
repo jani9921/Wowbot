@@ -234,3 +234,23 @@ def test_objective_area_move_is_not_repeated_inside_the_area():
     assert QuestLocationPlanningPolicy().propose_known_locations(inside) == []
     outside = _world((-260., -2500.), quests, [_location(55174, meat)])
     assert QuestLocationPlanningPolicy().propose_known_locations(outside)[0].skill == "MOVE"
+
+
+def test_objective_on_another_floor_does_not_defer_the_turn_in():
+    """Issue #90: an objective tens of yards below (known Z) was 2D-"nearby"
+    work and postponed a completed hand-in for up to 600 s."""
+    def state(objective_z, z_known=True):
+        return {
+            "player_world_position": {"x": 0., "y": 0., "z": 100., "instance_id": 1,
+                                      "coordinate_space": "WORLD_YARDS"},
+            "active_quests": [{"quest_id": 1, "is_complete": True},
+                              {"quest_id": 2, "is_complete": False}],
+            "quest_locations": [
+                _location(2, {"x": 10., "y": 0., "z": objective_z, "z_known": z_known,
+                              "instance_id": 1, "coordinate_space": "WORLD_YARDS"}),
+                _location(1, {"x": 500., "y": 500., "z": 100., "instance_id": 1,
+                              "coordinate_space": "WORLD_YARDS"})]}
+    assert QuestBatchPolicy().deferred_turnins(state(0.), 1.) == frozenset()
+    # Same floor (or unknown objective Z) keeps the user's batching rule.
+    assert QuestBatchPolicy().deferred_turnins(state(95.), 1.) == {"1"}
+    assert QuestBatchPolicy().deferred_turnins(state(0., z_known=False), 1.) == {"1"}

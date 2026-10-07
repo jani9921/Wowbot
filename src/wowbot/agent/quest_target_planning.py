@@ -105,7 +105,10 @@ class QuestSelectedTargetMixin:
                         "x": live.get("x"), "y": live.get("y"),
                         "track_id": live.get("track_id"),
                         "visual_signature": live.get("visual_signature"),
-                        "sample_time": state_time, "source": "WORLD3D_TARGET_TRACK"}
+                        "sample_time": state_time, "source": "WORLD3D_TARGET_TRACK",
+                        # Issue #94: skill availability requires the space;
+                        # World3D track x/y are client bottom-left normalized.
+                        "coordinate_space": "CLIENT_BOTTOM_LEFT"}
                     anchor_fresh = True
             fallback_proposal = None
             if self.allow_db_fallback and distance is None:

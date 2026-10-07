@@ -1114,3 +1114,29 @@ def test_unit_vanishing_at_the_own_avatar_backs_up_and_is_not_dropped_early():
         commands.extend(c.binding for c in controller.command(current, f"vision:{index}", t))
     assert "MOVEBACKWARD" in commands
     assert not failed
+
+
+def test_range_blocked_friendly_approaches_its_live_world3d_track():
+    """Issue #94: the WORLD3D_TARGET_TRACK fallback anchor had no
+    coordinate_space, so skill availability always rejected the approach."""
+    value, exe = agent()
+    target = {"guid": "jaina", "name": "Lady Jaina Proudmoore",
+              "npc_id": 156626, "unit_type": "NPC", "attackable": False,
+              "dead": False, "visual_track_id": "WORLD3D:7"}
+    value.planner.quest.interaction_range_blocks["jaina"] = {
+        "started_at": 1., "belief": "SUPPORTED", "source": "CLIENT_ERROR"}
+    from wowbot.agent.autonomy_loop import CommittedSubgoal
+    value.autonomy.commitment = CommittedSubgoal(
+        "commit-jaina", value.goal.goal_id, "target:jaina", "TARGET",
+        "jaina", "npc:156626", (), "INTERACT", 0., 0., session_id="test:player-1",
+        map_id=1609)
+    value.world.session_id = "test:player-1"
+    value.world.set_runtime_context(goal=value.goal, commitment=value.autonomy.commitment)
+    track = {"source": "WORLD3D", "kind": "unknown_subject_candidate", "track_id": "WORLD3D:7",
+             "x": .55, "y": .6, "stable_frames": 5, "confidence": .8, "lifecycle": "ACTIVE"}
+    value.tick(state(2, target=target, mouseover=None, cursor_position={"nx": .2, "ny": .2},
+                     world_map_open=False, visual_candidates=[track]), 2)
+    assert value.pending and value.pending.proposal.skill == "VISUAL_APPROACH"
+    screen = value.pending.proposal.parameters["screen_position"]
+    assert screen["source"] == "WORLD3D_TARGET_TRACK"
+    assert screen["coordinate_space"] == "CLIENT_BOTTOM_LEFT"
