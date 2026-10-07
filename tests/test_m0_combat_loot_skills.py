@@ -598,3 +598,24 @@ def test_an_already_answered_facing_error_does_not_fail_combat():
     skill.verify(runtime, wrong, 2.)
     for now in (2.5, 3.2, 3.6, 4.):
         assert skill.verify(runtime, wrong, now).status is SkillStatus.RUNNING
+
+
+def test_kill_credit_during_loot_is_not_loot_evidence():
+    """Issue #100: a KILL count 0/5 -> 1/5 (late paged snapshot) verified a
+    LOOT with no loot event, inventory, UI or corpse change."""
+    from wowbot.verification.loot import LootVerifier
+    def quests(kill, collect=0):
+        return [{"quest_id": 7, "objectives": [
+            {"objective_id": "k", "type": "KILL", "current": kill, "required": 5},
+            {"objective_id": "c", "raw_type": "item", "current": collect, "required": 3}]},
+            {"quest_id": 8, "objectives": [{"objective_id": "x", "current": collect, "required": 3}]}]
+    verifier = LootVerifier()
+    before = {"inventory": {"items": []}, "active_quests": quests(0)}
+    kill_only = {**before, "active_quests": quests(1)}
+    assert not verifier.evaluate(before, kill_only, corpse_guid="corpse-1").success
+    collected = {**before, "active_quests": quests(0, collect=1)}
+    assert verifier.evaluate(before, collected, corpse_guid="corpse-1").success
+    # Bound to the LOOT proposal's quests when it names them.
+    only_other = {**before, "active_quests": [quests(0)[0], {"quest_id": 8, "objectives": [
+        {"objective_id": "x", "current": 1, "required": 3}]}]}
+    assert not verifier.evaluate(before, only_other, corpse_guid="corpse-1", quest_ids=(7,)).success

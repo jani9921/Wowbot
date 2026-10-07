@@ -125,6 +125,11 @@ class LootSkill:
         return SkillResult(SkillStatus.RUNNING, commands=(Command("BIND", "INTERACTTARGET"),),
                            metadata={"post_approach_loot": True})
 
+    @staticmethod
+    def _quest_ids(state) -> tuple:
+        parameters = getattr(getattr(state, "intent", None), "parameters", None) or {}
+        return tuple(parameters.get("quest_ids") or ())
+
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         corpse_guid = (state.skill_context.get("loot") or {}).get("corpse_guid")
         if (state.skill_context.get("loot") or {}).get("hover_pending"):
@@ -132,7 +137,8 @@ class LootSkill:
             # Loot that arrives anyway (auto-loot, an earlier click) wins.
             early = self.verifier.evaluate(
                 state.before_snapshot, world_state, corpse_guid=corpse_guid,
-                expected_item_ids=tuple(context.get("expected_item_ids") or ()))
+                expected_item_ids=tuple(context.get("expected_item_ids") or ()),
+                quest_ids=self._quest_ids(state))
             if early.success:
                 context["hover_pending"] = False
                 return SkillResult(SkillStatus.SUCCESS, evidence=early.evidence)
@@ -164,7 +170,8 @@ class LootSkill:
         expected_item_ids = tuple((state.skill_context.get("loot") or {}).get("expected_item_ids") or ())
         state.phase = LootPhase.VERIFY.value
         result = self.verifier.evaluate(state.before_snapshot, world_state, corpse_guid=corpse_guid,
-                                        expected_item_ids=expected_item_ids)
+                                        expected_item_ids=expected_item_ids,
+                                        quest_ids=self._quest_ids(state))
         if result.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
         if result.reason is FailureReason.OUT_OF_RANGE:

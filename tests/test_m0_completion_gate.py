@@ -115,3 +115,18 @@ def test_quest_dialog_verifier_ignores_events_from_before_the_click():
         unsequenced = {"event_type": kind, "payload": {"quest_id": 123}}
         assert not verifier.evaluate({"events": [unsequenced]}, {"events": [unsequenced]},
                                      quest_id=123, action=action).success
+
+
+def test_quest_progress_verifier_resolves_local_objective_ids_against_one_quest():
+    # Issue #102: "o" was split at ":" and treated as quest id "o".
+    from wowbot.verification.quest import QuestProgressVerifier
+    def snapshot(count):
+        return {"active_quests": [{"quest_id": 7, "objectives": [
+            {"objective_id": "o", "current": count, "required": 3, "is_complete": False}]}]}
+    verifier = QuestProgressVerifier()
+    before, after = snapshot(0), snapshot(1)
+    assert verifier.evaluate(before, after, quest_ids=[7], objective_ids=["7:o"]).success
+    assert verifier.evaluate(before, after, quest_ids=[7], objective_ids=["o"]).success
+    # Without exactly one quest id a local id is ambiguous: no credit.
+    assert not verifier.evaluate(before, after, objective_ids=["o"]).success
+    assert not verifier.evaluate(before, after, quest_ids=[7, 8], objective_ids=["o"]).success

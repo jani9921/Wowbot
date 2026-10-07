@@ -248,6 +248,11 @@ class ReachMovementController:
         self.destination.update(x=x, y=y, z=number(position.get("z")) or 0.,
                                 instance_id=target_instance,
                                 coordinate_space="WORLD_YARDS")
+        live_z = number(position.get("z"))
+        if "layer_z" in self.destination and live_z is not None and position.get("z_known") is not False:
+            # Issue #101: a moving target's trusted height keeps the arrival
+            # layer current (ramps/stairs) instead of the start-time value.
+            self.destination["layer_z"] = live_z
         return True
 
     @staticmethod

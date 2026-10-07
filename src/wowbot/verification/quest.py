@@ -113,7 +113,13 @@ class QuestProgressVerifier:
                 statuses.append(QuestProgressStatus.QUEST_COMPLETE)
                 changed_quests.add(quest_id)
         for objective_id in sorted(wanted_objectives):
-            quest_id, _, raw_objective_id = objective_id.partition(":")
+            quest_id, separator, raw_objective_id = objective_id.partition(":")
+            if not separator:
+                # Issue #102: a quest-local id ("o") names no quest; it is
+                # resolvable only against exactly one supplied quest id.
+                if len(wanted_quests) != 1:
+                    continue
+                quest_id, raw_objective_id = next(iter(wanted_quests)), objective_id
             if wanted_quests and quest_id not in wanted_quests:
                 continue
             # Producers legitimately use either a quest-local objective id

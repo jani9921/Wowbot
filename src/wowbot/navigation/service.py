@@ -484,13 +484,20 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         if (player_instance is not None and target_instance is not None
                 and player_instance != target_instance):
             return None
+        # Issue #101: a trusted target height becomes the arrival layer, so
+        # the controller's vertical check refuses "ARRIVED" one floor away
+        # (same X/Y).  An untrusted height is never turned into z=0.
+        target_z = number(position.get("z"))
+        trusted_z = target_z if (target_z is not None
+                                 and position.get("z_known") is not False) else None
         destination = {
             "target_guid": expected,
             "purpose": "INTERACT",
             "coordinate_space": "WORLD_YARDS",
             "x": tx,
             "y": ty,
-            "z": number(position.get("z")) or 0.,
+            **({"z": trusted_z, "layer_z": trusted_z} if trusted_z is not None
+               else {"z_known": False}),
             "instance_id": target_instance,
             "world_map_id": target_instance,
             "stop_distance": float(stop_distance),

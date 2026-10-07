@@ -90,3 +90,35 @@ def test_context_reset_clears_floor_and_sweep_state_but_goal_change_keeps_floor(
     nav.reset()
     assert nav._z.player is None
     assert "_last_sweep_key" not in nav.__dict__
+
+
+def _floor_state(t, z):
+    return {**_state(t), "player_world_position": {
+        "x": 10., "y": 20., "z": z, "z_source": "NAVMESH_SURFACE", "instance_id": 2175,
+        "coordinate_space": "WORLD_YARDS", "sample_time": t},
+        "target": {"guid": "Creature-0-1-2-3-4-5", "dead": True, "sample_time": t,
+                   "world_position": {"x": 10., "y": 20., "z": 0., "instance_id": 2175,
+                                      "coordinate_space": "WORLD_YARDS"}}}
+
+
+def test_entity_approach_does_not_arrive_one_floor_away():
+    """Issue #101: same X/Y but 50 yd above the corpse reported ARRIVED."""
+    from wowbot.agent.movement_controller import MovementPhase
+    nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))))
+    destination = nav.move_to_entity(_floor_state(1., 50.), "Creature-0-1-2-3-4-5", "o1", 1.,
+                                     stop_distance=3.5, allow_dead=True)
+    assert destination["layer_z"] == 0.
+    assessment = nav._movement.observe(_floor_state(1.1, 50.), "o2", 1.1, commanded=True)
+    assert assessment.phase != MovementPhase.ARRIVED
+    on_floor = nav._movement.observe(_floor_state(1.2, .5), "o3", 1.2, commanded=True)
+    assert on_floor.phase == MovementPhase.ARRIVED
+
+
+def test_entity_approach_never_invents_a_zero_height():
+    nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))))
+    state = _floor_state(1., 50.)
+    state["target"]["world_position"]["z_known"] = False
+    destination = nav.move_to_entity(state, "Creature-0-1-2-3-4-5", "o1", 1.,
+                                     stop_distance=3.5, allow_dead=True)
+    assert "z" not in destination and "layer_z" not in destination
+    assert destination["z_known"] is False
