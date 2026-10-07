@@ -203,6 +203,11 @@ function ns.NextPacket(data, fastData)
                 map_id=v.map_id, map_context=v.map_context, position=v.position,
                 player_world_position=v.player_world_position, orientation=v.orientation,
                 movement=v.movement,
+                -- Survival/control minimum in every FAST variant (issue #72).
+                health=v.health, max_health=v.max_health, is_dead=v.is_dead,
+                is_ghost=v.is_ghost, is_in_combat=v.is_in_combat, is_casting=v.is_casting,
+                player_present=v.player_present, loading=v.loading,
+                input_blocked=v.input_blocked,
                 target=v.target and {guid=v.target.guid,name=v.target.name,npc_id=v.target.npc_id,
                     attackable=v.target.attackable,dead=v.target.dead,
                     world_position=v.target.world_position or false} or false,
@@ -278,6 +283,9 @@ function ns.NextPacket(data, fastData)
                 extra_action=sample.extra_action and {visible=sample.extra_action.visible,
                     usable=sample.extra_action.usable,action=sample.extra_action.action,
                     action_type=sample.extra_action.action_type,action_id=sample.extra_action.action_id} or false,
+                health=sample.health,max_health=sample.max_health,
+                is_dead=sample.is_dead,is_ghost=sample.is_ghost,
+                is_in_combat=sample.is_in_combat,is_casting=sample.is_casting,
                 player_present=sample.player_present,loading=sample.loading,
                 input_blocked=sample.input_blocked,
                 actionbar_fast=sample.actionbar_fast,
@@ -328,6 +336,9 @@ function ns.NextPacket(data, fastData)
                 extra_action=sample.extra_action and {visible=sample.extra_action.visible,
                     usable=sample.extra_action.usable,action=sample.extra_action.action,
                     action_type=sample.extra_action.action_type,action_id=sample.extra_action.action_id} or false,
+                health=sample.health,max_health=sample.max_health,
+                is_dead=sample.is_dead,is_ghost=sample.is_ghost,
+                is_in_combat=sample.is_in_combat,is_casting=sample.is_casting,
                 player_present=sample.player_present,loading=sample.loading,
                 input_blocked=sample.input_blocked,
                 actionbar_fast=sample.actionbar_fast,
@@ -397,6 +408,9 @@ function ns.NextPacket(data, fastData)
                     quest_related=sample.mouseover.quest_related,quest_id=sample.mouseover.quest_id} or false,
                 cursor_position=sample.cursor_position and {
                     nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
+                is_dead=sample.is_dead,is_ghost=sample.is_ghost,
+                is_in_combat=sample.is_in_combat,player_present=sample.player_present,
+                input_blocked=sample.input_blocked,loading=sample.loading,
             }
             text = encode(v)
         end
@@ -420,6 +434,8 @@ function ns.NextPacket(data, fastData)
                     quest_id=sample.mouseover.quest_id} or false,
                 cursor_position=sample.cursor_position and {
                     nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
+                is_dead=sample.is_dead,is_ghost=sample.is_ghost,
+                is_in_combat=sample.is_in_combat,input_blocked=sample.input_blocked,
             }
             text = encode(v)
         end

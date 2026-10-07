@@ -16,7 +16,7 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     toc = (CANONICAL / "AIPlayerControllerExport.toc").read_text(encoding="utf-8")
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     assert "## Interface: 120100" in toc
-    assert "## Version: 0.9.58-12.1.0" in toc
+    assert "## Version: 0.9.59-12.1.0" in toc
     assert 'local PROTOCOL_VERSION = "AIPC5"' in lua
     assert toc.index("Transport.lua") < toc.index("AIPlayerControllerExport.lua")
     assert "local SCHEMA_VERSION = 4" in lua

@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.58"
+local ADDON_VERSION = "0.9.59"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2

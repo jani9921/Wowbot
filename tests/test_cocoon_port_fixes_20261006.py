@@ -247,3 +247,30 @@ def test_an_unknown_target_height_is_not_z_zero():
     source = inspect.getsource(quest_target_planning)
     assert 'number(target_position.get("z")) or 0.' not in source
     assert '{"z_known": False, "floor_hint": "SAME"}' in source
+
+
+def test_timestampless_fast_clock_advances_and_prefers_newer_full_anchor():
+    """Issue #80: restored FAST timestamps froze at one second and an older
+    FAST anchor beat a newer full snapshot."""
+    assembler = PacketAssembler()
+    assembler.feed(_packet(1, "STATE", {"monotonic_time": 100., "timestamp": 1000,
+                                        "character_name": "Test", "map_id": 1409}), 100.)
+    stamps = [assembler.feed(_packet(seq, "FAST", {"monotonic_time": mono, "map_id": 1409}),
+                             mono)["timestamp"]
+              for seq, mono in enumerate((100.2, 100.9, 101.6, 102.3, 102.9, 112.5), 2)]
+    assert stamps == [1000, 1000, 1001, 1002, 1002, 1012]
+    assembler.feed(_packet(20, "STATE", {"monotonic_time": 113., "timestamp": 1013,
+                                         "character_name": "Test", "map_id": 1409}), 113.)
+    after = assembler.feed(_packet(21, "FAST", {"monotonic_time": 113.2, "map_id": 1409}), 113.2)
+    assert after["timestamp"] == 1013
+
+    world = WorldModel()
+    seen = []
+    for seq, mono in enumerate((100., 100.5, 101.2, 102.1), 30):
+        payload = {**state(mono, timestamp=None), "transport_kind": "FAST",
+                   "frame_id": f"s:FAST:{seq}"}
+        restored = assembler.feed(_packet(seq, "FAST", {"monotonic_time": mono + 13.,
+                                                        "map_id": 1409}), mono + 13.)
+        payload["timestamp"] = restored["timestamp"]
+        seen.append(world.ingest(Observation.create(payload, mono)))
+    assert all(seen)

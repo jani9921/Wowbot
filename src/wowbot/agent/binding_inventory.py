@@ -27,7 +27,19 @@ class BindingInventory:
         """Fail closed when exact-PID client evidence disagrees with the selected cache."""
         required = sorted({str(action).upper() for action in actions if action})
         if not self.supported:
-            return {"ready": True, "supported": False, "mismatches": [], "unverified": []}
+            # No catalog page yet, but live control_bindings from the selected
+            # client are still exact evidence; a contradiction must block
+            # (issue #77). Actions without evidence stay permissive here.
+            mismatches = []
+            for action in required:
+                if action in self.control_bindings:
+                    client = self._keys(self.control_bindings[action])
+                    selected = [str(key).upper() for key in self.cache.actions.get(action, [])]
+                    if client != selected:
+                        mismatches.append({"action": action, "client": client,
+                                           "selected_cache": selected})
+            return {"ready": not mismatches, "supported": False,
+                    "mismatches": mismatches, "unverified": []}
         observed = {str(action).upper(): self._keys(binding)
                     for action, binding in self.control_bindings.items()}
         report = self.report or {}

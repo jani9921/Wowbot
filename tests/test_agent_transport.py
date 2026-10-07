@@ -702,3 +702,37 @@ def test_every_snapshot_is_shown_twice_so_a_lost_page_comes_back():
             seen.setdefault(parts[2], []).append(parts[3])
     finished = list(seen.values())[:-1]
     assert finished and all(len(pages) >= 2*len(set(pages)) for pages in finished)
+
+
+@pytest.mark.parametrize("in_combat", [True, False])
+def test_every_fast_variant_keeps_the_survival_minimum(in_combat):
+    # Issue #72: medium FAST packets dropped is_in_combat/is_dead/health in
+    # the first size reductions, so combat (and its end) arrived late.
+    variants = set()
+    for reps, name_len in ((0, 4), (0, 8), (40, 60), (160, 200), (1000, 400)):
+        lua = lua_runtime()
+        lua.execute(f'''data={{monotonic_time=663820.446,timestamp=1790590610,
+            map_id=1409,orientation=2.44,health=210,max_health=380,
+            is_dead=false,is_ghost=false,is_in_combat={str(in_combat).lower()},is_casting=false,
+            player_present=true,input_blocked=false,loading=false,
+            movement={{speed=0,moving=false,falling=false,swimming=false}},
+            target={{guid="Creature-0-4245-2175-18655-151091-00003A3DF9",
+                name=string.rep("N",{name_len}),npc_id=151091,health=700,max_health=900,
+                attackable=true,dead=false}},
+            mouseover={{guid="Creature-0-4245-2175-18655-151091-00003A3DF9",
+                name=string.rep("M",{name_len}),npc_id=151091,unit_type="NPC",
+                tooltip=string.rep("hostile tooltip ",{reps})}},
+            cursor_position={{nx=.47,ny=.53}},
+            quest_state_revision=string.rep("r",{reps}),
+            ui_error=string.rep("e",{reps}),
+            actionbar_fast={{{{100,true,false,0}},{{1464,false,true,0}}}}}}''')
+        packet = lua.eval("ns.NextPacket(data)")
+        assert "|FAST|" in packet
+        text = packet.split("|", 6)[6]
+        assert len(text.encode("utf-8")) <= 850
+        body = json.loads(text)
+        variants.add(frozenset(body))
+        assert body.get("is_in_combat") is in_combat, (reps, name_len, sorted(body))
+        assert body.get("is_dead") is False and body.get("is_ghost") is False
+        assert body.get("input_blocked") is False
+    assert len(variants) >= 2   # more than one size reduction exercised
