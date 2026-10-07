@@ -7802,3 +7802,33 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
   - The next user run must show the sweep advancing beyond hop 4 down the spiral to the cocoons.
   - SEEK sector exhaustion on the upper spiral.
   - Maintenance cost and DB growth.
+
+---
+
+## 2026-10-07 11:13–11:21 (pid 15440, user, addon 0.9.59, without b0f0d32) — 3/5 cocoons; quest credit and errors stuck behind the paged STATE
+
+- Sources (read only): `_j_1.txt` + `telemetry-20261007-111331.jsonl` + `_j_2.txt`, one continuous telemetry run (mono 757176–757644), and `agent_status.json`. Goal created at 757168.65. The last agent decision was at 757578.1, after which the run was STOPPED; the user abandoned 55639 manually at 757603.8 with FULL_AI no longer running. Final state: no held keys, executor disarmed. The run did not yet contain b0f0d32.
+- Progress: 0/5 → 1/5 (757247.0) → 2/5 (757457.9) → 3/5 (757482.6). Combat: two Barrow Spiders, both killed and looted; one `loot_ui_not_opened` (757364.4) was followed by a successful loot.
+- Upper spiral (757247–757437):
+  - The agent circled the rim and walked outside once (indoors=false 757312–757326).
+  - All nine cells of area region 0 were retired at once at 757408.5 as off-floor.
+  - 34 deduplicated FALL_STARTED events, mostly short ramp-edge hops; the resolver's `fall_count` stayed 0.
+  - Eight `seek_visual_cue_sectors_exhausted` results and three `visual_track_lost` over the run.
+- Lower floor (757483–757578): the zone sweep reached hop 18/38 (58.3, −2199.5, z 21.3) and alternated with search cell (81, −2212), both "arrived". This is the ping-pong fixed by b0f0d32.
+- Cocoon 1 took 15 s and three attempts: two `STALE_OBSERVATION` results (757226.9, 757232.4) before the credit. The decision log does not reach back that far, so this stays open.
+- **Root cause found in this run: the STATE assembly rate.**
+  - 3348 STATE pages produced 108 complete snapshots (31 pages per snapshot; the 11:06 run needed 14.6).
+  - `state_sequence` stayed unchanged for more than 5 s during 323 of 468 s, with a maximum of 30.3 s.
+  - Every live FAST packet was a bounded variant without `quest_digest` or `ui_error` (reproduced with the Lua transport). Quest progress and UI errors therefore arrived only with the paged STATE.
+  - Cocoon 2 credit: STATE was frozen from 757437.0 to 757457.9 (seq 1037 → 1057). OBJECT_USE failed `QUEST_CREDIT_NOT_RECEIVED` at 757456.7 (deadline plus the 10 s grace), 1.2 s before 2/5 arrived.
+  - Cocoon 3: "You are too far away." at 757466.9 and 757467.9 became visible only at ~757471, so a second click went out first. The approach then followed (41.2 → 37.1, −2197) and the cocoon was credited.
+- Fixes (offline-tested, e329869, addon 0.9.60; the addon must be installed and the client `/reload`ed):
+  - Every FAST variant re-adds `quest_digest`/`quest_state_revision` and a fresh `ui_error` when the packet still fits (error first).
+  - `QuestProgressVerifier` credits FAST digest progress for single-objective quests. `fast_digest_progress` needs a baseline and never treats a stale digest next to a newer snapshot as progress.
+  - Accepted ids that reappear for an already active quest do not count as an acceptance.
+  - OBJECT_USE credit grace raised to 25 s while no newer snapshot has arrived.
+  - Tests: `tests/test_fast_quest_credit_20261007.py` (+9). Full suite: 33 baseline failures, 2503 passed.
+- Open:
+  - With 25 quests the digest does not fit at all, and with an error present the digest is dropped, so the single-strip FAST budget is the structural limit. User proposal: a wider top pixel strip carrying separate FAST and STATE lanes, masked out of YOLO.
+  - STALE_OBSERVATION at cocoon 1.
+  - Leaving the barrow during the area search.
