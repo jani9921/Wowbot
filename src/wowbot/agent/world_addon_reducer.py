@@ -72,14 +72,9 @@ class WorldAddonReducer:
         state = observation.payload
         self._mark_player_units(state)
         if state.get("transport_kind") == "FAST":
-            changed = self._apply_fast(model, state, observation,
-                                       defer_rebuild=defer_rebuild)
-        else:
-            changed = self._apply_full(model, previous, state, observation)
-        note = getattr(model, "note_corpse_lootability", None)
-        if callable(note):
-            note(observation.received_at)
-        return changed
+            return self._apply_fast(model, state, observation,
+                                    defer_rebuild=defer_rebuild)
+        return self._apply_full(model, previous, state, observation)
 
     SCRIPTED_DISMOUNT_SECONDS = 30.
 

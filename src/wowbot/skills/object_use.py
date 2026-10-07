@@ -32,6 +32,11 @@ class ObjectUseSkill:
     # (is_casting) when the attempt failed "credit not received"; the credit
     # came 1.9 s later.
     CAST_GRACE_SECONDS = 6.
+    # Live 2026-10-07 12:06 (3rd cocoon): the attempt spent 7 s of its budget
+    # waiting for the character to stop and the hover to settle; the credit
+    # wait after the right-click was then ~1.5 s.  A click always gets this
+    # long (it covers the 2 s F7 fallback and its cast).
+    POST_CLICK_SECONDS = 5.
     # Live 2026-10-06 21:16: a cocoon one floor lower answered the right-click
     # and F7 with "You are too far away." and the skill waited out 8 s twice.
     OUT_OF_RANGE_TEXTS = ("too far", "out of range")
@@ -59,6 +64,11 @@ class ObjectUseSkill:
         return (used_at is not None and sampled is not None
                 and now < deadline + self.CREDIT_GRACE_SECONDS
                 and sampled < used_at + self.CREDIT_SNAPSHOT_AFTER_USE_SECONDS)
+
+    def _click_recent(self, context: dict, now: float, deadline: float) -> bool:
+        clicked_at = number(context.get("click_sent_at"))
+        return (clicked_at is not None and now < clicked_at + self.POST_CLICK_SECONDS
+                and now < deadline + self.POST_CLICK_SECONDS)
 
     def _use_cast_running(self, context: dict, world_state: dict, now: float,
                           deadline: float) -> bool:
@@ -229,7 +239,8 @@ class ObjectUseSkill:
         state.phase = ObjectUsePhase.VERIFY.value
         if now >= state.attempt.deadline:
             if (self._credit_snapshot_pending(context, world_state, now, state.attempt.deadline)
-                    or self._use_cast_running(context, world_state, now, state.attempt.deadline)):
+                    or self._use_cast_running(context, world_state, now, state.attempt.deadline)
+                    or self._click_recent(context, now, state.attempt.deadline)):
                 state.phase = ObjectUsePhase.WAIT_QUEST_CREDIT.value
                 return SkillResult(SkillStatus.RUNNING)
             return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,

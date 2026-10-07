@@ -7,20 +7,21 @@
   failed "credit not received"; the credit arrived 1.9 s later.
 * After the FAST digest credited the 5th cocoon, the snapshot still showed
   4/5 and a second OBJECT_USE right-clicked the freed prisoner.
-* Killed Barrow Spiderlings (no loot) were ``lootable=false`` while
-  selected, but LOOT ran after the target was cleared: two
-  ``corpse_not_found`` attempts per spiderling, back and forth after fights.
+* When combat ended, the suspended MOVE was preferred over the LOOT of the
+  fresh kill; the agent walked off, and the later LOOT had no corpse
+  position (``corpse_not_found``) -- LOOT/MOVE back and forth.  (Barrow
+  Spiderlings are lootable: ``lootable=false`` only means looted or too far.)
 """
 from pathlib import Path
 from types import SimpleNamespace
 
 from adapters.telemetry_packets import normalize
 from wowbot.agent.object_interaction_flow import ObjectInteractionFlow
-from wowbot.agent.world import WorldModel
+from wowbot.agent.planning_orchestration import PlanningOrchestrator
+from wowbot.agent.models import Proposal
 from wowbot.skills.object_use import ObjectUseSkill
 
 ADDON = Path(__file__).resolve().parents[1] / "addon" / "AIPlayerControllerExport"
-SPIDERLING = "Creature-0-4242-2175-7-160433-0000461B3D"
 
 
 def test_a_living_player_at_zero_health_is_unknown_health():
@@ -57,36 +58,49 @@ def test_no_second_object_use_on_the_object_just_credited():
     assert not other.just_credited(_cursor(11.))
 
 
-def _dead(world, lootable, guid=SPIDERLING):
-    world.addon_state = {"target": {"guid": guid, "name": "Barrow Spiderling", "dead": True,
-                                    "lootable": lootable}}
+class _Supervisor:
+    def __init__(self):
+        self.cleared = None
+
+    def resume_candidate(self, state, now):
+        return SimpleNamespace(intent=SimpleNamespace(skill_type="MOVE", parameters={"x": 1., "y": 2.}),
+                               token="resume-1")
+
+    def clear_resume(self, reason):
+        self.cleared = reason
 
 
-def test_a_corpse_reported_empty_is_retired_even_after_the_target_is_cleared():
-    world = WorldModel()
-    world.mark_combat_kill(SPIDERLING, 10.)
-    _dead(world, False)
-    world.note_corpse_lootability(10.2)                 # right at death: could still be loading
-    assert SPIDERLING in world.owned_corpse_guids
-    world.note_corpse_lootability(11.3)
-    assert SPIDERLING not in world.owned_corpse_guids
-    assert world.corpse_was_recently_looted(SPIDERLING, 12.)
+def _orchestrator():
+    orchestrator = PlanningOrchestrator.__new__(PlanningOrchestrator)
+    orchestrator.supervisor = _Supervisor()
+    orchestrator.registry = SimpleNamespace(available=lambda proposal, world: True)
+    return orchestrator
 
 
-def test_an_empty_report_before_the_kill_is_booked_retires_the_new_corpse():
-    world = WorldModel()
-    _dead(world, False)
-    world.note_corpse_lootability(10.)
-    world.note_corpse_lootability(11.2)
-    world.mark_combat_kill(SPIDERLING, 11.5)
-    assert SPIDERLING not in world.owned_corpse_guids
+def test_the_post_combat_resume_waits_for_the_loot_of_the_kill():
+    orchestrator, world = _orchestrator(), SimpleNamespace(state={})
+    loot = Proposal.make("LOOT", "Halott target lootjának ellenőrzése", {"guid": "Creature-1"}, priority=85)
+    proposals = [loot]
+    assert orchestrator._inject_supervisor_resume(proposals, world, 1.) is None
+    assert proposals == [loot] and orchestrator.supervisor.cleared is None   # kept for later
+    approach = Proposal.make("VISUAL_APPROACH", "corpse", {"purpose": "LOOT"})
+    assert orchestrator._inject_supervisor_resume([approach], world, 1.) is None
+    use = Proposal.make("OBJECT_USE", "cocoon", {"x": .5, "y": .5})
+    assert orchestrator._inject_supervisor_resume([use], world, 1.) is None
+    move = Proposal.make("MOVE", "other", {"x": 3., "y": 4.})
+    resumed = orchestrator._inject_supervisor_resume([move], world, 1.)
+    assert resumed is not None and resumed.parameters["_resume_token"] == "resume-1"
 
 
-def test_a_lootable_corpse_keeps_its_loot():
-    world = WorldModel()
-    world.mark_combat_kill(SPIDERLING, 10.)
-    _dead(world, False)
-    world.note_corpse_lootability(10.1)
-    _dead(world, True)                                  # loot appeared
-    world.note_corpse_lootability(11.5)
-    assert SPIDERLING in world.owned_corpse_guids
+def test_a_sent_click_always_gets_time_for_its_credit():
+    skill = ObjectUseSkill()
+    assert skill._click_recent({"click_sent_at": 107.}, 108.5, 108.)     # deadline just passed
+    assert not skill._click_recent({"click_sent_at": 107.}, 112.5, 108.)
+    assert not skill._click_recent({}, 108.5, 108.)                     # nothing clicked
+
+
+def test_out_of_combat_a_dead_targets_loot_outranks_location_moves():
+    import inspect
+    from wowbot.agent import combat_planning
+    source = inspect.getsource(combat_planning)
+    assert 'priority=85 if state.get("is_in_combat") else 107' in source

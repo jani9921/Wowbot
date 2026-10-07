@@ -523,11 +523,16 @@ class CombatPlanningPolicy:
                 and not world.corpse_was_recently_looted(str(target.get("guid") or ""), now)
                 and (state.get("loot_pending") or world.quest_model.ready())):
             objectives = self._active_incomplete_objectives(world)
+            # Live 2026-10-07 12:06: at 85 the dead target's LOOT lost to the
+            # quest-dot / zone MOVEs (84-92); once walked away the corpse had
+            # no position (only the selected target has one) and LOOT failed.
+            # Out of combat it is looted first; in combat defence stays first.
             proposals.append(Proposal.make(
                 "LOOT", "Halott target lootjának ellenőrzése a quest folytatása előtt",
                 {"guid": target.get("guid"),
                  "quest_ids": list(dict.fromkeys(qid for qid, _ in objectives)),
-                 "objective_ids": [oid for _, oid in objectives]}, priority=85))
+                 "objective_ids": [oid for _, oid in objectives]},
+                priority=85 if state.get("is_in_combat") else 107))
 
         respawn = self._respawn_wait(world, state, target)
         if respawn is not None:
