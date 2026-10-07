@@ -232,18 +232,38 @@ class WizardStagesMixin:
             self.write("FIGYELEM: a CUDA modell vagy Torch hiányzik; TensorRT engine nem épül.")
             done(True)
             return
-        if engine.is_file():
-            done(True)
-            return
-        code = ("from ultralytics import YOLO; YOLO(r'%s').export(format='engine', imgsz=640, half=True, "
-                "batch=1, simplify=True, dynamic=False, device=0)" % RUNTIME_MODEL)
+        from .engine_fingerprint import build_script, engine_status, probe_fingerprint
 
         def built(ok):
             if not (ok and engine.is_file()):
                 self.write("FIGYELEM: a TensorRT engine nem épült meg; a YOLO PyTorch CUDA-val fut.")
             done(True)
 
-        self._run_stage([[sys.executable, "-c", code]], PROJECT, "TensorRT engine építése", built)
+        def build():
+            self._run_stage([[sys.executable, "-c", build_script(RUNTIME_MODEL, engine, PROJECT)]],
+                            PROJECT, "TensorRT engine építése", built)
+
+        if not engine.is_file():
+            build()
+            return
+
+        def checked(current):
+            # Issues #19/#86: an existing engine is reused only when it was
+            # built for this GPU/CUDA/TensorRT; otherwise it is rebuilt.
+            status = engine_status(engine, current if isinstance(current, dict) else None)
+            if status == "verified":
+                done(True)
+                return
+            self.write(f"A TensorRT engine nem igazoltan ehhez a géphez készült ({status}); újraépítés.")
+            try:
+                engine.replace(engine.with_name(engine.name + ".stale"))
+            except OSError as error:
+                self.write(f"FIGYELEM: a régi engine nem nevezhető át ({error}); a YOLO PyTorch CUDA-val fut.")
+                done(True)
+                return
+            build()
+
+        self.background(probe_fingerprint, checked)
 
     def _stage_verify(self, done) -> None:
         vendor = "NVIDIA" if self._has_gpu() else self.vendor()

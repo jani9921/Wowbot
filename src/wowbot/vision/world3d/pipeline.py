@@ -60,6 +60,8 @@ class World3DPipeline:
         self._frames = 0
         self._last_at = 0.0
         self._track_history: dict[str, deque[dict[str, float]]] = {}
+        # Issue #104: when each known track id was first absent from a batch.
+        self._absent_since: dict[str, float] = {}
         self._locks: dict[str, dict[str, Any]] = {}
         self._probe_requests: deque[dict[str, Any]] = deque(maxlen=32)
         self._scan_requests: deque[dict[str, Any]] = deque(maxlen=16)
@@ -300,6 +302,7 @@ class World3DPipeline:
 
     def invalidate(self, reason: str) -> None:
         self._track_history.clear()
+        self._absent_since.clear()
         self._locks.clear()
         self._traversability_fusion.reset()
         self._scene_quality.reset()
@@ -409,6 +412,25 @@ class World3DPipeline:
             })
             self._track_history.pop(track_id, None)
             self._locks.pop(track_id, None)
+            self._absent_since.pop(track_id, None)
+        # Issue #104: an ACTIVE/TENTATIVE track that vanished abruptly was
+        # never in a LOST batch, so its history and lock lived forever.  Keep
+        # a short absence (occlusion, detector miss) but expire it after the
+        # loss grace.
+        for track_id in current:
+            self._absent_since.pop(track_id, None)
+        for track_id in [key for key in self._track_history if key not in current]:
+            since = self._absent_since.setdefault(track_id, observed_at)
+            if observed_at - since <= self.lost_grace_seconds:
+                continue
+            events.append({
+                "event_type": "WORLD3D_TRACK_TERMINATED", "track_id": track_id,
+                "reason": "ABSENT_AFTER_GRACE", "timestamp_monotonic": observed_at,
+                "identity_history_retained": True, "fact": False,
+            })
+            self._track_history.pop(track_id, None)
+            self._locks.pop(track_id, None)
+            self._absent_since.pop(track_id, None)
         return events
 
     # ------------------------------ normalization and evidence -------------

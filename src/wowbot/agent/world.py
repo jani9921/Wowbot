@@ -11,6 +11,7 @@ from typing import Any, Generic, TypeVar
 # copy.deepcopy's dispatch overhead for ordinary telemetry/vision trees.
 # json_copy now lives in models.py so other reducers on the same ingest hot
 # path (e.g. world_evidence_reducer.py) can share it too.
+from .destination_distance import scaled_distance
 from .models import (EventRecord, Observation, Prediction, PredictionError, canonical,
                      json_copy as _json_copy, number)
 deepcopy = _json_copy
@@ -141,12 +142,7 @@ class WorldSnapshot:
                 and 0 <= x <= 1 and 0 <= y <= 1 else None)
 
     def distance(self, destination: dict) -> float | None:
-        position = self.player_position()
-        x, y = number(destination.get("x")), number(destination.get("y"))
-        if (position is None or x is None or y is None
-                or destination.get("map_id") != self.state.get("map_id")):
-            return None
-        return math.hypot(x-position[0], y-position[1])
+        return scaled_distance(self.state, destination)
 
     @staticmethod
     def quest_signature(state: dict) -> str:
@@ -481,11 +477,8 @@ class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
         return (x, y) if x is not None and y is not None and 0 <= x <= 1 and 0 <= y <= 1 else None
 
     def distance(self, destination: dict) -> float | None:
-        position = self.player_position()
-        x, y = number(destination.get("x")), number(destination.get("y"))
-        if position is None or x is None or y is None or destination.get("map_id") != self.state.get("map_id"):
-            return None
-        return math.hypot(x - position[0], y - position[1])
+        # Issue #93: never mix normalized map units with WORLD_YARDS.
+        return scaled_distance(self.state, destination)
 
     def snapshot(self, now: float) -> dict:
         return WorldSnapshotProjection.diagnostic(

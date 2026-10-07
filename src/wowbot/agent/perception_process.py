@@ -98,7 +98,7 @@ def _perception_process_main(config: dict[str, Any], requests, results, stopped,
                 last_revision, last_publish = worker.projection_revision, now
                 world = worker.lanes["world"]
                 payload = {
-                    "items": list(worker._background_result),
+                    "items": worker._fresh_background_result(now),
                     "projection_revision": worker.projection_revision,
                     "projection_at": worker.projection_at,
                     "epoch": worker.epoch,
@@ -200,6 +200,13 @@ class ProcessPerceptionWorker:
         _put_latest(self._requests, {"allow": allow, "geometry": dict(geometry or {}),
                                      "context": context, "world_map_open": world_map_open})
         self._drain()
+        # Issue #69: an exited child or a result older than the TTL must not
+        # keep feeding its last boxes to the runtime as current evidence.
+        if not self._process.is_alive():
+            self.items = []
+        elif (self.projection_at is not None
+              and time.monotonic() - float(self.projection_at) > self.RESULT_TTL_SECONDS):
+            return []
         return [dict(item) for item in self.items]
 
     def update(self, frame, now, *, allow=True, geometry=None, context=None,

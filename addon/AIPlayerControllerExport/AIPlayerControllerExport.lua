@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.58"
+local ADDON_VERSION = "0.9.62"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -2400,46 +2400,150 @@ local function pixelPayload(data)
     return payload:sub(1, PIXEL_MAX_BYTES)
 end
 
-local function setPixel(index, paletteIndex)
-    local cell = pixelCells[index]
+-- Strip layout (0.9.61, user 2026-10-07: one long strip along the top).
+-- LANES: a FAST lane and a STATE lane side by side, 32 rows of cells exactly
+-- four physical pixels square, as wide as the client allows left of the
+-- minimap.  Each lane is framed on its own (header, lane marker, column
+-- count, length, payload, checksum), so a torn half never costs the other.
+-- LEGACY: the former single 128-column strip, for windows too narrow.
+local PIXEL_ROWS = 32
+local LANE_FAST_COLUMNS = 224
+local LANE_MIN_FAST_COLUMNS = 176
+local LANE_MIN_STATE_COLUMNS = 64
+local LANE_MAX_STATE_COLUMNS = 224
+local LANE_MARKER = 254
+local pixelLayout = {mode = "LEGACY"}
+local legacyLane = {cells = pixelCells, offset = 0, columns = PIXEL_COLUMNS}
+
+local function laneCapacity(lane)
+    return 8 * lane.columns - 8
+end
+
+local function computePixelLayout()
+    local physicalWidth, physicalHeight = safeCall(GetPhysicalScreenSize)
+    physicalWidth, physicalHeight = safeNumber(physicalWidth), safeNumber(physicalHeight)
+    if physicalWidth <= 0 or physicalHeight <= 0 then return {mode = "LEGACY"} end
+    local unitsPerPixel = 768 / physicalHeight      -- a scale-1 frame
+    local margin = 12
+    -- Up to the minimap cluster (it may be moved in Edit Mode); without it,
+    -- keep a default-sized minimap's width free.
+    local right = physicalWidth - 220 / unitsPerPixel
+    local cluster = _G.MinimapCluster
+    if cluster and cluster.GetLeft and cluster.GetEffectiveScale then
+        local clusterLeft = safeNumber(safeCall(cluster.GetLeft, cluster), -1)
+        local scale = safeNumber(safeCall(cluster.GetEffectiveScale, cluster), 0)
+        if clusterLeft > 0 and scale > 0 then
+            right = math.min(physicalWidth, clusterLeft * scale / unitsPerPixel - 8)
+        end
+    end
+    local columns = math.floor((right - margin) / 4)
+    local fast = math.min(LANE_FAST_COLUMNS, columns - LANE_MIN_STATE_COLUMNS)
+    if fast < LANE_MIN_FAST_COLUMNS then return {mode = "LEGACY"} end
+    local state = math.min(LANE_MAX_STATE_COLUMNS, columns - fast)
+    return {mode = "LANES", cell = 4 * unitsPerPixel, margin = margin * unitsPerPixel,
+        lanes = {{cells = {}, offset = 0, columns = fast},
+                 {cells = {}, offset = fast, columns = state}}}
+end
+
+local function setLaneCell(lane, index, paletteIndex, size)
+    local cell = lane.cells[index]
     if not cell then
         cell = pixelFrame:CreateTexture(nil, "ARTWORK")
         local zero = index - 1
-        local column = zero % PIXEL_COLUMNS
-        local row = math.floor(zero / PIXEL_COLUMNS)
-        cell:SetSize(PIXEL_CELL_SIZE, PIXEL_CELL_SIZE)
-        cell:SetPoint("TOPLEFT", pixelFrame, "TOPLEFT", column * PIXEL_CELL_SIZE, -row * PIXEL_CELL_SIZE)
-        pixelCells[index] = cell
+        local column = lane.offset + zero % lane.columns
+        local row = math.floor(zero / lane.columns)
+        cell:SetSize(size, size)
+        cell:SetPoint("TOPLEFT", pixelFrame, "TOPLEFT", column * size, -row * size)
+        lane.cells[index] = cell
     end
-    local color = PIXEL_PALETTE[paletteIndex]
-    cell:SetColorTexture(color[1], color[2], color[3], 1)
-    cell:Show()
+    -- Only changed cells are redrawn: a held STATE page costs nothing on
+    -- its second frame.
+    if cell.aipcPalette ~= paletteIndex then
+        local color = PIXEL_PALETTE[paletteIndex]
+        cell:SetColorTexture(color[1], color[2], color[3], 1)
+        cell.aipcPalette = paletteIndex
+    end
+    if not cell.aipcShown then
+        cell:Show()
+        cell.aipcShown = true
+    end
 end
 
-local function encodeByte(index, byte)
+local function encodeLaneByte(lane, index, byte, size)
     for shift = 6, 0, -2 do
-        setPixel(index, math.floor(byte / (2 ^ shift)) % 4 + 1)
+        setLaneCell(lane, index, math.floor(byte / (2 ^ shift)) % 4 + 1, size)
         index = index + 1
     end
     return index
 end
 
-local function updatePixels(data, fastData)
-    if not pixelFrame then return end
-    local payload = namespace.NextPacket(data, fastData)
-    if #payload > PIXEL_MAX_BYTES then error("AIPC packet exceeds pixel capacity") end
+local function drawLane(lane, payload, size, framed)
     local index = 1
-    for _, value in ipairs(PIXEL_HEADER) do setPixel(index, value); index = index + 1 end
-    index = encodeByte(index, math.floor(#payload / 256))
-    index = encodeByte(index, #payload % 256)
+    for _, value in ipairs(PIXEL_HEADER) do setLaneCell(lane, index, value, size); index = index + 1 end
+    if framed then
+        index = encodeLaneByte(lane, index, LANE_MARKER, size)
+        index = encodeLaneByte(lane, index, math.floor(lane.columns / 256), size)
+        index = encodeLaneByte(lane, index, lane.columns % 256, size)
+    end
+    index = encodeLaneByte(lane, index, math.floor(#payload / 256), size)
+    index = encodeLaneByte(lane, index, #payload % 256, size)
     local checksum = 0
     for offset = 1, #payload do
         local byte = string.byte(payload, offset)
         checksum = (checksum + byte) % 256
-        index = encodeByte(index, byte)
+        index = encodeLaneByte(lane, index, byte, size)
     end
-    index = encodeByte(index, checksum)
-    for unused = index, #pixelCells do pixelCells[unused]:Hide() end
+    index = encodeLaneByte(lane, index, checksum, size)
+    for unused = index, #lane.cells do
+        local cell = lane.cells[unused]
+        if cell.aipcShown then
+            cell:Hide()
+            cell.aipcShown = false
+        end
+    end
+end
+
+local function hideLane(lane)
+    for _, cell in ipairs(lane.cells) do
+        cell:Hide()
+        cell.aipcShown = false
+    end
+end
+
+local function layoutPixelFrame()
+    if not pixelFrame then return end
+    for _, lane in ipairs(pixelLayout.lanes or {legacyLane}) do hideLane(lane) end
+    pixelLayout = computePixelLayout()
+    if pixelFrame.ClearAllPoints then pixelFrame:ClearAllPoints() end
+    if pixelLayout.mode == "LANES" then
+        local lanes = pixelLayout.lanes
+        pixelFrame:SetSize((lanes[1].columns + lanes[2].columns) * pixelLayout.cell,
+            PIXEL_ROWS * pixelLayout.cell)
+        pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pixelLayout.margin, -pixelLayout.margin)
+    else
+        pixelFrame:SetSize(PIXEL_COLUMNS * PIXEL_CELL_SIZE, 128)
+        pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 12, -12)
+    end
+end
+
+local function updatePixels(data, fastData)
+    if not pixelFrame then return end
+    if pixelLayout.mode == "LANES" then
+        local fastLane, stateLane = pixelLayout.lanes[1], pixelLayout.lanes[2]
+        local fastCapacity, stateCapacity = laneCapacity(fastLane), laneCapacity(stateLane)
+        -- 64/72 bytes leave room for the AIPC5 packet prefix of each lane.
+        local fastPacket, statePacket = namespace.NextLanePackets(
+            data, fastData, fastCapacity - 64, stateCapacity - 72)
+        if not fastPacket or #fastPacket > fastCapacity or #statePacket > stateCapacity then
+            error("AIPC lane packet exceeds lane capacity")
+        end
+        drawLane(fastLane, fastPacket, pixelLayout.cell, true)
+        drawLane(stateLane, statePacket, pixelLayout.cell, true)
+        return
+    end
+    local payload = namespace.NextPacket(data, fastData)
+    if #payload > PIXEL_MAX_BYTES then error("AIPC packet exceeds pixel capacity") end
+    drawLane(legacyLane, payload, PIXEL_CELL_SIZE, false)
 end
 
 -- The expensive quest/inventory snapshot remains rate-limited, while the FAST
@@ -2454,8 +2558,10 @@ local function readFastState(data)
     local result = {
         timestamp = serverTimestamp(), monotonic_time = sampleTime,
         map_id = liveMapID, map_context = readMapContext(liveMapID, displayedMapID),
-        health = safeNumber(safeCall(UnitHealth, "player")),
-        max_health = safeNumber(safeCall(UnitHealthMax, "player")),
+        -- Live 2026-10-07 (12.1): UnitHealth("player") is a secret value;
+        -- safeNumber made it 0 on every FAST packet (0 % health to the agent).
+        health = optionalNumber(safeCall(UnitHealth, "player")),
+        max_health = optionalNumber(safeCall(UnitHealthMax, "player")),
         is_dead = bool(safeCall(UnitIsDead, "player")),
         is_ghost = bool(safeCall(UnitIsGhost, "player")),
         in_vehicle = bool(safeCall(UnitInVehicle, "player")),
@@ -2648,8 +2754,7 @@ local function createPanel()
     elseif accessible(parentScale) and parentScale and parentScale > 0 and pixelFrame.SetScale then
         pixelFrame:SetScale(1 / parentScale)
     end
-    pixelFrame:SetSize(PIXEL_COLUMNS * PIXEL_CELL_SIZE, 128)
-    pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 12, -12)
+    layoutPixelFrame()
     pixelFrame:SetFrameStrata("TOOLTIP")
     pixelFrame:Show()
 end
@@ -2697,10 +2802,16 @@ for _, eventName in ipairs({
     "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED", "UPDATE_BINDINGS",
     "MERCHANT_SHOW", "MERCHANT_CLOSED", "MERCHANT_UPDATE",
     "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_MONSTER_YELL", "QUESTLINE_UPDATE",
+    "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED",
 }) do
     safeCall(frame.RegisterEvent, frame, eventName)
 end
 frame:SetScript("OnEvent", function(_, event, ...)
+    if event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
+        -- The strip width follows the client size (and the minimap position).
+        layoutPixelFrame()
+        return
+    end
     if event == "UPDATE_BINDINGS" or event == "PLAYER_ENTERING_WORLD" then namespace.InvalidateBindings() end
     if event == "QUESTLINE_UPDATE" or event == "QUEST_TURNED_IN" or event == "QUEST_ACCEPTED"
             or event == "ZONE_CHANGED_NEW_AREA" then

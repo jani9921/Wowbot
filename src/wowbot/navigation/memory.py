@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import sqlite3
+import threading
 import time
+from contextlib import contextmanager
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,13 +46,34 @@ class SegmentExperience:
 
 
 class NavigationMemory:
+    """Route/segment experience store for the legacy NavGraph engine.
+
+    Not on the live path: ``NavigationService`` does not use it (issue #33,
+    docs/DEAD_CODE_AUDIT.md).  It used to open a new, never-closed sqlite
+    connection per call without WAL; it now keeps one connection.
+    """
+
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn: sqlite3.Connection | None = sqlite3.connect(self.path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._lock = threading.RLock()
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path)
+    @contextmanager
+    def _connect(self):
+        """One serialized transaction on the persistent connection."""
+        if self._conn is None:
+            raise sqlite3.ProgrammingError("NavigationMemory is closed")
+        with self._lock, self._conn:
+            yield self._conn
+
+    def close(self) -> None:
+        with self._lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
 
     def _init_db(self) -> None:
         with self._connect() as conn:

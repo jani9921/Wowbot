@@ -128,6 +128,18 @@ class TrinityMMapNavMesh:
             return None
 
     def close(self) -> None:
+        """Release every cached native Detour map, then the tile source.
+
+        Issue #85: the native handles (aipc_nav_create) were only freed at
+        process exit.  Idempotent; a closed mesh never reloads a native map.
+        """
+        self.__dict__["_native_closed"] = True
+        for native in self.__dict__.pop("_native_maps", {}).values():
+            if native is not None:
+                try:
+                    native.close()
+                except Exception as error:   # cleanup must not mask shutdown
+                    self.__dict__["native_error"] = f"{type(error).__name__}: {error}"
         self.source.close()
 
     def supports(self, instance_id: int) -> bool:
@@ -452,6 +464,8 @@ class TrinityMMapNavMesh:
 
     def _native_map(self, instance_id: int):
         """Lazily load every tile of the map into native Detour; None = fallback."""
+        if self.__dict__.get("_native_closed"):
+            return None
         cache = self.__dict__.setdefault("_native_maps", {})
         if instance_id in cache:
             return cache[instance_id]
@@ -525,10 +539,18 @@ class TrinityMMapNavMesh:
                 if result[0] == 1 and result[1]:
                     cost = sum(math.dist(a, b) for a, b in zip(result[1], result[1][1:]))
                     jump = abs(start_point[1]-continuity) if continuity is not None else 0.
-                    complete.append((jump > 3., cost, abs(point[1]-start_point[1]), result))
+                    complete.append((jump > 3., cost, abs(point[1]-start_point[1]), result,
+                                     start_point, point))
         if not complete:
             return None
-        return min(complete, key=lambda entry: entry[:3])[3]
+        best = min(complete, key=lambda entry: entry[:3])
+        # The layer is chosen on the fast string-pulled path, but that path
+        # hugs the inner edge of every bend (live 2026-10-07: every route to a
+        # height-less minimap dot / floor cue ran along the rim of Hrun's
+        # spiral and the character fell off it).  Walk the centred one.
+        centred = native.find_path(best[4], best[5], extents=(2., 4., 2.), include=include,
+                                   margin=self.PATH_CENTER_MARGIN)
+        return centred if centred[0] == 1 and centred[1] else best[3]
 
     def _native_find_path(self, native, instance_id: int, start: dict, destination: dict,
                           start_dt: tuple, end_dt: tuple) -> NavMeshPath | None:

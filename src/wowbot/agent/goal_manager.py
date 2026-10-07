@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 
 from .models import number
+from .destination_distance import world_arrived
 
 @dataclass
 class GoalTask:
@@ -102,8 +103,7 @@ class GoalManager:
                 and (world.state.get("inventory") or {}).get("free_slots") == 0):
             return True
         if self.goal.domain == "MOVE" and parameters.get("destination"):
-            distance = world.distance(parameters["destination"])
-            return distance is not None and distance <= .003
+            return world_arrived(world, parameters["destination"])
         return False
 
     def fail(self, reason: str, now: float):

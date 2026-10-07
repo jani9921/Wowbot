@@ -101,6 +101,7 @@ class PixelSensor:
         self.published_updates = 0
         self.fresh_fast_packets = 0
         self.completed_full_states = 0
+        self.lane_frames = 0
         self.last_decoded_at = None
         self.last_published_at = None
         self.last_packet_identity = None
@@ -119,8 +120,8 @@ class PixelSensor:
         from adapters.pixel_bridge import (decode_payload_from_bgra, pixel_strip_diagnostics,
                                            _GRID_CACHE)
         decoded_remotely = hasattr(self.capture, "last_decoded")
-        if not decoded_remotely and not _GRID_CACHE and now < self.next_discovery:
-            return None
+        # Issue #79: the discovery throttle covers only the expensive strip
+        # search; the frame itself is still captured for perception.
         self.capture_attempts += 1
         self.capture_attempt_rate.mark(now)
         frame = self.capture.capture()
@@ -146,6 +147,10 @@ class PixelSensor:
                 self.health = f"pixel_strip_not_visible:{text or f'{width}x{height}:fallback'}"
                 return None
             payload = text
+        elif (not decoded_remotely and (width, height) not in _GRID_CACHE
+              and now < self.next_discovery):
+            # No strip geometry for *this* resolution yet: throttled search.
+            return None
         else:
             payload = decode_payload_from_bgra(raw, width, height)
         if payload is None:
@@ -161,20 +166,24 @@ class PixelSensor:
         self.decoded_packets += 1
         self.last_decoded_at = now
         self.decoded_packet_rate.mark(now)
-        parts = payload.split("|", 6)
-        packet_identity = tuple(parts[1:6]) if len(parts) == 7 else None
+        # A two-lane strip (addon 0.9.61) decodes to one packet per lane.
+        lanes = [packet.split("|", 6) for packet in payload.split("\n") if packet]
+        identities = tuple(tuple(parts[1:6]) if len(parts) == 7 else None for parts in lanes)
+        packet_identity = identities[0] if len(identities) == 1 else identities
         if packet_identity != self.last_packet_identity:
             self.last_packet_identity = packet_identity
             self.last_packet_changed_at = now
             self.repeated_packet_frames = 0
         else:
             self.repeated_packet_frames += 1
-        if len(parts) == 7 and parts[5] == "FAST":
-            self.fast_packets += 1
-            self.fast_packet_rate.mark(now)
-        elif len(parts) == 7 and parts[5] in {"STATE", "STATE_Z"}:
-            self.state_pages += 1
-            self.state_page_rate.mark(now)
+        self.lane_frames += len(lanes) > 1
+        for parts in lanes:
+            if len(parts) == 7 and parts[5] == "FAST":
+                self.fast_packets += 1
+                self.fast_packet_rate.mark(now)
+            elif len(parts) == 7 and parts[5] in {"STATE", "STATE_Z"}:
+                self.state_pages += 1
+                self.state_page_rate.mark(now)
         result = self.assembler.feed(payload, now)
         if result is not None:
             self.last_published_at = now
@@ -217,6 +226,7 @@ class PixelSensor:
             "source_publish_hz": self.publish_rate.hz(now),
             "completed_full_states": self.completed_full_states,
             "completed_full_state_hz": self.completed_full_rate.hz(now),
+            "two_lane_frames": self.lane_frames,
             "last_decoded_age": (None if self.last_decoded_at is None
                                  else round(max(0., now-self.last_decoded_at), 3)),
             "last_published_age": (None if self.last_published_at is None
@@ -249,6 +259,10 @@ class BufferedPixelSensor:
         # published, so frame consumers can wake immediately instead of
         # polling on Windows' ~15.6 ms timer granularity.
         self.frame_listeners: list = []
+        # Issue #31: a failing listener stays non-blocking but is counted
+        # and reported (rate-limited) instead of failing silently per frame.
+        from .suppressed_errors import SuppressedErrors
+        self.listener_errors = SuppressedErrors()
         self.health = "waiting_for_AIPC5"
         self.polls = self.updates = self.coalesced = 0
         self.poll_ms = 0.
@@ -301,8 +315,10 @@ class BufferedPixelSensor:
                     for listener in list(self.frame_listeners):
                         try:
                             listener()
-                        except Exception:
-                            pass
+                        except Exception as error:
+                            self.listener_errors.report(
+                                f"frame_listener:{getattr(listener, '__name__', type(listener).__name__)}",
+                                error)
             except Exception as error:
                 with self.lock:
                     self.health = f"sensor_error:{type(error).__name__}:{error}"
@@ -352,6 +368,7 @@ class BufferedPixelSensor:
                     "coalesced_hz": self.coalesced_rate.hz(now),
                     "interval_ms": round(self.interval*1000, 3),
                     "transition_backlog": len(self.transitions),
+                    "listener_errors": self.listener_errors.snapshot(),
                     "capture_geometry": getattr(getattr(self.source, "capture", None), "geometry", None),
                     "source": getattr(self.source, "diagnostics", {})}
 

@@ -875,3 +875,93 @@ def test_runtime_keeps_addon_and_memory_observations_separate(tmp_path):
         assert len({item.independence_group for item in evidence}) == 1
     finally:
         runtime.close()
+
+
+def test_arming_waits_for_learned_detector_warmup(tmp_path):
+    # Issue #30: the detector blocker must gate arming, not only the GUI text.
+    sensor, exe = Sensor(), RecordingExecutor()
+    sensor.frame = (bytes(4 * 640 * 480), 640, 480)
+    runtime = AgentRuntime(42, binding_file(tmp_path, 'bind "TAB" "TARGETNEARESTENEMY"\n'), tmp_path / "output",
+                           sensor=sensor, executor=exe, vision=False)
+    vision = SparseTelemetryVision()
+    vision.detector_warm = False
+    vision.detector_ready = lambda now: vision.detector_warm
+    runtime.perception = vision
+    try:
+        runtime.agent.set_goal("Questelj", 1)
+        runtime.test_step(actions=1, seconds=5)
+        runtime.arm_at, runtime.arm_deadline = 2, 12
+        sensor.payload = state(2., world_map_open=False, active_quests=[])
+        result = runtime.step(2.)
+        assert result["mode"] == "MANUAL"
+        assert "waiting_for_world3d_detector" in result["arm_blockers"]
+        assert not exe.commands
+
+        vision.detector_warm = True
+        sensor.payload = state(3., world_map_open=False, active_quests=[])
+        result = runtime.step(3.)
+        assert result["mode"] == "FULL_AI"
+    finally:
+        runtime.close()
+
+
+def test_arming_rejects_a_running_addon_that_differs_from_the_project(tmp_path):
+    # Issue #32: an updated project addon without /reload must not arm.
+    sensor, exe = Sensor(), RecordingExecutor()
+    runtime = AgentRuntime(42, binding_file(tmp_path), tmp_path / "output",
+                           sensor=sensor, executor=exe, vision=False)
+    try:
+        assert runtime.expected_addon_version          # read from the repo toc
+        runtime.expected_addon_version = "0.9.62"
+        runtime.agent.set_goal("Menj oda", 1, {"destination": {"map_id": 1609, "x": .5, "y": .4}})
+        runtime.mode("FULL_AI")
+        runtime.arm_at, runtime.arm_deadline = 2, 12
+        sensor.payload = {**state(2), "addon_version": "0.9.56"}
+        result = runtime.step(2)
+        assert result["mode"] == "MANUAL" and not exe.commands
+        assert result["result"]["addon_version_mismatch"] == {"running": "0.9.56",
+                                                              "expected": "0.9.62"}
+        runtime.mode("FULL_AI")
+        runtime.arm_at, runtime.arm_deadline = 3, 13
+        sensor.payload = {**state(3), "addon_version": "0.9.62"}
+        assert runtime.step(3)["mode"] == "FULL_AI"
+    finally:
+        runtime.close()
+
+
+def test_stabilizer_expires_every_tracks_evidence_and_stays_bounded():
+    # Issue #76: only the current track's stale evidence was ever deleted.
+    stabilizer = _VisualRecognitionStabilizer()
+    match = {"identity_key": "npc:1", "similarity": .9,
+             "match_method": "MULTI_EXAMPLE_VISUAL_REIDENTIFICATION"}
+    for index in range(2000):
+        stabilizer.update(f"WORLD3D:{index}", [match], float(index) * .01)
+    stabilizer.update("WORLD3D:new", [], 100.)
+    assert stabilizer.retained == 0
+    stabilizer.update("WORLD3D:a", [match], 200.)
+    stabilizer.reset()
+    assert stabilizer.retained == 0
+
+
+def test_perception_reset_does_not_transfer_identity_to_a_reused_track_id():
+    # Issue #75: after a reset WORLD3D:1 was a different subject but the 1 s
+    # recognition cache and the stabilizer still carried the old one.
+    from types import SimpleNamespace
+    from wowbot.agent.runtime_observation_phase import _recognition_cache_for_epoch
+    def match(key):
+        return [{"identity_key": key, "similarity": .95,
+                 "match_method": "MULTI_EXAMPLE_VISUAL_REIDENTIFICATION"}]
+    runtime = SimpleNamespace(perception=SimpleNamespace(epoch=1),
+                              _visual_recognition_stabilizer=_VisualRecognitionStabilizer())
+    cache = _recognition_cache_for_epoch(runtime)
+    cache[("track", "WORLD3D:1")] = (0., match("npc:jaina"))
+    for at in (0., .1, .2):
+        runtime._visual_recognition_stabilizer.update("WORLD3D:1", match("npc:jaina"), at)
+    assert _recognition_cache_for_epoch(runtime) is cache and cache   # same epoch: kept
+    runtime.perception.epoch = 2                                        # reset
+    assert not _recognition_cache_for_epoch(runtime)
+    published = []
+    for at in (.3, .4, .5):
+        published += runtime._visual_recognition_stabilizer.update(
+            "WORLD3D:1", match("npc:keela"), at)
+    assert [item["identity_key"] for item in published] == ["npc:keela"]

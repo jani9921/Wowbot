@@ -53,7 +53,10 @@ def test_matching_quest_target_produces_combat_with_scoped_credit_identity():
     assert tuple(item.objective_id for item in result.matching_objectives) == ("101:0",)
 
 
-def test_selected_out_of_range_murloc_uses_world3d_visual_approach_without_hover():
+def test_selected_out_of_range_murloc_does_not_approach_an_unbound_box():
+    """Issue #95: the unbound "best World3D box" fallback (2026-09-27) could
+    steer toward another mob and was always rejected by the skill gate; only
+    GUID-bound evidence may drive a combat VISUAL_APPROACH."""
     world = _world(
         active_quests=_quest(),
         target={"guid": "Creature-Murloc", "npc_id": 150229,
@@ -73,16 +76,28 @@ def test_selected_out_of_range_murloc_uses_world3d_visual_approach_without_hover
         }],
     )
 
-    result = _policy(world)
-    approach = next(proposal for proposal in result.proposals
-                    if proposal.skill == "VISUAL_APPROACH")
+    assert not any(proposal.skill == "VISUAL_APPROACH"
+                   for proposal in _policy(world).proposals)
 
-    assert approach.parameters["guid"] == "Creature-Murloc"
+
+def test_selected_out_of_range_murloc_approaches_its_bound_track():
+    bound = {"x": .63, "y": .52, "source": "BOUND_WORLD3D_TRACK",
+             "coordinate_space": "CLIENT_BOTTOM_LEFT", "sample_time": 1.,
+             "identity_source": "HOVER_SELECTED_TRACK", "track_id": "WORLD3D:murloc"}
+    world = _world(
+        active_quests=_quest(),
+        target={"guid": "Creature-Murloc", "npc_id": 150229,
+                "name": "Murloc Watershaper", "attackable": True,
+                "dead": False, "screen_position": bound},
+        mouseover=None,
+        actionbar=[{"id": 1, "kind": "spell", "is_harmful": True,
+                    "is_usable": True, "in_range": False}],
+    )
+
+    approach = next(proposal for proposal in _policy(world).proposals
+                    if proposal.skill == "VISUAL_APPROACH")
     assert approach.parameters["track_id"] == "WORLD3D:murloc"
-    assert approach.parameters["screen_position"]["track_association"] == \
-        "CANDIDATE_SELECTED_TARGET"
-    assert approach.parameters["screen_position"]["identity_source"] == \
-        "SELECTED_TARGET_GUID"
+    assert SkillRegistry().available(approach, world)
 
 
 def test_selected_target_without_hover_or_stable_visual_candidate_does_not_move_blindly():

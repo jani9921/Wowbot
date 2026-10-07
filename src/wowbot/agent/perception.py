@@ -159,6 +159,7 @@ class PerceptionWorker(PerceptionCycleMixin, PerceptionSourcesMixin, PerceptionC
         self._background_frame_provider = None
         self._background_request: dict | None = None
         self._background_result: list[dict] = []
+        self._background_result_at: float | None = None
         self._background_error: str | None = None
 
     _CONTEXT_PARTS = ("session_id", "character_guid", "map_id", "map_zoom_count")

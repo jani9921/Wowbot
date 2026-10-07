@@ -323,13 +323,22 @@ def probe_tensorrt(python: str = sys.executable) -> bool:
 
 
 def runtime_model_status(project: Path, vendor: str, *, torch_cuda: bool = False,
-                         directml: bool = False) -> dict:
-    """Predict the default YOLO selection from local files and provider probes."""
+                         directml: bool = False, gpu_fingerprint: dict | None = None) -> dict:
+    """Predict the default YOLO selection from local files and provider probes.
+
+    Issues #19/#86: a TensorRT engine counts only when its recorded build
+    fingerprint does not contradict ``gpu_fingerprint`` (when one is given).
+    """
+    from .engine_fingerprint import engine_status
     models = Path(project) / "models"
     stem = "world3d_units_3class_v10_e65"
     pt, onnx, engine = (models / f"{stem}{suffix}"
                         for suffix in (".pt", ".onnx", ".engine"))
-    if vendor == "NVIDIA" and torch_cuda and engine.is_file():
+    status = engine_status(engine, gpu_fingerprint)
+    if gpu_fingerprint is None and status == "probe_failed":
+        status = "recorded"          # sidecar present, nothing to compare yet
+    usable_engine = engine.is_file() and not status.startswith("mismatch")
+    if vendor == "NVIDIA" and torch_cuda and usable_engine:
         backend = "TensorRT"
         selected = engine
     elif vendor == "NVIDIA" and torch_cuda and pt.is_file():
@@ -345,7 +354,7 @@ def runtime_model_status(project: Path, vendor: str, *, torch_cuda: bool = False
         backend = "MISSING"
         selected = None
     return {"backend": backend, "pt": pt.is_file(), "onnx": onnx.is_file(),
-            "engine": engine.is_file(),
+            "engine": engine.is_file(), "engine_status": status,
             "model_name": selected.name if selected else None,
             "accelerated": backend in {"TensorRT", "PyTorch CUDA", "DirectML"}}
 

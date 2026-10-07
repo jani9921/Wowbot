@@ -24,6 +24,17 @@ def advance_fast_movement(agent, payload: dict, now: float, movement_skills: set
         agent.command_dispatcher.stop_movement()
         return {"consumed": False, "force_medium": True,
                 "reason": "fast_control_safety_transition"}
+    # Issue #70: a fresh combat/death/ghost transition preempts the reach
+    # now instead of at the next medium tick (up to 1 s later). Movement that
+    # started inside combat or as a ghost (corpse run) is not a transition.
+    previous = agent.world.state
+    if (payload.get("is_dead") is True
+            or (payload.get("is_ghost") is True and previous.get("is_ghost") is not True)
+            or (payload.get("is_in_combat") is True
+                and previous.get("is_in_combat") is not True)):
+        agent.command_dispatcher.stop_movement()
+        return {"consumed": False, "force_medium": True,
+                "reason": "fast_combat_or_death_transition"}
     # Live 2026-10-04 00:03: this lane consumes every FAST packet of an
     # active reach, so the world model saw no receive for 6 s, the freshness
     # gate suspended input, and it never recovered while packets kept

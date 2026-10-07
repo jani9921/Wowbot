@@ -78,7 +78,7 @@ class MemoryRecordsMixin:
 
     def world_relations(self, session: str) -> list[dict]:
         self.flush_world_relations()
-        self.drain_writes()
+        self._drain_for_read("world_relations")
         with self._ro() as db:
             rows = db.execute("SELECT payload FROM world_relations WHERE session=? ORDER BY at,id",
                               (session,)).fetchall()

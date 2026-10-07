@@ -5,6 +5,7 @@ Split out of skills.py (2026-10-05); unchanged.
 from __future__ import annotations
 import math
 import re
+from .destination_distance import is_world_yards, scaled_distance
 from .models import Outcome, number
 from .world import WorldModel
 from .skill_contracts import _world_map_open
@@ -66,12 +67,12 @@ class SkillVerificationMixin:
             # quest-linked loot/gather/use progress is visible in well under a
             # second instead of waiting out verify()'s timeout for the next
             # slow page.
-            quest_ids = set(quest_ids or [])
-            old = {d.get("id"): number(d.get("done")) for d in before.get("quest_digest") or []}
+            # A missing baseline is no evidence (it read as 0 -> any count).
+            from wowbot.verification.quest import fast_digest_progress
+            wanted = {str(value) for value in quest_ids or ()}
             return [d.get("id") for d in after.get("quest_digest") or []
-                    if (not quest_ids or d.get("id") in quest_ids)
-                    and number(d.get("done")) is not None
-                    and number(d.get("done")) > (old.get(d.get("id")) or 0)]
+                    if isinstance(d, dict) and str(d.get("id")) in set(
+                        fast_digest_progress(before, after, wanted))]
         success = False
         if name == "WAIT":
             success = True
@@ -366,7 +367,9 @@ class SkillVerificationMixin:
                     success = moved
                 else:
                     p = attempt.proposal.parameters
-                    previous_distance = math.hypot(p["x"] - old_pos["x"], p["y"] - old_pos["y"])
+                    # Issue #93: compare both distances in the destination's space.
+                    previous_distance = (scaled_distance(before, p) if is_world_yards(p)
+                                         else math.hypot(p["x"] - old_pos["x"], p["y"] - old_pos["y"]))
                     distance = world.distance(p)
                     old_facing, facing = number(before.get("orientation")), number(after.get("orientation"))
                     turned = False
@@ -375,7 +378,8 @@ class SkillVerificationMixin:
                         if .005 < delta < 1.:
                             self.turn_rate = min(6., max(.5, .7 * self.turn_rate + .3 * delta / max(.01, attempt.commands[0].duration)))
                             turned = True
-                    success = moved and distance is not None and distance < previous_distance - .00001
+                    success = (moved and distance is not None and previous_distance is not None
+                               and distance < previous_distance - .00001)
         if success:
             return Outcome.SUCCESS, "expected_observation_verified"
         if name in {"COMBAT", "LOOT", "INTERACT"} and old_target.get("guid") != target.get("guid"):

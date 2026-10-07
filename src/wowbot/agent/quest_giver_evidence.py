@@ -282,9 +282,15 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
     if px is None or py is None:
         return False
     from .planning_types import world_point
+    # Issue #92: a nearby turn-in POI is search-area evidence, not identity.
+    # It may admit an NPC only for a quest whose ender is still unnamed; a
+    # named ender was already matched (or rejected) above.
+    known_enders = state.get("quest_turn_in_names") or {}
+    unnamed = {quest_id for quest_id in complete
+               if not (known_enders.get(quest_id) or {}).get("name")}
     for location in state.get("quest_locations") or ():
         point = world_point(location) if isinstance(location, dict) else None
-        if (point is not None and str(location.get("quest_id")) in complete
+        if (point is not None and str(location.get("quest_id")) in unnamed
                 and math.hypot(point["x"]-px, point["y"]-py) <= TURN_IN_NPC_RADIUS_YARDS):
             return True
     return False

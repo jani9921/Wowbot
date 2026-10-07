@@ -16,7 +16,6 @@ from .models import Goal, Proposal, number, words
 from .visual_approach import VisualApproachController
 from .quest_semantics import (combat_subjects, target_matches_objective,
                               target_matches_structured_entity)
-from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
 
 
 def _model(world):
@@ -53,62 +52,6 @@ class CombatPlanningPolicy:
 
     def __init__(self, registry):
         self.registry = registry
-
-    @staticmethod
-    def _selected_target_visual_candidate(state: dict, target: dict) -> dict | None:
-        """Return steering evidence for an already-selected hostile GUID.
-
-        Selection supplies identity; CV supplies only a candidate screen
-        location.  This deliberately does not write GUID semantics onto the
-        UNKNOWN track and does not require the mouse cursor to remain over it.
-        """
-        if (not target.get("guid")
-                or target.get("attackable", target.get("is_attackable")) is not True
-                or target.get("dead", target.get("is_dead")) is True):
-            return None
-        ranked = []
-        for candidate in state.get("visual_candidates") or ():
-            if not isinstance(candidate, dict) or candidate.get("source") != "WORLD3D":
-                continue
-            kind = str(candidate.get("detector_kind") or candidate.get("kind") or "").casefold()
-            lifecycle = str(candidate.get("lifecycle") or candidate.get("track_state") or "").upper()
-            appearance = candidate.get("appearance") or {}
-            labels = {str(value).casefold()
-                      for value in candidate.get("candidate_labels") or ()}
-            learned_label = str(appearance.get("learned_label_hypothesis") or "").casefold()
-            subject_like = ("subject" in kind or "entity" in kind
-                            or "learned_subject_like" in labels
-                            or learned_label in {"creature_unit_like", "humanoid_unit_like"})
-            x, y = number(candidate.get("x")), number(candidate.get("y"))
-            confidence = max(number(candidate.get("confidence")) or 0.,
-                             number(appearance.get("learned_confidence")) or 0.)
-            stable = max(number(candidate.get("stable_frames")) or 0.,
-                         number(appearance.get("track_hits")) or 0.)
-            if (not subject_like or x is None or y is None
-                    or lifecycle in {"LOST", "REJECTED", "SUPPRESSED", "TERMINATED"}
-                    or confidence < RUNTIME_SUBJECT_CONFIDENCE or stable < 3):
-                continue
-            center = number(appearance.get("screen_center_relevance"))
-            center = (max(0., 1.-abs(x-.5)*2.) if center is None else center)
-            static = number(appearance.get("static_scene_score")) or 0.
-            score = confidence + .30*center + .15*min(1., stable/10.) - .08*static
-            ranked.append((score, confidence, stable, candidate))
-        if not ranked:
-            return None
-        _, confidence, stable, candidate = max(ranked, key=lambda row: row[:3])
-        return {
-            "x": number(candidate.get("x")), "y": number(candidate.get("y")),
-            "source": "WORLD3D_SELECTED_TARGET_CANDIDATE",
-            "coordinate_space": "CLIENT_BOTTOM_LEFT",
-            "sample_time": number(candidate.get("observed_at", state.get("monotonic_time"))),
-            "track_id": candidate.get("track_id"),
-            "visual_signature": candidate.get("visual_signature"),
-            "bbox": candidate.get("bbox"),
-            "bbox_height_fraction": candidate.get("bbox_height_fraction"),
-            "track_confidence": confidence, "stable_frames": stable,
-            "track_association": "CANDIDATE_SELECTED_TARGET",
-            "identity_source": "SELECTED_TARGET_GUID",
-        }
 
     REVEAL_WINDOW_SECONDS = 10.
 
@@ -476,10 +419,14 @@ class CombatPlanningPolicy:
                 and target.get("attackable") is True and not target.get("dead")):
             if harmful and (all(a.get("in_range") is False for a in harmful)
                             or combat_path_blocked):
+                # Issue #95: only GUID-bound evidence (the projected
+                # BOUND_WORLD3D_TRACK / nameplate screen_position, or a
+                # confirmed mouseover anchor).  The former unbound "best box"
+                # fallback could be another mob and the skill gate always
+                # rejected it.
                 anchor = (target.get("screen_position") or
                           (state.get("confirmed_mouseover_anchors") or {}).get(
-                              str(target.get("guid") or ""))
-                          or self._selected_target_visual_candidate(state, target))
+                              str(target.get("guid") or "")))
                 if anchor:
                     proposals.append(Proposal.make(
                         "VISUAL_APPROACH",
@@ -576,11 +523,16 @@ class CombatPlanningPolicy:
                 and not world.corpse_was_recently_looted(str(target.get("guid") or ""), now)
                 and (state.get("loot_pending") or world.quest_model.ready())):
             objectives = self._active_incomplete_objectives(world)
+            # Live 2026-10-07 12:06: at 85 the dead target's LOOT lost to the
+            # quest-dot / zone MOVEs (84-92); once walked away the corpse had
+            # no position (only the selected target has one) and LOOT failed.
+            # Out of combat it is looted first; in combat defence stays first.
             proposals.append(Proposal.make(
                 "LOOT", "Halott target lootjának ellenőrzése a quest folytatása előtt",
                 {"guid": target.get("guid"),
                  "quest_ids": list(dict.fromkeys(qid for qid, _ in objectives)),
-                 "objective_ids": [oid for _, oid in objectives]}, priority=85))
+                 "objective_ids": [oid for _, oid in objectives]},
+                priority=85 if state.get("is_in_combat") else 107))
 
         respawn = self._respawn_wait(world, state, target)
         if respawn is not None:

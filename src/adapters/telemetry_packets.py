@@ -50,6 +50,11 @@ def _complete_fast_sample(value: dict) -> None:
 
 
 def normalize(value: dict) -> dict:
+    # Addon 0.9.61 sent a secret UnitHealth("player") as 0 on every FAST
+    # packet: a living player at 0 health is unknown health, never 0 %.
+    if (value.get("health") == 0 and value.get("is_dead") is not True
+            and value.get("is_ghost") is not True):
+        value["health"] = None
     for key in ARRAYS:
         if value.get(key) == {}:
             value[key] = []
@@ -145,6 +150,16 @@ class PacketAssembler:
         self.last_fast = -1
         self.full_received_at = 0.
         self.last_fast_payload = {}
+        # (epoch timestamp, addon monotonic_time) of the newest packet that
+        # carried its own timestamp; restored values never become anchors.
+        self.clock_anchor = None
+
+    def _note_clock_anchor(self, value: dict) -> None:
+        stamp, mono = _num(value.get("timestamp"), None), _num(value.get("monotonic_time"), None)
+        if stamp is None or mono is None:
+            return
+        if self.clock_anchor is None or mono >= self.clock_anchor[1]:
+            self.clock_anchor = (stamp, mono)
 
     def _restore_timestamp(self, value: dict) -> None:
         """Live 2026-10-06 09:42 (hunter pet tooltip): the bounded FAST
@@ -154,24 +169,50 @@ class PacketAssembler:
         last stamped sample and the addon's own monotonic clock, floored so
         it never runs ahead of the addon's integer-second ``time()``."""
         if value.get("timestamp") is not None:
+            self._note_clock_anchor(value)
             return
-        anchor = (self.last_fast_payload if self.last_fast_payload.get("timestamp") is not None
-                  else self.full or {})
-        if anchor.get("timestamp") is None:
+        # Issue #80: anchoring on the previous (already restored, floored)
+        # FAST froze the clock at one second forever and let an old FAST win
+        # over a newer full snapshot. Only genuinely stamped packets anchor.
+        if self.clock_anchor is None:
             return
-        base = _num(anchor.get("timestamp"))
-        delta = _num(value.get("monotonic_time"), None), _num(anchor.get("monotonic_time"), None)
-        elapsed = max(0., delta[0]-delta[1]) if None not in delta else 0.
+        base, anchor_mono = self.clock_anchor
+        mono = _num(value.get("monotonic_time"), None)
+        elapsed = max(0., mono-anchor_mono) if mono is not None else 0.
         value["timestamp"] = math.floor(base + elapsed)
+
+    def feed_lanes(self, packets: list[str], now: float | None = None) -> dict | None:
+        """All packets of one two-lane frame: FAST first, so a snapshot the
+        STATE lane completes in the same frame already merges it; the
+        completed snapshot then wins as the frame's result.  One bad lane does
+        not discard the other."""
+        now = time.monotonic() if now is None else now
+        ordered = sorted(packets, key=lambda packet: 0 if packet.split("|", 6)[5:6] == ["FAST"] else 1)
+        result, errors = None, []
+        for packet in ordered:
+            try:
+                value = self.feed(packet, now)
+            except ValueError as error:
+                errors.append(error)
+                continue
+            if value is not None and (result is None or value.get("transport_kind") != "FAST"):
+                result = value
+        if result is None and errors and len(errors) == len(ordered):
+            raise errors[0]
+        return result
 
     def feed(self, payload: str, now: float | None = None) -> dict | None:
         now = time.monotonic() if now is None else now
+        if "\n" in payload:
+            return self.feed_lanes([part for part in payload.split("\n") if part], now)
         parts = payload.split("|", 6)
         if len(parts) != 7 or parts[0] != "AIPC5":
             raise ValueError("invalid AIPC5 packet")
         _, session, seq_raw, index_raw, count_raw, kind, body = parts
         seq, index, count = int(seq_raw), int(index_raw), int(count_raw)
-        if kind not in {"FAST", "STATE", "STATE_Z"} or seq < 0 or not 1 <= count <= 160 or not 0 <= index < count or len(body.encode()) > 900:
+        # A single-strip body is at most ~950 bytes; a two-lane strip lane at
+        # most 8*1024-8.  4096 bounds both (the capture buffer slot size).
+        if kind not in {"FAST", "STATE", "STATE_Z"} or seq < 0 or not 1 <= count <= 160 or not 0 <= index < count or len(body.encode()) > 4096:
             raise ValueError("invalid AIPC5 bounds")
         if session != self.session:
             self.__init__()
@@ -220,6 +261,7 @@ class PacketAssembler:
             if not isinstance(value, dict):
                 raise ValueError("AIPC5 STATE must be object")
             self.full = normalize(value)
+            self._note_clock_anchor(self.full)
             _stamp_world_position(self.full)
             self.full["state_encoding"] = kind
             self.last_full = seq

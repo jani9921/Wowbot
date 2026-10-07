@@ -187,6 +187,14 @@ class VisualTrackManager:
 
     def update(self, source: str, detections: list[dict], observed_at: float) -> list[dict]:
         active = self.tracks.setdefault(source, {})
+        # Issue #105: an active track unseen for longer than the re-ID grace
+        # (e.g. across a long detector gap with no update calls) is never
+        # associated as "active" again; it is retired.  Normal loss stays the
+        # miss quorum + lost_grace_seconds below (empty batches age tracks).
+        for identity, track in list(active.items()):
+            if observed_at - track.last_seen > self.reidentification_grace_seconds:
+                del active[identity]
+                self._retire_track(source, track, observed_at)
         self._prune_retired_tracks(source, observed_at)
         self._evict_excess_active_tracks(active)
         if len(detections) > self.max_new_candidates:

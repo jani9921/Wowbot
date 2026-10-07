@@ -26,6 +26,9 @@ class QuestAreaMemory:
 
     def __init__(self) -> None:
         self.cells: dict[str, set[tuple[int, int]]] = {}
+        # Instance the cells were learned in (issue #96): the same X/Y in
+        # another instance is a different place.
+        self.instances: dict[str, str] = {}
         self.closed_seen: dict[str, bool] = {}
         self._last_observed_at = None
 
@@ -80,6 +83,13 @@ class QuestAreaMemory:
         if best is None:
             return None
         quest_id = best[1]
+        instance = position.get("instance_id")
+        if instance is not None:
+            if self.instances.get(quest_id) not in (None, str(instance)):
+                # Re-learn in the new instance instead of merging two places.
+                self.cells.pop(quest_id, None)
+                self.closed_seen.pop(quest_id, None)
+            self.instances[quest_id] = str(instance)
         cells = self.cells.setdefault(quest_id, set())
         for x, y in points:
             if len(cells) >= self.MAX_CELLS_PER_QUEST:
@@ -89,9 +99,12 @@ class QuestAreaMemory:
             self.closed_seen[quest_id] = True
         return quest_id
 
-    def contains(self, quest_id, x: float, y: float) -> bool:
+    def contains(self, quest_id, x: float, y: float, instance_id=None) -> bool:
         cells = self.cells.get(str(quest_id))
         if not cells:
+            return False
+        learned = self.instances.get(str(quest_id))
+        if instance_id is not None and learned is not None and learned != str(instance_id):
             return False
         cx, cy = self._cell(x, y)
         return any((cx+dx, cy+dy) in cells for dx in (-1, 0, 1) for dy in (-1, 0, 1))

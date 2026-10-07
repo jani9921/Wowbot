@@ -275,3 +275,30 @@ def test_reach_object_target_identity_change_is_terminal_not_blind_motion():
     result = controller.observe(changed, "o2", 2)
     assert result.terminal and not result.success
     assert result.reason == "reach_object_identity_or_position_lost"
+
+
+def test_fast_combat_or_death_transition_stops_movement_immediately():
+    # Issue #70: a FAST combat/death transition must not keep the reach going
+    # until the next medium tick.
+    for transition in ({"is_in_combat": True}, {"is_dead": True}, {"is_ghost": True}):
+        bot, executor = agent("Menj oda", {"destination": DESTINATION})
+        bot.tick(moving_state(1), 1)
+        before = len(executor.commands)
+        fast = moving_state(1.05, .499, speed=7., moving=True) | {
+            "transport_kind": "FAST", "fast_sequence": 2, **transition}
+        result = bot.fast_movement_control(fast, 1.05)
+        assert result == {"consumed": False, "force_medium": True,
+                          "reason": "fast_combat_or_death_transition"}
+        assert len(executor.commands) == before
+
+
+def test_fast_movement_already_in_combat_is_not_a_transition():
+    # A reach the medium loop kept running while the world model already
+    # knows about combat (e.g. a planner-approved LOS move) is not preempted.
+    bot, executor = agent("Menj oda", {"destination": DESTINATION})
+    bot.tick(moving_state(1), 1)
+    assert bot.pending is not None and bot.pending.proposal.skill == "MOVE"
+    bot.world.state["is_in_combat"] = True
+    fast = moving_state(1.05, .499, speed=7., moving=True) | {
+        "transport_kind": "FAST", "fast_sequence": 2, "is_in_combat": True}
+    assert bot.fast_movement_control(fast, 1.05)["consumed"] is True

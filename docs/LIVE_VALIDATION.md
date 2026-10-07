@@ -7770,3 +7770,114 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
 - Done: turned in 55639 (710295), accepted and turned in 85678 (710297–710429). Then no quest: the API listed campaign "!" givers 58914 at (187, −2280) = Private Cole and 55196 at (267, −2339) = Henry Garrick (user). The agent targeted Lady Jaina from a hover next to Cole, VISUAL_APPROACH (one 30 s timeout) and INTERACT `no_response` for ~60 s, walked toward Henry Garrick, "arrived" at 8.5 yd (10 yd radius) — the reached pin is skipped for 300 s — and turned round 80 yd to Cole's pin; 68 INSPECT, 26 IDENTIFY seeks, 22 VISUAL_APPROACH, 19 TARGET; user stopped it.
 - Telemetry shows the client's `softinteract` unit at the pin: Private Cole at 3.8–5.2 yd from (187, −2280), Quartermaster Richter (vendor) at 7.5–8.9 yd. NPC world positions are not exported (only the target's).
 - Fixes (offline): API giver arrival 4 yd (was 10); within 6 yd a friendly `softinteract` NPC gets `INTERACT` with `activation_source: SOFT_INTERACT` (`INTERACTTARGET`, no hard-target identity, success = quest/gossip/vendor window; once per NPC per giver per 30 s; priority 104); after reaching a giver no other giver route for 10 s (`GIVER_LOCAL_SECONDS`, user: "25 s sok, legyen 10 s"), a drifted agent walks back to it; at an API pin a different soft-interact NPC makes the selected unit irrelevant (`soft_interact_giver_waiting`). Tests: `test_map_pois.py` (+3, one rewritten), `test_stale_friendly_target_20261005.py` (+1), `test_pit_layer_and_pins_20261005.py` (updated). Full suite: 15 baseline failures. Not live-validated; whether INTERACTTARGET always prefers the soft-interact unit over a different hard target must be confirmed live.
+
+---
+
+## 2026-10-07 11:06–11:08 (pid 15440, user, addon 0.9.59) — one cocoon, then a sweep-hop / search-cell ping-pong on the spiral
+
+- Sources (read only): uploaded `telemetry-20261007-110601.jsonl` (131.8 s) and `agent_status.json`. Journal session `1791363480-756217315`; goal created at 756719.99; the user stopped the run at 756832.78 (`mode_changed`). Final state: mode STOPPED, executor disarmed, no held keys, so no FULL_AI process was left running. Character: Mklé, warrior 7, Hrun's Barrow (map 1409, instance 2175), quest "Who Lurks in the Pit" (55639).
+- Progress: 0/5 → 1/5 at 756766.0 (`object_use_credit_verified`). Evidence: mouseover "Thick Cocoon", `SPELLCAST_SUCCEEDED` 321523, then "Freed Expedition Member". The first OBJECT_USE attempt ended `IDENTITY_UNCERTAIN` (756762.8). No further credit.
+- 756771–756810: three SEEK_VISUAL_CUE runs ended `seek_visual_cue_sectors_exhausted` (TARGET_NOT_FOUND), so no cocoon was visible from the upper spiral. The area search walked cell (81, −2272) twice. Cells (59.8, −2263) and (102.2, −2263) were retired as off-floor.
+- 756811–756832 (and a 38 yd variant before that): two MOVEs alternated every ~1.6 s, each ending `reach_arrival_verified`, while the player stayed in a 4 yd patch around (72–76, −2236…−2239) at z 67.9 (MMAP, confidence .95):
+  - (A) zone-sweep hop 4/39 at (69.1, −2239.7), z 69.5, stop distance 6.
+  - (B) quest-area cell 1:1 at (81, −2242). This cell lies over the pit hole. Its SAME-floor projection was (76.0, −2235.7), 8.06 yd from the cell, outside the 7.5 yd visit radius (30/4). The cell therefore never counted as visited (visits 0).
+- Why the two never advanced:
+  - The hop was not marked by the arrival either, because B's arrival took the player 8 yd away before the planner looked at the sweep again.
+  - After A arrived, `world_arrived` (≤ 6 yd) made the location non-actionable, so the area SEEK won (utility 79.7 against the sweep's 67.7 with its distance penalty). After B arrived, the sweep offered hop 4 again.
+  - The loop guard saw only `MOVEMENT_OSCILLATION:TURNLEFT:TURNRIGHT` ×3. The A/B alternation itself went undetected.
+- Root cause of the never-marked hop. The same cause explains two 2026-10-06 findings: "8 instant MOVEs to the same rim hop" and "not marked by the planner (fresher gate)".
+  - `zone_sweep_next` and `_search_player_z` tested freshness as `0 <= now − at <= 3`. Here `now` is the addon's `state.monotonic_time` (GetTime at sampling) and `at` is the Z resolver's fix time (agent clock at processing).
+  - Live, the sample comes ~0.1 s before the fix (status: `monotonic_time` 756836.377 vs `fast_received_at` 756836.469). Every fix was therefore rejected, and the planner's position test never marked a hop.
+- Fixes (offline-tested, `tests/test_sweep_cell_pingpong_20261007.py`, +5 tests):
+  - Both freshness tests use a symmetric window, `|now − at| <= 3`.
+  - `NavigationService.observe_verified_move` retires the zone-sweep hop of a verified arrival (`record_sweep_arrival`; only when the hop matches the current sweep within 1 yd).
+  - It also retires the search cell of a verified arrival (`search_region_id` + `search_cell_id`), including when the route ended at the cell's same-floor projection.
+  - Full suite: 33 baseline failures, 2494 passed, no new failure.
+- Other measurements:
+  - STATE assembly: 1197 pages, 82 complete snapshots (14.6 pages per snapshot, 0.77 Hz). The 0.9.58 run needed 16 pages per snapshot.
+  - After STOP, one memory maintenance pass took 2061 ms for 256 rows. FULL_AI defers maintenance, so this is outside the control path. The DB is 139 MB, grows ≈ 214 MB/h and has a backlog of 47 545 rows, so it grows unbounded during long FULL_AI runs.
+  - The binding inventory is still collecting (22 of 23 pages) and lists 22 catalog differences against the selected cache (`authoritative_for_input: false`). The selected cache file is named `pid-19664` while the selected PID is 15440. The control-binding preflight was ready with no mismatches.
+- Open, not fixed:
+  - No loop detection for alternating "successful" MOVEs.
+  - The next user run must show the sweep advancing beyond hop 4 down the spiral to the cocoons.
+  - SEEK sector exhaustion on the upper spiral.
+  - Maintenance cost and DB growth.
+
+---
+
+## 2026-10-07 11:13–11:21 (pid 15440, user, addon 0.9.59, without b0f0d32) — 3/5 cocoons; quest credit and errors stuck behind the paged STATE
+
+- Sources (read only): `_j_1.txt` + `telemetry-20261007-111331.jsonl` + `_j_2.txt`, one continuous telemetry run (mono 757176–757644), and `agent_status.json`. Goal created at 757168.65. The last agent decision was at 757578.1, after which the run was STOPPED; the user abandoned 55639 manually at 757603.8 with FULL_AI no longer running. Final state: no held keys, executor disarmed. The run did not yet contain b0f0d32.
+- Progress: 0/5 → 1/5 (757247.0) → 2/5 (757457.9) → 3/5 (757482.6). Combat: two Barrow Spiders, both killed and looted; one `loot_ui_not_opened` (757364.4) was followed by a successful loot.
+- Upper spiral (757247–757437):
+  - The agent circled the rim and walked outside once (indoors=false 757312–757326).
+  - All nine cells of area region 0 were retired at once at 757408.5 as off-floor.
+  - 34 deduplicated FALL_STARTED events, mostly short ramp-edge hops; the resolver's `fall_count` stayed 0.
+  - Eight `seek_visual_cue_sectors_exhausted` results and three `visual_track_lost` over the run.
+- Lower floor (757483–757578): the zone sweep reached hop 18/38 (58.3, −2199.5, z 21.3) and alternated with search cell (81, −2212), both "arrived". This is the ping-pong fixed by b0f0d32.
+- Cocoon 1 took 15 s and three attempts: two `STALE_OBSERVATION` results (757226.9, 757232.4) before the credit. The decision log does not reach back that far, so this stays open.
+- **Root cause found in this run: the STATE assembly rate.**
+  - 3348 STATE pages produced 108 complete snapshots (31 pages per snapshot; the 11:06 run needed 14.6).
+  - `state_sequence` stayed unchanged for more than 5 s during 323 of 468 s, with a maximum of 30.3 s.
+  - Every live FAST packet was a bounded variant without `quest_digest` or `ui_error` (reproduced with the Lua transport). Quest progress and UI errors therefore arrived only with the paged STATE.
+  - Cocoon 2 credit: STATE was frozen from 757437.0 to 757457.9 (seq 1037 → 1057). OBJECT_USE failed `QUEST_CREDIT_NOT_RECEIVED` at 757456.7 (deadline plus the 10 s grace), 1.2 s before 2/5 arrived.
+  - Cocoon 3: "You are too far away." at 757466.9 and 757467.9 became visible only at ~757471, so a second click went out first. The approach then followed (41.2 → 37.1, −2197) and the cocoon was credited.
+- Fixes (offline-tested, e329869, addon 0.9.60; the addon must be installed and the client `/reload`ed):
+  - Every FAST variant re-adds `quest_digest`/`quest_state_revision` and a fresh `ui_error` when the packet still fits (error first).
+  - `QuestProgressVerifier` credits FAST digest progress for single-objective quests. `fast_digest_progress` needs a baseline and never treats a stale digest next to a newer snapshot as progress.
+  - Accepted ids that reappear for an already active quest do not count as an acceptance.
+  - OBJECT_USE credit grace raised to 25 s while no newer snapshot has arrived.
+  - Tests: `tests/test_fast_quest_credit_20261007.py` (+9). Full suite: 33 baseline failures, 2503 passed.
+- Open:
+  - With 25 quests the digest does not fit at all, and with an error present the digest is dropped, so the single-strip FAST budget is the structural limit. User proposal: a wider top pixel strip carrying separate FAST and STATE lanes, masked out of YOLO.
+  - STALE_OBSERVATION at cocoon 1.
+  - Leaving the barrow during the area search.
+
+---
+
+## 2026-10-07 — addon 0.9.61: two-lane top pixel strip (offline-tested, not yet live)
+
+- Why: in the 11:13 run (above), full FAST samples were 1.1–1.5 KB. The 850-byte single-strip budget therefore always fell back to a bounded variant. The STATE was also sent only on one rendered frame of every four, while the capture kept ~27 of up to 60 frames/s, so 3348 pages produced only 108 snapshots. User decision: one long strip along the top, masked out of YOLO.
+- Layout (`AIPlayerControllerExport.lua`, `computePixelLayout`):
+  - 32 rows of cells exactly 4 physical pixels square, starting at 12 px from the top-left.
+  - The strip runs right up to `MinimapCluster:GetLeft()` − 8 px (a 220-unit reserve when the minimap position is unknown).
+  - FAST lane: 224 columns (packet ≤ 1784 bytes). STATE lane: the remaining columns, between 64 and 224. A 1600×829 client gets 224 + 129 columns.
+  - Re-laid out on `DISPLAY_SIZE_CHANGED`/`UI_SCALE_CHANGED`. With fewer than 240 columns (~1200 px wide clients) it falls back to the former single strip.
+- Framing:
+  - Each lane carries header (8 cells), marker byte 254, column count (2 bytes), length (2 bytes), payload and checksum. The STATE lane starts right after the FAST lane's columns.
+  - A legacy length's high byte is at most 3, so old and new strips cannot be confused.
+  - Only changed cells are redrawn, so a held STATE page costs nothing on its second frame.
+- Transport (`Transport.lua`): `NextLanePackets` returns a FAST packet (the richest variant up to the lane budget) and a STATE page every frame, each page held for two frames (`STATE_PAGE_HOLD`). The single-strip `NextPacket` is unchanged.
+- Python side:
+  - `pixel_bridge._decode_lanes` returns both packets newline-joined. A torn STATE lane keeps the frame's FAST packet.
+  - `PacketAssembler.feed`/`feed_lanes` feeds FAST first, so a snapshot completed in the same frame merges it; one bad lane does not discard the other.
+  - The page bound was raised to 4096 bytes. The sensor reports `two_lane_frames`.
+  - The YOLO `addon_hud` hard mask is now the full-width top band of max(18 % of height, 148 px).
+- Tests: `tests/test_two_lane_strip_20261007.py` (+7; the addon's own drawing code is rasterised and decoded). Full suite: 33 baseline failures, 2510 passed.
+- Next user run: install the addon and `/reload`. Then check in `agent_status.json` `sensor_diagnostics…two_lane_frames > 0`, `completed_full_states / state_pages` (it was 108/3348) and `completed_full_state_hz`, and watch the client FPS with the wider strip.
+
+---
+
+## 2026-10-07 12:06–12:17 (pid 15440, user, addon 0.9.61 two-lane strip, with b0f0d32 + e329869) — all five cocoons; health 0, cast-time and empty-corpse defects
+
+- Sources (read only): `telemetry-20261007-120632{.1,}.jsonl` (complete: from 8 s after goal creation at 760352.2 to the last status sample at 761026.0, no gap longer than 5 s) and `agent_status.json`. The user stopped FULL_AI at 760964.3 (`mode_changed`) and abandoned 55639 manually at ~760977. The user walked to the last cocoon by hand.
+- Transport (0.9.61) live:
+  - 21 965 of 21 975 captured frames were two-lane, and all of them decoded.
+  - 717 complete snapshots, ~1.12 per second (0.23 per second before). 717 of the addon's 805 snapshot sequences completed (25 % before).
+  - Longest `state_sequence` hold: 3.1 s (30 s before). Events missing from the log: 27 of 1079 (27 % before). ~29.5 fresh FAST packets per second.
+  - `quest_digest` arrives on FAST.
+  - Side effects: agent tick median 15 ms (5.8 ms in the 11:06 run's sample); memory DB growth 347 MB/h.
+- Progress: accepted 760378.8 → 1/5 760413.6 → 2/5 760525.5 → 3/5 760558.1 → 4/5 760817.3 → 5/5 760954.2. The second objective (Ralia) appeared at 5/5.
+- User report: falls were corrected well. MOVE got stuck repeatedly, and LOOT and MOVE went back and forth when entering and leaving combat. At two cocoons the mouse was on the cocoon and OBJECT_USE was proposed, but nothing happened.
+- Findings and fixes (offline-tested, `tests/test_cocoon_loot_health_20261007.py` +6, addon 0.9.62):
+  - **Health was 0 on every FAST packet.** 12.1 returns a secret `UnitHealth("player")` and `safeNumber` turned it into 0, so the agent saw 0 % health all run (the defensive-spell rule fired). Fix: `optionalNumber` in `readFastState`, and `normalize` treats 0 health of a living player as unknown.
+  - **Cocoon 4.** At 760792 "You are too far away." → approach. From 760812.1 the cocoon was hovered for 2.4 s before the cast started; the right-click apparently did nothing and the 2 s F7 fallback started it. OBJECT_USE then failed `quest_credit_not_received` at 760815.4 while `is_casting` was true; the credit came at 760817.3. Fix: the skill keeps waiting while its cast runs (`CAST_GRACE_SECONDS` 6 s).
+  - **Cocoon 5.** The FAST digest credited it (760952.7). The snapshot still read 4/5, so a second OBJECT_USE right-clicked the freed prisoner ("Invalid target", SPELLCAST_FAILED ×2). Fix: `ObjectInteractionFlow.just_credited` holds the under-cursor use for 3 s at the same cursor point.
+  - **Loot (corrected after the user's review and the decision log `live-debug-20261007-120632.jsonl`).** Barrow Spiderlings are lootable; `lootable=false` only means already looted or too far away, so the empty-corpse rule was withdrawn. The real cause: when combat ended, the suspended MOVE (`Megszakított, még mindig érvényes részfeladat kontrollált folytatása`) was injected as the *preferred* proposal and bypassed ranking. The dead target's LOOT (priority 85) also lost to the quest-dot and zone MOVEs (84–92). The agent walked off, and the later LOOT had no corpse position (Retail gives a world position only for the selected target), so `move_to_entity` returned None and the LOOT failed with `corpse_not_found` (7×) and went back and forth. Fixes: the supervisor resume waits while a LOOT, a LOOT approach or an OBJECT_USE is proposed (resume window 180 s); out of combat the dead target's LOOT is priority 107.
+  - **Cocoon 3.** OBJECT_USE (760538.8) spent ~7 s of its budget waiting for the character to stop and the hover to settle, then failed `quest_credit_not_received` ~1.5 s after the right-click. Fix: a sent click always gets 5 s (`POST_CLICK_SECONDS`, covers the 2 s F7 fallback and its cast).
+  - **Walking on the rim (user: "alapból már a szélére kormányoz teljesen").** Before cocoon 2 (760451–760457) the character dropped off a spiral bend at (82, −2209) → (58, −2198) with four falls. The cocoon was on the upper level, so a ~200 yd loop back up followed. Cause: routes to a destination without a known height (minimap quest dot, minimap up/down cue) take `_probe_reachable_layer`'s path, and that path was requested without the centring margin. Detour's string-pulled path touches the inner edge of every bend, which on the spiral is the rim over the pit. Only routes with a known target height were centred (2.5 yd margin, 2026-10-06). Fix: the probe still chooses the layer on the fast path, then walks the centred path to that layer (`tests/test_probe_path_centred_20261007.py`).
+  - Barrow Spiderlings appear under two GUIDs that differ in one bit (…0000461B1F / …0000C61B1F). At 760778 they appeared as the mouseover and the soft-interact unit at the same time, so they are probably pairs of distinct units; GUIDs are not merged.
+  - Full suite: 33 baseline failures, 2516 passed.
+- Open:
+  - Why the right-click on cocoon 4 did not start the use.
+  - Agent tick cost and memory DB growth with ~5× more snapshots.

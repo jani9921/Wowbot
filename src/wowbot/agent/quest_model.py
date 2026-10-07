@@ -372,7 +372,10 @@ class QuestModel:
             # region when no field-completion UI is present.
             locations = [{**value, "source": value.get("source") or "QUEST_API_WAYPOINT"}
                          for value in [raw.get("waypoint")] if isinstance(value, dict)]
-            locations.extend(o.target_location for o in objectives if o.target_location)
+            # Objective targets are tagged so a completed quest can never
+            # treat one as its hand-in point (issue #89).
+            locations.extend({"role": "OBJECTIVE", **o.target_location}
+                             for o in objectives if o.target_location)
             objective_entities = [o.target_entity for o in objectives if o.target_entity]
             objective_items = [{"item_id": o.target_object.get("item_id"), "required_count": o.required_count,
                                 "objective_id": o.objective_id}

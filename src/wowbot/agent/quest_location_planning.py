@@ -16,6 +16,7 @@ from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
 from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
 from .quest_dot_focus import QuestDotFocus
+from .destination_distance import world_arrived
 
 
 
@@ -308,12 +309,17 @@ class QuestLocationPlanningPolicy:
         dx, dy = number(destination.get("x")), number(destination.get("y"))
         if None in (px, py, dx, dy):
             return False
-        areas = self.__dict__.get("quest_areas")
-        if quest_id is not None and areas is not None and areas.contains(quest_id, px, py):
-            return True   # inside the area learned from the minimap outline
+        # Issue #96: an instance mismatch rules arrival out before the learned
+        # 2D minimap area is consulted.  Within one instance the user rule
+        # "inside the blue area = in the zone" stays deliberately 2D (cave
+        # objectives lie floors below the POI); floor coverage is #7/#8.
         if (position.get("instance_id") is not None and destination.get("instance_id") is not None
                 and str(position["instance_id"]) != str(destination["instance_id"])):
             return False
+        areas = self.__dict__.get("quest_areas")
+        if (quest_id is not None and areas is not None
+                and areas.contains(quest_id, px, py, position.get("instance_id"))):
+            return True   # inside the area learned from the minimap outline
         return math.hypot(px-dx, py-dy) <= self.OBJECTIVE_AREA_ARRIVED_YARDS
 
     # Live 2026-10-05 12:25 ("Who Lurks in the Pit", user: "spirálisan megy
@@ -489,8 +495,7 @@ class QuestLocationPlanningPolicy:
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if entity_target_confirmed:
                 # CombatPlanningPolicy or QuestDomain now owns the validated
                 # target handoff; do not emit another navigation proposal.
@@ -511,8 +516,7 @@ class QuestLocationPlanningPolicy:
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if object_identity_confirmed:
                 # QuestDomain will now emit OBJECT_USE from the same fresh
                 # addon mouseover/cursor sample. Do not obscure it with MOVE.
@@ -529,7 +533,7 @@ class QuestLocationPlanningPolicy:
             at_search_area = (located.status.value == "SEARCH_AREA"
                               and where.get("map_id") == state.get("map_id")
                               and not (state.get("target") or (state.get("mouseover") or {}).get("guid"))
-                              and (world.distance(where) is not None and world.distance(where) <= .003))
+                              and world_arrived(world, where))
             if at_search_area:
                 search_area = dict(learned_search_region or route_where or where)
                 return [Proposal.make(

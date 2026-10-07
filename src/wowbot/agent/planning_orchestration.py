@@ -121,10 +121,27 @@ class PlanningOrchestrator:
         return PlanningResolution(
             proposal, tuple(proposals), recovery.recovery_for, plan_update)
 
+    @staticmethod
+    def _local_interaction_pending(proposals: list[Proposal]) -> bool:
+        """Loot of an own kill or a quest object right here.
+
+        Live 2026-10-07 12:06: when combat ended, the suspended MOVE was
+        preferred over every ranked proposal; the agent walked off before
+        looting, and the later LOOT had no corpse position (Retail exports a
+        world position only for the selected target): ``corpse_not_found``
+        and back again.  The resume waits (its window is 180 s after combat).
+        """
+        return any(item.skill in {"LOOT", "OBJECT_USE"}
+                   or (item.skill == "VISUAL_APPROACH"
+                       and item.parameters.get("purpose") == "LOOT")
+                   for item in proposals)
+
     def _inject_supervisor_resume(self, proposals: list[Proposal], world,
                                   now: float) -> Proposal | None:
         resume = self.supervisor.resume_candidate(world.state, now)
         if resume is None:
+            return None
+        if self._local_interaction_pending(proposals):
             return None
         candidate = Proposal.make(
             resume.intent.skill_type,

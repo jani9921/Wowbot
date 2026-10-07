@@ -27,8 +27,13 @@ class WorldSceneProfile:
     left_hud_width_px: int = 240
     left_hud_width_ratio: float = 0.35
     left_hud_top_ratio: float = 0.53
-    addon_hud_width_ratio: float = 0.36
+    # The addon pixel strip: since 0.9.61 one 128 px tall strip along the
+    # top, as wide as the client allows left of the minimap (user
+    # 2026-10-07: "csak ott kell kimaszkolni a yolo-t").  The world behind it
+    # is hidden by the strip anyway.
+    addon_hud_width_ratio: float = 1.0
     addon_hud_bottom_ratio: float = 0.18
+    addon_hud_bottom_px: int = 148
     player_frame_left_ratio: float = 0.24
     player_frame_right_ratio: float = 0.36
     player_frame_top_ratio: float = 0.67
@@ -93,7 +98,8 @@ def build_scene_roi(width: int, height: int, profile: WorldSceneProfile | None =
         height * cfg.learned_bottom_ratio))))
     addon_hud = PixelRect(
         0, 0, min(width, int(round(width * cfg.addon_hud_width_ratio))),
-        min(rect.bottom, int(round(height * cfg.addon_hud_bottom_ratio))))
+        min(rect.bottom, max(int(cfg.addon_hud_bottom_px),
+                             int(round(height * cfg.addon_hud_bottom_ratio)))))
     player_frame = PixelRect(
         int(round(width * cfg.player_frame_left_ratio)),
         int(round(height * cfg.player_frame_top_ratio)),

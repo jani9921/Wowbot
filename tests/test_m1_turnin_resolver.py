@@ -49,3 +49,29 @@ def test_current_quest_waypoint_prefers_explicit_api_world_conversion():
     assert result.location["instance_id"] == 2175
     assert result.location["map_id"] == 1409
     assert result.location["x"] == -420.
+
+
+def test_npc_turn_in_mode_never_uses_an_objective_point_as_hand_in():
+    # Issue #89: under NPC_TURN_IN the first convertible location was used,
+    # including an OBJECTIVE/MEMORY point unrelated to the hand-in NPC.
+    resolver = TurnInResolver()
+    objective = {"role": "OBJECTIVE", "source": "MEMORY",
+                 "world_position": {"x": 10, "y": 20, "instance_id": 2175,
+                                    "coordinate_space": "WORLD_YARDS"}}
+    result = resolver.locate(record([objective]), {}, completion_mode="NPC_TURN_IN")
+    assert result.kind is TurnInLocationKind.UNKNOWN
+    waypoint = {"map_id": 1, "x": .2, "y": .3, "source": "QUEST_API_WAYPOINT"}
+    result = resolver.locate(record([objective, waypoint]), {}, completion_mode="NPC_TURN_IN")
+    assert result.kind is TurnInLocationKind.TURN_IN_LOCATION
+    assert (result.location["x"], result.location["y"]) == (.2, .3)
+
+
+def test_quest_model_tags_objective_target_locations():
+    from wowbot.agent.quest_model import QuestModel
+    model = QuestModel()
+    model.ingest([{"quest_id": 5, "is_complete": True, "objectives": [
+        {"type": "monster", "is_complete": True,
+         "target_location": {"map_id": 1, "x": .4, "y": .4}}]}], "o", 1.)
+    record = next(iter(model.records.values()))
+    roles = [location.get("role") for location in record.known_locations]
+    assert roles == ["OBJECTIVE"]

@@ -383,9 +383,18 @@ class World3DPerceptionV3:
                 # could read; only take the newest finished result, never wait
                 # and never submit.  Anchor on the exact frame YOLO saw.
                 result = feed.poll()
+                anchor = None
                 if (result is not None and (result.width, result.height) == (width, height)
                         and getattr(result, "generation", 0) == getattr(feed, "generation", 0)):
-                    anchor = feed.frame_for_sequence(result.sequence) or (raw, width, height)
+                    anchor = feed.frame_for_sequence(result.sequence)
+                    if anchor is None:
+                        # Issue #98: the detector's frame was evicted from the
+                        # recent-frame cache.  Its boxes belong to that older
+                        # frame; anchoring them on the current screenshot
+                        # would publish displaced boxes as a fresh refresh.
+                        # Drop the result and keep the bounded prediction.
+                        self._feed_cache_misses = getattr(self, "_feed_cache_misses", 0) + 1
+                if anchor is not None:
                     anchor_raw, anchor_width, anchor_height = anchor
                     if getattr(result, "tracked", False):
                         # V2 features and BoT-SORT association already ran in
@@ -553,6 +562,7 @@ class World3DPerceptionV3:
                          "profile_target_hz": round(1/profile_detector_interval, 2),
                          "submissions": self._detector_submissions,
                          "completions": self._detector_completions,
+                         "feed_frame_cache_misses": getattr(self, "_feed_cache_misses", 0),
                          "busy_frames_superseded": self._detector_busy_frames,
                           "empty_refresh_streak": self._empty_detector_refreshes,
                           "empty_refresh_grace": self.empty_detector_grace,
