@@ -119,6 +119,30 @@ class ObjectInteractionFlow:
         elif (last.get("skill") in {"SEEK_VISUAL_CUE", "VISUAL_APPROACH", "MOVE"}
               and last.get("outcome") == "SUCCESS"):
             self._range_blocked_at = None          # walked closer: try the use again
+        if last.get("skill") == "OBJECT_USE" and last.get("outcome") == "SUCCESS":
+            cursor = state.get("cursor_position") or {}
+            self._credited = (number(state.get("monotonic_time")),
+                              number(cursor.get("nx")), number(cursor.get("ny")))
+
+    CREDITED_HOLD_SECONDS = 3.
+    CREDITED_CURSOR_RADIUS = .04
+
+    def just_credited(self, state: dict) -> bool:
+        """The object under the unmoved cursor was just credited.
+
+        Live 2026-10-07 12:06: the FAST quest digest verified the 5th cocoon;
+        the paged snapshot still showed 4/5 and the tooltip still named the
+        cocoon, so a second OBJECT_USE right-clicked the freed prisoner
+        ("Invalid target")."""
+        credited = self.__dict__.get("_credited")
+        now = number(state.get("monotonic_time"))
+        cursor = state.get("cursor_position") or {}
+        cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+        if not credited or None in (credited[0], now, cx, cy):
+            return False
+        at, x, y = credited
+        near = x is None or y is None or abs(cx-x) + abs(cy-y) <= self.CREDITED_CURSOR_RADIUS
+        return 0 <= now-at <= self.CREDITED_HOLD_SECONDS and near
 
     def range_blocked(self, state: dict) -> bool:
         """A use just failed "too far": approach first, do not click again."""

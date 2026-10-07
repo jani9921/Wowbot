@@ -28,6 +28,10 @@ class ObjectUseSkill:
     # 1.2 s after a 10 s grace.  Only while no snapshot newer than the use
     # has arrived (FAST quest_digest credits immediately from 0.9.60).
     CREDIT_GRACE_SECONDS = 25.
+    # Live 2026-10-07 12:06: the cocoon's freeing cast was still running
+    # (is_casting) when the attempt failed "credit not received"; the credit
+    # came 1.9 s later.
+    CAST_GRACE_SECONDS = 6.
     # Live 2026-10-06 21:16: a cocoon one floor lower answered the right-click
     # and F7 with "You are too far away." and the skill waited out 8 s twice.
     OUT_OF_RANGE_TEXTS = ("too far", "out of range")
@@ -55,6 +59,12 @@ class ObjectUseSkill:
         return (used_at is not None and sampled is not None
                 and now < deadline + self.CREDIT_GRACE_SECONDS
                 and sampled < used_at + self.CREDIT_SNAPSHOT_AFTER_USE_SECONDS)
+
+    def _use_cast_running(self, context: dict, world_state: dict, now: float,
+                          deadline: float) -> bool:
+        used_at = number(context.get("used_at"))
+        return (used_at is not None and world_state.get("is_casting") is True
+                and now < deadline + self.CAST_GRACE_SECONDS)
 
     @staticmethod
     def _identity_matches(params: dict, mouse: dict) -> bool:
@@ -218,7 +228,8 @@ class ObjectUseSkill:
                                retryable=True, replan_required=True)
         state.phase = ObjectUsePhase.VERIFY.value
         if now >= state.attempt.deadline:
-            if self._credit_snapshot_pending(context, world_state, now, state.attempt.deadline):
+            if (self._credit_snapshot_pending(context, world_state, now, state.attempt.deadline)
+                    or self._use_cast_running(context, world_state, now, state.attempt.deadline)):
                 state.phase = ObjectUsePhase.WAIT_QUEST_CREDIT.value
                 return SkillResult(SkillStatus.RUNNING)
             return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,

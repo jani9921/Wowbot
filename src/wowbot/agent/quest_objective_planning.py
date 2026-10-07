@@ -66,7 +66,7 @@ class QuestObjectivePlanningMixin:
                 identity = self.location_policy.object_interaction.expected_identity(obj)
                 cursor = state.get("cursor_position") or {}
                 mouse = effective_mouseover(state)
-                if (not flow.range_blocked(state)
+                if (not flow.range_blocked(state) and not flow.just_credited(state)
                         and self.location_policy.object_interaction.mouseover_matches(
                         identity, mouse)
                         and (mouse.get("tooltip") or

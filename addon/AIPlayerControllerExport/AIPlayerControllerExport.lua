@@ -40,7 +40,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.61"
+local ADDON_VERSION = "0.9.62"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -2558,8 +2558,10 @@ local function readFastState(data)
     local result = {
         timestamp = serverTimestamp(), monotonic_time = sampleTime,
         map_id = liveMapID, map_context = readMapContext(liveMapID, displayedMapID),
-        health = safeNumber(safeCall(UnitHealth, "player")),
-        max_health = safeNumber(safeCall(UnitHealthMax, "player")),
+        -- Live 2026-10-07 (12.1): UnitHealth("player") is a secret value;
+        -- safeNumber made it 0 on every FAST packet (0 % health to the agent).
+        health = optionalNumber(safeCall(UnitHealth, "player")),
+        max_health = optionalNumber(safeCall(UnitHealthMax, "player")),
         is_dead = bool(safeCall(UnitIsDead, "player")),
         is_ghost = bool(safeCall(UnitIsGhost, "player")),
         in_vehicle = bool(safeCall(UnitInVehicle, "player")),

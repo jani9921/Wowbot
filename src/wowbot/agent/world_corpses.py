@@ -61,6 +61,40 @@ class WorldCorpseMixin:
                     and self._same_loot_area(origin, positions.get(guid))):
                 self.mark_corpse_looted(guid, now)
 
+    # A unit's lootable flag can lag its death by a moment; only a "nothing
+    # to loot" that holds this long after the death was first seen counts.
+    EMPTY_CORPSE_AFTER_DEATH_SECONDS = 1.
+
+    def note_corpse_lootability(self, now: float | None) -> None:
+        """Remember corpses the addon (CanLootUnit) reports empty.
+
+        Live 2026-10-07 12:06: killed Barrow Spiderlings (no loot) were
+        ``lootable=false`` while selected, but LOOT ran after the target was
+        cleared, so the empty report was gone and every spiderling cost two
+        ``corpse_not_found`` attempts (back and forth after each fight).
+        """
+        if now is None:
+            return
+        seen = self.__dict__.setdefault("dead_seen_at", {})
+        empty = self.__dict__.setdefault("empty_corpse_guids", {})
+        source = self.__dict__.get("addon_state") or self.state       # newest FAST units
+        for unit in (source.get("target"), source.get("mouseover")):
+            if not isinstance(unit, dict) or unit.get("dead", unit.get("is_dead")) is not True:
+                continue
+            guid = str(unit.get("guid") or "")
+            if not guid.startswith(("Creature-", "Vehicle-")):
+                continue
+            first = seen.setdefault(guid, float(now))
+            if unit.get("lootable") is False and now-first >= self.EMPTY_CORPSE_AFTER_DEATH_SECONDS:
+                empty[guid] = float(now)
+                if guid in self.owned_corpse_guids or guid in self.corpse_anchors:
+                    self.mark_corpse_looted(guid, now)
+            elif unit.get("lootable") is True:
+                empty.pop(guid, None)
+        if len(seen) > 512:
+            for guid in sorted(seen, key=seen.get)[:256]:
+                seen.pop(guid, None)
+
     def note_loot_failure(self, guid: str | None, at: float | None = None,
                           *, limit: int = 2) -> None:
         guid = str(guid or "")
@@ -117,6 +151,8 @@ class WorldCorpseMixin:
             self.state["confirmed_corpse_anchors"] = [
                 deepcopy(item) for item in self.corpse_anchors.values()]
         self.state["owned_corpse_guids"] = list(self.owned_corpse_guids)
+        if guid in (self.__dict__.get("empty_corpse_guids") or {}):
+            self.mark_corpse_looted(guid, killed_at)      # already reported empty
 
     def corpse_was_engaged(self, guid: str | None, now: float) -> bool:
         engaged_at = self.__dict__.get("combat_engaged", {}).get(str(guid or ""))

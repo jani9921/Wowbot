@@ -50,6 +50,11 @@ def _complete_fast_sample(value: dict) -> None:
 
 
 def normalize(value: dict) -> dict:
+    # Addon 0.9.61 sent a secret UnitHealth("player") as 0 on every FAST
+    # packet: a living player at 0 health is unknown health, never 0 %.
+    if (value.get("health") == 0 and value.get("is_dead") is not True
+            and value.get("is_ghost") is not True):
+        value["health"] = None
     for key in ARRAYS:
         if value.get(key) == {}:
             value[key] = []

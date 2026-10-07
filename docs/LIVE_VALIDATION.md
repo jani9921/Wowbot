@@ -7855,3 +7855,27 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
   - The YOLO `addon_hud` hard mask is now the full-width top band of max(18 % of height, 148 px).
 - Tests: `tests/test_two_lane_strip_20261007.py` (+7; the addon's own drawing code is rasterised and decoded). Full suite: 33 baseline failures, 2510 passed.
 - Next user run: install the addon and `/reload`. Then check in `agent_status.json` `sensor_diagnostics…two_lane_frames > 0`, `completed_full_states / state_pages` (it was 108/3348) and `completed_full_state_hz`, and watch the client FPS with the wider strip.
+
+---
+
+## 2026-10-07 12:06–12:17 (pid 15440, user, addon 0.9.61 two-lane strip, with b0f0d32 + e329869) — all five cocoons; health 0, cast-time and empty-corpse defects
+
+- Sources (read only): `telemetry-20261007-120632{.1,}.jsonl` (complete: from 8 s after goal creation at 760352.2 to the last status sample at 761026.0, no gap longer than 5 s) and `agent_status.json`. The user stopped FULL_AI at 760964.3 (`mode_changed`) and abandoned 55639 manually at ~760977. The user walked to the last cocoon by hand.
+- Transport (0.9.61) live:
+  - 21 965 of 21 975 captured frames were two-lane, and all of them decoded.
+  - 717 complete snapshots, ~1.12 per second (0.23 per second before). 717 of the addon's 805 snapshot sequences completed (25 % before).
+  - Longest `state_sequence` hold: 3.1 s (30 s before). Events missing from the log: 27 of 1079 (27 % before). ~29.5 fresh FAST packets per second.
+  - `quest_digest` arrives on FAST.
+  - Side effects: agent tick median 15 ms (5.8 ms in the 11:06 run's sample); memory DB growth 347 MB/h.
+- Progress: accepted 760378.8 → 1/5 760413.6 → 2/5 760525.5 → 3/5 760558.1 → 4/5 760817.3 → 5/5 760954.2. The second objective (Ralia) appeared at 5/5.
+- User report: falls were corrected well. MOVE got stuck repeatedly, and LOOT and MOVE went back and forth when entering and leaving combat. At two cocoons the mouse was on the cocoon and OBJECT_USE was proposed, but nothing happened.
+- Findings and fixes (offline-tested, `tests/test_cocoon_loot_health_20261007.py` +6, addon 0.9.62):
+  - **Health was 0 on every FAST packet.** 12.1 returns a secret `UnitHealth("player")` and `safeNumber` turned it into 0, so the agent saw 0 % health all run (the defensive-spell rule fired). Fix: `optionalNumber` in `readFastState`, and `normalize` treats 0 health of a living player as unknown.
+  - **Cocoon 4.** At 760792 "You are too far away." → approach. From 760812.1 the cocoon was hovered for 2.4 s before the cast started; the right-click apparently did nothing and the 2 s F7 fallback started it. OBJECT_USE then failed `quest_credit_not_received` at 760815.4 while `is_casting` was true; the credit came at 760817.3. Fix: the skill keeps waiting while its cast runs (`CAST_GRACE_SECONDS` 6 s).
+  - **Cocoon 5.** The FAST digest credited it (760952.7). The snapshot still read 4/5, so a second OBJECT_USE right-clicked the freed prisoner ("Invalid target", SPELLCAST_FAILED ×2). Fix: `ObjectInteractionFlow.just_credited` holds the under-cursor use for 3 s at the same cursor point.
+  - **Loot.** Killed Barrow Spiderlings (no loot) were `lootable=false` while selected. LOOT ran after the target was cleared, so each spiderling cost two `corpse_not_found` attempts (five failures in 760760–760877). Fix: `note_corpse_lootability` retires a corpse that stays `lootable=false` for 1 s after its death was seen; a kill booked later for that GUID is retired at once.
+  - Full suite: 33 baseline failures, 2516 passed.
+- Open:
+  - The MOVE/LOOT back-and-forth around combat needs the decision log (`output/live-debug/live-debug-20261007-120632.jsonl`); telemetry carries no decisions.
+  - Why the right-click on cocoon 4 did not start the use.
+  - Agent tick cost and memory DB growth with ~5× more snapshots.
