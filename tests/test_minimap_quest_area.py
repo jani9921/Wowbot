@@ -92,3 +92,21 @@ def test_roaming_uses_the_learned_shape():
     assert area["search_area"]["region_source"] == "MINIMAP_QUEST_AREA_OUTLINE"
     assert area["search_area"]["coverage_points"]
     assert VisualSearchPlanningPolicy.active_quest_area(state)["search_area"]["radius"] == 30.
+
+
+def test_learned_area_is_scoped_to_its_instance():
+    """Issue #96: the same X/Y in another instance counted as arrival."""
+    memory = QuestAreaMemory()
+    offsets = [[dx/160., dy/160.] for dx in range(-20, 21, 4) for dy in range(-80, -39, 4)]
+    assert memory.observe(_state((-256., -2507.), offsets)) == "55174"
+    assert memory.contains(55174, -196., -2507., 2175)
+    assert not memory.contains(55174, -196., -2507., 9999)
+
+    from wowbot.agent.quest_location_planning import QuestLocationPlanningPolicy
+    policy = QuestLocationPlanningPolicy.__new__(QuestLocationPlanningPolicy)
+    policy.quest_areas = memory
+    destination = {"x": -196., "y": -2507., "instance_id": 2}
+    other = {"player_world_position": {"x": -196., "y": -2507., "instance_id": 1}}
+    assert not policy._within_objective_area(destination, other, 55174)
+    same = {"player_world_position": {"x": -196., "y": -2507., "instance_id": 2175}}
+    assert policy._within_objective_area({**destination, "instance_id": 2175}, same, 55174)
