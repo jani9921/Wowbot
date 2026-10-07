@@ -300,7 +300,7 @@ src/wowbot/skills/movement_phase_contract.py	57	FILE_READ_CALL_GRAPH_PARTIAL	ski
 src/wowbot/skills/movement.py	52	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/object_use.py	252	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
 src/wowbot/skills/quest_dialog.py	120	FILE_READ_CALL_GRAPH_PARTIAL	verification-path #82
-src/wowbot/skills/quest_item.py	269	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
+src/wowbot/skills/quest_item.py	269	FILE_READ_CALL_GRAPH_PARTIAL	item-use execution path; verifier contract #102
 src/wowbot/skills/quest_tool.py	103	FILE_READ_CALL_GRAPH_PARTIAL	skills-target-combat-path
 src/wowbot/skills/search_contract.py	53	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/search.py	141	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
@@ -317,7 +317,7 @@ src/wowbot/verification/interaction.py	162	FILE_READ_CALL_GRAPH_PARTIAL	verifica
 src/wowbot/verification/loot.py	135	FILE_READ_CALL_GRAPH_PARTIAL	kill credit false loot #100
 src/wowbot/verification/movement.py	31	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/verification/quest_dialog.py	69	FILE_READ_CALL_GRAPH_PARTIAL	verification-path #82
-src/wowbot/verification/quest.py	193	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
+src/wowbot/verification/quest.py	193	FILE_READ_CALL_GRAPH_PARTIAL	local objective ID contract #102
 src/wowbot/verification/ui.py	27	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/vision/__init__.py	7	FILE_READ_CALL_GRAPH_PARTIAL	vision-fusion-minimap-path
 src/wowbot/vision/adapters/minimap.py	667	FILE_READ_CALL_GRAPH_PARTIAL	-
