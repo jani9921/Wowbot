@@ -33,6 +33,14 @@ from .runtime_lifecycle import RuntimeLifecycleMixin
 from .offline_replay import replay  # noqa: F401
 
 
+def _project_addon_version() -> str | None:
+    """Version of the repository addon the installer copies (toc, no suffix)."""
+    from wowbot.install.checks import toc_version
+    root = Path(__file__).resolve().parents[3]
+    version = toc_version(root / "addon" / "AIPlayerControllerExport-12.1.0")
+    return version.split("-")[0] if version else None
+
+
 class AgentRuntime(RuntimeLifecycleMixin):
     """One selected PID, one agent, one input authority. Starts passive."""
 
@@ -44,6 +52,9 @@ class AgentRuntime(RuntimeLifecycleMixin):
         self.executor = executor or InputExecutor(pid, self.bindings)
         self.output = output
         output.mkdir(parents=True, exist_ok=True)
+        from .suppressed_errors import SuppressedErrors
+        self.suppressed_errors = SuppressedErrors(Path(output) / "runtime_errors.log")
+        self.expected_addon_version = _project_addon_version()
         # User 2026-10-03: learned memory belongs to the user, not to one WoW
         # process.  Per-PID folders keep only this run's logs/captures.
         from .profile_store import profile_directory
@@ -87,8 +98,8 @@ class AgentRuntime(RuntimeLifecycleMixin):
             effects = self.agent.world.__dict__.setdefault("vehicle_ability_effects", {})
             for key, effect in creature_memory.ability_effects().items():
                 effects.setdefault(key, effect)
-        except Exception:
-            pass
+        except Exception as error:
+            self.suppressed_errors.report("load_vehicle_ability_effects", error)
         if hasattr(self.executor, "performance_monitor"):
             self.executor.performance_monitor = self.agent.performance_monitor
         # Creature types whose tooltip named an open quest survive restarts
@@ -247,6 +258,19 @@ class AgentRuntime(RuntimeLifecycleMixin):
     @staticmethod
     def _compact_fast_payload(payload: dict) -> dict:
         return compact_fast_payload(payload)
+
+    def _addon_version_mismatch(self) -> str | None:
+        """Running addon version when it differs from the project's, else None.
+
+        Every AIPC5 full state carries ``addon_version``; it is absent only in
+        synthetic states, which therefore do not block.
+        """
+        expected = self.expected_addon_version
+        running = self.agent.world.state.get("addon_version")
+        if not expected or running is None:
+            return None
+        base = str(running).split("-")[0]
+        return None if base == expected else str(running)
 
     def _binding_preflight(self):
         domain = self.agent.goal.domain if self.agent.goal else "UNKNOWN"
@@ -438,6 +462,20 @@ class AgentRuntime(RuntimeLifecycleMixin):
                     "binding_mismatches": binding_preflight["binding_mismatches"],
                 }
             elif (self.agent.world.fresh(current)
+                    and (running_addon := self._addon_version_mismatch()) is not None):
+                # Issue #32: an updated project addon without /reload keeps the
+                # old addon running; its missing features surface as unrelated
+                # symptoms (stale state, INSPECT failures) mid-run.
+                self.arm_at = self.arm_deadline = None
+                self._arm_blockers = ()
+                self.agent.last_result = {
+                    "outcome": "CANCELLED",
+                    "reason": (f"Start elutasítva: a futó addon {running_addon or '?'}, a projekté "
+                               f"{self.expected_addon_version}; telepítsd az addont és /reload."),
+                    "addon_version_mismatch": {"running": running_addon,
+                                               "expected": self.expected_addon_version},
+                }
+            elif (self.agent.world.fresh(current)
                     and binding_preflight["unverified_bindings"]):
                 # Catalog pages arrive incrementally. Stay passive until every
                 # required non-control action has exact client evidence.
@@ -496,8 +534,8 @@ class AgentRuntime(RuntimeLifecycleMixin):
         self._publish_navigation_overlay(current)
         try:
             self._entrance_observer.observe(self.agent.world.state, current)
-        except Exception:
-            pass
+        except Exception as error:
+            self.suppressed_errors.report("entrance_observer", error)
         if self.replay_bridge is not None:
             self.replay_bridge.record_world_delta(self.agent.world)
         if self.test_dialog_grace_deadline is not None:

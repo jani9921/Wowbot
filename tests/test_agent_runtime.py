@@ -903,3 +903,27 @@ def test_arming_waits_for_learned_detector_warmup(tmp_path):
         assert result["mode"] == "FULL_AI"
     finally:
         runtime.close()
+
+
+def test_arming_rejects_a_running_addon_that_differs_from_the_project(tmp_path):
+    # Issue #32: an updated project addon without /reload must not arm.
+    sensor, exe = Sensor(), RecordingExecutor()
+    runtime = AgentRuntime(42, binding_file(tmp_path), tmp_path / "output",
+                           sensor=sensor, executor=exe, vision=False)
+    try:
+        assert runtime.expected_addon_version          # read from the repo toc
+        runtime.expected_addon_version = "0.9.59"
+        runtime.agent.set_goal("Menj oda", 1, {"destination": {"map_id": 1609, "x": .5, "y": .4}})
+        runtime.mode("FULL_AI")
+        runtime.arm_at, runtime.arm_deadline = 2, 12
+        sensor.payload = {**state(2), "addon_version": "0.9.56"}
+        result = runtime.step(2)
+        assert result["mode"] == "MANUAL" and not exe.commands
+        assert result["result"]["addon_version_mismatch"] == {"running": "0.9.56",
+                                                              "expected": "0.9.59"}
+        runtime.mode("FULL_AI")
+        runtime.arm_at, runtime.arm_deadline = 3, 13
+        sensor.payload = {**state(3), "addon_version": "0.9.59"}
+        assert runtime.step(3)["mode"] == "FULL_AI"
+    finally:
+        runtime.close()

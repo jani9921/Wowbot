@@ -94,3 +94,42 @@ def test_dxgi_no_new_frame_does_not_masquerade_as_focus_loss():
     assert sensor.poll(time.monotonic()) is None
     assert sensor.health == "streaming"
     assert sensor.frame is prior_frame
+
+
+def test_missing_strip_throttles_discovery_not_frame_capture(monkeypatch):
+    """Issue #79: a failed strip decode returned before capture for 1 s, so
+    perception saw ~1 Hz frames while the strip was missing."""
+    import adapters.pixel_bridge as bridge
+    monkeypatch.setattr(bridge, "_GRID_CACHE", {})
+    calls = []
+    monkeypatch.setattr(bridge, "decode_payload_from_bgra",
+                        lambda raw, w, h: calls.append((w, h)) or None)
+
+    class Capture:
+        captured = 0
+        def capture(self):
+            Capture.captured += 1
+            return (bytes(16), 2, 2)
+
+    sensor = PixelSensor(Capture())
+    sensor.poll(1.0)
+    sensor.poll(1.5)
+    assert Capture.captured == 2 and sensor.last_frame_at == 1.5
+    assert len(calls) == 1                       # discovery stays throttled
+    sensor.poll(2.1)
+    assert len(calls) == 2
+
+
+def test_strip_decoder_throttles_per_resolution(monkeypatch):
+    import adapters.pixel_bridge as bridge
+    from wowbot.agent.capture_worker import _StripDecoder
+    monkeypatch.setattr(bridge, "_GRID_CACHE", {(1920, 1080): (0, 0, 4.)})
+    calls = []
+    monkeypatch.setattr(bridge, "decode_payload_from_bgra",
+                        lambda raw, w, h: calls.append((w, h)) or None)
+    decoder = _StripDecoder()
+    decoder.decode(b"", 980, 508, 1.)
+    decoder.decode(b"", 980, 508, 1.5)      # other resolution cached: still throttled
+    assert calls == [(980, 508)]
+    decoder.decode(b"", 1920, 1080, 1.6)    # this resolution has geometry
+    assert calls[-1] == (1920, 1080)

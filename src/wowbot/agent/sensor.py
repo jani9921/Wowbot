@@ -119,8 +119,8 @@ class PixelSensor:
         from adapters.pixel_bridge import (decode_payload_from_bgra, pixel_strip_diagnostics,
                                            _GRID_CACHE)
         decoded_remotely = hasattr(self.capture, "last_decoded")
-        if not decoded_remotely and not _GRID_CACHE and now < self.next_discovery:
-            return None
+        # Issue #79: the discovery throttle covers only the expensive strip
+        # search; the frame itself is still captured for perception.
         self.capture_attempts += 1
         self.capture_attempt_rate.mark(now)
         frame = self.capture.capture()
@@ -146,6 +146,10 @@ class PixelSensor:
                 self.health = f"pixel_strip_not_visible:{text or f'{width}x{height}:fallback'}"
                 return None
             payload = text
+        elif (not decoded_remotely and (width, height) not in _GRID_CACHE
+              and now < self.next_discovery):
+            # No strip geometry for *this* resolution yet: throttled search.
+            return None
         else:
             payload = decode_payload_from_bgra(raw, width, height)
         if payload is None:
@@ -249,6 +253,10 @@ class BufferedPixelSensor:
         # published, so frame consumers can wake immediately instead of
         # polling on Windows' ~15.6 ms timer granularity.
         self.frame_listeners: list = []
+        # Issue #31: a failing listener stays non-blocking but is counted
+        # and reported (rate-limited) instead of failing silently per frame.
+        from .suppressed_errors import SuppressedErrors
+        self.listener_errors = SuppressedErrors()
         self.health = "waiting_for_AIPC5"
         self.polls = self.updates = self.coalesced = 0
         self.poll_ms = 0.
@@ -301,8 +309,10 @@ class BufferedPixelSensor:
                     for listener in list(self.frame_listeners):
                         try:
                             listener()
-                        except Exception:
-                            pass
+                        except Exception as error:
+                            self.listener_errors.report(
+                                f"frame_listener:{getattr(listener, '__name__', type(listener).__name__)}",
+                                error)
             except Exception as error:
                 with self.lock:
                     self.health = f"sensor_error:{type(error).__name__}:{error}"
@@ -352,6 +362,7 @@ class BufferedPixelSensor:
                     "coalesced_hz": self.coalesced_rate.hz(now),
                     "interval_ms": round(self.interval*1000, 3),
                     "transition_backlog": len(self.transitions),
+                    "listener_errors": self.listener_errors.snapshot(),
                     "capture_geometry": getattr(getattr(self.source, "capture", None), "geometry", None),
                     "source": getattr(self.source, "diagnostics", {})}
 

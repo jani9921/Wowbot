@@ -107,9 +107,11 @@ class AgentWindow:
             ttk.Label(dashboard, textvariable=value, wraplength=1050).pack(anchor="w")
         ttk.Label(outer, text="FULL_AI után válts a kiválasztott WoW ablakra; az agent legfeljebb 45 mp-ig passzívan vár a fókusz + friss AIPC5 + vision kézfogásra.\nF12 → MANUAL. Rövid fókusz- vagy telemetry-kimaradás alatt minden input leáll, majd stabil adat után automatikusan folytatódik.").grid(row=10, column=0, columnspan=3, sticky="w", pady=8)
         self.detail = tk.Text(outer, wrap="word", font=("Consolas", 10))
-        self.detail.grid(row=11, column=0, columnspan=3, sticky="nsew")
+        # Issue #97: row 11 is the binding-export bar; the expanding detail
+        # text gets its own row instead of covering the export controls.
+        self.detail.grid(row=12, column=0, columnspan=3, sticky="nsew")
         outer.columnconfigure(1, weight=1)
-        outer.rowconfigure(11, weight=1)
+        outer.rowconfigure(12, weight=1)
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.restore()
         if auto_full_ai:
