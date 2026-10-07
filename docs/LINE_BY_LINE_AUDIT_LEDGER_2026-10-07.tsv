@@ -85,7 +85,7 @@ src/wowbot/agent/outcome_bookkeeping.py	110	FILE_READ_CALL_GRAPH_PARTIAL	#91; fa
 src/wowbot/agent/passive_wait.py	76	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/perception_background.py	133	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
 src/wowbot/agent/perception_context.py	83	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path
-src/wowbot/agent/perception_cycle.py	365	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path
+src/wowbot/agent/perception_cycle.py	365	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path,#105
 src/wowbot/agent/perception_pipeline.py	53	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
 src/wowbot/agent/perception_process.py	214	FILE_READ_CALL_GRAPH_PARTIAL	#69,#98
 src/wowbot/agent/perception_sources.py	321	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -171,7 +171,7 @@ src/wowbot/agent/visual_inspection_planning.py	379	FILE_READ_CALL_GRAPH_PARTIAL	
 src/wowbot/agent/visual_prototypes.py	149	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/visual_recognition_stabilizer.py	124	FILE_READ_CALL_GRAPH_PARTIAL	#75,#76
 src/wowbot/agent/visual_search_planning.py	392	FILE_READ_CALL_GRAPH_PARTIAL	#93
-src/wowbot/agent/visual_tracks.py	708	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/visual_tracks.py	708	FILE_READ_CALL_GRAPH_PARTIAL	#105
 src/wowbot/agent/windows_input.py	102	FILE_READ_CALL_GRAPH_PARTIAL	#78
 src/wowbot/agent/world_addon_reducer.py	251	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/world_anchor_reducer.py	319	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -369,7 +369,7 @@ src/wowbot/vision/world3d/models.py	157	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/vision/world3d/nameplate.py	122	FILE_READ_CALL_GRAPH_PARTIAL	world3d-nameplate-debug-path
 src/wowbot/vision/world3d/normalization.py	47	FILE_READ_CALL_GRAPH_PARTIAL	world3d-support-path
 src/wowbot/vision/world3d/ocr.py	174	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/vision/world3d/pipeline.py	782	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/vision/world3d/pipeline.py	782	FILE_READ_CALL_GRAPH_PARTIAL	#104
 src/wowbot/vision/world3d/prescaled_gmc.py	92	FILE_READ_CALL_GRAPH_PARTIAL	world3d-support-path
 src/wowbot/vision/world3d/probe.py	137	FILE_READ_CALL_GRAPH_PARTIAL	world3d-nameplate-debug-path
 src/wowbot/vision/world3d/process_yolo_backend.py	248	FILE_READ_CALL_GRAPH_PARTIAL	-
