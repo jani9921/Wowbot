@@ -373,7 +373,7 @@ def test_loot_accepts_confirmed_corpse_anchor_and_requires_evidence():
     started = skill.begin(state, before)
     # Hover the corpse first (live 2026-10-03), right-click once the addon names it.
     assert started.status is SkillStatus.RUNNING and started.commands[0].kind == "HOVER"
-    hovered = {**before, "mouseover": {"guid": "corpse-1", "is_dead": True}}
+    hovered = {**before, "mouseover": {"guid": "corpse-1", "is_dead": True}, "mouseover_sample_time": 1.}
     click = skill.verify(state, hovered, 1.)
     assert click.commands[0].kind == "CLICK_CURRENT_CURSOR" and click.commands[0].button == "RIGHT"
     assert skill.verify(state, before, 2).status is SkillStatus.RUNNING

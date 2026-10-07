@@ -90,7 +90,15 @@ class RuntimeControl:
         runtime._arm_blockers = ("waiting_for_selected_pid_focus", "waiting_for_fresh_addon_state")
 
     def test_step(self, *, actions=1, seconds=30) -> None:
+        runtime = self.runtime
+        already_running = runtime.agent.mode == Mode.FULL_AI and runtime.arm_at is None
         self.mode("FULL_AI")
-        self.runtime.agent.action_budget = actions
-        self.runtime.test_seconds = seconds
-        self.runtime._test_dialog_grace_enabled = actions > 1
+        runtime.agent.action_budget = actions
+        runtime.test_seconds = seconds
+        runtime._test_dialog_grace_enabled = actions > 1
+        if already_running:
+            # mode() returns early for an armed FULL_AI, so the arming branch
+            # that normally sets the deadline never runs (issue #74).
+            runtime.test_deadline = time.monotonic()+seconds
+            runtime.test_dialog_grace_deadline = None
+            runtime._test_dialog_grace_used = False

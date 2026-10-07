@@ -48,6 +48,24 @@ class WorldAddonReducer:
                     and str(unit.get("guid") or "").startswith("Player-")):
                 unit["is_player"] = True
 
+    SAMPLE_TIME_KEYS = (("mouseover", "mouseover_sample_time"),
+                        ("map_mouseover", "map_mouseover_sample_time"),
+                        ("cursor_position", "cursor_sample_time"),
+                        ("target", "target_sample_time"))
+
+    @classmethod
+    def _stamp_unit_samples(cls, state: dict) -> None:
+        """The addon's compact FAST fallbacks carry mouseover/target from the
+        packet's own sample but omit the per-field sample time.  Without it
+        the merged state would pair the new GUID with an older sample time
+        (issue #88: hover confirmation must see a post-hover sample)."""
+        sampled = state.get("monotonic_time")
+        if sampled is None:
+            return
+        for key, time_key in cls.SAMPLE_TIME_KEYS:
+            if state.get(key) and state.get(time_key) is None:
+                state[time_key] = sampled
+
     def apply(self, model: "WorldModel", observation: Observation, previous: dict,
               *, defer_rebuild: bool = False) -> bool:
         model.latest = observation
@@ -98,6 +116,7 @@ class WorldAddonReducer:
                     *, defer_rebuild: bool) -> bool:
         fast_delta = deepcopy({key: value for key, value in state.items()
                                if key in self.FAST_KEYS})
+        self._stamp_unit_samples(fast_delta)
         # FAST owns current dialog visibility. The bulky full snapshot can be
         # several seconds older and its nested quest_ui object otherwise stays
         # truthy even after FAST explicitly reports the frame closed. Keep the

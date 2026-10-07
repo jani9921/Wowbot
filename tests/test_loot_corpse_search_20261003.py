@@ -24,7 +24,7 @@ def test_retries_search_around_the_remembered_point_then_click_the_named_corpse(
         result = skill.verify(state, {}, now)
         points.append((round(result.commands[0].x, 3), round(result.commands[0].y, 3)))
     assert len(set(points)) == len(points) and (.5, .4) not in points
-    named = skill.verify(state, {"mouseover": {"guid": GUID}}, now+.1)
+    named = skill.verify(state, {"mouseover": {"guid": GUID}, "mouseover_sample_time": now+.1}, now+.1)
     assert named.commands[0].kind == "CLICK_CURRENT_CURSOR"
 
 

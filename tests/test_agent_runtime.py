@@ -875,3 +875,31 @@ def test_runtime_keeps_addon_and_memory_observations_separate(tmp_path):
         assert len({item.independence_group for item in evidence}) == 1
     finally:
         runtime.close()
+
+
+def test_arming_waits_for_learned_detector_warmup(tmp_path):
+    # Issue #30: the detector blocker must gate arming, not only the GUI text.
+    sensor, exe = Sensor(), RecordingExecutor()
+    sensor.frame = (bytes(4 * 640 * 480), 640, 480)
+    runtime = AgentRuntime(42, binding_file(tmp_path, 'bind "TAB" "TARGETNEARESTENEMY"\n'), tmp_path / "output",
+                           sensor=sensor, executor=exe, vision=False)
+    vision = SparseTelemetryVision()
+    vision.detector_warm = False
+    vision.detector_ready = lambda now: vision.detector_warm
+    runtime.perception = vision
+    try:
+        runtime.agent.set_goal("Questelj", 1)
+        runtime.test_step(actions=1, seconds=5)
+        runtime.arm_at, runtime.arm_deadline = 2, 12
+        sensor.payload = state(2., world_map_open=False, active_quests=[])
+        result = runtime.step(2.)
+        assert result["mode"] == "MANUAL"
+        assert "waiting_for_world3d_detector" in result["arm_blockers"]
+        assert not exe.commands
+
+        vision.detector_warm = True
+        sensor.payload = state(3., world_map_open=False, active_quests=[])
+        result = runtime.step(3.)
+        assert result["mode"] == "FULL_AI"
+    finally:
+        runtime.close()

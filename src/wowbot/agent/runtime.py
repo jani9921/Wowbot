@@ -408,7 +408,8 @@ class AgentRuntime(RuntimeLifecycleMixin):
             if not vision_ready:
                 blockers.append("waiting_for_recent_world3d_frame")
             detector_ready = getattr(self.perception, "detector_ready", None)
-            if callable(detector_ready) and not detector_ready(current):
+            detector_warm = not callable(detector_ready) or detector_ready(current)
+            if not detector_warm:
                 # Live 2026-09-30: FULL_AI searched blind during the ~20 s
                 # TensorRT warm-up and exhausted its scan sectors.
                 blockers.append("waiting_for_world3d_detector")
@@ -443,7 +444,7 @@ class AgentRuntime(RuntimeLifecycleMixin):
                 pass
             elif (self.agent.world.fresh(current)
                     and (not backend or backend.is_selected_foreground())
-                    and vision_ready):
+                    and vision_ready and detector_warm):
                 self.arm_at = self.arm_deadline = None
                 self._arm_blockers = ()
                 self.agent.set_mode(Mode.FULL_AI)
