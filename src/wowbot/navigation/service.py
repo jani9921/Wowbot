@@ -89,7 +89,21 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         # visual-search proposals take the execution slot.
         self._stuck_observation_anchor: dict[str, Any] | None = None
 
-    def reset(self) -> None:
+    def reset(self, *, keep_floor: bool = False) -> None:
+        """Drop route, controller and per-context navigation memory.
+
+        Issue #84: the Z resolver's player-floor/fall/target state and the
+        cave sweep/lower-layer caches used to survive session, map, death,
+        phase, floor and vehicle invalidations.  ``keep_floor`` is only for a
+        goal replacement in the same context, where the player's own floor
+        continuity is still valid evidence.
+        """
+        if not keep_floor:
+            self._z = ZResolver(self._z.geometry)
+        for key in ("_zone_sweeps", "_lower_layer_cache", "_last_sweep_key",
+                    "_ambiguous_since"):
+            self.__dict__.pop(key, None)
+        self._layer_probe = False
         self._routes = AgentNavigator()
         self._progress.clear()
         self._movement.reset()
@@ -418,6 +432,13 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             self._route_waypoint_index = self._first_route_index(state)
             self._route_previous_position = self._player_route_position(state)
             self._active_corridor = self._corridor_builder.build(self._active_route)
+            if not self._active_route.anchors:
+                # Issue #83: the replan may lose the navmesh route; never
+                # start({}) (KeyError) -- fail closed like start_request.
+                self._route_failure_reason = "required_navmesh_route_unavailable"
+                self._movement.reset()
+                self._latest_local_plan = None
+                return None
             self.start(self._current_route_destination(), state,
                        observation_id or f"route-replan:{now:.6f}", now)
         self._latest_local_plan = self._local_planner.plan(

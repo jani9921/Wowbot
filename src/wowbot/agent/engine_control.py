@@ -34,7 +34,8 @@ class EngineControlMixin:
         self.failures.clear()
         self.failure_manager.reset()
         self.planner.blocked_until.clear()
-        self.navigation.reset()
+        # Same session and map: the player's own floor stays valid evidence.
+        self.navigation.reset(keep_floor=True)
         self.visual_approach_skill.reset_diagnostics()
         self.search_skill.reset_diagnostics()
         self.camera.reset()

@@ -48,3 +48,45 @@ def test_replanned_route_does_not_restart_at_the_corner_under_the_player():
         issued += [command.binding for command in nav.command(_state(at), f"obs{step}", at)]
     assert nav._route_waypoint_index == 2
     assert "MOVEFORWARD" in issued
+
+
+class _VanishingPlanner(_Planner):
+    """First plan succeeds, every replan returns an empty navmesh route."""
+    def __init__(self):
+        self.calls = 0
+
+    def plan(self, request, state, now, danger_map=None):
+        self.calls += 1
+        if self.calls == 1:
+            return super().plan(request, state, now, danger_map)
+        return GlobalRoute("route:empty", (), (), 0., 0., now, now+60.)
+
+
+def test_replan_that_loses_the_navmesh_route_fails_closed_without_keyerror():
+    # Issue #83: local_plan's replan branch called start({}) -> KeyError 'x'.
+    nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))))
+    nav._global_planner = _VanishingPlanner()
+    nav.start_skill_request("MOVE", {"x": -212.8, "y": -2512., "coordinate_space": "WORLD_YARDS",
+                                     "instance_id": 2175, "map_id": 1409, "stop_distance": 4.,
+                                     "require_navmesh": True}, _state(1.), "obs0", 1.)
+    assert nav._route_failure_reason is None
+    assert nav.local_plan(_state(1.1), now=1.1, observation_id="o") is None
+    assert nav._route_failure_reason == "required_navmesh_route_unavailable"
+    commands = nav.command(_state(1.2), "obs2", 1.2)
+    assert not any(command.binding == "MOVEFORWARD" for command in commands)
+
+
+def test_context_reset_clears_floor_and_sweep_state_but_goal_change_keeps_floor():
+    # Issue #84: reset() left the Z resolver's player floor and the cave
+    # sweep/lower-layer caches in place across session/death/phase changes.
+    nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))))
+    nav._z.seed_player(1, 10., 20., 50., 1.)
+    nav._zone_sweeps = {"k": {"done": True}}
+    nav._last_sweep_key = "k"
+    nav._lower_layer_cache = {"k": 1}
+    nav.reset(keep_floor=True)
+    assert nav._z.player is not None and nav._z.player.z == 50.
+    assert "_zone_sweeps" not in nav.__dict__ and "_lower_layer_cache" not in nav.__dict__
+    nav.reset()
+    assert nav._z.player is None
+    assert "_last_sweep_key" not in nav.__dict__

@@ -4,13 +4,45 @@ from __future__ import annotations
 from wowbot.runtime import FailureReason, VerificationResult
 
 
+def _sequence(value) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _events_after_baseline(before: dict, after: dict) -> list:
+    """Only events newer than the pre-click state may prove a transition.
+
+    Issue #82: the rolling event list still held an earlier QUEST_ACCEPTED/
+    QUEST_TURNED_IN for the same quest, so a later click was confirmed with
+    unchanged before/after state.
+    """
+    old_events = [e for e in before.get("events") or () if isinstance(e, dict)]
+    known = [_sequence(before.get("event_sequence"))]
+    known += [_sequence(e.get("sequence")) for e in old_events]
+    known = [value for value in known if value is not None]
+    baseline = max(known) if known else None
+    fresh = []
+    for event in after.get("events") or ():
+        if not isinstance(event, dict):
+            continue
+        sequence = _sequence(event.get("sequence"))
+        if sequence is not None and baseline is not None:
+            if sequence > baseline:
+                fresh.append(event)
+        elif event not in old_events:
+            fresh.append(event)
+    return fresh
+
+
 class QuestDialogVerifier:
     """Verify dialog transition without clicking or selecting a reward."""
 
     def evaluate(self, before: dict, after: dict, *, quest_id: object | None,
                  action: str, reward_choice_index: object | None = None) -> VerificationResult:
         wanted = str(quest_id) if quest_id is not None else None
-        events = after.get("events") or ()
+        events = _events_after_baseline(before, after)
         matching = {
             str(event.get("event_type") or "").upper()
             for event in events if isinstance(event, dict)
