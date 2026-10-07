@@ -28,7 +28,7 @@ src/wowbot/agent/bindings.py	72	FILE_READ_CALL_GRAPH_PARTIAL	execution-path
 src/wowbot/agent/camera_controller.py	118	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/capability_acceptance.py	45	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
 src/wowbot/agent/capture_selection.py	45	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
-src/wowbot/agent/capture_worker.py	202	FILE_READ_CALL_GRAPH_PARTIAL	#79
+src/wowbot/agent/capture_worker.py	202	FILE_READ_CALL_GRAPH_PARTIAL	#79,#98
 src/wowbot/agent/collect_strategy.py	70	FILE_READ_CALL_GRAPH_PARTIAL	agent-memory-evidence-objective-path
 src/wowbot/agent/combat_controller.py	197	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/combat_planning.py	623	FILE_READ_CALL_GRAPH_PARTIAL	#95
@@ -76,7 +76,7 @@ src/wowbot/agent/navigation_terminal.py	72	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/navigation.py	263	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/next_quest_resolver.py	34	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/next_quest_source_hierarchy.py	39	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
-src/wowbot/agent/object_interaction_flow.py	195	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/object_interaction_flow.py	195	FILE_READ_CALL_GRAPH_PARTIAL	soft-target use priority #99
 src/wowbot/agent/objective_locator.py	67	FILE_READ_CALL_GRAPH_PARTIAL	agent-memory-evidence-objective-path
 src/wowbot/agent/observation_ingestion.py	42	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
 src/wowbot/agent/obstacle_perception.py	45	FILE_READ_CALL_GRAPH_PARTIAL	agent-support-map-path
@@ -87,7 +87,7 @@ src/wowbot/agent/perception_background.py	133	FILE_READ_CALL_GRAPH_PARTIAL	captu
 src/wowbot/agent/perception_context.py	83	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path
 src/wowbot/agent/perception_cycle.py	365	FILE_READ_CALL_GRAPH_PARTIAL	runtime-path
 src/wowbot/agent/perception_pipeline.py	53	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
-src/wowbot/agent/perception_process.py	214	FILE_READ_CALL_GRAPH_PARTIAL	#69
+src/wowbot/agent/perception_process.py	214	FILE_READ_CALL_GRAPH_PARTIAL	#69,#98
 src/wowbot/agent/perception_sources.py	321	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/perception.py	211	FILE_READ_CALL_GRAPH_PARTIAL	capture-perception-path
 src/wowbot/agent/planner.py	456	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -95,7 +95,7 @@ src/wowbot/agent/planning_domains.py	108	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/planning_orchestration.py	157	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/planning_types.py	36	FILE_READ_CALL_GRAPH_PARTIAL	quest-coordinate-normalization-path
 src/wowbot/agent/profile_store.py	57	FILE_READ_CALL_GRAPH_PARTIAL	agent-memory-evidence-objective-path
-src/wowbot/agent/proposal_ranking.py	117	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/proposal_ranking.py	117	FILE_READ_CALL_GRAPH_PARTIAL	quest object seek/use ranking #99
 src/wowbot/agent/quest_accept_flow.py	48	FILE_READ_CALL_GRAPH_PARTIAL	verification-path
 src/wowbot/agent/quest_area_memory.py	110	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/quest_attempt_memory.py	48	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
@@ -110,7 +110,7 @@ src/wowbot/agent/quest_graph.py	112	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/quest_info_hierarchy.py	44	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/quest_location_planning.py	818	FILE_READ_CALL_GRAPH_PARTIAL	#93,#96
 src/wowbot/agent/quest_model.py	454	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/agent/quest_objective_planning.py	301	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/agent/quest_objective_planning.py	301	FILE_READ_CALL_GRAPH_PARTIAL	quest object producer #99
 src/wowbot/agent/quest_offer_selector.py	75	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/quest_planning.py	399	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/quest_reward_selector.py	131	FILE_READ_CALL_GRAPH_PARTIAL	-
@@ -381,7 +381,7 @@ src/wowbot/vision/world3d/shared_image_buffer.py	81	FILE_READ_CALL_GRAPH_PARTIAL
 src/wowbot/vision/world3d/tracking.py	478	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/vision/world3d/traversability.py	248	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/vision/world3d/v2.py	395	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/vision/world3d/v3.py	559	FILE_READ_CALL_GRAPH_PARTIAL	-
+src/wowbot/vision/world3d/v3.py	559	FILE_READ_CALL_GRAPH_PARTIAL	#98
 src/wowbot/vision/world3d/v4.py	137	FILE_READ_CALL_GRAPH_PARTIAL	world3d-memory-dataset-path
 src/wowbot/vision/world3d/validation.py	179	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/vision/world3d/video_dataset.py	178	FILE_READ_CALL_GRAPH_PARTIAL	-
