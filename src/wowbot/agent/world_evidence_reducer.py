@@ -28,6 +28,8 @@ class WorldEvidenceReducer:
             model.add_evidence(key, model._diagnostic_claim_value(key, value), observation,
                                confidence=confidence, ttl=2.)
         model.projections[observation.source] = deepcopy(observation.payload)
+        model.__dict__.setdefault("projection_received_at", {})[observation.source] = \
+            observation.received_at
         if observation.source in {"WORLD3D", "UI_CV"}:
             model.latest_visual_observation_id = observation.observation_id
         if defer_rebuild:

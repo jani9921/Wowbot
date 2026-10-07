@@ -40,9 +40,18 @@ class PerceptionBackgroundMixin:
                 "allow": allow, "geometry": dict(geometry or {}),
                 "context": context, "world_map_open": world_map_open,
             }
-            result = list(self._background_result)
+            result = self._fresh_background_result(time.monotonic())
         self._background_wake.set()
         return result
+
+    def _fresh_background_result(self, now: float) -> list[dict]:
+        """Issue #69: only a result younger than the perception TTL is
+        returned; a stalled or failing pump yields nothing rather than its
+        last boxes, which callers would otherwise re-stamp as current."""
+        at = getattr(self, "_background_result_at", None)
+        if at is None or now - at > self.RESULT_TTL_SECONDS:
+            return []
+        return list(self._background_result)
 
     def _background_loop(self) -> None:
         next_tick = time.monotonic()
@@ -64,9 +73,12 @@ class PerceptionBackgroundMixin:
                     result = self.update(frame, now, **request)
                     with self._background_lock:
                         self._background_result = result
+                        self._background_result_at = now
                         self._background_error = None
                 except Exception as error:  # passive perception must fail closed
                     with self._background_lock:
+                        self._background_result = []
+                        self._background_result_at = None
                         self._background_error = f"{type(error).__name__}:{error}"
             next_tick = max(next_tick + self._background_interval,
                             time.monotonic() + .001)

@@ -98,8 +98,20 @@ class _VisualRecognitionStabilizer:
     _WIN_MARGIN = .25
     _MAX_AGE_SECONDS = 3.0
 
+    _PRUNE_INTERVAL_SECONDS = 1.0
+
     def __init__(self):
         self._evidence: dict[tuple[str, str], dict] = {}
+        self._pruned_at: float | None = None
+
+    def reset(self) -> None:
+        """Forget all track-local evidence (perception reset reuses track IDs)."""
+        self._evidence.clear()
+        self._pruned_at = None
+
+    @property
+    def retained(self) -> int:
+        return len(self._evidence)
 
     def update(self, track_id: str | None, matches: list[dict], now: float) -> list[dict]:
         track = str(track_id or "")
@@ -107,13 +119,20 @@ class _VisualRecognitionStabilizer:
             return []
         current = {str(match.get("identity_key") or ""): match for match in matches
                    if str(match.get("identity_key") or "")}
-        for key in list(self._evidence):
-            if key[0] == track and now - float(self._evidence[key]["at"]) > self._MAX_AGE_SECONDS:
+        # Issue #76: expire every track's stale evidence, not only this one's,
+        # at most once per interval, so retained entries stay bounded by the
+        # tracks seen in the last _MAX_AGE_SECONDS.
+        if self._pruned_at is None or now - self._pruned_at >= self._PRUNE_INTERVAL_SECONDS:
+            self._pruned_at = now
+            for key in [key for key, value in self._evidence.items()
+                        if now - float(value["at"]) > self._MAX_AGE_SECONDS]:
                 del self._evidence[key]
         updated: dict[str, tuple[dict, float, int]] = {}
         for identity, match in current.items():
             key = (track, identity)
             prior = self._evidence.get(key)
+            if prior is not None and now - float(prior["at"]) > self._MAX_AGE_SECONDS:
+                prior = None          # expired, even before the periodic prune
             previous_score = 0.
             frame_count = 0
             if prior is not None:

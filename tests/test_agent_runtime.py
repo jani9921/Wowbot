@@ -927,3 +927,41 @@ def test_arming_rejects_a_running_addon_that_differs_from_the_project(tmp_path):
         assert runtime.step(3)["mode"] == "FULL_AI"
     finally:
         runtime.close()
+
+
+def test_stabilizer_expires_every_tracks_evidence_and_stays_bounded():
+    # Issue #76: only the current track's stale evidence was ever deleted.
+    stabilizer = _VisualRecognitionStabilizer()
+    match = {"identity_key": "npc:1", "similarity": .9,
+             "match_method": "MULTI_EXAMPLE_VISUAL_REIDENTIFICATION"}
+    for index in range(2000):
+        stabilizer.update(f"WORLD3D:{index}", [match], float(index) * .01)
+    stabilizer.update("WORLD3D:new", [], 100.)
+    assert stabilizer.retained == 0
+    stabilizer.update("WORLD3D:a", [match], 200.)
+    stabilizer.reset()
+    assert stabilizer.retained == 0
+
+
+def test_perception_reset_does_not_transfer_identity_to_a_reused_track_id():
+    # Issue #75: after a reset WORLD3D:1 was a different subject but the 1 s
+    # recognition cache and the stabilizer still carried the old one.
+    from types import SimpleNamespace
+    from wowbot.agent.runtime_observation_phase import _recognition_cache_for_epoch
+    def match(key):
+        return [{"identity_key": key, "similarity": .95,
+                 "match_method": "MULTI_EXAMPLE_VISUAL_REIDENTIFICATION"}]
+    runtime = SimpleNamespace(perception=SimpleNamespace(epoch=1),
+                              _visual_recognition_stabilizer=_VisualRecognitionStabilizer())
+    cache = _recognition_cache_for_epoch(runtime)
+    cache[("track", "WORLD3D:1")] = (0., match("npc:jaina"))
+    for at in (0., .1, .2):
+        runtime._visual_recognition_stabilizer.update("WORLD3D:1", match("npc:jaina"), at)
+    assert _recognition_cache_for_epoch(runtime) is cache and cache   # same epoch: kept
+    runtime.perception.epoch = 2                                        # reset
+    assert not _recognition_cache_for_epoch(runtime)
+    published = []
+    for at in (.3, .4, .5):
+        published += runtime._visual_recognition_stabilizer.update(
+            "WORLD3D:1", match("npc:keela"), at)
+    assert [item["identity_key"] for item in published] == ["npc:keela"]
