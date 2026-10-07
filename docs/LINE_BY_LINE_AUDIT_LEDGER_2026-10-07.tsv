@@ -290,7 +290,7 @@ src/wowbot/skills/defend_wait.py	60	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/field_turnin.py	60	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/hover_confirm.py	85	FILE_READ_CALL_GRAPH_PARTIAL	skills-target-combat-path;#88
 src/wowbot/skills/instructed_spell.py	48	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
-src/wowbot/skills/interact.py	420	FILE_READ_CALL_GRAPH_PARTIAL	skills-interaction-path
+src/wowbot/skills/interact.py	420	FILE_READ_CALL_GRAPH_PARTIAL	WORLD3D_TARGET_TRACK recovery gate #94
 src/wowbot/skills/interaction_recovery.py	35	FILE_READ_CALL_GRAPH_PARTIAL	skill-path
 src/wowbot/skills/interaction_result.py	125	FILE_READ_CALL_GRAPH_PARTIAL	skills-target-combat-path
 src/wowbot/skills/interaction_runtime.py	144	FILE_READ_CALL_GRAPH_PARTIAL	skills-object-item-loot-path
