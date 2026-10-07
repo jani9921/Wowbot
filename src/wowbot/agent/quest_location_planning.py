@@ -16,6 +16,7 @@ from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
 from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
 from .quest_dot_focus import QuestDotFocus
+from .destination_distance import world_arrived
 
 
 
@@ -489,8 +490,7 @@ class QuestLocationPlanningPolicy:
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if entity_target_confirmed:
                 # CombatPlanningPolicy or QuestDomain now owns the validated
                 # target handoff; do not emit another navigation proposal.
@@ -511,8 +511,7 @@ class QuestLocationPlanningPolicy:
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if object_identity_confirmed:
                 # QuestDomain will now emit OBJECT_USE from the same fresh
                 # addon mouseover/cursor sample. Do not obscure it with MOVE.
@@ -529,7 +528,7 @@ class QuestLocationPlanningPolicy:
             at_search_area = (located.status.value == "SEARCH_AREA"
                               and where.get("map_id") == state.get("map_id")
                               and not (state.get("target") or (state.get("mouseover") or {}).get("guid"))
-                              and (world.distance(where) is not None and world.distance(where) <= .003))
+                              and world_arrived(world, where))
             if at_search_area:
                 search_area = dict(learned_search_region or route_where or where)
                 return [Proposal.make(

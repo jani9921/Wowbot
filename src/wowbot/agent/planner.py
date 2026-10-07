@@ -13,6 +13,7 @@ from .visual_inspection_planning import VisualInspectionPolicy
 from .visual_search_planning import VisualSearchPlanningPolicy
 from .map_search_planning import WorldMapFallbackPolicy
 from .decision_fingerprint import DecisionFingerprintGuard
+from .destination_distance import world_long_move
 
 
 
@@ -464,7 +465,7 @@ class Planner:
 
         mount = goal.parameters.get("mount_binding")
         if mount and not state.get("is_mounted") and not state.get("is_in_combat") and not state.get("is_casting"):
-            long_move = next((p for p in proposals if p.skill == "MOVE" and (world.distance(p.parameters) or 0) > .04), None)
+            long_move = next((p for p in proposals if p.skill == "MOVE" and world_long_move(world, p.parameters)), None)
             usable = any(a.get("action") == mount and a.get("is_usable") is True and a.get("cooldown_remaining") == 0 for a in state.get("actionbar", []))
             if long_move and usable:
                 proposals.append(Proposal.make("MOUNT", "Hosszabb út, felhasználó által kijelölt mount-képességgel", {"binding": mount}, priority=long_move.priority+3))

@@ -6,6 +6,7 @@ import math
 
 from .models import Proposal, number
 from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
+from .destination_distance import world_arrived
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,12 +269,11 @@ class VisualSearchPlanningPolicy:
         actionable_location = any(
             proposal.skill in {"MOVE", "REACH_LOCATION", "REACH_OBJECT"}
             and (proposal.skill != "MOVE"
-                 or (world.distance(proposal.parameters) or 0) > .003)
+                 or not world_arrived(world, proposal.parameters))
             for proposal in values)
         arrived_location = any(
             proposal.skill == "MOVE"
-            and (distance := world.distance(proposal.parameters)) is not None
-            and distance <= .003 for proposal in values)
+            and world_arrived(world, proposal.parameters) for proposal in values)
         relevant_target = bool(local_target) and (bool(matching_objectives) or (
             state.get("is_in_combat")
             and target.get("attackable", target.get("is_attackable")) is True))
@@ -292,7 +292,7 @@ class VisualSearchPlanningPolicy:
                 "OPEN_MAP", "INSPECT", "SEEK_VISUAL_CUE", "WAIT",
                 "CAMERA_CONTROL", "ACQUIRE_TARGET"}
             and not (proposal.skill == "MOVE"
-                     and (world.distance(proposal.parameters) or 0) <= .003)
+                     and world_arrived(world, proposal.parameters))
             and blocked_until.get(proposal.key, 0) <= now
             for proposal in values)
         quest_transition_now = any(
