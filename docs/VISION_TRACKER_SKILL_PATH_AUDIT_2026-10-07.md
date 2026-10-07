@@ -75,11 +75,13 @@ Rövidítések: **M0** = `M0SkillDispatcher`+dedikált `wowbot/skills` osztály;
 | OPEN_BAGS | G, OPENALLBAGS | `bags_open=True`; quest item és vendor külön admission, timeout. | R |
 | SELL_VENDOR | G, safe item slot jobbklikk | Item csökken, pénz nő vagy quest-credit; quest/equippable/locked kizárás, timeout. | R |
 
-Az „O” azt jelenti, hogy a mai 23 célzott fájl közül az adott út modulja szerepelt és a kódút olvasható; **nem** jelenti az összes kombináció/hibaág külön tesztjét. A `ResourceDomain`-nak van GATHER/HERB/MINE/FISH proposal-vázlata, de a szükséges éles producer/ground truth hiányos, így ezek továbbra sem felhasználói képességek. `USE` deklarált szerződés és örökölt generic kód, de a kanonikus dispatch kifejezetten kihagyja; jelenleg nem találtam éles proposalt sem. Ezt kompatibilitási résként, nem igazolt live regresszióként kezelem.
+Az „O” meglévő offline tesztelést és összekötött kódutat jelöl, nem feltétlenül a mai 23 fájlos kontrollban szereplő minden skillt; **nem** jelenti az összes kombináció/hibaág külön tesztjét. A `ResourceDomain`-nak van GATHER/HERB/MINE/FISH proposal-vázlata, de a szükséges éles producer/ground truth hiányos, így ezek továbbra sem felhasználói képességek. `USE` deklarált szerződés és örökölt generic kód, de a kanonikus dispatch kifejezetten kihagyja; jelenleg nem találtam éles proposalt sem. Ezt kompatibilitási résként, nem igazolt live regresszióként kezelem.
 
 ## Kontroll és nyitott bizonyítási kapuk
 
 `py -3.13 -m pytest -q --disable-warnings --tb=line` a 23 idevágó vision/tracker/skill/verification tesztfájlra: **210 passed, 1 failed**. Az egyetlen bukó `test_m0_search_skill.py::test_search_records_bounded_sector_coverage_then_reports_not_found`: a teszt 0,5 s-es frissítések után 4 szektort vár, a jelenlegi `SeekVisualCueController.scan_step_interval=.90` mellett csak 2 jutott ki. Ez a mai kód és teszt ütemezési szerződésének eltérése; a teljes suite korábban is tartalmazott vizuális keresési cadence-bukást [#17](https://github.com/jani9921/Wowbot/issues/17). Nem bizonyítja, hogy a live keresés rossz ütemű.
+
+Kiegészítő mount/map/inspect/recovery/vehicle regresszió: hat tesztfájl, **34 passed**. Ez is offline kontroll, és nem vizsgálta a 44 skill minden typed failure-ágát.
 
 Külön reprodukált új hiba: [#104](https://github.com/jani9921/Wowbot/issues/104) ACTIVE→üres batch után a `World3DPipeline._track_history` nem ürül, míg LOST_TEMPORARY→üres batch után igen. Ez belső history/lock állapotszivárgás, nem a Live Vision dobozainak közvetlen eltűnési oka. A javításnak bounded grace-t kell tartania a legitim kitakarás/re-ID miatt.
 
