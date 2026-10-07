@@ -539,10 +539,18 @@ class TrinityMMapNavMesh:
                 if result[0] == 1 and result[1]:
                     cost = sum(math.dist(a, b) for a, b in zip(result[1], result[1][1:]))
                     jump = abs(start_point[1]-continuity) if continuity is not None else 0.
-                    complete.append((jump > 3., cost, abs(point[1]-start_point[1]), result))
+                    complete.append((jump > 3., cost, abs(point[1]-start_point[1]), result,
+                                     start_point, point))
         if not complete:
             return None
-        return min(complete, key=lambda entry: entry[:3])[3]
+        best = min(complete, key=lambda entry: entry[:3])
+        # The layer is chosen on the fast string-pulled path, but that path
+        # hugs the inner edge of every bend (live 2026-10-07: every route to a
+        # height-less minimap dot / floor cue ran along the rim of Hrun's
+        # spiral and the character fell off it).  Walk the centred one.
+        centred = native.find_path(best[4], best[5], extents=(2., 4., 2.), include=include,
+                                   margin=self.PATH_CENTER_MARGIN)
+        return centred if centred[0] == 1 and centred[1] else best[3]
 
     def _native_find_path(self, native, instance_id: int, start: dict, destination: dict,
                           start_dt: tuple, end_dt: tuple) -> NavMeshPath | None:
