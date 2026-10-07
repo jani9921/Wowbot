@@ -118,7 +118,7 @@ src/wowbot/agent/quest_runtime.py	263	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/quest_semantics.py	155	FILE_READ_CALL_GRAPH_PARTIAL	-
 src/wowbot/agent/quest_state.py	64	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/quest_strategy_history.py	91	FILE_READ_CALL_GRAPH_PARTIAL	-
-src/wowbot/agent/quest_target_planning.py	392	FILE_READ_CALL_GRAPH_PARTIAL	#94
+src/wowbot/agent/quest_target_planning.py	392	FILE_READ_CALL_GRAPH_PARTIAL	#94,#106
 src/wowbot/agent/quest_terminal.py	83	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/quest_turn_in.py	78	FILE_READ_CALL_GRAPH_PARTIAL	quest-selection-turnin-path
 src/wowbot/agent/reasoner.py	128	FILE_READ_CALL_GRAPH_PARTIAL	-
