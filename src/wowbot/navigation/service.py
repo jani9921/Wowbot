@@ -1030,11 +1030,15 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             return None
         resolved = self._z.player
         now = number(state.get("monotonic_time"))
+        # ``monotonic_time`` is the addon's GetTime() at sampling; the fix
+        # time is the agent clock at processing, normally ~0.1 s later.  A
+        # one-sided test rejected every live fix (live 2026-10-07: hop 4 was
+        # offered for minutes), so freshness is a symmetric window.
         pz = (resolved.z if resolved is not None
               and resolved.instance_id == player.get("instance_id")
               and resolved.confidence >= .7
               and math.hypot(resolved.x-px, resolved.y-py) <= self.ZONE_SWEEP_VISITED_YARDS
-              and (now is None or resolved.at is None or 0 <= now-resolved.at <= 3.)
+              and (now is None or resolved.at is None or abs(now-resolved.at) <= 3.)
               else None)
         for index, hop in enumerate(hops):
             if (pz is not None
@@ -1061,6 +1065,27 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                 "z_source": "NAVMESH_ZONE_SWEEP", "z_estimated": True,
                 "sweep_hop": remaining[0], "sweep_hops": len(hops),
                 "sweep_direction": "UP" if sweep["upward"] else "DOWN"}
+
+    def record_sweep_arrival(self, destination: dict | None) -> bool:
+        """A verified arrival at a zone-sweep hop retires that hop.
+
+        Live 2026-10-07: the planner-side position test ran only after the
+        next (area-search) MOVE had taken the player 8 yd away, so the same
+        hop came back after every arrival.  The hop must match the current
+        sweep's own coordinates; anything else is ignored.
+        """
+        if not isinstance(destination, dict) or destination.get("location_source") != "QUEST_ZONE_SWEEP":
+            return False
+        index = destination.get("sweep_hop")
+        sweep = (self.__dict__.get("_zone_sweeps") or {}).get(self.__dict__.get("_last_sweep_key"))
+        if (not isinstance(index, int) or isinstance(index, bool) or not isinstance(sweep, dict)
+                or "visited" not in sweep or not 0 <= index < len(sweep.get("hops") or ())):
+            return False
+        hop, x, y = sweep["hops"][index], number(destination.get("x")), number(destination.get("y"))
+        if x is None or y is None or math.hypot(hop["x"]-x, hop["y"]-y) > 1.:
+            return False
+        sweep["visited"].add(index)
+        return True
 
     def _sweep_hops(self, state: dict, bottom: dict) -> list[dict]:
         """The rim-to-bottom route resampled every ``ZONE_SWEEP_HOP_YARDS``."""

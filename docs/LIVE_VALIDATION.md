@@ -7770,3 +7770,35 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
 - Done: turned in 55639 (710295), accepted and turned in 85678 (710297–710429). Then no quest: the API listed campaign "!" givers 58914 at (187, −2280) = Private Cole and 55196 at (267, −2339) = Henry Garrick (user). The agent targeted Lady Jaina from a hover next to Cole, VISUAL_APPROACH (one 30 s timeout) and INTERACT `no_response` for ~60 s, walked toward Henry Garrick, "arrived" at 8.5 yd (10 yd radius) — the reached pin is skipped for 300 s — and turned round 80 yd to Cole's pin; 68 INSPECT, 26 IDENTIFY seeks, 22 VISUAL_APPROACH, 19 TARGET; user stopped it.
 - Telemetry shows the client's `softinteract` unit at the pin: Private Cole at 3.8–5.2 yd from (187, −2280), Quartermaster Richter (vendor) at 7.5–8.9 yd. NPC world positions are not exported (only the target's).
 - Fixes (offline): API giver arrival 4 yd (was 10); within 6 yd a friendly `softinteract` NPC gets `INTERACT` with `activation_source: SOFT_INTERACT` (`INTERACTTARGET`, no hard-target identity, success = quest/gossip/vendor window; once per NPC per giver per 30 s; priority 104); after reaching a giver no other giver route for 10 s (`GIVER_LOCAL_SECONDS`, user: "25 s sok, legyen 10 s"), a drifted agent walks back to it; at an API pin a different soft-interact NPC makes the selected unit irrelevant (`soft_interact_giver_waiting`). Tests: `test_map_pois.py` (+3, one rewritten), `test_stale_friendly_target_20261005.py` (+1), `test_pit_layer_and_pins_20261005.py` (updated). Full suite: 15 baseline failures. Not live-validated; whether INTERACTTARGET always prefers the soft-interact unit over a different hard target must be confirmed live.
+
+---
+
+## 2026-10-07 11:06–11:08 (pid 15440, user, addon 0.9.59) — one cocoon, then a sweep-hop / search-cell ping-pong on the spiral
+
+- Sources (read only): uploaded `telemetry-20261007-110601.jsonl` (131.8 s) and `agent_status.json`. Journal session `1791363480-756217315`; goal created at 756719.99; the user stopped the run at 756832.78 (`mode_changed`). Final state: mode STOPPED, executor disarmed, no held keys, so no FULL_AI process was left running. Character: Mklé, warrior 7, Hrun's Barrow (map 1409, instance 2175), quest "Who Lurks in the Pit" (55639).
+- Progress: 0/5 → 1/5 at 756766.0 (`object_use_credit_verified`). Evidence: mouseover "Thick Cocoon", `SPELLCAST_SUCCEEDED` 321523, then "Freed Expedition Member". The first OBJECT_USE attempt ended `IDENTITY_UNCERTAIN` (756762.8). No further credit.
+- 756771–756810: three SEEK_VISUAL_CUE runs ended `seek_visual_cue_sectors_exhausted` (TARGET_NOT_FOUND), so no cocoon was visible from the upper spiral. The area search walked cell (81, −2272) twice. Cells (59.8, −2263) and (102.2, −2263) were retired as off-floor.
+- 756811–756832 (and a 38 yd variant before that): two MOVEs alternated every ~1.6 s, each ending `reach_arrival_verified`, while the player stayed in a 4 yd patch around (72–76, −2236…−2239) at z 67.9 (MMAP, confidence .95):
+  - (A) zone-sweep hop 4/39 at (69.1, −2239.7), z 69.5, stop distance 6.
+  - (B) quest-area cell 1:1 at (81, −2242). This cell lies over the pit hole. Its SAME-floor projection was (76.0, −2235.7), 8.06 yd from the cell, outside the 7.5 yd visit radius (30/4). The cell therefore never counted as visited (visits 0).
+- Why the two never advanced:
+  - The hop was not marked by the arrival either, because B's arrival took the player 8 yd away before the planner looked at the sweep again.
+  - After A arrived, `world_arrived` (≤ 6 yd) made the location non-actionable, so the area SEEK won (utility 79.7 against the sweep's 67.7 with its distance penalty). After B arrived, the sweep offered hop 4 again.
+  - The loop guard saw only `MOVEMENT_OSCILLATION:TURNLEFT:TURNRIGHT` ×3. The A/B alternation itself went undetected.
+- Root cause of the never-marked hop. The same cause explains two 2026-10-06 findings: "8 instant MOVEs to the same rim hop" and "not marked by the planner (fresher gate)".
+  - `zone_sweep_next` and `_search_player_z` tested freshness as `0 <= now − at <= 3`. Here `now` is the addon's `state.monotonic_time` (GetTime at sampling) and `at` is the Z resolver's fix time (agent clock at processing).
+  - Live, the sample comes ~0.1 s before the fix (status: `monotonic_time` 756836.377 vs `fast_received_at` 756836.469). Every fix was therefore rejected, and the planner's position test never marked a hop.
+- Fixes (offline-tested, `tests/test_sweep_cell_pingpong_20261007.py`, +5 tests):
+  - Both freshness tests use a symmetric window, `|now − at| <= 3`.
+  - `NavigationService.observe_verified_move` retires the zone-sweep hop of a verified arrival (`record_sweep_arrival`; only when the hop matches the current sweep within 1 yd).
+  - It also retires the search cell of a verified arrival (`search_region_id` + `search_cell_id`), including when the route ended at the cell's same-floor projection.
+  - Full suite: 33 baseline failures, 2494 passed, no new failure.
+- Other measurements:
+  - STATE assembly: 1197 pages, 82 complete snapshots (14.6 pages per snapshot, 0.77 Hz). The 0.9.58 run needed 16 pages per snapshot.
+  - After STOP, one memory maintenance pass took 2061 ms for 256 rows. FULL_AI defers maintenance, so this is outside the control path. The DB is 139 MB, grows ≈ 214 MB/h and has a backlog of 47 545 rows, so it grows unbounded during long FULL_AI runs.
+  - The binding inventory is still collecting (22 of 23 pages) and lists 22 catalog differences against the selected cache (`authoritative_for_input: false`). The selected cache file is named `pid-19664` while the selected PID is 15440. The control-binding preflight was ready with no mismatches.
+- Open, not fixed:
+  - No loop detection for alternating "successful" MOVEs.
+  - The next user run must show the sweep advancing beyond hop 4 down the spiral to the cocoons.
+  - SEEK sector exhaustion on the upper spiral.
+  - Maintenance cost and DB growth.
