@@ -355,6 +355,20 @@ class QuestSelectedTargetMixin:
             self.target_tracks[str(guid)] = str(track_id)
         return {}
 
+    # Same window skill availability uses for WORLD3D_TARGET_TRACK anchors:
+    # a World3D sample may lead the addon clock by a few seconds.
+    TRACK_MAX_AGE_SECONDS = 3.
+    TRACK_MAX_LEAD_SECONDS = 5.
+
+    @classmethod
+    def _track_sample_fresh(cls, item: dict, state: dict) -> bool:
+        """Issue #106: an ACTIVE label is not proof of a current box."""
+        now = number(state.get("monotonic_time"))
+        seen = number(item.get("last_seen", item.get("observed_at")))
+        if now is None or seen is None:
+            return True     # untimed sample: the WorldModel projection TTL applies
+        return -cls.TRACK_MAX_LEAD_SECONDS <= now - seen < cls.TRACK_MAX_AGE_SECONDS
+
     def _target_live_track(self, state: dict, guid: str, target: dict) -> dict | None:
         """The selected unit's currently observed World3D track, if known."""
         anchor = (state.get("confirmed_mouseover_anchors") or {}).get(guid) or {}
@@ -366,7 +380,8 @@ class QuestSelectedTargetMixin:
                     and str(item.get("track_id")) in track_ids
                     and str(item.get("lifecycle") or item.get("state") or "ACTIVE").upper()
                     in {"ACTIVE", "REACQUIRE_CANDIDATE", "TENTATIVE"}
-                    and number(item.get("x")) is not None and number(item.get("y")) is not None):
+                    and number(item.get("x")) is not None and number(item.get("y")) is not None
+                    and self._track_sample_fresh(item, state)):
                 return item
         return None
 
@@ -402,6 +417,8 @@ class QuestSelectedTargetMixin:
                 continue
             if str(item.get("lifecycle") or item.get("state") or "ACTIVE").upper() in {
                     "LOST_TEMPORARY", "TERMINATED"}:
+                continue
+            if not self._track_sample_fresh(item, state):
                 continue
             height = number(item.get("bbox_height_fraction"))
             if height is not None and height >= self.ready_height(guid):

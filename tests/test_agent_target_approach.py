@@ -1140,3 +1140,20 @@ def test_range_blocked_friendly_approaches_its_live_world3d_track():
     screen = value.pending.proposal.parameters["screen_position"]
     assert screen["source"] == "WORLD3D_TARGET_TRACK"
     assert screen["coordinate_space"] == "CLIENT_BOTTOM_LEFT"
+
+
+def test_stale_active_box_is_neither_a_live_track_nor_in_range():
+    """Issue #106: an ACTIVE-labelled box last seen 100 s ago was accepted as
+    the selected friendly's live track and as visually in range."""
+    from wowbot.agent.planner import Planner
+    from wowbot.agent.skills import SkillRegistry
+    quest = Planner(SkillRegistry()).quest
+    target = {"guid": "G", "visual_track_id": "WORLD3D:1", "attackable": False}
+    box = {"source": "WORLD3D", "track_id": "WORLD3D:1", "lifecycle": "ACTIVE",
+           "x": .5, "y": .5, "bbox_height_fraction": .20, "observed_at": 1., "last_seen": 1.}
+    stale = {"monotonic_time": 101., "target": target, "visual_candidates": [box]}
+    assert quest._target_live_track(stale, "G", target) is None
+    assert quest._target_visually_in_range(stale, "G") is False
+    fresh = {**stale, "monotonic_time": 2.}            # e.g. reacquired after a camera turn
+    assert quest._target_live_track(fresh, "G", target) is box
+    assert quest._target_visually_in_range(fresh, "G") is True

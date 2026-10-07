@@ -553,3 +553,30 @@ def test_frame_driven_world_lane_processes_each_new_capture_once():
     worker.update(second, 1.004, geometry=geometry, context=("session", "char", 1, 0))
     # No time gate between distinct frames, no reprocessing of one frame.
     assert len(seen) == 2
+
+
+def test_abruptly_missing_active_track_expires_after_the_grace():
+    """Issue #104: an ACTIVE track that vanished without a LOST batch kept its
+    history and lock forever; LOST_TEMPORARY ones were already expired."""
+    pipeline = World3DPipeline()
+    scene = WorldSceneROI(PixelRect(0, 0, 320, 240))
+    pipeline.observe(_frame(), {}, [_track("WORLD3D:A")], scene, observed_at=1.)
+    pipeline.set_visual_lock("WORLD3D:A")
+    pipeline.observe(_frame(), {}, [], scene, observed_at=1.5)       # short absence: kept
+    assert "WORLD3D:A" in pipeline._track_history
+    batch = pipeline.observe(_frame(), {}, [], scene, observed_at=3.)
+    assert "WORLD3D:A" not in pipeline._track_history
+    assert "WORLD3D:A" not in pipeline._locks
+    assert any(event.get("track_id") == "WORLD3D:A"
+               and event.get("reason") == "ABSENT_AFTER_GRACE"
+               for event in batch.frame_events)
+
+
+def test_track_that_returns_within_the_grace_keeps_its_history():
+    pipeline = World3DPipeline()
+    scene = WorldSceneROI(PixelRect(0, 0, 320, 240))
+    pipeline.observe(_frame(), {}, [_track("WORLD3D:B")], scene, observed_at=1.)
+    pipeline.observe(_frame(), {}, [], scene, observed_at=1.5)
+    pipeline.observe(_frame(), {}, [_track("WORLD3D:B")], scene, observed_at=2.)
+    pipeline.observe(_frame(), {}, [_track("WORLD3D:B")], scene, observed_at=3.)
+    assert len(pipeline._track_history["WORLD3D:B"]) == 3
