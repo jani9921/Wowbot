@@ -148,6 +148,8 @@ def failure_reason_from_legacy(value: object) -> FailureReason:
         return FailureReason.TELEMETRY_STALE
     if "STUCK" in normalized or "NO_PROGRESS" in normalized:
         return FailureReason.STUCK
+    if "FALL_IN_PROGRESS" in normalized or "FALL_HAZARD_ON_ROUTE" in normalized:
+        return FailureReason.PATH_BLOCKED
     if "OUT_OF_RANGE" in normalized or "CLOSER" in normalized:
         return FailureReason.OUT_OF_RANGE
     if "TARGET_LOST" in normalized:

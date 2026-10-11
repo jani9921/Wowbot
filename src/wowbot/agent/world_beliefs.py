@@ -12,7 +12,7 @@ from .world_models import Belief, ContradictionRecord, Evidence
 RELIABILITY = {"ADDON_TELEMETRY": 1., "MOUSEOVER": 1., "TOOLTIP": .9,
                "ENTITY_MEMORY": .7, "SPATIAL_MEMORY": .7, "SEMANTIC_MEMORY": .7, "WORLD_MAP_CV": .6,
                "MINIMAP_CV": .55, "WORLD3D": .55, "WORLD3D_LOCAL_VIEW": .55, "UI_CV": .58, "VISION": .55,
-               "CROSS_VIEW": .55, "AI": .3,
+               "CROSS_VIEW": .55, "AI": .3, "REFERENCE_MEMORY": .3,
                "QUEST_STATE": 1., "PLAYER_STATE": 1.}
 
 
@@ -34,6 +34,7 @@ SOURCE_TIERS = {
     "WORLD_MAP_CV": "PERCEPTION", "WORLD3D": "PERCEPTION", "WORLD3D_LOCAL_VIEW": "PERCEPTION", "UI_CV": "PERCEPTION",
     "VISION": "PERCEPTION", "CROSS_VIEW": "PERCEPTION", "AI": "REASONING", "VLM": "REASONING",
     "PREDICTION": "REASONING",
+    "REFERENCE_MEMORY": "REASONING",
 }
 
 
@@ -50,7 +51,7 @@ TEMPORAL_STATE_BELIEF_KEYS = frozenset({
     "orientation", "player_world_position", "position", "scene_geometry",
     "soft_targets", "spawn_reference_candidates",
     "tooltip_observation", "ui_observations", "visual_candidates",
-    "world_map_state",
+    "world_map_state", "reference_knowledge",
 })
 
 

@@ -36,7 +36,13 @@ class AdaptiveQuestEnvironment:
     def _quest(self, current=0):
         return {"quest_id": QUEST_ID, "title": "Adaptive Trial",
                 "is_campaign": True, "is_complete": current >= 1,
-                "waypoint": {"map_id": 1609, "x": .60, "y": .60},
+                # The addon converts every map point to world yards
+                # (C_Map world position); a normalized map pixel alone never
+                # authorizes movement (planning_types.world_point).
+                "waypoint": {"map_id": 1609, "x": .60, "y": .60,
+                             "world_position": {"coordinate_space": "WORLD_YARDS",
+                                                "instance_id": 2175, "ui_map_id": 1609,
+                                                "x": 160., "y": -60., "z_known": False}},
                 "objectives": [self._objective(current)]}
 
     def _event(self, kind, payload):
@@ -48,6 +54,9 @@ class AdaptiveQuestEnvironment:
         common = dict(
             event_sequence=self.event_sequence, events=deepcopy(self.events),
             position=deepcopy(self.position),
+            player_world_position={"coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                                   "ui_map_id": 1609, "x": 120. + 40.*(self.position["x"]-.2)/.4,
+                                   "y": -20. - 40.*(self.position["y"]-.2)/.4, "z_known": False},
         )
         if self.phase == "OFFER":
             return state(self.now, **common, quest_ui={

@@ -386,5 +386,8 @@ class NavigationProposalAdapter:
              "objective_id": proposal.parameters.get("objective_id"),
              "objective_type": proposal.parameters.get("objective_type"),
              "search_area": area, "purpose": "SEARCH_LOCAL_OBJECTIVE_AREA",
-             "require_navmesh": True, **floor},
+             "require_navmesh": True, **floor,
+             **({"scan_while_moving": True,
+                 "scan_units": proposal.parameters.get("scan_units") is True}
+                if proposal.parameters.get("zone_sweep") else {})},
             proposal.confidence, proposal.priority, proposal.evidence)

@@ -186,3 +186,42 @@ return #v.items .. "|" .. first.name .. "|" .. first.price .. "|" .. tostring(fi
     .. "|" .. first.x .. "|" .. tostring(first.item_id)
 '''
     assert lupa.LuaRuntime().execute(harness) == "2|Tough Jerky|25|true|0.05|117"
+
+
+def test_open_vendor_with_trade_left_is_not_left_for_a_visual_search():
+    """Live 2026-10-11 15:52: with Richter's shop open a distant-UNKNOWN SEEK
+    (87) beat BUY_VENDOR (86); sell -> buy took 18 s of camera sweeps."""
+    vendor = {"open": True, "npc_name": "Quartermaster Richter", "items": [
+        {"slot": 2, "name": "Water", "price": 20, "item_id": 159, "is_purchasable": True, "x": .2, "y": .3}]}
+    far_box = {"source": "WORLD3D", "kind": "unknown_subject_candidate", "track_id": "far",
+               "x": .8, "y": .6, "confidence": .8, "stable_frames": 10, "lifecycle": "STABLE",
+               "inspectable": True, "observed_at": 1., "bbox_height_fraction": .03,
+               "candidate_labels": ["learned_subject_like"]}
+    world = _world(target=RICHTER, vendor_ui=vendor, bags_open=True, visual_candidates=[far_box])
+    skills = {p.skill for p in Planner(SkillRegistry()).candidates(GOAL, world, 1.)}
+    assert "BUY_VENDOR" in skills
+    assert not skills & {"SEEK_VISUAL_CUE", "INSPECT", "OPEN_MAP", "MOVE"}
+    # Vendor details not fresh enough for a trade yet: wait at the vendor.
+    stale = _world(target=RICHTER, vendor_ui={"open": True, "items": []}, bags_open=True,
+                   visual_candidates=[far_box])
+    skills = {p.skill for p in Planner(SkillRegistry()).candidates(GOAL, stale, 1.)}
+    assert not skills & {"SEEK_VISUAL_CUE", "INSPECT", "OPEN_MAP", "MOVE"}
+
+
+def test_shop_opening_beats_the_previous_attempts_range_error():
+    """Live 2026-10-11 15:51:14: the "too far" of the previous attempt was
+    still in ui_error (3 s) when the next Interact opened the shop."""
+    from wowbot.verification.interaction import InteractionVerifier
+    stale = {"ui_error": "You are too far away!", "ui_error_sequence": 7}
+    before = {"target": RICHTER, "vendor_ui": {"open": False}, **stale}
+    opened = {"target": RICHTER, "vendor_ui": {"open": True}, **stale}
+    result = InteractionVerifier().evaluate(before, opened, expected_guid=RICHTER["guid"])
+    assert result.success and "vendor_ui" in result.evidence
+    # The same old error without an opened shop is no new range failure either.
+    nothing = InteractionVerifier().evaluate(before, {"target": RICHTER, **stale},
+                                             expected_guid=RICHTER["guid"])
+    assert not nothing.success and nothing.reason is None
+    fresh = InteractionVerifier().evaluate(before, {"target": RICHTER, "ui_error": "You are too far away!",
+                                                    "ui_error_sequence": 8},
+                                           expected_guid=RICHTER["guid"])
+    assert fresh.reason is not None and fresh.reason.value == "OUT_OF_RANGE"

@@ -4,13 +4,47 @@ from __future__ import annotations
 from wowbot.runtime import FailureReason, VerificationResult
 
 
+def _sequence(value) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _events_after_baseline(before: dict, after: dict) -> list:
+    """Only events newer than the pre-click state may prove a transition.
+
+    Issue #82: the rolling event list still held an earlier QUEST_ACCEPTED/
+    QUEST_TURNED_IN for the same quest, so a later click was confirmed with
+    unchanged before/after state.
+    """
+    old_events = [e for e in before.get("events") or () if isinstance(e, dict)]
+    known = [_sequence(before.get("event_sequence"))]
+    known += [_sequence(e.get("sequence")) for e in old_events]
+    known = [value for value in known if value is not None]
+    baseline = max(known) if known else None
+    fresh = []
+    for event in after.get("events") or ():
+        if not isinstance(event, dict):
+            continue
+        sequence = _sequence(event.get("sequence"))
+        if sequence is not None and baseline is not None:
+            if sequence > baseline:
+                fresh.append(event)
+        elif event not in old_events:
+            fresh.append(event)
+    return fresh
+
+
 class QuestDialogVerifier:
     """Verify dialog transition without clicking or selecting a reward."""
 
     def evaluate(self, before: dict, after: dict, *, quest_id: object | None,
-                 action: str, reward_choice_index: object | None = None) -> VerificationResult:
+                 action: str, reward_choice_index: object | None = None,
+                 target_guid: object | None = None,
+                 gossip_option_id: object | None = None) -> VerificationResult:
         wanted = str(quest_id) if quest_id is not None else None
-        events = after.get("events") or ()
+        events = _events_after_baseline(before, after)
         matching = {
             str(event.get("event_type") or "").upper()
             for event in events if isinstance(event, dict)
@@ -22,6 +56,25 @@ class QuestDialogVerifier:
                    if isinstance(row, dict) and row.get("quest_id") is not None}
         old_accepted = {str(value) for value in before.get("accepted_quest_ids") or ()}
         new_accepted = {str(value) for value in after.get("accepted_quest_ids") or ()}
+        if action == "GOSSIP_OPTION_SELECT":
+            old_target, new_target = before.get("target") or {}, after.get("target") or {}
+            if (not target_guid or str(old_target.get("guid") or "") != str(target_guid)
+                    or str(new_target.get("guid") or "") != str(target_guid)):
+                return VerificationResult(False, 0., FailureReason.WRONG_QUEST_UI)
+            old_ui, new_ui = before.get("quest_ui") or {}, after.get("quest_ui") or {}
+            old_option = old_ui.get("gossip_option") or before.get("quest_ui_gossip_option") or {}
+            if str(old_option.get("id")) != str(gossip_option_id):
+                return VerificationResult(False, 0., FailureReason.WRONG_QUEST_UI)
+            # A click alone is not completion. For this scripted-fight dialogue,
+            # wait for the same NPC to become attackable or for combat to start.
+            transitioned = (new_target.get("attackable", new_target.get("is_attackable")) is True
+                            and old_target.get("attackable", old_target.get("is_attackable")) is not True)
+            combat_started = (after.get("is_in_combat") is True
+                              and before.get("is_in_combat") is not True)
+            confirmed = transitioned or combat_started
+            return VerificationResult(confirmed, .95 if confirmed else .0, None,
+                                      (f"gossip_option_advanced:{wanted}:{gossip_option_id}",)
+                                      if confirmed else ())
         if action == "GOSSIP_SELECT":
             ui = after.get("quest_ui") or {}
             observed_action = str(ui.get("action") or after.get("quest_ui_action") or "").upper()

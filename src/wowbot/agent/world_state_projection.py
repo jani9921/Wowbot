@@ -41,10 +41,32 @@ class WorldStateProjector:
         "semantic_memory_facts",
     })
 
+    # Issue #69: a visual projection is current evidence only briefly (the
+    # perception result TTL).  Without this a WORLD3D box received once was
+    # re-merged by every later addon update and acted on indefinitely.
+    VISUAL_PROJECTION_TTL_SECONDS = 3.
+    _VISUAL_SOURCES = frozenset({
+        "WORLD3D", "WORLD3D_LOCAL_VIEW", "MINIMAP_CV", "WORLD_MAP_CV", "UI_CV",
+    })
+
+    def _live_projections(self, model: "WorldModel") -> list[dict]:
+        received = model.__dict__.get("projection_received_at") or {}
+        times = [value for value in received.values() if value is not None]
+        reference = max([model.last_received, *times]) if times else model.last_received
+        live = []
+        for source, projection in model.projections.items():
+            at = received.get(source)
+            if (source in self._VISUAL_SOURCES and at is not None and reference is not None
+                    and reference - at > self.VISUAL_PROJECTION_TTL_SECONDS):
+                continue
+            live.append(projection)
+        return live
+
     def rebuild(self, model: "WorldModel") -> None:
         model.state = _copy(model.addon_state)
         combined = {key: [] for key in self._LIST_FIELDS}
-        for projection in model.projections.values():
+        projections = self._live_projections(model)
+        for projection in projections:
             for key, value in projection.items():
                 if key in self._METADATA_KEYS:
                     continue
@@ -53,7 +75,7 @@ class WorldStateProjector:
                 else:
                     model.state[key] = _copy(value)
         for key, values in combined.items():
-            if values or any(key in projection for projection in model.projections.values()):
+            if values or any(key in projection for projection in projections):
                 model.state[key] = values
         self._project_vehicle_bar(model.state)
         self._project_fast_actionbar(model.state)

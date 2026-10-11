@@ -102,7 +102,14 @@ class InteractionVerifier:
         target = after.get("target") or {}
         if expected_guid and target.get("guid") not in {None, expected_guid}:
             return VerificationResult(False, .95, FailureReason.IDENTITY_UNCERTAIN)
-        message = str(after.get("ui_error") or "").casefold()
+        # Live 2026-10-11 15:51:14 (Quartermaster Richter): the previous
+        # attempt's "too far" stays in ``ui_error`` for 3 s; the next,
+        # successful Interact (shop open) was booked out_of_range.  Only an
+        # error raised during this attempt counts, and an opened shop wins.
+        message = self._fresh_ui_error(before, after).casefold()
+        if ((after.get("vendor_ui") or {}).get("open") is True
+                and (before.get("vendor_ui") or {}).get("open") is not True):
+            return VerificationResult(True, .85, None, ("vendor_ui",))
         if any(token in message for token in self.RANGE_TOKENS) or self._range_event(before, after):
             return VerificationResult(False, .9, FailureReason.OUT_OF_RANGE, retry_recommended=True)
         if any(token in message for token in ("facing", "face the", "szembe")):
@@ -147,6 +154,16 @@ class InteractionVerifier:
                 ("vendor_ui", vendor_opened)) if present)
             return VerificationResult(True, .95 if quest_changed else .85, None, evidence)
         return VerificationResult(False, .0, None)
+
+    @staticmethod
+    def _fresh_ui_error(before: dict, after: dict) -> str:
+        """The UI error text raised after the baseline (events or flattened)."""
+        messages = [str(error.get("message") or "") for error in new_ui_errors(before, after)]
+        current = str(after.get("ui_error") or "")
+        if (current and after.get("ui_error_sequence") is None
+                and current != str(before.get("ui_error") or "")):
+            messages.append(current)      # no sequence exported: a changed text is new
+        return " ".join(message for message in messages if message)
 
     @staticmethod
     def _matches_expected(expected: str, quest_ui: dict, after: dict,

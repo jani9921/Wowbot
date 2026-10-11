@@ -103,9 +103,16 @@ def test_camera_verification_waits_for_paged_snapshot_but_real_receive_loss_disa
     assert status["decision"]["reason"] == "awaiting_fresh_telemetry_after_camera"
     assert agent.pending is not None
 
+    # A real receive loss revokes input authority at once (no key is sent),
+    # but FULL_AI waits for a stable recovery: live 30-60 s strip stalls
+    # recover.  Only a 90 s outage demotes to MANUAL (FreshnessGate).
+    commands = len(agent.executor.commands)
     status = agent.tick(None, 7.1)
+    assert status["decision"]["input_authority"] == "REVOKED"
+    assert len(agent.executor.commands) == commands
+    status = agent.tick(None, 7.1 + 91.)
     assert status["mode"] == "MANUAL"
-    assert agent.pending is None
+    assert len(agent.executor.commands) == commands
 
 
 def test_dungeon_follow_mechanic_gate_and_pvp_retreat_share_generic_skills():

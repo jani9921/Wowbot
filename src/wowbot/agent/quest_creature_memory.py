@@ -35,6 +35,7 @@ with four looks ~90 MB.  Writes happen only when a fact is new or changed
 from __future__ import annotations
 
 import json
+import logging
 import math
 from pathlib import Path
 import sqlite3
@@ -105,6 +106,9 @@ class QuestCreatureMemory:
                     spell_id INTEGER PRIMARY KEY, name TEXT, effect TEXT NOT NULL, updated_at REAL);
             """)
         self._roles: dict[int, dict[str, list[dict]]] = {}
+        # LearnedWorld.from_creature_memory: every new/moved role also feeds
+        # the TDB-shaped learned world memory (user 2026-10-10).
+        self.on_role = None
         self._progress: dict[int, list[dict]] = {}
         self._looks_by_map: dict[object, dict[int, list[list[float]]]] = {}
         self._look_seen: dict[int, float] = {}
@@ -142,6 +146,13 @@ class QuestCreatureMemory:
                 "INSERT OR REPLACE INTO quest_creature(quest_id,role,npc_id,name,instance_id,x,y,seen_at,source)"
                 " VALUES (:quest_id,:role,:npc_id,:name,:instance_id,:x,:y,:seen_at,:source)", row)
         self._roles.pop(quest, None)
+        if self.on_role is not None:
+            try:
+                self.on_role(quest, role, row["npc_id"], name,
+                             {"x": row["x"], "y": row["y"], "instance_id": row["instance_id"]}
+                             if x is not None else None, row["seen_at"])
+            except Exception:
+                logging.getLogger(__name__).exception("learned world update failed")
         return True
 
     def record_look(self, npc_id, embedding, *, name: str | None = None, map_id=None,

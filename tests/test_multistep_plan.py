@@ -2,23 +2,30 @@ from wowbot.agent.models import Goal, Observation, Proposal
 from wowbot.agent.planner import Planner
 from wowbot.agent.skills import SkillRegistry
 from wowbot.agent.world import WorldModel
-from test_agent_core import agent, state
+from test_agent_core import agent, state, world
 
 
 def test_kill_objective_builds_generic_verified_horizon_but_executes_only_first_step():
     bot, executor = agent()
     quest = {"quest_id": 42, "objectives": [{"objective_id": "42:kill", "type": "KILL",
         "required": 3, "current": 0,
-        "target_location": {"map_id": 1609, "x": .55, "y": .45}}]}
-    result = bot.tick(state(active_quests=[quest]), 1)
+        "target_location": {"map_id": 1609, "x": .55, "y": .45,
+                            "world_position": world(340, -2340)}}]}
+    result = bot.tick(state(active_quests=[quest], player_world_position=world(300, -2300)), 1)
     plan = result["plan"]
     assert plan["steps"][0]["capability"] == "MOVE"
     assert plan["steps"][0]["status"] == "READY"
     assert [step["capability"] for step in plan["steps"]][1:] == [
         "ACQUIRE_TARGET", "APPROACH_TARGET", "COMBAT", "LOOT", "VERIFY_OBJECTIVE"]
     assert all(step["status"] == "BLOCKED_BY_PRIOR_STEP" for step in plan["steps"][1:])
-    assert len(executor.commands) == 1
-    assert executor.commands[0].binding in {"MOVEFORWARD", "TURNLEFT", "TURNRIGHT"}
+    # Only the first step runs: MOVE is pending (a world route needs the
+    # navmesh, so it may not have pressed a key yet); nothing of the later
+    # target/combat steps reached the executor.
+    assert bot.pending is not None and bot.pending.proposal.skill == "MOVE"
+    assert len(executor.commands) <= 1
+    assert not any(c.binding in {"ACTIONBUTTON1", "INTERACTTARGET", "TARGETNEARESTENEMY"}
+                   for c in executor.commands)
+    assert all(c.binding in {"MOVEFORWARD", "TURNLEFT", "TURNRIGHT"} for c in executor.commands)
 
 
 def test_plan_records_constraints_replan_triggers_and_candidate_utility():

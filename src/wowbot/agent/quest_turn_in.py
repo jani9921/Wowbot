@@ -23,7 +23,7 @@ import re
 _NAME = r"([A-Z][\w'\-]*(?:\s+[A-Z][\w'\-]*){0,3})"
 _TO_NAME = re.compile(
     r"\b(?i:return|report|speak|talk|go back|head back|turn (?:it|them) in|"
-    r"(?:bring|deliver|take)\b[^.!?]{0,60}?)\s+(?i:to|with)\s+(?:(?i:the)\s+)?" + _NAME)
+    r"(?:bring|deliver|take)\b[^.!?]{0,60}?)\s+(?:(?i:back)\s+)?(?i:to|with)\s+(?:(?i:the)\s+)?" + _NAME)
 _BACK_TO_GIVER = re.compile(
     r"\b(?:report|return|come|head|hurry) back\b(?! to [A-Z])|\b(?:return|report|come back) to me\b|"
     r"\bback to me\b|\bbring (?:it|them|those|these|that|this)(?: back)? to me\b", re.IGNORECASE)
@@ -82,6 +82,12 @@ def turn_in_names(state: dict, *, complete_only: bool = True) -> list[str]:
         if not isinstance(quest, dict) or (complete_only and quest.get("is_complete") is not True):
             continue
         entry = known.get(str(quest.get("quest_id"))) or {}
+        reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(str(quest.get("quest_id"))) or {}
+        if (reference.get("turnin_status") == "LEARNED"
+                and entry.get("source") in {"QUEST_CREATURE_MEMORY", None}):
+            entry = {}  # verified historical hand-in outranks a remembered dialog
+        if not entry.get("name"):
+            names.extend(str(row["name"]) for row in reference.get("turnin_candidates") or () if row.get("name"))
         if entry.get("name"):
             names.append(str(entry["name"]))
         if str(entry.get("source") or "").startswith("LLM") and entry.get("giver_name"):

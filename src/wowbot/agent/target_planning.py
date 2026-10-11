@@ -55,6 +55,25 @@ def _hover_box(state: dict, guid: str) -> dict:
     return {"hover_x": x, "hover_y": y, "track_id": subject.get("track_id")}
 
 
+def _dead_or_spent(world, unit: dict) -> bool:
+    """Any death flag, or this agent's own fresh kill / looted corpse.
+
+    Live 2026-10-10 17:25:05: right after looting a Murloc Spearhunter the
+    cursor still rested on its corpse and the enemy-mouseover TARGET selected
+    it; the agent then waited on a dead target until the user pressed ESC.
+    The FAST and STATE lanes spell the flag differently ("is_dead"/"dead"),
+    so a single fallback lookup can miss it.
+    """
+    if (unit.get("dead") is True or unit.get("is_dead") is True
+            or number(unit.get("health")) == 0):
+        return True
+    guid = str(unit.get("guid") or "")
+    model = getattr(world, "_model", None) or world
+    owned = getattr(model, "owned_corpse_guids", None) or {}
+    looted = getattr(model, "looted_corpse_guids", None) or {}
+    return bool(guid) and (guid in owned or guid in looted)
+
+
 class TargetPlanningPolicy:
     """Build target hand-off proposals from a coherent fresh cursor sample."""
 
@@ -110,7 +129,7 @@ class TargetPlanningPolicy:
                 and (mouse.get("npc_id") is not None
                      or str(mouse.get("unit_type") or "").upper() in {"NPC", "CREATURE"})
                 and mouse.get("attackable", mouse.get("is_attackable")) is True
-                and mouse.get("dead", mouse.get("is_dead")) is not True
+                and not _dead_or_spent(world, mouse)
                 and not state.get("is_in_combat")
                 and (target.get("attackable", target.get("is_attackable")) is not True
                      or target.get("dead", target.get("is_dead")) is True)

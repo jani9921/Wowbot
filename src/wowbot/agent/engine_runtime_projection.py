@@ -19,6 +19,8 @@ from wowbot.runtime import RuntimeEvent
 MOVEMENT_HANDOFF_SUBJECT_CONFIDENCE = .30
 MOVEMENT_HANDOFF_SUBJECT_STABLE_FRAMES = 6
 MOVEMENT_HANDOFF_RADIUS_YARDS = 25.
+# A turn-in walk stops for a quest symbol only near the known ender place.
+TURN_IN_CUE_RADIUS_YARDS = 40.
 
 from .models import number
 
@@ -197,6 +199,23 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
     if attempt.proposal.skill not in {"MOVE", "REACH_LOCATION", "REACH_OBJECT"}:
         return None
     purpose = str(params.get("purpose") or "")
+    if (purpose in {"LOCATE_TURN_IN_REGION", "SEARCH_TURN_IN_AREA"}
+            and params.get("quest_id") is not None
+            and isinstance(world_state.get("active_quests"), list)
+            and str(params["quest_id"]) not in {
+                str(quest.get("quest_id")) for quest in world_state["active_quests"]
+                if isinstance(quest, dict)}):
+        # Live 2026-10-11 15:54: the turn-in MOVE chosen a moment before the
+        # Hjalmar turn-in landed kept walking away for 35 s afterwards.
+        return {"reason": "turn_in_quest_left_log", "kind": "QUEST_LEFT_LOG"}
+    if purpose == "APPROACH_SELECTED_TARGET":
+        target = world_state.get("target") or {}
+        if str(target.get("guid") or "") != str(params.get("target_guid") or ""):
+            return {"reason": "selected_target_changed", "kind": "SELECTED_TARGET_CHANGED"}
+        if target.get("screen_position"):
+            # In view: visual approach / COMBAT / INTERACT take over.
+            return {"reason": "selected_target_on_screen", "kind": "SELECTED_TARGET_ON_SCREEN"}
+        return None
     if purpose == "APPROACH_MINIMAP_QUEST_DOT" and target_named_by_open_objective(world_state):
         # Live 2026-10-04 00:48: Captain Garrick was selected but the dot
         # MOVE kept walking into him and he pushed the player back; the
@@ -215,6 +234,20 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         return None
     if mouseover_named_by_open_objective(world_state):
         return {"reason": "objective_unit_under_cursor", "kind": "OBJECTIVE_UNIT_HOVERED"}
+    if params.get('knowledge_priority') == 'PRIMARY_STATIC' and quest_route:
+        # A generic YOLO object/UNKNOWN is not proof that the TDB destination
+        # has been reached. The old handoff interrupted MOVE every time a
+        # passing box appeared, before the totem/search zone. Exact live
+        # mouseover above can still interrupt anywhere.
+        player = world_state.get('player_world_position') or {}
+        px, py = number(player.get('x')), number(player.get('y'))
+        dx, dy = number(params.get('x')), number(params.get('y'))
+        near_endpoint = (None not in (px, py, dx, dy)
+                         and player.get('instance_id') == params.get('instance_id')
+                         and math.hypot(px-dx, py-dy)
+                         <= max(10., number(params.get('stop_distance')) or 0.))
+        if not near_endpoint:
+            return None
     from .object_interaction_flow import open_object_objective, quest_object_candidates
     if (open_object_objective(world_state, params.get("quest_id"))
             and (quest_object_candidates(world_state)
@@ -307,6 +340,14 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
                     and subject_has_quest_symbol(candidate, [
                         item for item in world_state.get("visual_candidates", [])
                         if isinstance(item, dict) and item.get("source") == "WORLD3D"]))
+                if (not quest_cue and purpose == "LOCATE_TURN_IN_REGION"
+                        and destination_distance is not None
+                        and destination_distance > TURN_IN_CUE_RADIUS_YARDS):
+                    # Live 2026-10-11 14:52: a porcupine with a generic
+                    # symbol-like box over it stopped the turn-in walk ~10
+                    # times 155 yd from the ender's known place.  Only a real
+                    # quest marker/badge counts that far from the ender.
+                    relevant = False
             elif objective_type in {"TALK", "TALK_TO", "SPEAK", "INTERACT_NPC"}:
                 # The unit model no longer separates humanoid bodies from
                 # creatures; addon identity decides who the NPC is.
@@ -315,6 +356,15 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
             elif objects_only:
                 # A cocoon objective: a passing creature/pet is no cue.
                 relevant = quest_cue
+            elif (params.get("scan_while_moving") is True
+                  and (objective_type in {"KILL", "KILL_CREDIT", "COLLECT", "COMBAT"}
+                       or params.get("scan_units") is True)):
+                # scan_units: an item used on named creatures (live
+                # 2026-10-11: Re-Sizer on Wandering Boars) needs units too.
+                # Zone sweep for units (user 2026-10-10): a stable creature
+                # anywhere in view is worth a look, not only one beside the
+                # next cell -- the sweep would walk past the murlocs.
+                relevant = quest_cue or learned_subject
             else:
                 relevant = quest_cue or (learned_subject and learned_handoff_area)
         confidence = number(candidate.get("confidence")) or 0.

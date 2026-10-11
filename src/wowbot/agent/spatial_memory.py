@@ -9,8 +9,16 @@ from wowbot.vision.map_mouseover import normalize_map_mouseover
 
 
 class SpatialMemory:
-    def __init__(self, directory):
-        self.entities = EntityMemory(directory / "entity_memory.sqlite3")
+    def __init__(self, directory, *, reference_path=None):
+        from .reference_catalog import ReferenceCatalog
+        from .reference_knowledge import ReferenceKnowledge
+        self.reference = ReferenceCatalog(reference_path)
+        self.entities = EntityMemory(directory / "entity_memory.sqlite3", reference_catalog=self.reference)
+        self.knowledge = ReferenceKnowledge(self.reference, self.entities)
+        from .reference_experience import ReferenceExperience
+        self.experience = ReferenceExperience(self.entities)
+        self.entities.reference_experience = self.experience
+        self.knowledge.experience = self.experience
         self.points = WorldPointMemory(directory / "world_point_memory.sqlite3")
         self.seen = {}
         self.locations = []
@@ -19,6 +27,7 @@ class SpatialMemory:
         self.marker_observations = []
         self._spawn_key = None
         self._spawn_candidates = []
+        self._world_memory_key, self._world_memory_at, self._world_memory_rows = None, -100., []
         self._quest_role_key = None
         self._quest_role_candidates = []
 
@@ -30,11 +39,34 @@ class SpatialMemory:
         key = (player.get("instance_id"), target.get("npc_id"))
         if key != self._spawn_key:
             self._spawn_key = key
-            self._spawn_candidates = candidates(*key) if all(v is not None for v in key) else []
+            self._spawn_candidates = (self.reference.spawn_candidates(*key) if self.reference.available
+                                      else candidates(*key)) if all(v is not None for v in key) else []
         px, py = number(player.get("x")), number(player.get("y"))
         rows = [{**row, "distance_yards": math.hypot(row["x"]-px, row["y"]-py)
                  if px is not None and py is not None else None}
                 for row in self._spawn_candidates]
+        from .reference_experience import context_for
+        memory_key = (str(context_for(state)), key, self.experience.revision)
+        now = time.monotonic()
+        if memory_key != self._world_memory_key or now-self._world_memory_at >= 1:
+            self._world_memory_key, self._world_memory_at = memory_key, now
+            self._world_memory_rows = self.experience.query(state, npc_id=key[1], limit=16) if key[1] else []
+        observed = {}
+        for item in self._world_memory_rows:
+            pos = item.get("position") or {}
+            if (item.get("kind") != "ENTITY_SEEN" or item.get("location_kind") != "ENTITY_POSITION"
+                    or pos.get("instance_id") != key[0] or not item.get("source", "").startswith("ADDON_")):
+                continue
+            cell = tuple(round(pos[k], 1) for k in ("x", "y", "z"))
+            if cell not in observed:
+                observed[cell] = {**pos, "npc_id": key[1], "world_map_id": key[0],
+                    "spawn_id": "learned:"+str(cell), "context": {"PhaseId": state.get("phase")},
+                    "source": "ENTITY_MEMORY_WORLD", "confirmed": False, "navigation_trusted": False,
+                    "evidence_source": item["source"], "last_seen": item["observed_at"],
+                    "distance_yards": math.hypot(pos["x"]-px,pos["y"]-py) if px is not None and py is not None else None}
+        # Keep both alternatives; consumers choose context-matching observed
+        # positions ahead of static ones, never erase the old evidence.
+        rows = list(observed.values()) + rows
         return {"world_map_id": key[0], "npc_id": key[1],
                 "target_guid": target.get("guid"), "candidates": rows,
                 "status": "REFERENCE_REQUIRES_LIVE_VALIDATION" if rows else "NO_REFERENCE",
@@ -53,7 +85,8 @@ class SpatialMemory:
         key = (world_map_id, role)
         if key != self._quest_role_key:
             self._quest_role_key = key
-            self._quest_role_candidates = quest_role_candidates(world_map_id, role) if world_map_id is not None else []
+            self._quest_role_candidates = (self.reference.role_candidates(world_map_id, role)
+                if self.reference.available else quest_role_candidates(world_map_id, role)) if world_map_id is not None else []
         px, py, pz = (number(player.get(axis)) for axis in ("x", "y", "z"))
         if None in (px, py, pz):
             return {"candidates": [], "status": "NO_PLAYER_WORLD_POSITION"}
@@ -152,6 +185,9 @@ class SpatialMemory:
         guid = mouse.get("guid")
         if guid and now-self.seen.get(guid, -100) > 2:
             position = mouse.get("world_position") or {}
+            if (position.get("coordinate_space") != "NORMALIZED_MAP"
+                    or any(number(position.get(k)) is None or not 0 <= number(position.get(k)) <= 1 for k in ("x", "y"))):
+                position = {}  # world yards/unknown coordinates must not enter normalized clusters
             self.entities.record_mouseover(mouse,
                 map_id=position.get("map_id", state.get("map_id")),
                 map_x=number(position.get("x")), map_y=number(position.get("y")),

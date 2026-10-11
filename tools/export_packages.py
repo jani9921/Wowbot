@@ -30,7 +30,9 @@ EXPORT = ROOT.parent / "export"
 
 NEVER = {"config/wow_password.txt", "config/wow_account.txt",
          # per-machine paths written by the install wizard
-         "config/local_env.bat"}
+         "config/local_env.bat",
+         # the local TDB path chosen on this machine
+         "config/reference_catalog.local.json"}
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".git", ".runtime-data", "datasets", "runs", ".vscode"}
 SKIP_FILES = ["*.pyc", "*.engine", "runs_*.log", "*.tmp"]
 
@@ -204,7 +206,9 @@ def build_github(name: str = "wow-ai-agent") -> Path:
             except (UnicodeDecodeError, OSError):
                 continue
             cleaned = (text.replace(home, r"C:\Users\<user>")
-                       .replace(home.replace("\\", "/"), "C:/Users/<user>"))
+                       .replace(home.replace("\\", "\\\\"), r"C:\\Users\\<user>")   # JSON-escaped
+                       .replace(home.replace("\\", "/"), "C:/Users/<user>")
+                       .replace(f"profiles/{Path.home().name}/", "profiles/<user>/"))
             if cleaned != text:
                 path.write_text(cleaned, encoding="utf-8")
     for rel in NEVER:

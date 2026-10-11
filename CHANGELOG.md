@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-10-09 — completed objective routing and full-state object hover (offline-tested)
+
+- Completed live or normalized quest objectives no longer yield TDB objective
+  destinations. Partly completed multi-spawn objectives require a matching
+  live yellow minimap dot or a verified consumed-spawn exclusion; progress
+  alone cannot identify which individual TDB spawn remains.
+- A fresh complete `STATE_Z` hover/cursor sample can authorize an exact
+  quest-object right-click when separate FAST field timestamps are absent.
+  Object identity and quest-credit verification remain mandatory.
+- The 2026-10-08 totem run predates these corrections; no post-fix live
+  validation has been claimed.
+
+## 2026-10-08 — élő POI-val egyeztetett TDB-úticélok (offline-tested)
+
+- Aktív objective-nél az aktuális játékbeli world-POI-t összevetjük a TDB
+  objektív-területével; egyezésnél a pontos TDB-spawn is navmesh-köteles
+  úticéljelölt lehet, ismeretlen fázis esetén is. Eltérésnél a játékbeli
+  POI marad. Több spawn közül az élő sárga minimap-pöttyel egyezőt választjuk.
+- Questfelvétel és -leadás esetén a TDB NPC-helyet az élő azonos szerepű
+  world-POI-val egyeztetjük, ha az rendelkezésre áll.
+- TDB-úticélra haladva a generikus vizuális doboz nem szakítja meg a MOVE-ot
+  a célpont közeléig; megerősített quest-hover továbbra is prioritást kap.
+  Élő interakció és quest-credit ellenőrzés nélkül a TDB nem bizonyít sikert.
+
+
+## 2026-10-08 — primary read-only TDB knowledge (offline-tested)
+
+- Audited all 247 tables in the selected Retail WORLD SQLite structurally,
+  including row/build counts and explicit runtime/query/deferred dispositions.
+- Promoted TDB quest roles, objectives, spawns and POI search regions from a
+  last-resort fallback to the shared planner's primary static candidates;
+  live identity, navmesh and quest-state verification still gate actions.
+- Added typed quest-chain, GO objective name, item-source and NPC service
+  queries. Selects the newest VerifiedBuild per logical POI while retaining
+  distinct spawn GUIDs and exposing superseded counts and provenance.
+- TDB gameobject objectives now supply a reversible type and exact ID/name
+  hypothesis where the live objective is incomplete. ID-less exact tooltip
+  confirmation is carried through the planner **and** the `OBJECT_USE` skill's
+  fresh-hover recheck; conflicting explicit IDs still block right-click.
+- Added bounded geometry/floor/phase safeguards and offline regressions.
+  No new live test or autonomous client input was performed for this change.
+
 ## 2026-09-29 — camera-compensated YOLO track association
 
 - The production learned-World3D path now uses Ultralytics BoT-SORT instead

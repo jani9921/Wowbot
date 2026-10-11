@@ -23,6 +23,7 @@ local refreshCount = 0
 local lastMouseoverKey = nil
 local lastRefreshAt = 0
 local pixelFrame
+local fastPixelFrame
 local pixelCells = {}
 local questRevision = 0
 local lastQuestSignature = ""
@@ -40,7 +41,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.58"
+local ADDON_VERSION = "0.9.63"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -1086,18 +1087,23 @@ local function normalizedQuestRowText(value)
     if not accessible(value) or type(value) ~= "string" then return "" end
     local text = safeText(value, "")
     text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "")
-    return text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+    text = text:gsub("|A.-|a", "")
+    text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+    return text:gsub("^%(Quest%)%s*", "")
 end
 
-local function questRowPoint(questID, title)
+local function questRowPoint(questID, title, gossipOptionID)
     local foundX, foundY
     local wantedID = optionalNumber(questID)
+    local wantedOptionID = optionalNumber(gossipOptionID)
     local wantedTitle = normalizedQuestRowText(title)
     local function dataMatches(value, depth, seen)
         if not accessible(value) or type(value) ~= "table" or depth > 4 or seen[value] then return false end
         seen[value] = true
         local directID = optionalNumber(value.questID or value.questId)
         if wantedID and directID == wantedID then return true end
+        local directOptionID = optionalNumber(value.gossipOptionID or value.gossipOptionId)
+        if wantedOptionID and directOptionID == wantedOptionID then return true end
         local directTitle = normalizedQuestRowText(value.title or value.name or value.text)
         if wantedTitle ~= "" and directTitle == wantedTitle then return true end
         local matched = false
@@ -1138,7 +1144,9 @@ local function questRowPoint(questID, title)
         if foundX or not candidate or not frameIsShown(candidate) then return end
         local data = candidate.GetElementData and safeCall(candidate.GetElementData, candidate) or nil
         local candidateID = optionalNumber(candidate.questID or candidate.questId)
+        local candidateOptionID = optionalNumber(candidate.gossipOptionID or candidate.gossipOptionId)
         if (wantedID and candidateID == wantedID)
+           or (wantedOptionID and candidateOptionID == wantedOptionID)
            or dataMatches(data, 0, {}) or frameTextMatches(candidate) then
             foundX, foundY = framePoint(candidate)
         end
@@ -1164,6 +1172,30 @@ local function questRowPoint(questID, title)
     end
     for _, root in ipairs(roots) do walk(root, 0) end
     return foundX, foundY
+end
+
+-- Read-only Retail gossip sensor. A conversation option is not a quest offer
+-- and cannot be inferred from GetAvailableQuests(). Export a click point only
+-- when exactly one option exists and its visible row can be located. The
+-- Python planner still decides whether that option belongs to its quest.
+local function readSingleGossipOption()
+    if not frameIsShown(_G.GossipFrame) or not C_GossipInfo or not C_GossipInfo.GetOptions then
+        return nil
+    end
+    local options = safeCall(C_GossipInfo.GetOptions)
+    if type(options) ~= "table" or #options ~= 1 then return nil end
+    local option = options[1]
+    if type(option) ~= "table" then return nil end
+    local status = optionalNumber(option.status)
+    local available = _G.Enum and _G.Enum.GossipOptionStatus
+        and optionalNumber(_G.Enum.GossipOptionStatus.Available)
+    if status and available and status ~= available then return nil end
+    local optionID = optionalNumber(option.gossipOptionID or option.gossipOptionId)
+    local name = safeText(option.name, "")
+    if not optionID or optionID <= 0 or name == "" then return nil end
+    local x, y = questRowPoint(nil, name, optionID)
+    if not x or not y or x <= 0 or x >= 1 or y <= 0 or y >= 1 then return nil end
+    return {id = optionID, name = name, x = x, y = y}
 end
 
 local function rewardChoiceFrame(index)
@@ -1325,7 +1357,8 @@ local function readQuestUI()
     -- waited/clicked a dialog that no longer existed.  Keep the hint only as
     -- a label for a *currently visible* UI; button visibility remains the
     -- authoritative action and coordinate source.
-    if result.open and questUIHint.open and nowSeconds() - questUIHint.observed_at <= 10 then
+    if frameIsShown(_G.QuestFrame) and questUIHint.open
+       and nowSeconds() - questUIHint.observed_at <= 10 then
         result.action = questUIHint.action
     end
     if C_GossipInfo then
@@ -1429,6 +1462,14 @@ local function readQuestUI()
             end
         end
     end
+    if result.open and result.x == 0 and frameIsShown(_G.GossipFrame) then
+        result.action = ""
+        result.gossip_option = readSingleGossipOption()
+        if result.gossip_option then
+            result.action = "GOSSIP_OPTION_SELECT"
+            result.x, result.y = result.gossip_option.x, result.gossip_option.y
+        end
+    end
     return result
 end
 
@@ -1459,7 +1500,7 @@ local function readFastQuestUI()
     -- opens, but must also report closed immediately when range/movement
     -- closes it.
     result.open = frameIsShown(_G.GossipFrame) or frameIsShown(_G.QuestFrame)
-    result.action = result.open and questUIHint.action or ""
+    result.action = frameIsShown(_G.QuestFrame) and questUIHint.action or ""
     local buttons = {
         {"ACCEPT", _G.QuestFrameAcceptButton},
         {"CONTINUE", _G.QuestFrameCompleteButton},
@@ -1479,6 +1520,14 @@ local function readFastQuestUI()
                 result.quest_id = safeNumber(GetQuestID and safeCall(GetQuestID), 0)
             end
             break
+        end
+    end
+    if result.open and result.x == 0 and frameIsShown(_G.GossipFrame) then
+        result.action = ""
+        result.gossip_option = readSingleGossipOption()
+        if result.gossip_option then
+            result.action = "GOSSIP_OPTION_SELECT"
+            result.x, result.y = result.gossip_option.x, result.gossip_option.y
         end
     end
     return result
@@ -2400,46 +2449,204 @@ local function pixelPayload(data)
     return payload:sub(1, PIXEL_MAX_BYTES)
 end
 
-local function setPixel(index, paletteIndex)
-    local cell = pixelCells[index]
-    if not cell then
-        cell = pixelFrame:CreateTexture(nil, "ARTWORK")
-        local zero = index - 1
-        local column = zero % PIXEL_COLUMNS
-        local row = math.floor(zero / PIXEL_COLUMNS)
-        cell:SetSize(PIXEL_CELL_SIZE, PIXEL_CELL_SIZE)
-        cell:SetPoint("TOPLEFT", pixelFrame, "TOPLEFT", column * PIXEL_CELL_SIZE, -row * PIXEL_CELL_SIZE)
-        pixelCells[index] = cell
-    end
-    local color = PIXEL_PALETTE[paletteIndex]
-    cell:SetColorTexture(color[1], color[2], color[3], 1)
-    cell:Show()
+-- STATE starts at the client top and is 12 physical pixels shorter than the
+-- old strip. FAST keeps its former cell budget in a separate, compact frame
+-- under the minimap, away from the quest dialog and tracker header.
+-- LEGACY: the former single 128-column strip, for windows too narrow.
+local PIXEL_ROWS = 29
+local LANE_FAST_COLUMNS = 64
+local LANE_FAST_ROWS = 112
+local LANE_MIN_STATE_COLUMNS = 64
+-- 0.9.63: the STATE lane is 128 columns wide and as tall as one 1024-byte
+-- page needs (33 rows): 512x132 px in the top-left corner, the legacy
+-- strip's footprint.  The 0.9.61 lane ran up to 448 columns (~1800 px) along
+-- the whole top edge for the same 1024-byte page; the detector had to mask
+-- that whole band, so close NPC heads and "!"/"?" symbols went unseen
+-- (live 2026-10-08: approach overshoot, failing INSPECT hovers).
+local LANE_MAX_STATE_COLUMNS = 128
+local LANE_STATE_PACKET_CAPACITY = 1024
+local LANE_FAST_TOP_PIXELS = 300
+local LANE_FAST_RIGHT_PIXELS = 8
+local LANE_MARKER = 254
+local LANE_FAST_VERTICAL_MARKER = 253
+local pixelLayout = {mode = "LEGACY"}
+local legacyLane = {cells = pixelCells, columns = PIXEL_COLUMNS, rows = 32}
+
+local function laneCapacity(lane)
+    return lane.columns * lane.rows / 4 - 8
 end
 
-local function encodeByte(index, byte)
-    for shift = 6, 0, -2 do
-        setPixel(index, math.floor(byte / (2 ^ shift)) % 4 + 1)
-        index = index + 1
+local function computePixelLayout()
+    local physicalWidth, physicalHeight = safeCall(GetPhysicalScreenSize)
+    physicalWidth, physicalHeight = safeNumber(physicalWidth), safeNumber(physicalHeight)
+    if physicalWidth <= 0 or physicalHeight < LANE_FAST_TOP_PIXELS + LANE_FAST_ROWS * 3 + 20 then
+        return {mode = "LEGACY"}
     end
-    return index
+    local unitsPerPixel = 768 / physicalHeight      -- a scale-1 frame
+    local margin = 0
+    -- Up to the minimap cluster (it may be moved in Edit Mode); without it,
+    -- keep a default-sized minimap's width free.
+    local right = physicalWidth - 220 / unitsPerPixel
+    local cluster = _G.MinimapCluster
+    if cluster and cluster.GetLeft and cluster.GetEffectiveScale then
+        local clusterLeft = safeNumber(safeCall(cluster.GetLeft, cluster), -1)
+        local scale = safeNumber(safeCall(cluster.GetEffectiveScale, cluster), 0)
+        if clusterLeft > 0 and scale > 0 then
+            right = math.min(physicalWidth, clusterLeft * scale / unitsPerPixel - 8)
+        end
+    end
+    local state = math.min(LANE_MAX_STATE_COLUMNS, math.floor((right - margin) / 4))
+    if state < LANE_MIN_STATE_COLUMNS then return {mode = "LEGACY"} end
+    return {mode = "LANES", cell = 4 * unitsPerPixel, margin = margin * unitsPerPixel,
+        fastCell = 3 * unitsPerPixel,
+        fastTop = LANE_FAST_TOP_PIXELS * unitsPerPixel,
+        fastRight = LANE_FAST_RIGHT_PIXELS * unitsPerPixel,
+        lanes = {{cells = {}, frame = fastPixelFrame, columns = LANE_FAST_COLUMNS,
+                  rows = LANE_FAST_ROWS, marker = LANE_FAST_VERTICAL_MARKER},
+                 {cells = {}, frame = pixelFrame, columns = state,
+                  rows = math.max(PIXEL_ROWS, math.ceil((LANE_STATE_PACKET_CAPACITY + 8) * 4 / state))}}}
+end
+
+local function setLaneCell(lane, index, paletteIndex, size)
+    local cell = lane.cells[index]
+    if not cell then
+        local parent = lane.frame or pixelFrame
+        cell = parent:CreateTexture(nil, "ARTWORK")
+        local zero = index - 1
+        local column = zero % lane.columns
+        local row = math.floor(zero / lane.columns)
+        cell:SetSize(size, size)
+        cell:SetPoint("TOPLEFT", parent, "TOPLEFT", column * size, -row * size)
+        lane.cells[index] = cell
+    end
+    -- Only changed cells are redrawn: a held STATE page costs nothing on
+    -- its second frame.
+    if cell.aipcPalette ~= paletteIndex then
+        local color = PIXEL_PALETTE[paletteIndex]
+        cell:SetColorTexture(color[1], color[2], color[3], 1)
+        cell.aipcPalette = paletteIndex
+    end
+    if not cell.aipcShown then
+        cell:Show()
+        cell.aipcShown = true
+    end
+end
+
+-- byte -> its four 2-bit palette indices, most significant first.
+local BYTE_QUADS = {}
+for byte = 0, 255 do
+    BYTE_QUADS[byte] = {math.floor(byte / 64) % 4 + 1, math.floor(byte / 16) % 4 + 1,
+                        math.floor(byte / 4) % 4 + 1, byte % 4 + 1}
+end
+
+-- 0.9.63: only bytes that differ from the frame already on screen touch
+-- their four cells.  0.9.61/62 walked every cell of both lanes on every
+-- 1/60 s tick (~10k Lua calls per tick with a 1.5 KB FAST sample and a
+-- 1 KB STATE page); the client's frame rate, and with it the capture and
+-- World3D rate, fell from ~42 to ~32 Hz (live 2026-10-07/08).  A held STATE
+-- page now costs one byte comparison per byte on its second frame.
+local function drawLane(lane, payload, size, framed)
+    local headerCells = #PIXEL_HEADER
+    if not lane.headerDrawn then
+        for index, value in ipairs(PIXEL_HEADER) do setLaneCell(lane, index, value, size) end
+        lane.headerDrawn = true
+    end
+    local bytes, count = lane.bytes or {}, 0
+    lane.bytes = bytes
+    if framed then
+        local marker = lane.marker or LANE_MARKER
+        bytes[1], bytes[2], bytes[3] = marker, math.floor(lane.columns / 256), lane.columns % 256
+        count = 3
+    end
+    local length = #payload
+    bytes[count + 1], bytes[count + 2] = math.floor(length / 256), length % 256
+    count = count + 2
+    local checksum = 0
+    for offset = 1, length do
+        local byte = string.byte(payload, offset)
+        checksum = (checksum + byte) % 256
+        count = count + 1
+        bytes[count] = byte
+    end
+    count = count + 1
+    bytes[count] = checksum
+    local shown = lane.shownBytes or {}
+    lane.shownBytes = shown
+    for k = 1, count do
+        local byte = bytes[k]
+        if shown[k] ~= byte then
+            local quad, base = BYTE_QUADS[byte], headerCells + (k - 1) * 4
+            setLaneCell(lane, base + 1, quad[1], size)
+            setLaneCell(lane, base + 2, quad[2], size)
+            setLaneCell(lane, base + 3, quad[3], size)
+            setLaneCell(lane, base + 4, quad[4], size)
+            shown[k] = byte
+        end
+    end
+    -- A shorter frame hides only the cells the previous one used.
+    local lastCount = lane.shownCount or 0
+    if lastCount > count then
+        for unused = headerCells + count * 4 + 1, headerCells + lastCount * 4 do
+            local cell = lane.cells[unused]
+            if cell and cell.aipcShown then
+                cell:Hide()
+                cell.aipcShown = false
+            end
+        end
+        for k = count + 1, lastCount do shown[k] = nil end
+    end
+    lane.shownCount = count
+end
+
+local function hideLane(lane)
+    for _, cell in ipairs(lane.cells) do
+        cell:Hide()
+        cell.aipcShown = false
+    end
+    lane.headerDrawn, lane.shownBytes, lane.shownCount = false, nil, 0
+end
+
+local function layoutPixelFrame()
+    if not pixelFrame or not fastPixelFrame then return end
+    for _, lane in ipairs(pixelLayout.lanes or {legacyLane}) do hideLane(lane) end
+    pixelLayout = computePixelLayout()
+    if pixelFrame.ClearAllPoints then pixelFrame:ClearAllPoints() end
+    if fastPixelFrame.ClearAllPoints then fastPixelFrame:ClearAllPoints() end
+    if pixelLayout.mode == "LANES" then
+        local fastLane, stateLane = pixelLayout.lanes[1], pixelLayout.lanes[2]
+        pixelFrame:SetSize(stateLane.columns * pixelLayout.cell, stateLane.rows * pixelLayout.cell)
+        pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", pixelLayout.margin, -pixelLayout.margin)
+        fastPixelFrame:SetSize(fastLane.columns * pixelLayout.fastCell,
+            fastLane.rows * pixelLayout.fastCell)
+        fastPixelFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT",
+            -pixelLayout.fastRight, -pixelLayout.fastTop)
+        fastPixelFrame:Show()
+    else
+        pixelFrame:SetSize(PIXEL_COLUMNS * PIXEL_CELL_SIZE, 128)
+        pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 12, -12)
+        fastPixelFrame:Hide()
+    end
 end
 
 local function updatePixels(data, fastData)
     if not pixelFrame then return end
+    if pixelLayout.mode == "LANES" then
+        local fastLane, stateLane = pixelLayout.lanes[1], pixelLayout.lanes[2]
+        local fastCapacity = laneCapacity(fastLane)
+        local stateCapacity = math.min(laneCapacity(stateLane), LANE_STATE_PACKET_CAPACITY)
+        -- 64/72 bytes leave room for the AIPC5 packet prefix of each lane.
+        local fastPacket, statePacket = namespace.NextLanePackets(
+            data, fastData, fastCapacity - 64, stateCapacity - 72)
+        if not fastPacket or #fastPacket > fastCapacity or #statePacket > stateCapacity then
+            error("AIPC lane packet exceeds lane capacity")
+        end
+        drawLane(fastLane, fastPacket, pixelLayout.fastCell, true)
+        drawLane(stateLane, statePacket, pixelLayout.cell, true)
+        return
+    end
     local payload = namespace.NextPacket(data, fastData)
     if #payload > PIXEL_MAX_BYTES then error("AIPC packet exceeds pixel capacity") end
-    local index = 1
-    for _, value in ipairs(PIXEL_HEADER) do setPixel(index, value); index = index + 1 end
-    index = encodeByte(index, math.floor(#payload / 256))
-    index = encodeByte(index, #payload % 256)
-    local checksum = 0
-    for offset = 1, #payload do
-        local byte = string.byte(payload, offset)
-        checksum = (checksum + byte) % 256
-        index = encodeByte(index, byte)
-    end
-    index = encodeByte(index, checksum)
-    for unused = index, #pixelCells do pixelCells[unused]:Hide() end
+    drawLane(legacyLane, payload, PIXEL_CELL_SIZE, false)
 end
 
 -- The expensive quest/inventory snapshot remains rate-limited, while the FAST
@@ -2454,8 +2661,10 @@ local function readFastState(data)
     local result = {
         timestamp = serverTimestamp(), monotonic_time = sampleTime,
         map_id = liveMapID, map_context = readMapContext(liveMapID, displayedMapID),
-        health = safeNumber(safeCall(UnitHealth, "player")),
-        max_health = safeNumber(safeCall(UnitHealthMax, "player")),
+        -- Live 2026-10-07 (12.1): UnitHealth("player") is a secret value;
+        -- safeNumber made it 0 on every FAST packet (0 % health to the agent).
+        health = optionalNumber(safeCall(UnitHealth, "player")),
+        max_health = optionalNumber(safeCall(UnitHealthMax, "player")),
         is_dead = bool(safeCall(UnitIsDead, "player")),
         is_ghost = bool(safeCall(UnitIsGhost, "player")),
         in_vehicle = bool(safeCall(UnitInVehicle, "player")),
@@ -2641,16 +2850,20 @@ local function createPanel()
     panel:Hide()
 
     pixelFrame = CreateFrame("Frame", "AIPlayerControllerPixelBridge", UIParent)
+    fastPixelFrame = CreateFrame("Frame", "AIPlayerControllerFastPixelBridge", UIParent)
     local parentScale = safeCall(UIParent.GetEffectiveScale, UIParent)
     if pixelFrame.SetIgnoreParentScale then
         pixelFrame:SetIgnoreParentScale(true)
         pixelFrame:SetScale(1)
+        if fastPixelFrame.SetIgnoreParentScale then fastPixelFrame:SetIgnoreParentScale(true) end
+        fastPixelFrame:SetScale(1)
     elseif accessible(parentScale) and parentScale and parentScale > 0 and pixelFrame.SetScale then
         pixelFrame:SetScale(1 / parentScale)
+        fastPixelFrame:SetScale(1 / parentScale)
     end
-    pixelFrame:SetSize(PIXEL_COLUMNS * PIXEL_CELL_SIZE, 128)
-    pixelFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 12, -12)
+    layoutPixelFrame()
     pixelFrame:SetFrameStrata("TOOLTIP")
+    fastPixelFrame:SetFrameStrata("TOOLTIP")
     pixelFrame:Show()
 end
 
@@ -2697,10 +2910,16 @@ for _, eventName in ipairs({
     "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED", "UPDATE_BINDINGS",
     "MERCHANT_SHOW", "MERCHANT_CLOSED", "MERCHANT_UPDATE",
     "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_MONSTER_YELL", "QUESTLINE_UPDATE",
+    "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED",
 }) do
     safeCall(frame.RegisterEvent, frame, eventName)
 end
 frame:SetScript("OnEvent", function(_, event, ...)
+    if event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
+        -- The strip width follows the client size (and the minimap position).
+        layoutPixelFrame()
+        return
+    end
     if event == "UPDATE_BINDINGS" or event == "PLAYER_ENTERING_WORLD" then namespace.InvalidateBindings() end
     if event == "QUESTLINE_UPDATE" or event == "QUEST_TURNED_IN" or event == "QUEST_ACCEPTED"
             or event == "ZONE_CHANGED_NEW_AREA" then

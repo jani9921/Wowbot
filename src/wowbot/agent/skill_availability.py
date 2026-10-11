@@ -36,6 +36,17 @@ class SkillAvailabilityMixin:
             return False
         if self.bindings and any(not self.bindings.contains(a) for a in contract.required_bindings):
             return False
+        if ((world.state.get("movement") or {}).get("falling") is True
+                and proposal.skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION",
+                                       "VISUAL_APPROACH", "SEEK_VISUAL_CUE"}):
+            return False
+        if (((world.state.get("quest_ui") or {}).get("open") is True
+             or world.state.get("quest_ui_open") is True
+             or (world.state.get("gossip_ui") or {}).get("open") is True
+             or world.state.get("gossip_open") is True)
+                and proposal.skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION",
+                                       "VISUAL_APPROACH", "SEEK_VISUAL_CUE", "OPEN_MAP"}):
+            return False
         if proposal.skill == "EXTRA_ACTION":
             params, extra = proposal.parameters, world.state.get("extra_action") or {}
             return (self.bindings is not None
@@ -47,9 +58,25 @@ class SkillAvailabilityMixin:
                     and str(extra.get("action_id")) == str(params.get("extra_action_id"))
                     and bool(params.get("quest_ids") or params.get("objective_ids")))
         if proposal.skill == "OPEN_MAP":
-            return _world_map_open(world.state) is False and not world.state.get("is_in_combat") and not world.state.get("is_casting")
+            # Live 2026-10-11 15:47/15:48: the map was opened twice while
+            # riding the Giant Boar (55879); the vehicle stage owns the input
+            # and the map only hid the screen.
+            # User 2026-10-11: opening the map closes an open quest/gossip or
+            # vendor window ("Stocking Up on Supplies": map opened as soon as
+            # the window appeared).
+            ui_open = (world.state.get("quest_ui_open") is True
+                       or (world.state.get("quest_ui") or {}).get("open") is True
+                       or world.state.get("gossip_open") is True
+                       or (world.state.get("vendor_ui") or {}).get("open") is True)
+            return (_world_map_open(world.state) is False and not world.state.get("is_in_combat")
+                    and not world.state.get("is_casting") and world.state.get("in_vehicle") is not True
+                    and not ui_open)
         if proposal.skill == "CLOSE_MAP":
             return _world_map_open(world.state) is True
+        if proposal.skill == "CLOSE_DIALOG":
+            return (world.state.get("quest_ui_open") is True
+                    and not world.state.get("world_map_open")
+                    and not world.state.get("is_in_combat"))
         if proposal.skill in {"CAMERA_CONTROL", "REACQUIRE_TARGET"}:
             from .camera_controller import CAMERA_ACTIONS, camera_gesture
             params = camera_gesture({**proposal.parameters,
@@ -182,6 +209,21 @@ class SkillAvailabilityMixin:
                     and not world.state.get("is_in_combat")
                     and any(item.get("track_id") == track_id
                             for item in world.state.get("visual_candidates") or ()))
+        if (proposal.skill == "VISUAL_APPROACH"
+                and proposal.parameters.get("object_use_approach") is True):
+            from .object_interaction_flow import ObjectInteractionFlow, open_object_objective
+            params = proposal.parameters
+            quest_ids = params.get("quest_ids") or ()
+            track_id = params.get("track_id")
+            boxes = [item for item in world.state.get("visual_candidates") or ()
+                     if isinstance(item, dict) and item.get("track_id") == track_id]
+            return (bool(quest_ids) and bool(track_id)
+                    and open_object_objective(world.state, quest_ids[0])
+                    and not any(world.state.get(key) for key in (
+                        "world_map_open", "quest_ui_open", "gossip_open",
+                        "is_in_combat", "is_casting", "input_blocked"))
+                    and ObjectInteractionFlow._confirmed_hover_box(
+                        params, quest_ids[0], world.state, boxes) is not None)
         if (proposal.skill == "VISUAL_APPROACH" and not proposal.parameters.get("guid")
                 and proposal.parameters.get("purpose") in {"VEHICLE_AIM", "VEHICLE_ATTACK"}):
             # An objective unit named by an earlier hover, not the selected

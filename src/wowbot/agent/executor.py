@@ -124,16 +124,20 @@ class InputExecutor:
             if not 0 <= command.duration <= .35:
                 raise ExecutionError("Az input lépés maximum 350 ms lehet")
             keys = [self.bindings.resolve(a) for a in ((command.binding,) if command.binding else ()) + command.simultaneous]
-            if command.kind not in {"BIND", "CLICK", "CLICK_CURRENT_CURSOR", "HOVER", "POINTER", "MAP_ZOOM_IN", "MAP_STEP_OUT", "CAMERA_PAN"}:
+            if command.kind not in {"BIND", "CLICK", "CLICK_CURRENT_CURSOR", "HOVER", "POINTER", "MAP_ZOOM_IN", "MAP_STEP_OUT", "CAMERA_PAN", "CAMERA_GLANCE"}:
                 raise ExecutionError("Ismeretlen input parancs")
-            if command.kind in {"CLICK", "HOVER", "POINTER", "MAP_ZOOM_IN", "MAP_STEP_OUT", "CAMERA_PAN"} and not (command.x is not None and command.y is not None and 0 <= command.x <= 1 and 0 <= command.y <= 1):
+            if command.kind in {"CLICK", "HOVER", "POINTER", "MAP_ZOOM_IN", "MAP_STEP_OUT", "CAMERA_PAN", "CAMERA_GLANCE"} and not (command.x is not None and command.y is not None and 0 <= command.x <= 1 and 0 <= command.y <= 1):
                 raise ExecutionError("Érvénytelen klienskoordináta")
             resolved.append((command, keys))
         # POINTER is a pure pointer move that presses nothing, so it runs while
         # a movement lease holds W (user 2026-10-01: keep the pointer on the
         # approached NPC without stopping).  HOVER and everything else still
         # release movement first (their samples are taken stationary).
-        pointer_only = all(command.kind == "POINTER" and not keys for command, keys in resolved)
+        # CAMERA_GLANCE (zone sweep, user 2026-10-10: keep walking while the
+        # camera looks around) is a left-button drag: it moves no character
+        # key, so the forward lease keeps running as for POINTER.
+        pointer_only = all(command.kind in {"POINTER", "CAMERA_GLANCE"} and not keys
+                           for command, keys in resolved)
         try:
             if not pointer_only:
                 with self._lock:
@@ -145,6 +149,8 @@ class InputExecutor:
                     self._check()
                     if command.kind == "CAMERA_PAN":
                         self.backend.move(.5, .45)
+                    elif command.kind == "CAMERA_GLANCE":
+                        self.backend.move(.5, .40)
                     elif command.kind in {"CLICK", "HOVER", "POINTER", "MAP_ZOOM_IN", "MAP_STEP_OUT"}:
                         self.backend.move(command.x, command.y)
                     if command.kind == "MAP_ZOOM_IN":
@@ -154,12 +160,12 @@ class InputExecutor:
                         keys.append("BUTTON2")
                     if command.kind in {"CLICK", "CLICK_CURRENT_CURSOR"}:
                         keys.append("BUTTON1" if command.button == "LEFT" else "BUTTON2")
-                    if command.kind == "CAMERA_PAN":
+                    if command.kind in {"CAMERA_PAN", "CAMERA_GLANCE"}:
                         keys.append("BUTTON1" if command.button == "LEFT" else "BUTTON2")
                     for key in keys:
                         self._held.add(key)
                         self.backend.key(key, True)
-                    if command.kind == "CAMERA_PAN":
+                    if command.kind in {"CAMERA_PAN", "CAMERA_GLANCE"}:
                         self.backend.move(command.x, command.y)
                 deadline = time.monotonic() + command.duration
                 while time.monotonic() < deadline:

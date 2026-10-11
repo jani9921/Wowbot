@@ -181,15 +181,24 @@ class UseItemSkill:
         context = state.skill_context.get("quest_item") or {}
         state.phase = UseItemPhase.VERIFY.value
         target = world_state.get("target") or {}
-        if target.get("guid") != context.get("guid"):
-            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
-                               retryable=True, replan_required=True)
         result = self.verify_credit(
             state.before_snapshot, world_state,
             quest_ids=context.get("quest_ids", ()),
             objective_ids=context.get("objective_ids", ()))
         if result.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
+        if world_state.get("is_casting") is True or world_state.get("is_channeling") is True:
+            context["cast_seen"] = True
+        if target.get("guid") != context.get("guid"):
+            # Live 2026-10-11 15:44: the Re-Sizer turned the Wandering Boar
+            # into a "Re-sized Boar" (target changed) and the credit came a
+            # moment later -- the use was booked as IDENTITY_UNCERTAIN.  After
+            # a cast, wait for the credit until the deadline.
+            if context.get("cast_seen") and now < state.attempt.deadline:
+                state.phase = UseItemPhase.WAIT.value
+                return SkillResult(SkillStatus.RUNNING)
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
+                               retryable=True, replan_required=True)
         from wowbot.verification.interaction import classify_ui_error, new_ui_errors
         kinds = {classify_ui_error(error.get("message"), error.get("error_code"))
                  for error in new_ui_errors(state.before_snapshot or {}, world_state)}

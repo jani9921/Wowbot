@@ -108,6 +108,38 @@ def test_completed_quest_move_hands_one_stable_quest_cue_to_visual_seek():
     assert not any(proposal.skill == "OPEN_MAP" for proposal in proposals)
 
 
+def test_api_giver_route_handoff_inspects_marked_body_even_after_probe_cap(monkeypatch):
+    planner = Planner(SkillRegistry())
+    marker = {
+        "kind": "unknown_subject_candidate", "detector_kind": "unknown_subject_candidate",
+        "source": "WORLD3D", "track_id": "cole-body", "x": .62, "y": .48,
+        "confidence": .72, "stable_frames": 20, "lifecycle": "STABLE",
+        "bbox_height_fraction": .08, "inspectable": True,
+        "candidate_labels": ["learned_subject_like", "quest_badge_like"],
+        "appearance": {"quest_badge_likeness": .9},
+        "visual_group": {"belief": "SUPPORTED", "appearance_labels": ["learned_symbol_like"]},
+    }
+    state = world(player_world_position={
+        "x": 209.7, "y": -2268.7, "z_known": False,
+        "instance_id": 2175, "coordinate_space": "WORLD_YARDS"},
+        visual_candidates=[marker])
+    route = Proposal.make("MOVE", "Find API quest giver", {
+        "purpose": "LOCATE_API_QUEST_GIVER", "x": 355., "y": -2264.,
+        "coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+        "require_navmesh": True}, priority=114)
+    monkeypatch.setattr(planner.quest, "propose", lambda *args, **kwargs: [route])
+    monkeypatch.setattr(planner.map_search_policy, "pre_domain_proposals",
+                        lambda *args, **kwargs: None)
+    planner.arm_movement_visual_handoff({"track_id": "cole-body",
+                                        "route_purpose": "LOCATE_API_QUEST_GIVER"}, 1.)
+    planner.world3d_probe_count = 4
+    proposals = planner.candidates(Goal.parse("Questelj", 1.), state, 1.1)
+
+    assert proposals[0].skill in {"INSPECT", "SEEK_VISUAL_CUE"}
+    assert proposals[0].parameters["track_id"] == "cole-body"
+    assert proposals[0].parameters["movement_visual_handoff"]["route_purpose"] == "LOCATE_API_QUEST_GIVER"
+
+
 def test_turnin_move_does_not_stop_for_an_unmarked_creature():
     attempt = SimpleNamespace(proposal=Proposal.make(
         "MOVE", "turn in", {"purpose": "LOCATE_TURN_IN_REGION"}))

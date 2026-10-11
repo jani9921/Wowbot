@@ -35,10 +35,11 @@ class AttemptOutcomeBookkeeper:
                 world.mark_corpse_looted(parameters.get("guid"), now)
                 # Retail area loot empties every own corpse nearby with the
                 # one opened (live 2026-10-01: the remaining corpses then
-                # failed loot_ui_not_opened).  Retire the other recent kills.
+                # failed loot_ui_not_opened).  Retire the other recent kills
+                # around the opened corpse (issue #91: not distant ones).
                 area = getattr(world, "mark_area_looted", None)
                 if callable(area):
-                    area(now, window=30.)
+                    area(now, window=30., origin_guid=parameters.get("guid"))
             elif skill in {"COMBAT", "DEFEND"}:
                 mark_kill = getattr(world, "mark_combat_kill", None)
                 if mark_kill is not None:

@@ -53,6 +53,7 @@ def build_runtime_observations(
             remembered_locations = []
         else:
             remembered_locations = runtime.spatial.ingest(payload, current, probe=probe)
+            runtime.spatial.experience.observe(payload, current, runtime.agent.pending)
 
         base_observation = Observation.create(payload, current)
         common = {
@@ -186,6 +187,15 @@ def build_runtime_observations(
                     "frame_id": base_observation.correlation_id,
                 },
             }, current, "SPATIAL_MEMORY"))
+            reference = runtime.spatial.knowledge.snapshot(payload, current)
+            if reference != getattr(runtime, "_last_reference_projection", None):
+                runtime._last_reference_projection = reference
+                supplemental.append(Observation.create({
+                    **common, "reference_knowledge": reference, "confidence": .3,
+                    "provenance": {"producer": "ReferenceKnowledge",
+                                   "source": "TDB_REFERENCE_AND_LEARNED_MEMORY",
+                                   "catalogue": runtime.spatial.reference.diagnostics()},
+                }, current, "REFERENCE_MEMORY"))
             supplemental.append(Observation.create({
                 **common,
                 "semantic_memory_facts": semantic_memory,
@@ -243,6 +253,26 @@ def build_runtime_observations(
     return RuntimeObservationBatch(base_observation, tuple(supplemental))
 
 
+def _recognition_cache_for_epoch(runtime: Any) -> dict:
+    """Recognition cache scoped to the current perception epoch.
+
+    Issue #75: a perception reset restarts track ids at 1, so a reused
+    "WORLD3D:1" must not inherit the previous subject's cached recognition or
+    temporal evidence.  A new epoch clears both.
+    """
+    cache = getattr(runtime, "_visual_recognition_cache", None)
+    if cache is None:
+        cache = runtime._visual_recognition_cache = {}
+    epoch = getattr(getattr(runtime, "perception", None), "epoch", None)
+    if getattr(runtime, "_visual_recognition_epoch", None) != epoch:
+        runtime._visual_recognition_epoch = epoch
+        cache.clear()
+        reset = getattr(runtime._visual_recognition_stabilizer, "reset", None)
+        if callable(reset):
+            reset()
+    return cache
+
+
 def _append_visual_projection(
     runtime: Any,
     supplemental: list[Observation],
@@ -257,9 +287,7 @@ def _append_visual_projection(
     # every agent step, ~20 % of the agent thread.  A signature only changes on
     # detector/canonical refreshes and the entity memory learns slowly, so a
     # one-second cache keeps recognition current without per-step cost.
-    cache = getattr(runtime, "_visual_recognition_cache", None)
-    if cache is None:
-        cache = runtime._visual_recognition_cache = {}
+    cache = _recognition_cache_for_epoch(runtime)
     for candidate in visual_candidates:
         signature = candidate.get("visual_signature")
         if not signature:

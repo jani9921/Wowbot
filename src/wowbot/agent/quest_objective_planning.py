@@ -3,6 +3,7 @@
 Split out of quest_planning.py (2026-10-05); unchanged.
 """
 from __future__ import annotations
+import math
 from .models import Proposal, number
 from .world import WorldModel
 from .quest_semantics import target_matches_structured_entity, use_on_subjects, subject_matches_name
@@ -61,22 +62,32 @@ class QuestObjectivePlanningMixin:
                 flow = self.location_policy.object_interaction
                 flow.note_result((world.runtime_context.get("last_result") or {})
                                  if hasattr(world, "runtime_context") else {}, state)
+                if flow.line_of_sight_blocked(state):
+                    # A LOS error requires a changed vantage point. The
+                    # generic OBJECT_USE fallback below must not re-click
+                    # this same obstructed hover on every planner tick.
+                    continue
                 object_steps = flow.propose_object_steps(obj, record, state)
+                approaching_object = any(
+                    step.skill == "VISUAL_APPROACH"
+                    and step.parameters.get("object_use_approach") is True
+                    for step in object_steps)
                 from .tooltip_quest import effective_mouseover
                 identity = self.location_policy.object_interaction.expected_identity(obj)
                 cursor = state.get("cursor_position") or {}
                 mouse = effective_mouseover(state)
-                if (not flow.range_blocked(state)
-                        and self.location_policy.object_interaction.mouseover_matches(
-                        identity, mouse)
-                        and (mouse.get("tooltip") or
-                             str(mouse.get("quest_id")) == str(record.quest_id if record else qid))
+                if (not approaching_object and not flow.range_blocked(state)
+                        and not flow.line_of_sight_blocked(state)
+                        and not flow.just_credited(state)
+                        and self.location_policy.object_interaction.quest_mouseover_matches(
+                        identity, mouse, state, record.quest_id if record else qid)
                         and all(number(cursor.get(k)) is not None for k in ("nx", "ny"))):
                     object_steps = [Proposal.make(
                         "OBJECT_USE", "Quest-objektum az egér alatt (tooltip egyezik): használat",
                         {"x": cursor["nx"], "y": cursor["ny"], "object_id": identity.get("object_id"),
                          "mouseover_tooltip": mouse.get("tooltip") or mouse.get("name"),
                          "expected_tooltips": identity.get("expected_tooltips"),
+                         "tdb_object_name": identity.get('tdb_object_name'),
                          "objective_id": obj.objective_id,
                          "quest_ids": [record.quest_id if record else qid]},
                         confidence=.85, priority=92)] + object_steps
@@ -135,6 +146,12 @@ class QuestObjectivePlanningMixin:
             range_blocked = (selected_item_target and guid in self.item_range_blocks
                              and state_time is not None
                              and state_time - float(self.item_range_blocks[guid] or 0.) <= self.ITEM_RANGE_BLOCK_SECONDS)
+            if (selected_item_target and guid and not range_blocked and activation
+                    and activation.get("activation_source") == "INTERACT_KEY"
+                    and self._item_target_far(state, target)):
+                # Live 2026-10-11 15:39-15:44: Interact pressed on boars far
+                # away (no effect -> out_of_range) before every approach.
+                range_blocked = True
             if range_blocked:
                 approach = self._item_target_approach(state, target, obj, record, qid, state_time)
                 if approach is not None:
@@ -157,7 +174,18 @@ class QuestObjectivePlanningMixin:
                     and subject_matches_name(subjects, target.get("name"))
                     and target.get("attackable", target.get("is_attackable")) is False
                     and not target.get("dead", target.get("is_dead"))):
-                if activation:
+                if activation and activation.get("activation_source") == "INTERACT_KEY":
+                    # ASSIST can only press an action-bar item; the special
+                    # item is used through Interact Target on its objective
+                    # NPC (live 2026-10-10: Austin Huxworth selected, no
+                    # executable proposal, the First Aid Kit never used).
+                    result.append(Proposal.make(
+                        "USE_ON_TARGET", "Névvel azonosított barátságos target: quest item interact gombbal",
+                        {"guid": target.get("guid"), "item_id": item_id,
+                         **activation, "objective_id": obj.objective_id,
+                         "quest_ids": [record.quest_id if record else qid]},
+                        confidence=obj.confidence, priority=80))
+                elif activation:
                     result.append(Proposal.make(
                         "ASSIST", "Névvel azonosított barátságos target: quest item használata",
                         {"guid": target.get("guid"), "item_id": item_id,
@@ -249,8 +277,8 @@ class QuestObjectivePlanningMixin:
             mouse = effective_mouseover(state)
             expected_object = obj.target_object or {}
             object_identity = self.location_policy.object_interaction.expected_identity(obj)
-            object_match = self.location_policy.object_interaction.mouseover_matches(
-                object_identity, mouse)
+            object_match = self.location_policy.object_interaction.quest_mouseover_matches(
+                object_identity, mouse, state, record.quest_id if record else qid)
             cursor = state.get("cursor_position") or {}
             if obj.type in {"USE_OBJECT", "INTERACT"} and object_match and all(number(cursor.get(k)) is not None for k in ("nx", "ny")):
                 result.append(Proposal.make("OBJECT_USE", "Strukturált quest object és addon mouseover egyezés",
@@ -279,6 +307,24 @@ class QuestObjectivePlanningMixin:
             isinstance(unit, dict) and unit.get("name")
             and not unit.get("dead", unit.get("is_dead"))
             and subject_matches_name(subjects, unit["name"]) for unit in units)
+
+    # Interact range is a few yards; beyond this the key does nothing.
+    ITEM_INTERACT_YARDS = 7.
+    # A unit box this small on screen is clearly beyond interact range.
+    ITEM_FAR_BOX_HEIGHT = .07
+
+    def _item_target_far(self, state: dict, target: dict) -> bool:
+        """The selected item target is known to be out of interact range."""
+        player = state.get("player_world_position") or {}
+        where = target.get("world_position") or {}
+        px, py = number(player.get("x")), number(player.get("y"))
+        tx, ty = number(where.get("x")), number(where.get("y"))
+        if (None not in (px, py, tx, ty) and where.get("coordinate_space") == "WORLD_YARDS"
+                and math.hypot(tx-px, ty-py) > self.ITEM_INTERACT_YARDS):
+            return True
+        anchor = target.get("screen_position") or {}
+        height = number(anchor.get("bbox_height_fraction") or anchor.get("height"))
+        return height is not None and height < self.ITEM_FAR_BOX_HEIGHT
 
     def _item_target_approach(self, state: dict, target: dict, obj, record, qid, state_time):
         """Walk to a selected item-use target that answered "too far"."""

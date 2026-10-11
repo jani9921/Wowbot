@@ -177,25 +177,54 @@ def test_arrival_not_first_small_progress_completes_reach():
     assert "STUCK_DETECTED" not in event_types
 
 
+class _StraightNavmesh:
+    """A straight navmesh path: world MOVEs require a route."""
+    def find_path(self, instance_id, start, end):
+        from wowbot.navigation.mmap_navmesh import NavMeshPath
+        anchor = {"instance_id": instance_id, "coordinate_space": "WORLD_YARDS",
+                  "source": "TRINITYCORE_MMAP"}
+        return NavMeshPath(({**anchor, "x": start["x"], "y": start["y"]},
+                            {**anchor, "x": end["x"], "y": end["y"]}), 1, 1, 30.)
+
+
 def test_reached_quest_poi_is_not_reissued_after_camera_observation_drift():
-    bot, _ = agent()
+    from wowbot.agent.engine import AutonomousAgent
+    from wowbot.agent.executor import RecordingExecutor
+    from wowbot.agent.models import Mode
+    bot = AutonomousAgent(RecordingExecutor(), navmesh=_StraightNavmesh())
+    bot.set_goal("Questelj", 1.)
+    bot.set_mode(Mode.FULL_AI)
     quest = {"quest_id": 55122, "objectives": [{
         "type": "COLLECT", "raw_type": "item",
         "description": "0/6 First Aid Kits recovered from defeated Murlocs",
         "current": 0, "required": 6}]}
+    # Map points carry the addon's C_Map world conversion; a normalized map
+    # pixel alone never authorizes movement (planning_types.world_point).
+    def at(y):
+        return {"coordinate_space": "WORLD_YARDS", "instance_id": 2175, "ui_map_id": 1609,
+                "x": 300., "y": y, "z_known": False}
     poi = {"quest_id": 55122, "map_id": 1609, "x": .5, "y": .4,
-           "source": "QUEST_POI", "coordinate_space": "NORMALIZED_MAP"}
-    bot.tick(state(1, position={"x": .5, "y": .409}, orientation=0.,
+           "source": "QUEST_POI", "coordinate_space": "NORMALIZED_MAP",
+           "world_position": at(-2300.)}
+    bot.tick(state(1, position={"x": .5, "y": .409}, orientation=0., player_world_position=at(-2330.),
                    active_quests=[quest], quest_locations=[poi]), 1)
     assert bot.pending and bot.pending.proposal.skill == "MOVE"
-    bot.tick(state(2, position={"x": .5, "y": .407}, orientation=0.,
+    bot.tick(state(2, position={"x": .5, "y": .407}, orientation=0., player_world_position=at(-2304.),
                    active_quests=[quest], quest_locations=[poi]), 2)
     assert bot.last_result["skill"] == "MOVE"
     assert bot.last_result["outcome"] == "SUCCESS"
-    assert bot.last_decision["skill"] != "MOVE"
-    bot.tick(state(3, position={"x": .5, "y": .412}, orientation=0.,
+
+    def reissued():
+        decision = bot.last_decision or {}
+        return (decision.get("skill") == "MOVE"
+                and (decision.get("parameters") or {}).get("purpose") == "LOCATE_QUEST_OBJECTIVE_REGION")
+
+    # The reached POI is not walked to again; the zone sweep (2026-10-10:
+    # walk the quest zone at once when nothing is at hand) may follow.
+    assert not reissued()
+    bot.tick(state(3, position={"x": .5, "y": .412}, orientation=0., player_world_position=at(-2311.),
                    active_quests=[quest], quest_locations=[poi]), 3)
-    assert bot.last_decision["skill"] != "MOVE"
+    assert not reissued()
 
 
 def test_stale_frame_never_accumulates_stuck_evidence():
@@ -275,3 +304,73 @@ def test_reach_object_target_identity_change_is_terminal_not_blind_motion():
     result = controller.observe(changed, "o2", 2)
     assert result.terminal and not result.success
     assert result.reason == "reach_object_identity_or_position_lost"
+
+
+def test_fast_combat_or_death_transition_stops_movement_immediately():
+    # Issue #70: a FAST combat/death transition must not keep the reach going
+    # until the next medium tick.
+    for transition in ({"is_in_combat": True}, {"is_dead": True}, {"is_ghost": True}):
+        bot, executor = agent("Menj oda", {"destination": DESTINATION})
+        bot.tick(moving_state(1), 1)
+        before = len(executor.commands)
+        fast = moving_state(1.05, .499, speed=7., moving=True) | {
+            "transport_kind": "FAST", "fast_sequence": 2, **transition}
+        result = bot.fast_movement_control(fast, 1.05)
+        assert result == {"consumed": False, "force_medium": True,
+                          "reason": "fast_combat_or_death_transition"}
+        assert len(executor.commands) == before
+
+
+def test_fast_falling_sample_releases_movement_before_medium_tick():
+    bot, executor = agent("Menj oda", {"destination": DESTINATION})
+    bot.tick(moving_state(1), 1)
+    before = len(executor.commands)
+    fast = moving_state(1.05, .499, speed=7., moving=True) | {
+        "transport_kind": "FAST", "fast_sequence": 2}
+    fast["movement"]["falling"] = True
+    result = bot.fast_movement_control(fast, 1.05)
+    assert result == {"consumed": False, "force_medium": True,
+                      "reason": "fast_fall_transition"}
+    assert len(executor.commands) == before
+    # One sample may be a ledge step: steering pauses, the route stays.
+    assert bot.navigation._route_failure_reason is None
+    still = moving_state(3.2, .499, speed=7., moving=True) | {
+        "transport_kind": "FAST", "fast_sequence": 3}
+    still["movement"]["falling"] = True
+    bot.fast_movement_control(still, 3.2)
+    assert bot.navigation._route_failure_reason == "fall_in_progress"
+
+
+def test_fast_movement_already_in_combat_is_not_a_transition():
+    # A reach the medium loop kept running while the world model already
+    # knows about combat (e.g. a planner-approved LOS move) is not preempted.
+    bot, executor = agent("Menj oda", {"destination": DESTINATION})
+    bot.tick(moving_state(1), 1)
+    assert bot.pending is not None and bot.pending.proposal.skill == "MOVE"
+    bot.world.state["is_in_combat"] = True
+    fast = moving_state(1.05, .499, speed=7., moving=True) | {
+        "transport_kind": "FAST", "fast_sequence": 2, "is_in_combat": True}
+    assert bot.fast_movement_control(fast, 1.05)["consumed"] is True
+
+
+def test_standing_at_the_destination_needs_no_navmesh_route():
+    """A MOVE whose destination is already within its stop distance must
+    arrive, not fail with required_navmesh_route_unavailable (2026-10-10)."""
+    from wowbot.navigation.service import NavigationService
+    hop = {"x": 300., "y": -2300., "coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+           "map_id": 1609, "stop_distance": 8., "require_navmesh": True,
+           "purpose": "LOCATE_QUEST_OBJECTIVE_REGION"}
+    here = {"session_id": "s", "map_id": 1609, "orientation": 0., "monotonic_time": 1.,
+            "player_world_position": {"x": 300., "y": -2304., "instance_id": 2175,
+                                      "coordinate_space": "WORLD_YARDS", "sample_time": 1.},
+            "movement": {"speed": 0., "moving": False}}
+    nav = NavigationService(navmesh=None)
+    nav.start_skill_request("MOVE", hop, here, "obs0", 1.)
+    result = nav.observe({**here, "monotonic_time": 1.2}, "obs1", 1.2)
+    assert result.reason != "required_navmesh_route_unavailable"
+    assert result.terminal and result.success
+    far = {**here, "player_world_position": {**here["player_world_position"], "y": -2340.}}
+    nav = NavigationService(navmesh=None)
+    nav.start_skill_request("MOVE", hop, far, "obs0", 1.)
+    assert nav.observe({**far, "monotonic_time": 1.2}, "obs1", 1.2).reason == \
+        "required_navmesh_route_unavailable"

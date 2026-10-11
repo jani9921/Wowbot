@@ -12,6 +12,11 @@ class VisualApproachCommandMixin:
     """Methods of VisualApproachController (visual_approach.py); moved verbatim."""
 
     def command(self, state: dict, observation_id: str, now: float) -> tuple[Command, ...]:
+        if ((state.get("quest_ui") or {}).get("open") is True
+                or state.get("quest_ui_open") is True
+                or (state.get("gossip_ui") or {}).get("open") is True
+                or state.get("gossip_open") is True):
+            return ()
         # HOVER has moved the physical pointer and the movement lease was
         # deliberately released by the executor.  Do not issue another W
         # refresh until a *new* addon mouseover sample either confirms or
@@ -145,6 +150,8 @@ class VisualApproachCommandMixin:
         # lease release) made the walk stop-and-go; arrival is decided by the
         # visual scale (learned per GUID from real client range errors).
         if (self.range_probe_enabled and self.intent.get("purpose") == "INTERACT"
+                and str((state.get("target") or {}).get("guid") or "")
+                    == str(self.intent.get("guid") or "")
                 and self.forward_updates_since_probe >= probe_updates
                 and (self.last_interaction_probe_at is None
                      or now-self.last_interaction_probe_at >= probe_interval)):
@@ -216,7 +223,7 @@ class VisualApproachCommandMixin:
             command = Command("BIND", "MOVEFORWARD", min(.08, max(.04, abs(error)*.22)),
                               simultaneous=(turn,))
         else:
-            command = Command("BIND", "MOVEFORWARD", .06 if near else .16)
+            command = Command("BIND", "MOVEFORWARD", .05 if near else .16)
         if command.binding == "MOVEFORWARD":
             self.forward_updates_since_probe += 1
             self.forward_commands_total = getattr(self, "forward_commands_total", 0)+1

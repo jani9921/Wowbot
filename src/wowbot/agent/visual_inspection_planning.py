@@ -6,7 +6,10 @@ select the global winning proposal, dispatch input, or mutate WorldModel.
 """
 from __future__ import annotations
 
+import math
+
 from .models import Proposal, number
+from .planning_types import world_point
 from wowbot.vision.entity_memory import EntityMemory
 from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
 
@@ -32,6 +35,40 @@ class VisualInspectionPolicy:
     KNOWN_HOVER_MOVE_YARDS = 5.
     VIEW_MOVE_YARDS = 3.
     VIEW_TURN_RADIANS = .2
+
+    @staticmethod
+    def _near_completed_turnin(state: dict) -> bool:
+        """A completed quest's API pin is nearby, on the same known floor.
+
+        The symbol is still just visual evidence: only mouseover and the
+        quest UI can establish that the unit actually takes this quest.
+        """
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if px is None or py is None:
+            return False
+        completed = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
+                     if isinstance(quest, dict) and quest.get("is_complete") is True}
+        for location in state.get("quest_locations") or ():
+            if not isinstance(location, dict) or str(location.get("quest_id")) not in completed:
+                continue
+            role = str(location.get("role") or "").upper()
+            source = str(location.get("source") or "").upper()
+            if role not in {"TURN_IN", "QUEST_TURN_IN"} and source != "QUEST_API_WAYPOINT":
+                continue
+            waypoint = world_point(location)
+            if (waypoint is None or str(waypoint["instance_id"]) != str(position.get("instance_id"))
+                    or math.hypot(px-waypoint["x"], py-waypoint["y"]) > 20.):
+                continue
+            pz, dz = number(position.get("z")), number(waypoint.get("z"))
+            if (pz is not None and dz is not None
+                    and position.get("z_known") is not False
+                    and (position.get("z_observed") is True
+                         or (number(position.get("z_confidence")) or 0.) >= .7)
+                    and waypoint.get("z_known") is not False and abs(pz-dz) > 5.):
+                continue
+            return True
+        return False
 
     @staticmethod
     def _view(world) -> tuple | None:
@@ -208,6 +245,7 @@ class VisualInspectionPolicy:
         objects_only = only_object_objectives_open(world.state)
         world3d = [item for item in world.state.get("visual_candidates") or ()
                    if isinstance(item, dict) and item.get("source") == "WORLD3D"]
+        near_completed_turnin = self._near_completed_turnin(world.state)
         for marker in markers:
             if (marker.get("source") == "WORLD_MAP_CV" and map_zoom_count
                     and marker.get("map_zoom_revision") != map_zoom_count):
@@ -335,7 +373,8 @@ class VisualInspectionPolicy:
                                        else inspection_base + min(15, active["utility"] * 15))
             if symbol_subject:
                 # Hover the unit under a "!"/"?" box before any other body.
-                inspection_priority = max(inspection_priority, 88)
+                inspection_priority = max(inspection_priority,
+                                          100 if near_completed_turnin else 88)
             proposal = Proposal.make(
                 "INSPECT",
                 "Quest marker tooltipjének ellenőrzése" if on_map

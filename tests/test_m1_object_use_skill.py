@@ -8,9 +8,10 @@ def _state(*, cursor=(.4, .6), object_id=77):
             "cursor_position": {"nx": cursor[0], "ny": cursor[1]}}
 
 
-def _active():
+def _active(params_override=None):
     params = {"x": .4, "y": .6, "object_id": 77, "mouseover_tooltip": "Campfire",
               "quest_ids": [10], "objective_ids": ["10:0"]}
+    params.update(params_override or {})
     before = {**_state(), "active_quests": [{"quest_id": 10, "objectives": [
         {"objective_id": "0", "current": 0, "required": 1, "is_complete": False},
     ]}]}
@@ -41,6 +42,50 @@ def test_object_use_requires_current_mouseover_identity_and_only_quest_credit_su
 def test_object_use_rejects_stale_cursor_or_wrong_hovered_object():
     assert ObjectUseSkill().begin(_active(), _state(cursor=(.41, .6))).status is SkillStatus.FAILURE
     assert ObjectUseSkill().begin(_active(), _state(object_id=88)).status is SkillStatus.FAILURE
+
+
+def test_tdb_object_id_with_idless_exact_tooltip_still_gets_fresh_hover_click():
+    params={'object_id':339568,'tdb_object_name':'Thick Cocoon',
+            'mouseover_tooltip':'Thick Cocoon ~ Who Lurks in the Pit'}
+    mouse={'object_id':None,'name':'Thick Cocoon',
+           'tooltip':'Thick Cocoon ~ Who Lurks in the Pit',
+           'quest_related':True,'quest_id':10}
+    world={**_state(), 'mouseover':mouse}
+    skill,state=ObjectUseSkill(),_active(params)
+    assert skill.begin(state,world).commands[0].kind=='HOVER'
+    assert skill.verify(state,world,1.2).commands[0].kind=='CLICK'
+    wrong={**world,'mouseover':{**mouse,'object_id':4444}}
+    assert not ObjectUseSkill._identity_matches(state.intent.parameters,wrong['mouseover'])
+
+
+def test_complete_state_z_after_hover_can_confirm_idless_tdb_totem():
+    params = {'object_id':327146, 'tdb_object_name':'Harpy Totem',
+              'mouseover_tooltip':'Harpy Totem ~ Purge the Totems ~ 4/5 Harpy Totems burned'}
+    mouse = {'object_id':0, 'quest_id':10, 'quest_related':True,
+             'tooltip':params['mouseover_tooltip']}
+    before = {**_state(), 'transport_kind':'STATE_Z', 'state_sample_time':1.,
+              'monotonic_time':1., 'mouseover':mouse}
+    skill, state = ObjectUseSkill(), _active(params)
+    assert skill.begin(state, before).commands[0].kind == 'HOVER'
+    assert not skill.verify(state, before, 1.1).commands  # same old packet
+    refreshed = {**before, 'state_sample_time':1.25, 'monotonic_time':1.25}
+    clicked = skill.verify(state, refreshed, 1.3)
+    assert [(cmd.kind, cmd.button) for cmd in clicked.commands] == [('CLICK', 'RIGHT')]
+
+
+def test_complete_state_z_cannot_confirm_wrong_or_old_totem_hover():
+    params = {'object_id':327146, 'tdb_object_name':'Harpy Totem',
+              'mouseover_tooltip':'Harpy Totem ~ Purge the Totems'}
+    before = {**_state(), 'transport_kind':'STATE_Z', 'state_sample_time':1.,
+              'monotonic_time':1., 'mouseover':{'object_id':0,'quest_id':10,
+                  'quest_related':True,'tooltip':params['mouseover_tooltip']}}
+    skill, state = ObjectUseSkill(), _active(params)
+    skill.begin(state, before)
+    old = {**before, 'state_sample_time':.9, 'monotonic_time':1.2}
+    assert not skill.verify(state, old, 1.2).commands
+    wrong = {**before, 'state_sample_time':1.3, 'monotonic_time':1.3,
+             'mouseover':{**before['mouseover'],'object_id':4444}}
+    assert not skill.verify(state, wrong, 1.3).commands
 
 
 def test_object_use_cannot_click_after_the_view_turns_during_hover_confirmation():

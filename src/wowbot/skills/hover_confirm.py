@@ -67,7 +67,9 @@ def hover_confirm_step(context: dict, world_state: dict, now: float, *,
     # Only a mouseover sampled after the hover confirms it.  Live 2026-10-05
     # 616937: the confirm read the mouseover of the previous INSPECT spot
     # (sampled before the hover), clicked, and nothing was under the pointer.
-    fresh = hovered_at is None or sample is None or sample >= hovered_at
+    # A missing sample time after a hover proves nothing (issue #88): the
+    # retained GUID may predate the pointer move.
+    fresh = hovered_at is None or (sample is not None and sample >= hovered_at)
     if fresh and expected_guid and str(mouse.get("guid") or "") == str(expected_guid):
         if mouse.get("lootable") is False:
             return "EMPTY", ()

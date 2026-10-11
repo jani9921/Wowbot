@@ -60,6 +60,20 @@ def test_arrival_hands_the_same_room_to_bounded_object_search(monkeypatch):
     assert later.parameters["x"] == 70.
 
 
+def test_local_dot_search_cannot_be_preempted_by_a_return_to_the_dot(monkeypatch):
+    monkeypatch.setattr("wowbot.agent.quest_location_planning.minimap_objective_dots",
+                        lambda state, **_kwargs: state["test_dots"])
+    policy = QuestLocationPlanningPolicy()
+    policy.minimap_dot_move(_world(_state(1., dots=[(25., 0., "55639")])))
+    assert policy.minimap_dot_move(_world(_state(2., x=25., dots=[(25., 0., "55639")]))) is None
+    # A local search cell took us beyond the dot's arrival radius.  The
+    # original priority-88 MOVE would beat the priority-86 SEEK here.
+    assert policy.minimap_dot_move(_world(_state(11., x=43., dots=[(25., 0., "55639")]))) is None
+    proposals = policy.propose_known_locations(_world(_state(11., x=43., dots=[(25., 0., "55639")])))
+    assert not any(p.skill == "MOVE" and p.parameters.get("purpose") == "APPROACH_MINIMAP_QUEST_DOT"
+                   for p in proposals)
+
+
 def test_credit_change_unlocks_an_exhausted_objective_dot():
     memory = QuestDotFocus()
     state = _state(1.)
@@ -388,6 +402,26 @@ def test_turnin_xy_arrival_does_not_hide_a_known_floor_mismatch():
     assert not policy.turn_in_arrived(55639, destination, state)
     state["player_world_position"]["z"] = 30.
     assert policy.turn_in_arrived(55639, destination, state)
+
+
+def test_turnin_local_search_survives_small_api_pin_boundary_crossings():
+    policy = QuestLocationPlanningPolicy()
+    destination = {"x": 190., "y": -2283., "instance_id": 2175,
+                   "coordinate_space": "WORLD_YARDS"}
+    state = _state(1., x=179.)  # 11 yd: first entry into the NPC search area
+    state["player_world_position"]["y"] = -2283.
+    state["player_world_position"].update({"z": 30., "z_known": True, "z_confidence": .9})
+    assert policy.turn_in_arrived(55639, destination, state)
+    assert policy.turn_in_search(55639, destination).parameters["search_area"]["z"] == 30.
+    state["player_world_position"]["x"] = 176.  # 14 yd during local cell search
+    assert policy.turn_in_arrived(55639, destination, state)
+    state["player_world_position"]["z"] = 0.  # same X/Y, wrong cave floor
+    assert not policy.turn_in_arrived(55639, destination, state)
+    state["player_world_position"].update({"z": 30., "x": 169.})  # >20 yd: resume route
+    assert not policy.turn_in_arrived(55639, destination, state)
+    state["player_world_position"]["x"] = 176.
+    different_pin = {**destination, "x": 250.}
+    assert not policy.turn_in_arrived(55639, different_pin, state)
 
 
 def test_verified_turnin_route_keeps_its_floor_during_local_npc_search():

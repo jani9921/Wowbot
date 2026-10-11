@@ -27,8 +27,18 @@ class WorldSceneProfile:
     left_hud_width_px: int = 240
     left_hud_width_ratio: float = 0.35
     left_hud_top_ratio: float = 0.53
+    # The pixel strip's top-left island only: the legacy 512x128 strip and
+    # addon 0.9.63's 512x132 px STATE lane.  0.9.61/62 drew a ~1800 px wide
+    # lane and this was 1.0: the detector lost the whole top band (close NPC
+    # heads, "!"/"?" symbols).  The FAST lane has its own 192x336 px frame.
     addon_hud_width_ratio: float = 0.36
+    addon_hud_width_px: int = 532
     addon_hud_bottom_ratio: float = 0.18
+    addon_hud_bottom_px: int = 148
+    addon_fast_right_margin_px: int = 8
+    addon_fast_top_px: int = 300
+    addon_fast_width_px: int = 192
+    addon_fast_height_px: int = 336
     player_frame_left_ratio: float = 0.24
     player_frame_right_ratio: float = 0.36
     player_frame_top_ratio: float = 0.67
@@ -92,8 +102,19 @@ def build_scene_roi(width: int, height: int, profile: WorldSceneProfile | None =
     learned_bottom = min(height, max(learned_top + 1, int(round(
         height * cfg.learned_bottom_ratio))))
     addon_hud = PixelRect(
-        0, 0, min(width, int(round(width * cfg.addon_hud_width_ratio))),
-        min(rect.bottom, int(round(height * cfg.addon_hud_bottom_ratio))))
+        0, 0, min(width, max(int(cfg.addon_hud_width_px),
+                             int(round(width * cfg.addon_hud_width_ratio)))),
+        min(rect.bottom, max(int(cfg.addon_hud_bottom_px),
+                             int(round(height * cfg.addon_hud_bottom_ratio)))))
+    vertical_fast = None
+    if height >= cfg.addon_fast_top_px + cfg.addon_fast_height_px + 20:
+        fast_right = width - cfg.addon_fast_right_margin_px
+        fast_left = fast_right - cfg.addon_fast_width_px
+        if fast_left > 0:
+            vertical_fast = PixelRect(max(0, fast_left - 6),
+                                      max(0, cfg.addon_fast_top_px - 6),
+                                      min(width, fast_right + 6),
+                                      min(height, cfg.addon_fast_top_px + cfg.addon_fast_height_px + 6))
     player_frame = PixelRect(
         int(round(width * cfg.player_frame_left_ratio)),
         int(round(height * cfg.player_frame_top_ratio)),
@@ -118,6 +139,8 @@ def build_scene_roi(width: int, height: int, profile: WorldSceneProfile | None =
         int(round(height * cfg.learned_microbar_top_ratio)), width, learned_bottom)
     hard_excluded = (addon_hud, right_hud, chat, actionbar, microbar,
                      player_frame, target_frame)
+    if vertical_fast is not None:
+        hard_excluded += (vertical_fast,)
     excluded.extend((player_frame, target_frame))
 
     self_top = min(rect.bottom, int(round(height * cfg.self_avatar_top_ratio)))

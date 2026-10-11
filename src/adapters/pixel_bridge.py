@@ -19,7 +19,13 @@ from .pixel_payload import _integer, _number, _text, payload_to_state  # noqa: F
 
 HEADER = (2, 0, 1, 3, 2, 3, 1, 0)  # green, black, red, blue, green, blue, red, black
 _GRID_CACHE: dict[tuple[int, int], tuple[int, int, float]] = {}
+_VERTICAL_FAST_CACHE: dict[tuple[int, int], tuple[int, int, float]] = {}
 _LAST_DISCOVERY: dict[str, object] = {}
+# Where the top STATE strip was before it was covered (World Map, a panel):
+# checked again on every FAST-only frame so the strip is found again at once.
+_LOST_GRID: dict[tuple[int, int], tuple[int, int, float]] = {}
+_FAST_ONLY_FRAMES: dict[tuple[int, int], int] = {}
+FAST_ONLY_RESEARCH_FRAMES = 60
 _PROFILE_PATH = Path(__file__).resolve().parents[2] / "config" / "pixel_strip_profiles.json"
 
 
@@ -152,11 +158,35 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
             # of pure Python per frame and starved every other agent thread.
             _LAST_DISCOVERY.update({"cache_hit": True, "status": "torn_frame",
                                     "x": cached[0], "y": cached[1], "pitch": cached[2]})
-            return None
-        _GRID_CACHE.pop((width, height), None)
+            return _decode_vertical_fast(buffer, width, height) if (width, height) in _VERTICAL_FAST_CACHE else None
+        _LOST_GRID[(width, height)] = _GRID_CACHE.pop((width, height))
+    key = (width, height)
+    lost = _LOST_GRID.get(key)
+    if cached is None and lost is not None and _header_present(buffer, width, height, *lost):
+        # Live 2026-10-10 17:48: the World Map covered the strip for one
+        # second; afterwards only the FAST lane was ever decoded again and
+        # the full state stayed 40+ s old (no item use, only WAIT).
+        payload = _decode_grid(buffer, width, height, *lost)
+        if payload is not None:
+            _GRID_CACHE[key] = lost
+            _LOST_GRID.pop(key, None)
+            _FAST_ONLY_FRAMES.pop(key, None)
+            _LAST_DISCOVERY.update({"status": "decoded", "x": lost[0], "y": lost[1],
+                                    "pitch": lost[2], "path": "recovered_strip"})
+            return payload
+    if key in _VERTICAL_FAST_CACHE and (cached is not None or lost is not None):
+        frames = _FAST_ONLY_FRAMES.get(key, 0) + 1
+        _FAST_ONLY_FRAMES[key] = frames
+        if frames % FAST_ONLY_RESEARCH_FRAMES:
+            # The strip may have moved: a full search (expensive) runs on
+            # every 60th FAST-only frame, the cheap header check on every one.
+            vertical = _decode_vertical_fast(buffer, width, height)
+            if vertical is not None:
+                _LAST_DISCOVERY.update({"status": "fast_only", "path": "vertical_fast_cache"})
+                return vertical
 
-    # New addons use a physical four-pixel pitch. Try the likely client/window
-    # origins first; legacy UI-scaled strips remain supported by the fallback.
+    # Top STATE uses four physical pixels; the separately placed vertical FAST
+    # lane uses three. Legacy UI-scaled strips remain supported below.
     expected = float(profile.get("expected_pitch", 4.0))
     max_x = min(width, max(32, int(profile.get("search_x", 192))))
     max_y = min(height, max(64, int(profile.get("search_y", 384))))
@@ -211,12 +241,17 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
                                 _LAST_DISCOVERY.update({"status": "decoded", "x": x, "y": y,
                                                         "pitch": refined, "path": "legacy_fallback"})
                                 return payload
+    if (width, height) in _VERTICAL_FAST_CACHE:
+        vertical = _decode_vertical_fast(buffer, width, height)
+        if vertical is not None:
+            _LAST_DISCOVERY.update({"status": "fast_only", "path": "vertical_fast_after_search"})
+            return vertical
     _LAST_DISCOVERY["status"] = "not_visible"
     return None
 
 
 def _cell_classes(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
-                  pitch: float, start: int, count: int):
+                  pitch: float, start: int, count: int, columns: int = 128):
     """Vectorized classify_rgb for grid cells ``start..start+count``.
 
     Returns an int8 array, or None when any cell is outside the frame or has
@@ -224,7 +259,6 @@ def _cell_classes(buffer: bytes, width: int, height: int, center_x: float, cente
     Live 2026-09-30: the per-cell Python loop pinned the pixel-sensor thread at
     80-92 % of a core while strip discovery retried geometries.
     """
-    columns = 128
     index = np.arange(start, start + count)
     # np.rint and Python round() both round half to even, so cell positions
     # are identical to the former scalar implementation.
@@ -261,11 +295,128 @@ def _header_present(buffer: bytes, width: int, height: int, center_x: float, cen
     return classes is not None and tuple(int(value) for value in classes) == HEADER
 
 
+# Two-lane strip (addon 0.9.61): after the header, a lane marker byte, the
+# lane's column count and its length frame each lane; the STATE lane starts
+# right after the FAST lane's columns on the same rows.  A legacy length's
+# high byte is at most 3, so the marker can never be read as one.
+LANE_MARKER = 254
+VERTICAL_FAST_MARKER = 253
+LANE_ROWS = 32
+_ROW_ZERO = 1 << 30
+
+
+def _lane_header(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
+                 pitch: float) -> Optional[tuple[int, int, int]]:
+    head = _cell_classes(buffer, width, height, center_x, center_y, pitch, 0, 28, columns=_ROW_ZERO)
+    if head is None or tuple(int(value) for value in head[:8]) != HEADER:
+        return None
+    marker, columns_high, columns_low, length_high, length_low = _bytes_from_cells(head[8:])
+    columns = columns_high * 256 + columns_low
+    length = length_high * 256 + length_low
+    if marker == VERTICAL_FAST_MARKER:
+        capacity = 64 * 112 // 4 - 8 if columns == 64 else 0
+    elif marker == LANE_MARKER:
+        # 32 rows for the old layouts; addon 0.9.63's 128-column STATE lane
+        # grows as tall as a 1024-byte page needs (33 rows).
+        capacity = max(8 * columns - 8, 1024 if columns >= 128 else 0)
+    else:
+        return None
+    if not 28 <= columns <= 1024 or not 1 <= length <= capacity:
+        return None
+    return marker, columns, length
+
+
+def _decode_lane(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
+                 pitch: float) -> Optional[tuple[str, int]]:
+    """One framed lane at its header: (packet, column count) or None."""
+    header = _lane_header(buffer, width, height, center_x, center_y, pitch)
+    if header is None:
+        return None
+    _, columns, length = header
+    body = _cell_classes(buffer, width, height, center_x, center_y, pitch, 28, (length + 1) * 4,
+                         columns=columns)
+    if body is None:
+        return None
+    decoded = _bytes_from_cells(body)
+    values, checksum = decoded[:length], decoded[length]
+    if checksum != sum(values) % 256:
+        return None
+    try:
+        payload = bytes(values).decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return (payload, columns) if payload.startswith("AIPC5|") else None
+
+
+def _decode_vertical_fast(buffer: bytes, width: int, height: int) -> Optional[str]:
+    """The independent FAST frame under the minimap, without scanning the world."""
+    if height < 656 or width < 240:
+        return None
+    key = (width, height)
+    cached = _VERTICAL_FAST_CACHE.get(key)
+    if cached is not None:
+        decoded = _decode_lane(buffer, width, height, *cached)
+        if decoded is not None and decoded[0].split("|", 6)[5:6] == ["FAST"]:
+            return decoded[0]
+        _VERTICAL_FAST_CACHE.pop(key, None)
+    expected_x, expected_y = width - 8 - 64 * 3, 300
+    for dy in (0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6):
+        y = expected_y + dy
+        for dx in (0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6):
+            x = expected_x + dx
+            if x < 0 or not _header_present(buffer, width, height, x, y, 3.0):
+                continue
+            header = _lane_header(buffer, width, height, x, y, 3.0)
+            if header is None or header[0] != VERTICAL_FAST_MARKER:
+                continue
+            decoded = _decode_lane(buffer, width, height, x, y, 3.0)
+            if decoded is not None and decoded[0].split("|", 6)[5:6] == ["FAST"]:
+                _VERTICAL_FAST_CACHE[key] = (x, y, 3.0)
+                return decoded[0]
+    return None
+
+
+def _decode_lanes(buffer: bytes, width: int, height: int, center_x: float, center_y: float,
+                  pitch: float) -> Optional[str]:
+    """Both lanes, newline-joined (packets never contain a raw newline).
+
+    Old layouts put STATE immediately after FAST. The new top STATE lane
+    has an independently anchored vertical FAST lane under the minimap.
+    """
+    header = _lane_header(buffer, width, height, center_x, center_y, pitch)
+    if header is None:
+        return None
+    first = _decode_lane(buffer, width, height, center_x, center_y, pitch)
+    columns = header[1]
+    second = _decode_lane(buffer, width, height, center_x + columns * pitch, center_y, pitch)
+    packets = [lane[0] for lane in (first, second) if lane is not None]
+    # The top lane carries STATE pages (compressed: STATE_Z); its FAST
+    # partner is the vertical lane under the minimap.  0.9.63's 128-column
+    # STATE lane is no longer wider than 224 columns, so the page kind alone
+    # must trigger the search (live 2026-10-10: STATE_Z only, FAST never read).
+    if second is None and (header[1] > 224 or (
+            first and first[0].split("|", 6)[5:6] in (["STATE"], ["STATE_Z"]))):
+        vertical = _decode_vertical_fast(buffer, width, height)
+        if vertical is not None:
+            packets.append(vertical)
+    if not packets:
+        return None
+    packets.sort(key=lambda packet: 0 if packet.split("|", 6)[5:6] == ["FAST"] else 1)
+    return "\n".join(packets)
+
+
+def split_lane_payload(payload: str) -> list[str]:
+    """The AIPC5 packets of one decoded frame (one, or one per lane)."""
+    return [part for part in payload.split("\n") if part]
+
+
 def _decode_grid(buffer: bytes, width: int, height: int, center_x: int, center_y: int, pitch: float) -> Optional[str]:
     length_cells = _cell_classes(buffer, width, height, center_x, center_y, pitch, 8, 8)
     if length_cells is None:
         return None
     high, low = _bytes_from_cells(length_cells)
+    if high in (LANE_MARKER, VERTICAL_FAST_MARKER):
+        return _decode_lanes(buffer, width, height, center_x, center_y, pitch)
     length = high * 256 + low
     if not 1 <= length <= 1000:
         return None

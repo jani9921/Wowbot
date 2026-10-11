@@ -94,11 +94,57 @@ def open_object_objective(state: dict, quest_id=None) -> bool:
 class ObjectInteractionFlow:
     """Compose locate -> local search -> validate -> use -> credit verify."""
 
-    # Approach until the quest-object box is this tall before using it.  The
-    # client's "You are too far away." raises it (live 2026-10-06 21:16: a
-    # cocoon hovered from a ledge above; the credited one was ~.19-.24 tall).
-    OBJECT_READY_HEIGHT = .12
-    OBJECT_RANGE_BLOCK_SECONDS = 6.
+    # Visual scale is diagnostic only for a hovered quest object: live 18:28
+    # showed a .10-height cocoon that was usable.  Client range feedback,
+    # followed by bounded forward pulses, owns the retry decision.
+    OBJECT_READY_HEIGHT = .16
+
+    @staticmethod
+    def _hover_identity(state: dict) -> tuple[str, str] | None:
+        from .tooltip_quest import effective_mouseover
+        mouse = effective_mouseover(state)
+        key = (str(mouse.get("quest_id") or ""),
+               str(mouse.get("object_id") or mouse.get("name")
+                   or mouse.get("unit_name") or "").casefold())
+        return key if any(key) else None
+
+    @staticmethod
+    def _confirmed_hover_box(identity: dict, quest_id, state: dict,
+                             boxes: list[dict]) -> dict | None:
+        """Bind a current addon-confirmed object hover to one live visual box.
+
+        A learned outline alone is never authority to walk toward scenery.
+        The pointer, mouseover and box must agree in this same fresh view.
+        """
+        from .tooltip_quest import effective_mouseover
+        now = number(state.get("monotonic_time"))
+        mouse_at = number(state.get("mouseover_sample_time"))
+        cursor_at = number(state.get("cursor_sample_time"))
+        cursor = state.get("cursor_position") or {}
+        cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+        mouse = effective_mouseover(state)
+        if (None in (now, mouse_at, cursor_at, cx, cy)
+                or not 0 <= now-mouse_at <= .75
+                or not 0 <= now-cursor_at <= .75
+                or abs(mouse_at-cursor_at) > .1
+                or mouse.get("quest_related") is not True
+                or str(mouse.get("quest_id")) != str(quest_id)
+                or not ObjectInteractionFlow.mouseover_matches(identity, mouse)):
+            return None
+        for box in boxes:
+            bx, by = number(box.get("x")), number(box.get("y"))
+            observed = number(box.get("observed_at", box.get("last_seen")))
+            if (None in (bx, by, observed)
+                    or not 0 <= now-observed <= .8
+                    or str(box.get("lifecycle") or box.get("track_state") or "ACTIVE").upper()
+                    not in {"ACTIVE", "STABLE"}):
+                continue
+            width = number(box.get("bbox_width_fraction")) or 0.
+            height = number(box.get("bbox_height_fraction")) or 0.
+            if (abs(cx-bx) <= max(.025, width*.75)
+                    and abs(cy-by) <= max(.025, height*.6)):
+                return box
+        return None
 
     def object_ready_height(self) -> float:
         return float(self.__dict__.get("_ready_height") or self.OBJECT_READY_HEIGHT)
@@ -112,36 +158,147 @@ class ObjectInteractionFlow:
         self._noted_action = action
         if (last.get("skill") == "OBJECT_USE"
                 and "range" in str(last.get("reason") or "").lower()):
+            identity = self._hover_identity(state)
+            if identity is not None and identity != self.__dict__.get("_range_failure_identity"):
+                self._range_failure_count = 0
+                self._range_failure_identity = identity
+            self._range_failure_count = min(3, int(self.__dict__.get("_range_failure_count") or 0)+1)
             height = max((number(box.get("bbox_height_fraction")) or 0.
                           for box in quest_object_candidates(state)), default=0.)
             self._ready_height = min(.6, max(self.object_ready_height()*1.25, height*1.3))
             self._range_blocked_at = number(state.get("monotonic_time"))
-        elif (last.get("skill") in {"SEEK_VISUAL_CUE", "VISUAL_APPROACH", "MOVE"}
+            cursor = state.get("cursor_position") or {}
+            position = state.get("player_world_position") or {}
+            self._range_blocked_cursor = (number(cursor.get("nx")), number(cursor.get("ny")))
+            self._range_blocked_position = (position.get("instance_id"),
+                                            number(position.get("x")), number(position.get("y")))
+        elif (last.get("skill") == "OBJECT_USE"
+              and "line_of_sight" in str(last.get("reason") or "").lower()):
+            cursor = state.get("cursor_position") or {}
+            position = state.get("player_world_position") or {}
+            self._los_blocked_cursor = (number(cursor.get("nx")), number(cursor.get("ny")))
+            self._los_blocked_position = (position.get("instance_id"),
+                                          number(position.get("x")), number(position.get("y")))
+        elif (last.get("skill") in {"VISUAL_APPROACH", "MOVE"}
               and last.get("outcome") == "SUCCESS"):
-            self._range_blocked_at = None          # walked closer: try the use again
+            self._range_blocked_at = None          # movement, not hover, permits retry
+        if last.get("skill") == "OBJECT_USE" and last.get("outcome") == "SUCCESS":
+            self._los_blocked_cursor = None
+            self._range_blocked_at = None
+            self._range_failure_count = 0
+            self._range_failure_identity = None
+            cursor = state.get("cursor_position") or {}
+            self._credited = (number(state.get("monotonic_time")),
+                              number(cursor.get("nx")), number(cursor.get("ny")))
+
+    CREDITED_HOLD_SECONDS = 3.
+    CREDITED_CURSOR_RADIUS = .04
+
+    def just_credited(self, state: dict) -> bool:
+        """The object under the unmoved cursor was just credited.
+
+        Live 2026-10-07 12:06: the FAST quest digest verified the 5th cocoon;
+        the paged snapshot still showed 4/5 and the tooltip still named the
+        cocoon, so a second OBJECT_USE right-clicked the freed prisoner
+        ("Invalid target")."""
+        credited = self.__dict__.get("_credited")
+        now = number(state.get("monotonic_time"))
+        cursor = state.get("cursor_position") or {}
+        cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+        if not credited or None in (credited[0], now, cx, cy):
+            return False
+        at, x, y = credited
+        near = x is None or y is None or abs(cx-x) + abs(cy-y) <= self.CREDITED_CURSOR_RADIUS
+        return 0 <= now-at <= self.CREDITED_HOLD_SECONDS and near
 
     def range_blocked(self, state: dict) -> bool:
-        """A use just failed "too far": approach first, do not click again."""
-        blocked, now = number(self.__dict__.get("_range_blocked_at")), number(state.get("monotonic_time"))
-        return (blocked is not None and now is not None
-                and 0 <= now-blocked <= self.OBJECT_RANGE_BLOCK_SECONDS)
+        """A range error remains until movement or a different object cue."""
+        blocked = number(self.__dict__.get("_range_blocked_at"))
+        if blocked is None:
+            return False
+        original_cursor = self.__dict__.get("_range_blocked_cursor") or (None, None)
+        cursor = state.get("cursor_position") or {}
+        cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+        if (None not in (*original_cursor, cx, cy)
+                and abs(cx-original_cursor[0])+abs(cy-original_cursor[1]) > .06):
+            # Camera movement slides the same cocoon under a new cursor
+            # coordinate.  A new coordinate alone is not evidence that the
+            # client's range error no longer applies to this object.
+            current_identity = self._hover_identity(state)
+            failed_identity = self.__dict__.get("_range_failure_identity")
+            if (current_identity is not None and failed_identity is not None
+                    and current_identity != failed_identity):
+                self._range_blocked_at = None
+                return False
+        previous = self.__dict__.get("_range_blocked_position") or (None, None, None)
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if (previous[0] is not None and position.get("instance_id") is not None
+                and position.get("instance_id") != previous[0]):
+            self._range_blocked_at = None
+            return False
+        if (None not in (previous[1], previous[2], px, py)
+                and (px-previous[1])**2+(py-previous[2])**2 >= 4.):
+            self._range_blocked_at = None
+            return False
+        return True
+
+    def line_of_sight_blocked(self, state: dict) -> bool:
+        """Do not retry the same obstructed click without a changed position/cue.
+
+        Moving to a different object (cursor) or walking at least two yards
+        permits a fresh attempt; repeated hover at the same wall does not.
+        """
+        original = self.__dict__.get("_los_blocked_cursor")
+        if original is None:
+            return False
+        cursor = state.get("cursor_position") or {}
+        cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+        if None not in (*original, cx, cy) and abs(cx-original[0])+abs(cy-original[1]) > .06:
+            self._los_blocked_cursor = None
+            return False
+        previous = self.__dict__.get("_los_blocked_position") or (None, None, None)
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if (previous[0] is not None and position.get("instance_id") is not None
+                and position.get("instance_id") != previous[0]):
+            self._los_blocked_cursor = None
+            return False
+        if (None not in (previous[1], previous[2], px, py)
+                and position.get("instance_id") == previous[0]
+                and (px-previous[1])**2+(py-previous[2])**2 >= 4.):
+            self._los_blocked_cursor = None
+            return False
+        return True
 
     @staticmethod
     def expected_identity(objective) -> dict:
         target = dict(getattr(objective, "target_object", {}) or {})
         raw = getattr(objective, "raw", {}) or {}
         subjects = world_object_subjects({**raw, "description": getattr(objective, "description", "")})
+        if raw.get('tdb_object_name'):
+            subjects = list(dict.fromkeys([raw['tdb_object_name'], *subjects]))
         return {
-            "object_id": target.get("object_id"),
+            "object_id": target.get("object_id") or raw.get('tdb_object_id'),
             "item_id": target.get("item_id"),
             "expected_tooltips": subjects,
+            "tdb_object_name": raw.get('tdb_object_name'),
         }
 
     @staticmethod
     def mouseover_matches(identity: dict, mouseover: dict) -> bool:
         """Accept explicit IDs first; textual identity only when no ID exists."""
         if identity.get("object_id") is not None:
-            return str(mouseover.get("object_id")) == str(identity["object_id"])
+            observed_id = mouseover.get('object_id')
+            if observed_id not in (None, '', 0, '0'):
+                return str(observed_id) == str(identity['object_id'])
+            # Retail's object tooltip/FAST mouseover can lack an object ID.
+            # Only the exact TDB GO template name may confirm that case;
+            # generic objective words such as "cocoon" are insufficient.
+            expected = words(str(identity.get('tdb_object_name') or '')).strip()
+            hovered = (mouseover.get('unit_name') or mouseover.get('name')
+                       or str(mouseover.get('tooltip') or '').split('~', 1)[0])
+            return bool(expected and words(str(hovered)).strip() == expected)
         if identity.get("item_id") is not None:
             return str(mouseover.get("item_id")) == str(identity["item_id"])
         tooltip = f" {words(str(mouseover.get('tooltip') or '')).strip()} "
@@ -153,6 +310,30 @@ class ObjectInteractionFlow:
         # The FAST lane carries the current structured game-object name even
         # when the long tooltip is dropped to fit one pixel-grid packet.
         return mouseover.get("quest_related") is True and name_matches(subjects, name)
+
+    @staticmethod
+    def quest_mouseover_matches(identity: dict, mouseover: dict,
+                                state: dict, quest_id) -> bool:
+        """Identity plus a live link to this open quest, not name alone."""
+        if quest_id is None or not ObjectInteractionFlow.mouseover_matches(identity, mouseover):
+            return False
+        # An explicit current object ID is stronger than a quest-title
+        # tooltip, which the addon may omit on its narrow FAST packet.
+        if (identity.get('object_id') is not None
+                and mouseover.get('object_id') not in (None, '', 0, '0')):
+            return True
+        if not identity.get('tdb_object_name'):
+            # A tool object (the campfire of "Cook the meat", credit = an
+            # item) never carries a quest line; only an object that is itself
+            # the TDB GAMEOBJECT credit loses it once used for this character.
+            return bool(mouseover.get("tooltip")
+                        or str(mouseover.get("quest_id")) == str(quest_id))
+        if (mouseover.get('quest_related') is True
+                and str(mouseover.get('quest_id')) == str(quest_id)):
+            return True
+        from .tooltip_quest import tooltip_quest_id
+        inferred = tooltip_quest_id(mouseover, state)
+        return inferred is not None and str(inferred) == str(quest_id)
 
     @staticmethod
     def soft_target(identity: dict, state: dict) -> dict | None:
@@ -176,6 +357,31 @@ class ObjectInteractionFlow:
         quest_ids = [getattr(record, "quest_id", None) or objective.objective_id.split(":", 1)[0]]
         steps = []
         boxes = quest_object_candidates(state)
+        if self.line_of_sight_blocked(state):
+            return []
+        confirmed = self._confirmed_hover_box(identity, quest_ids[0], state, boxes)
+        # Live 2026-10-07 12:58: the right-click returned "You are too far
+        # away"; SEEK then hovered the same .10-height cocoon repeatedly
+        # without moving.  A *client* range error requires an approach.
+        # Box height alone is not a range test: the 18:28 live run had a
+        # correctly named, hovered small box that the user could use.
+        # Let the normal fresh-hover OBJECT_USE try once before any range
+        # error; its verified failure can then bind this approach to a box.
+        if confirmed is not None and self.range_blocked(state):
+            return [Proposal.make(
+                "VISUAL_APPROACH", "Megerősített quest-objektumhoz közelebb lépek használat előtt",
+                {"purpose": "INTERACT", "object_use_approach": True,
+                 "track_id": confirmed.get("track_id"),
+                 "visual_signature": confirmed.get("visual_signature"),
+                 "expected_tooltips": identity.get("expected_tooltips"),
+                 "object_id": identity.get("object_id"),
+                 "item_id": identity.get("item_id"),
+                 "quest_ids": quest_ids, "objective_id": objective.objective_id,
+                 "ready_bbox_height": self.object_ready_height(),
+                 "range_failures": max(1, int(self.__dict__.get("_range_failure_count") or 0)),
+                 "max_seconds": 8.},
+                confidence=.85, priority=96,
+                evidence=("fresh_quest_object_mouseover", "live_visual_box"))]
         if boxes:
             box = boxes[0]
             steps.append(Proposal.make(
@@ -191,14 +397,17 @@ class ObjectInteractionFlow:
                 confidence=.8, priority=93 if self.range_blocked(state) else 90,
                 evidence=("learned_quest_object_box",)))
         soft = self.soft_target(identity, state)
-        if soft is not None:
+        if soft is not None and not self.range_blocked(state):
             steps.append(Proposal.make(
                 "OBJECT_USE", "Quest-objektum soft-interact célpontban: ellenőrzött F7 tartalék",
                 {"activation_source": "INTERACT_KEY", "binding": "INTERACTTARGET",
                  "object_guid": soft.get("guid"), "object_id": soft.get("object_id"),
                  "object_name": soft.get("name"), "objective_id": objective.objective_id,
                  "quest_ids": quest_ids},
-                confidence=.85, priority=70, evidence=("soft_interact_object",)))
+                # Issue #99: an identity-matched soft-interact object is in
+                # range now; the visible-box SEEK (90/93) used to starve this
+                # verified use.  Quest credit is still verified by the skill.
+                confidence=.85, priority=95, evidence=("soft_interact_object",)))
         return steps
 
     def propose_local_search(self, objective, record, search_area: dict) -> list[Proposal]:

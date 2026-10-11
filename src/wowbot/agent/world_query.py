@@ -63,6 +63,16 @@ class WorldQuery:
     def target(self) -> dict:
         return deepcopy(self.model.state.get("target") or {})
 
+    def reference_entity(self, npc_id: int) -> dict | None:
+        """Contextual memory/reference hint, never a current target identity."""
+        knowledge = self.model.state.get("reference_knowledge") or {}
+        return deepcopy((knowledge.get("entities") or {}).get(str(npc_id)))
+
+    def reference_quest(self, quest_id: int) -> dict | None:
+        """Imported quest details; live progress remains in QuestModel."""
+        knowledge = self.model.state.get("reference_knowledge") or {}
+        return deepcopy((knowledge.get("quests") or {}).get(str(quest_id)))
+
     def soft_target_hints(self) -> tuple[SoftTargetHint, ...]:
         """Transient action-targeting evidence; never canonical identity."""
         return observe_soft_targets(self.model.state.get("soft_targets"))

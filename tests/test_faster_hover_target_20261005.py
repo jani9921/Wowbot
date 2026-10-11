@@ -140,3 +140,27 @@ def test_hover_leads_a_moving_box_but_not_while_the_player_turns():
         turning.observe(state)
     assert "screen_velocity" not in state["visual_candidates"][0]
     assert predicted_point(state["visual_candidates"][0], {"monotonic_time": 10.5}) == (.46, .5)
+
+
+def test_hover_confirm_requires_a_post_hover_sample_time():
+    # Issue #88: a retained mouseover without sample time must not click.
+    from wowbot.skills.hover_confirm import hover_confirm_step
+    context = {"hovered_at": 100., "hovers": 1, "hover_point": (.5, .5)}
+    state = {"mouseover": {"guid": "NPC-1"}, "mouseover_sample_time": None}
+    verdict, commands = hover_confirm_step(context, state, 100.1, expected_guid="NPC-1")
+    assert verdict == "WAIT" and not commands
+    state["mouseover_sample_time"] = 100.05
+    verdict, commands = hover_confirm_step(context, state, 100.1, expected_guid="NPC-1")
+    assert verdict == "CLICK"
+
+
+def test_compact_fast_mouseover_gets_the_packet_sample_time():
+    # Issue #88: the addon's compact FAST fallbacks omit mouseover_sample_time;
+    # the reducer must pair the new GUID with the packet's own sample time.
+    from wowbot.agent.world_addon_reducer import WorldAddonReducer
+    state = {"monotonic_time": 42.5, "mouseover": {"guid": "NPC-1"}}
+    WorldAddonReducer._stamp_unit_samples(state)
+    assert state["mouseover_sample_time"] == 42.5
+    explicit = {"monotonic_time": 42.5, "mouseover": {"guid": "NPC-1"}, "mouseover_sample_time": 40.}
+    WorldAddonReducer._stamp_unit_samples(explicit)
+    assert explicit["mouseover_sample_time"] == 40.

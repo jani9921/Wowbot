@@ -6,6 +6,7 @@ import math
 
 from .models import Proposal, number
 from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
+from .destination_distance import world_arrived
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +23,249 @@ class VisualSearchPlanningPolicy:
     QUEST_AREA_RADIUS_YARDS = 30.
     LOCAL_SEARCH_RETRY_SECONDS = 12.
     QUEST_AREA_MAX_DISTANCE_YARDS = 150.
+
+    POI_HEIGHT_SPREAD_YARDS = 5.
+    SWEEP_SPACING_YARDS = 25.
+    SWEEP_EDGE_INSET_YARDS = 3.
+    SWEEP_VISIT_YARDS = 10.
+    SWEEP_MAX_CELLS = 64
+    SPAWN_WEIGHT_YARDS = 20.
+
+    @classmethod
+    def objective_poi_polygons(cls, state: dict, quest_id: str, quest: dict) -> list[list[dict]]:
+        """TDB quest-POI polygons of the open objectives (read-only TDB).
+
+        User 2026-10-10: walk the area the quest POI points outline.  Rows on
+        the player's instance and UI map, without player conditions; the
+        turn-in POI (objective index -1) is not an objective area.
+        """
+        reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(str(quest_id)) or {}
+        instance = (state.get("player_world_position") or {}).get("instance_id")
+        objectives = [item for item in quest.get("objectives") or () if isinstance(item, dict)]
+        open_index = {str(index) for index, item in enumerate(objectives) if item.get("is_complete") is not True}
+        open_ids = {str(item.get("objective_id")) for item in objectives
+                    if item.get("is_complete") is not True and item.get("objective_id") is not None}
+        polygons = []
+        for poi in reference.get("pois") or ():
+            index = str(poi.get("objective_index"))
+            if (index == "-1" or poi.get("geometry_ambiguous") or poi.get("geometry_mixed_build")
+                    or str(poi.get("world_map_id")) != str(instance)
+                    or (state.get("map_id") is not None and poi.get("ui_map_id") != state.get("map_id"))
+                    or any(value not in (None, 0) for value in (poi.get("conditions") or {}).values())
+                    or (open_index and index not in open_index
+                        and str(poi.get("objective_id")) not in open_ids)):
+                continue
+            raw = [point for point in poi.get("points") or ()
+                   if number(point.get("x")) is not None and number(point.get("y")) is not None]
+            if len(raw) >= 3:
+                polygons.append(raw)
+        if not polygons:
+            # No TDB polygon: the blue minimap area seen earlier and saved in
+            # the learned world memory (user 2026-10-10).
+            polygons = [area["points"] for area in reference.get("learned_areas") or ()
+                        if isinstance(area, dict) and len(area.get("points") or ()) >= 3
+                        and (state.get("map_id") is None or area.get("ui_map_id") in (None, state.get("map_id")))]
+        return polygons
+
+    @classmethod
+    def sweep_cells(cls, polygon: list[dict], spawns=()) -> list[dict]:
+        """Serpentine 25 yd cells inside the polygon, 3 yd in from its edges.
+
+        Rows run along the polygon's longer side and alternate direction (a
+        lawn-mower pass).  A flat polygon gives its mean height; a deep one
+        none (the own floor is searched).  Each cell's weight counts the
+        objective spawns / learned places within 20 yd.
+        """
+        from .tdb_locations import _inside
+        vertices = [{"x": float(p["x"]), "y": float(p["y"])} for p in polygon]
+        if len(vertices) > 1 and (vertices[0]["x"], vertices[0]["y"]) == (vertices[-1]["x"], vertices[-1]["y"]):
+            vertices.pop()
+        if len(vertices) < 3:
+            return []
+        heights = [number(p.get("z")) for p in polygon]
+        flat = (all(z not in (None, 0.) for z in heights)
+                and max(heights)-min(heights) <= cls.POI_HEIGHT_SPREAD_YARDS)
+        xs, ys = [v["x"] for v in vertices], [v["y"] for v in vertices]
+        left, right, bottom, top = min(xs), max(xs), min(ys), max(ys)
+
+        def edge_distance(x, y):
+            best = math.inf
+            for a, b in zip(vertices, vertices[1:]+vertices[:1]):
+                vx, vy = b["x"]-a["x"], b["y"]-a["y"]
+                length = vx*vx+vy*vy
+                t = 0. if length == 0 else max(0., min(1., ((x-a["x"])*vx+(y-a["y"])*vy)/length))
+                best = min(best, math.hypot(x-(a["x"]+t*vx), y-(a["y"]+t*vy)))
+            return best
+
+        spacing = cls.SWEEP_SPACING_YARDS
+        along_x = (right-left) >= (top-bottom)
+        lo_a, hi_a = (left, right) if along_x else (bottom, top)
+        lo_b, hi_b = (bottom, top) if along_x else (left, right)
+        rows = max(1, math.ceil((hi_b-lo_b)/spacing))
+        cols = max(1, math.ceil((hi_a-lo_a)/spacing))
+        cells = []
+        for row in range(rows):
+            b = lo_b + (row+.5)*(hi_b-lo_b)/rows
+            order = range(cols) if row % 2 == 0 else range(cols-1, -1, -1)
+            for col in order:
+                a = lo_a + (col+.5)*(hi_a-lo_a)/cols
+                x, y = (a, b) if along_x else (b, a)
+                if not _inside(x, y, vertices) or edge_distance(x, y) < cls.SWEEP_EDGE_INSET_YARDS:
+                    continue
+                cell = {"x": x, "y": y}
+                if flat:
+                    cell["z"] = sum(heights)/len(heights)
+                weight = sum(1 for sx, sy in spawns
+                             if math.hypot(sx-x, sy-y) <= cls.SPAWN_WEIGHT_YARDS)
+                if weight:
+                    cell["weight"] = float(weight)
+                cells.append(cell)
+        if not cells:
+            # A polygon thinner than the inset still has a centre to visit.
+            cx, cy = sum(xs)/len(xs), sum(ys)/len(ys)
+            if _inside(cx, cy, vertices):
+                cells.append({"x": cx, "y": cy})
+        return cells[:cls.SWEEP_MAX_CELLS]
+
+    @classmethod
+    def objective_poi_points(cls, state: dict, quest_id: str, quest: dict) -> list[dict]:
+        """The zone-sweep cells of the open objectives' TDB POI polygons."""
+        reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(str(quest_id)) or {}
+        instance = (state.get("player_world_position") or {}).get("instance_id")
+        spawns = [(number(s.get("x")), number(s.get("y"))) for s in reference.get("spawn_candidates") or ()
+                  if isinstance(s, dict) and s.get("role") in {"OBJECTIVE", "ITEM_SOURCE"}
+                  and str(s.get("world_map_id")) == str(instance)
+                  and number(s.get("x")) is not None and number(s.get("y")) is not None]
+        cells = []
+        for polygon in cls.objective_poi_polygons(state, quest_id, quest):
+            cells.extend(cls.sweep_cells(polygon, spawns))
+        return cells[:cls.SWEEP_MAX_CELLS]
+
+    ZONE_MARGIN_YARDS = 10.
+    ZONE_SWEEP_PRIORITY = 77
+    UNIT_OBJECTIVES = {"KILL", "KILL_CREDIT", "COLLECT", "TALK_TO", "INTERACT_NPC",
+                       "USE_ITEM_ON_TARGET", "ESCORT", "DEFEND", "COMBAT"}
+    OBJECT_OBJECTIVES = {"USE_OBJECT", "INTERACT", "COLLECT", "GATHER"}
+
+    @classmethod
+    def inside_zone(cls, state: dict, area: dict) -> bool:
+        """The player is in the quest zone: a TDB POI polygon (with a 10 yd
+        margin) or, without one, the area circle."""
+        from .tdb_locations import _inside
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if px is None or py is None:
+            return False
+        polygons = area.get("zone_polygons") or ()
+        for polygon in polygons:
+            vertices = [{"x": float(p["x"]), "y": float(p["y"])} for p in polygon]
+            if _inside(px, py, vertices):
+                return True
+            for a, b in zip(vertices, vertices[1:]+vertices[:1]):
+                vx, vy = b["x"]-a["x"], b["y"]-a["y"]
+                length = vx*vx+vy*vy
+                t = 0. if length == 0 else max(0., min(1., ((px-a["x"])*vx+(py-a["y"])*vy)/length))
+                if math.hypot(px-(a["x"]+t*vx), py-(a["y"]+t*vy)) <= cls.ZONE_MARGIN_YARDS:
+                    return True
+        if polygons:
+            return False
+        cx, cy, radius = number(area.get("x")), number(area.get("y")), number(area.get("radius"))
+        return None not in (cx, cy, radius) and math.hypot(px-cx, py-cy) <= radius
+
+    @classmethod
+    def objective_needs(cls, world, quest_id) -> tuple[bool, bool]:
+        """(wants units, wants world objects) for the zone quest's open objectives."""
+        from .quest_giver_evidence import is_game_object_objective
+        from .quest_semantics import use_on_subjects
+        model = getattr(world, "quest_model", None)
+        units = objects = False
+        for objective in (model.ready() if model is not None else ()):
+            if str(objective.objective_id).split(":", 1)[0] != str(quest_id):
+                continue
+            kind = str(getattr(objective, "type", "") or "").upper()
+            raw = getattr(objective, "raw", None) or {}
+            named_npc = bool(use_on_subjects({**raw, "description": getattr(objective, "description", "")}))
+            if kind in cls.UNIT_OBJECTIVES or named_npc:
+                units = True
+            if (kind in cls.OBJECT_OBJECTIVES and not named_npc
+                    and (is_game_object_objective(objective) or kind in {"COLLECT", "GATHER"})):
+                objects = True
+            if kind == "UNKNOWN":
+                units = objects = True
+        return units, objects
+
+    @staticmethod
+    def _box_kind(box: dict) -> str:
+        appearance = box.get("appearance") if isinstance(box.get("appearance"), dict) else {}
+        labels = {str(value).lower() for value in box.get("candidate_labels") or ()}
+        hypothesis = str(appearance.get("learned_label_hypothesis") or "").lower()
+        if "quest_object_like" in labels or "object" in str(box.get("kind") or "") \
+                or hypothesis == "quest_object_outline_like":
+            return "OBJECT"
+        if "symbol" in str(box.get("kind") or ""):
+            return "SYMBOL"
+        if "learned_subject_like" in labels or hypothesis in {"creature_unit_like", "humanoid_unit_like"} \
+                or "subject" in str(box.get("kind") or ""):
+            return "UNIT"
+        return "OTHER"
+
+    def zone_sweep_mode(self, world, goal, state: dict, values: list, quest_areas, *,
+                        busy: bool) -> list:
+        """Inside a quest zone with nothing at hand: walk the zone.
+
+        User 2026-10-10: the sweep is interrupted only by something quest
+        relevant -- a quest-object outline, or a unit when an open objective
+        needs units (it is hovered/approached to read its tooltip).  The
+        in-place camera spins and approaches to arbitrary boxes go; the
+        serpentine TDB-POI sweep starts at once instead of after four spins.
+        """
+        if (getattr(goal, "domain", None) != "QUEST" or busy or not state.get("active_quests")
+                or state.get("world_map_open") or state.get("is_in_combat")):
+            return values
+        zone = self.active_quest_area(state, quest_areas)
+        # Only a TDB quest-POI polygon is a known zone; an API point's 30 yd
+        # circle keeps the former walk-to-the-point-then-search behaviour.
+        if (zone is None or zone["search_area"].get("region_source") != "TDB_QUEST_POI_POLYGON"
+                or not self.inside_zone(state, zone["search_area"])):
+            return values
+        wants_units, wants_objects = self.objective_needs(world, zone.get("quest_id"))
+        boxes = {str(item.get("track_id")): item for item in state.get("visual_candidates") or ()
+                 if isinstance(item, dict) and item.get("source") == "WORLD3D"}
+        from .quest_giver_evidence import subject_has_quest_symbol
+        world3d = list(boxes.values())
+
+        def relevant(proposal) -> bool:
+            params = proposal.parameters
+            if proposal.skill not in {"SEEK_VISUAL_CUE", "INSPECT"}:
+                return True
+            if params.get("spin_search") is True:
+                return False
+            if not (params.get("purpose") == "IDENTIFY"
+                    or (proposal.skill == "INSPECT" and params.get("source") == "WORLD3D")):
+                return True       # dot/area/object searches keep their own rules
+            box = boxes.get(str(params.get("track_id"))) or params
+            kind = self._box_kind(box)
+            if kind == "OBJECT":
+                return wants_objects
+            if kind == "UNIT":
+                return wants_units or subject_has_quest_symbol(box, world3d)
+            return False
+
+        kept = [proposal for proposal in values if relevant(proposal)]
+        if not any(proposal.skill in {"SEEK_VISUAL_CUE", "INSPECT"}
+                   and proposal.parameters.get("purpose") != "SEARCH_LOCAL_OBJECTIVE_AREA"
+                   for proposal in kept) and not any(
+                proposal.parameters.get("roam_quest_area") for proposal in kept):
+            kept = [proposal for proposal in kept if proposal.skill != "OPEN_MAP"]
+            kept.append(Proposal.make(
+                "SEEK_VISUAL_CUE",
+                "Quest-zóna bejárása (TDB POI): folyamatos séta a következő cellához",
+                {"source": "WORLD3D", "kind": "active_visual_search",
+                 "purpose": "SEARCH_LOCAL_OBJECTIVE_AREA", "x": .5, "y": .45,
+                 "scan_budget": 4, "roam_quest_area": True, "zone_sweep": True,
+                 "scan_units": wants_units, **zone},
+                confidence=.7, priority=self.ZONE_SWEEP_PRIORITY))
+        return kept
 
     @classmethod
     def active_quest_area(cls, state: dict, quest_areas=None) -> dict | None:
@@ -62,13 +306,24 @@ class VisualSearchPlanningPolicy:
             search_area.update({"x": extent[0], "y": extent[1], "radius": max(8., extent[2]),
                                 "coverage_points": coverage,
                                 "region_source": "MINIMAP_QUEST_AREA_OUTLINE"})
+        poi_points = cls.objective_poi_points(state, quest_id, quests[quest_id])
+        if poi_points:
+            # The TDB quest-POI polygon (the server's own quest area) is the
+            # area to walk, not a blind grid around one API point.
+            xs, ys = [p["x"] for p in poi_points], [p["y"] for p in poi_points]
+            cx, cy = sum(xs)/len(xs), sum(ys)/len(ys)
+            search_area.update({"x": cx, "y": cy, "coverage_points": poi_points,
+                                "radius": max(8., max(math.hypot(x-cx, y-cy) for x, y in zip(xs, ys))),
+                                "visit_radius": cls.SWEEP_VISIT_YARDS,
+                                "zone_polygons": cls.objective_poi_polygons(state, quest_id, quests[quest_id]),
+                                "region_source": "TDB_QUEST_POI_POLYGON"})
         return {"quest_id": quests[quest_id].get("quest_id"),
                 "objective_id": f"{quest_id}:area",
                 "objective_type": str(objective.get("type") or "UNKNOWN").upper(),
                 "search_area": search_area}
 
     @staticmethod
-    def _irrelevant_selection(world, target: dict, matching_objectives) -> bool:
+    def _irrelevant_selection(world, target: dict, matching_objectives, proposals=()) -> bool:
         from .target_planning import is_player_unit
         guid = str((target or {}).get("guid") or "")
         if not guid:
@@ -80,8 +335,23 @@ class VisualSearchPlanningPolicy:
         # Another player is never a quest NPC (live 2026-10-01: a gnome
         # player stayed selected and the search waited for a manual clear).
         # An NPC selection keeps the existing interaction/discovery order.
-        return is_player_unit(target, state) and not (
-            state.get("is_in_combat") and target.get("attackable", target.get("is_attackable")))
+        if is_player_unit(target, state) and not (
+                state.get("is_in_combat") and target.get("attackable", target.get("is_attackable"))):
+            return True
+        # Live 2026-10-11 15:50:53-15:51:03: Lady Jaina stayed selected with
+        # nothing to do for the open quest (Stocking Up); every search waited
+        # for "no target" and the agent stood 11 s.  A friendly NPC that no
+        # objective names and no proposal acts on is no clue either.
+        referenced = any(str(proposal.parameters.get(key) or "") == guid
+                         for proposal in proposals
+                         for key in ("guid", "target_guid"))
+        # Only when nothing else is left to do: the map/location discovery
+        # order for a fresh selection is kept (it was the blocked map reopen
+        # that left nothing in the live case).
+        idle = not any(proposal.skill != "WAIT" for proposal in proposals)
+        return (idle and target.get("attackable", target.get("is_attackable")) is False
+                and not matching_objectives and not referenced
+                and not state.get("is_in_combat"))
 
     def propose(
         self,
@@ -106,7 +376,7 @@ class VisualSearchPlanningPolicy:
         # NPC) must not block the quest-giver search until it is cleared by
         # hand.  The agent may simply click the right unit, which replaces
         # the selection; the old target is not acted on meanwhile.
-        if self._irrelevant_selection(world, target, matching_objectives):
+        if self._irrelevant_selection(world, target, matching_objectives, values):
             target = {}
         # A client-selected GUID is identity evidence only. TAB may select an
         # off-screen unit; that must not suppress active visual search as if a
@@ -268,12 +538,11 @@ class VisualSearchPlanningPolicy:
         actionable_location = any(
             proposal.skill in {"MOVE", "REACH_LOCATION", "REACH_OBJECT"}
             and (proposal.skill != "MOVE"
-                 or (world.distance(proposal.parameters) or 0) > .003)
+                 or not world_arrived(world, proposal.parameters))
             for proposal in values)
         arrived_location = any(
             proposal.skill == "MOVE"
-            and (distance := world.distance(proposal.parameters)) is not None
-            and distance <= .003 for proposal in values)
+            and world_arrived(world, proposal.parameters) for proposal in values)
         relevant_target = bool(local_target) and (bool(matching_objectives) or (
             state.get("is_in_combat")
             and target.get("attackable", target.get("is_attackable")) is True))
@@ -292,7 +561,7 @@ class VisualSearchPlanningPolicy:
                 "OPEN_MAP", "INSPECT", "SEEK_VISUAL_CUE", "WAIT",
                 "CAMERA_CONTROL", "ACQUIRE_TARGET"}
             and not (proposal.skill == "MOVE"
-                     and (world.distance(proposal.parameters) or 0) <= .003)
+                     and world_arrived(world, proposal.parameters))
             and blocked_until.get(proposal.key, 0) <= now
             for proposal in values)
         quest_transition_now = any(
@@ -323,13 +592,19 @@ class VisualSearchPlanningPolicy:
                 "Aktív quest célterületén az első hover után célzott World3D keresés",
                 {"source": "WORLD3D", "kind": "active_visual_search",
                  "purpose": "SEARCH_LOCAL_OBJECTIVE_AREA", "x": .5, "y": .45,
-                 "scan_budget": 4},
+                 "scan_budget": 4, "spin_search": True},
                 confidence=.75, priority=88))
 
         if goal.domain == "QUEST" and not state.get("active_quests") and world3d_probe_count >= 4:
+            from .quest_giver_evidence import subject_has_quest_symbol
+            world3d = [item for item in state.get("visual_candidates") or ()
+                       if isinstance(item, dict) and item.get("source") == "WORLD3D"]
+            marked_tracks = {str(item.get("track_id")) for item in world3d
+                             if subject_has_quest_symbol(item, world3d)}
             values = [proposal for proposal in values
                       if not (proposal.skill == "INSPECT"
-                              and proposal.parameters.get("source") == "WORLD3D")]
+                              and proposal.parameters.get("source") == "WORLD3D"
+                              and str(proposal.parameters.get("track_id")) not in marked_tracks)]
 
         if (goal.domain == "QUEST" and (not state.get("active_quests") or arrived_location
                                         or blind_selected_identity
@@ -346,7 +621,7 @@ class VisualSearchPlanningPolicy:
                 "SEEK_VISUAL_CUE", "Nincs helyi cél: persistent World3D vizuális keresés",
                 {"source": "WORLD3D", "kind": "active_visual_search",
                  "purpose": "FIND_LOCAL_QUEST_RELEVANT_SUBJECT",
-                 "x": pan_x, "y": .45}, confidence=.7, priority=78))
+                 "x": pan_x, "y": .45, "spin_search": True}, confidence=.7, priority=78))
 
         # The camera sweep at this spot found nothing and there is no quest:
         # walk to another navmesh cell and sweep again (user 2026-09-30).  The
@@ -392,6 +667,22 @@ class VisualSearchPlanningPolicy:
                      "purpose": "SEARCH_LOCAL_OBJECTIVE_AREA", "x": .5, "y": .45,
                      "scan_budget": 4, "roam_quest_area": True, **area},
                     confidence=.65, priority=76))
+
+        # A MOVE does not block the sweep inside the zone: both stay
+        # candidates and the priority decides (dot/TDB-spawn MOVEs outrank the
+        # sweep, the plain "walk to the area point" MOVE does not).  Live
+        # 2026-10-11 13:36 (Cooking Meat, inside the POI polygon): that MOVE
+        # was later blocked by a fall hazard and the agent waited a minute.
+        local_non_move = any(
+            proposal.skill not in {
+                "OPEN_MAP", "INSPECT", "SEEK_VISUAL_CUE", "WAIT", "CAMERA_CONTROL",
+                "ACQUIRE_TARGET", "MOVE", "REACH_LOCATION", "REACH_OBJECT"}
+            and blocked_until.get(proposal.key, 0) <= now
+            for proposal in values)
+        values = self.zone_sweep_mode(
+            world, goal, state, values, quest_areas,
+            busy=(relevant_target or explicit_local or local_non_move
+                  or quest_transition_now))
 
         # Confirmed identity or an already actionable selected target outranks
         # unrelated information gathering; this is proposal filtering only.

@@ -18,6 +18,7 @@ Thumbs.db
 config/wow_password.txt
 config/wow_account.txt
 config/local_env.bat
+config/reference_catalog.local.json
 output/
 datasets/
 runs/

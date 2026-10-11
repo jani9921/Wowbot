@@ -365,7 +365,7 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
             if directive.cancel_active and self.pending and not death_step_running:
                 if directive.suspend_active and self.active_skill.state is not None:
                     suspended_event = self.supervisor.suspend(
-                        self.active_skill.state, now, directive.reason)
+                        self.active_skill.state, now, directive.reason, self.world.state)
                     if suspended_event:
                         self.events.publish(suspended_event)
                         self._flush_active_skill_events()

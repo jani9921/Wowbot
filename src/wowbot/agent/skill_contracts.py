@@ -173,6 +173,9 @@ CONTRACTS = [
     SkillContract("DISMOUNT", "dismounted", 2., preconditions=("mounted", "mount_binding_known"),
                   required_world_state=("is_mounted",), cost=.15),
     SkillContract("CLOSE_MAP", "world_map_closed", 5., ("TOGGLEWORLDMAP",)),
+    # An open NPC window with nothing to do (no button, no quest row): ESC
+    # closes that window first; dispatch re-checks that it is still open.
+    SkillContract("CLOSE_DIALOG", "npc_dialog_closed", 3., ("TOGGLEGAMEMENU",)),
     SkillContract("OPEN_MAP", "world_map_opened", 5., ("TOGGLEWORLDMAP",)),
     SkillContract("RECOVER", "position_changed", 2., ("STRAFELEFT", "STRAFERIGHT", "JUMP")),
     SkillContract("REPAIR", "gear_repaired_or_no_repair_needed", 5.,

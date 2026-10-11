@@ -35,8 +35,10 @@ class EntityMemory:
     identities by themselves.
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, reference_catalog=None) -> None:
         self.path = Path(path)
+        # Optional read-only reference; imported names never become learned profiles.
+        self.reference_catalog = reference_catalog
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(self.path, check_same_thread=False)
@@ -73,6 +75,9 @@ class EntityMemory:
                 # V4-077: cleanup-time failure must not raise (would mask
                 # the caller's own shutdown), but must not be silent either.
                 _logger.warning("sqlite connection.close() failed in EntityMemory.close()", exc_info=True)
+            finally:
+                if self.reference_catalog is not None:
+                    self.reference_catalog.close()
 
     def _init_db(self) -> None:
         with self._connect() as conn:
@@ -473,9 +478,20 @@ class EntityMemory:
                     FROM entity_profiles WHERE name IS NOT NULL AND LOWER(name) LIKE '%'||LOWER(?)||'%'
                     ORDER BY seen_count DESC, last_seen DESC LIMIT ?
                 """, (needle, int(limit))).fetchall()
-        return [{"identity_key": row[0], "unit_type": row[1], "npc_id": row[2], "name": row[3],
+        result = [{"identity_key": row[0], "unit_type": row[1], "npc_id": row[2], "name": row[3],
                  "seen_count": row[4], "first_seen": row[5], "last_seen": row[6]}
                 for row in rows]
+        if self.reference_catalog is not None:
+            # Keep all distinct exact-name candidates, not just the first template.
+            # Prefer observed exact identities, then reference exact names, then
+            # observed substring matches. No insertion into entity_profiles here.
+            exact = [hit for hit in result if str(hit["name"]).casefold() == needle.casefold()]
+            partial = [hit for hit in result if hit not in exact]
+            known = {hit["identity_key"] for hit in exact}
+            references = [dict(hit) for hit in self.reference_catalog.find_by_name(needle, limit)
+                          if hit["identity_key"] not in known]
+            result = (exact + references + partial)[:limit]
+        return result
 
     def get_profile(self, identity_key: str) -> EntityMemoryProfile | None:
         with self._connect() as conn:
@@ -531,8 +547,17 @@ class EntityMemory:
             "last_zone": profile.last_zone,
             "known_locations": self.locations(identity_key),
             "visual_observations": self.visual_observations(identity_key),
+            "guids": self.guids(identity_key),
             "behavior": self.behavior(identity_key),
         }
+
+    def guids(self, identity_key: str, limit: int = 20) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT guid,first_seen,last_seen,seen_count FROM entity_guids "
+                                "WHERE identity_key=? ORDER BY last_seen DESC LIMIT ?",
+                                (identity_key, limit)).fetchall()
+        return [{"guid": g, "first_seen": f, "last_seen": last, "seen_count": count}
+                for g,f,last,count in rows]
 
     def behavior(self, identity_key: str, *, as_of: float | None = None,
                  max_age: float | None = None) -> dict[str, Any]:

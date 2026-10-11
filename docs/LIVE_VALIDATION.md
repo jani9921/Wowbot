@@ -1,5 +1,387 @@
 # Live validation evidence and unresolved issues
 
+## 2026-10-11 15:51-15:52 (same user run) — vendor open, visual search won (fix offline-tested only)
+
+- Evidence: Richter's shop opened at about 15:51:14, the SELL came at 15:52:00 and the BUY at 15:52:18.
+  - The PLAN at about 15:52:06 ranked a distant-UNKNOWN `SEEK_VISUAL_CUE` (priority 87, total 90.7) above `BUY_VENDOR` (86, total 88.2).
+  - At +7.5 s only SEEK and OPEN_MAP were candidates. BUY/SELL are `detail_dependent` and were unavailable while the vendor snapshot was older than 2 s.
+- Fix: `Planner._vendor_owns_input`. While the vendor is open and a BUY/SELL objective is ready, only trade skills (BUY/SELL/REPAIR/OPEN_BAGS/QUEST_DIALOG) plus DEFEND/ESCAPE remain. With no trade proposal available, a WAIT for fresh vendor details is returned instead of a search. The earlier OPEN_MAP guard also blocks the map over an open vendor.
+- Test: `tests/test_vendor_quest_20261004.py::test_open_vendor_with_trade_left_is_not_left_for_a_visual_search`.
+- Follow-up analysis of the slow approach to Richter (fixes offline-tested only):
+  - 15:51:14: the INTERACT verification returned `out_of_range` although the shop had opened. SELL/BUY were candidates at 15:51:18.
+    - Cause: `InteractionVerifier.evaluate` read the flattened `ui_error`, which the addon keeps for 3 s, and it was the previous attempt's "too far". It also checked range errors before a vendor opening.
+    - Fix: only UI errors raised after the baseline count (`_fresh_ui_error`: sequence-new events/flattened error, or a changed text when no sequence is exported), and an opened vendor is accepted first.
+  - 15:50:53–15:51:03: about 50 PLANs with only WAIT (priority 0). Lady Jaina was selected, was irrelevant to Stocking Up, and had no commitment. `search_target_absent` was false because a target existed, and the map reopen was blocked.
+    - Fix: `_irrelevant_selection` also treats a friendly NPC as absent when nothing else is proposed (only WAITs), no objective matches it, no proposal references its GUID, and the player is out of combat. The discovery order with other candidates (map first) is unchanged, as existing tests require.
+  - Tests: `test_shop_opening_beats_the_previous_attempts_range_error` and `test_unrelated_selected_friendly_does_not_freeze_the_search`.
+- Not live-validated.
+
+## 2026-10-11 (same user run) — World Map opened right after turn-ins / over open windows (fixes offline-tested only)
+
+- User report: the map opens right after a turn-in, and sometimes that closes the quest UI. Earlier, for Stocking Up on Supplies: "mapot nyit mikor megnyílik az ablak".
+- Evidence:
+  - 15:54:29: 58914 was complete and its `QUEST_POI` turn-in location was present. `OPEN_MAP` ("Nincs ismert questhely") was proposed because the turn-in MOVE was momentarily blocked (no unblocked MOVE in `has_location`). At 15:54:30 the map was closed again with "Leadási hely ismert".
+  - 15:36:59: OPEN_MAP came one second after a turn-in, then 15:37:02 MOVE "Quest API: kampány quest giver". Telemetry for this time was rotated out, so the snapshot lag is inferred, not measured.
+- Fixes in `WorldMapFallbackPolicy.add_quest_fallbacks`:
+  - No map while any active quest has an explicit world location (`_quest_place_known`).
+  - After a quest-log change (quest-id set or `quest_state_revision`), wait up to 6 s until a full snapshot newer than the change has arrived (`_quest_change_settling`). This is skipped when no snapshot clock exists.
+- Fix in skill availability: OPEN_MAP is now unavailable while a quest/gossip/vendor window is open, whichever policy proposed it.
+- Tests: in `tests/test_hjalmar_followup_20261011.py`.
+- Not live-validated.
+
+## 2026-10-11 15:45-15:59 (same user run) — further findings (fixes offline-tested only)
+
+- **Selected ender lost to the area search (15:46:29–15:46:53).** With Lady Jaina, the 56034 ender, selected, the planner's candidates were two turn-in-area SEEKs (priority 70, total 73.5) and an INTERACT with Jaina (priority 70, total 71.7). The SEEK won for about 25 s and was turned into cell MOVEs around her.
+  - Fix: the general friendly-target INTERACT now has priority 92 when `_turn_in_candidate` holds, and the existing range/handled gates are unchanged.
+  - Test: `test_selected_ender_outranks_the_turn_in_area_search`.
+- **World map opened while riding the Giant Boar (15:47:53, 15:48:50).**
+  - Fix: OPEN_MAP is unavailable while `in_vehicle` is true.
+- **UI_UNKNOWN → MANUAL at 15:54:32.** This was the user's ESC opening the game menu: `input_blocked` was true for about 1 s in the telemetry. The safety stop behaved correctly. The earlier UI_UNKNOWN stops (15:39:09, 15:40:58, 15:44:24, 15:50:38) could not be checked, because their telemetry was rotated out.
+- **Minor, not changed.** At 15:46:59 a redundant "REACH_OBJECT által elért" INTERACT was sent to Jaina right after the accept.
+
+## 2026-10-11 15:52-15:59 (same user run) — Hjalmar follow-up missed; turn-in route into the pit (fixes offline-tested only)
+
+- **Evidence.**
+  - 15:53:10: 58914 (A Warrior's End) was accepted from Private Cole.
+  - 15:54:41: it was turned in at Hjalmar the Undying. The telemetry from addon time 15:54:44 shows the dialog closed and the quest log empty, with Hjalmar still targeted.
+  - 15:54:43: a "Leadási hely mmap útvonalon" MOVE committed to 58914, most likely chosen from the last snapshot before the turn-in landed, kept walking until about 15:55:19. The follow-up 58915 (Hjalmar's own quest, in the learned memory) was never requested.
+  - 15:55:44: 55965 (Westward Bound) was accepted from Bjorn Stouthands (154300) and was immediately complete.
+  - The ender is the other Bjorn, 156891. Its TDB spawn is at (89.7,-2249.3,z 94.8), above Hrun's pit; the learned ender row is at (102.3,-2251.5) with no height.
+  - The turn-in route went into the cave (Alaria, a Barrow Spider fight). Bjorn was reached only at 15:59:13.
+- **Fixes.**
+  1. `movement_visual_interrupt` ends a `LOCATE_TURN_IN_REGION`/`SEARCH_TURN_IN_AREA` MOVE with `turn_in_quest_left_log` once the quest is no longer in `active_quests`.
+  2. `QuestDialogPlanningPolicy` remembers a COMPLETE/TURN_IN/REWARD_SELECT at a target. Once the quest has left the log and the window is closed, it proposes one INTERACT with the same GUID within 20 s (priority 95).
+     - No re-talk if the NPC itself offers next (ACCEPT or rows), on a target change, in combat, or after a timeout.
+     - The TDB chain fields were checked and are too sparse to gate this: 58914 and 58915 have no `quest_template_addon` row.
+  3. New `CLOSE_DIALOG` skill. When an open NPC window has no action, no rows and no gossip option for 6 s, and a full snapshot was taken at least 1 s after it was seen empty, the planner proposes it (priority 116) instead of an endless WAIT.
+     - It presses `TOGGLEGAMEMENU` (ESC) only while the fast lane still reports the window open.
+     - Verified by `quest_ui_open` false.
+  4. `role_region` gives a height-less learned role spot the height of the same role's TDB spawn within 20 yd (`_role_spawn_height`).
+- Tests: `tests/test_hjalmar_followup_20261011.py`.
+- Not live-validated. Risk to watch: an ESC while no NPC window is open would open the game menu. The dispatch re-check prevents this in normal timing, and the UI_UNKNOWN safety would stop FULL_AI.
+
+## 2026-10-11 15:35-15:45 (user run, `live-debug-20261011-153535`) — Re-sizing the Situation sluggish (fixes offline-tested only)
+
+- Quest 56034 ("0/3 Re-Sizer v9.0.1 tested on Wandering Boars", type `USE_ITEM`, raw `monster`, special item 170557) was accepted around 15:39:06.
+  - It stayed at 0/3 until about 15:44 and reached 3/3 at 15:45:10.
+  - The user approached the first boar themselves, and did the last one.
+  - The user reported that the agent searched and wandered for a long time before finding the boars.
+- All six USE_ON_TARGET verifications in the run failed. Three ended `out_of_range`: Interact had no effect within 1.5 s on a far boar. Three ended `identity_uncertain`, at least one of them at the same time as a credit (2/3 appeared at about 15:44:17).
+- Root causes and fixes:
+  1. **Zone sweep did not stop for boars.**
+     - Cause: the sweep MOVE's creature interrupt applied only to KILL/KILL_CREDIT/COLLECT/COMBAT objectives, while `objective_needs` already treated named-subject USE_ITEM as needing units.
+     - Fix: the sweep proposal and its MOVE now carry `scan_units`, and the interrupt honours it.
+  2. **Interact on far boars.**
+     - Fix: `_item_target_far` treats a selected item target as out of interact range when its minimap/world estimate is more than 7 yd away, or its screen box height is below 0.07. The existing approach (VISUAL_APPROACH or MOVE) then runs before Interact is pressed.
+  3. **Real uses booked as IDENTITY_UNCERTAIN.**
+     - Cause: the boar turned into a "Re-sized Boar", so the target changed before the credit arrived.
+     - Fix: `UseItemSkill.verify` now checks credit first. After an observed cast, a changed target keeps the attempt RUNNING until its deadline; without a cast, the old failure remains.
+- Tests: `tests/test_resizer_live_20261011.py`.
+- TDB check (real file, read-only):
+  - Objective 390101 credits entry 156722, an invisible proxy without `creature` rows. The tooltip-named Wandering Boar is 156716 (29 spawns, x 64–180, y -2498…-2390) or 164826 (4 spawns).
+  - `TDBKnowledgeProvider.named_creatures` now resolves creature templates named in a monster objective's text, keeping only the longest names (6 or more characters). They are added as OBJECTIVE spawn locations only; the objective never gets an `npc_id`, and identity still requires the live tooltip.
+  - On the real TDB, 56034 resolves to 156716 and 164826. 55184 "Quilboar slain" resolves to three generic Quilboar templates; its TDB POI still takes precedence over spawns.
+- Not live-validated.
+
+## 2026-10-11 15:11-15:18 (user run, `live-debug-20261011-151123`) — two-quest pickup worked; turn-in left a neighbouring quest; jump stopped MOVE (fixes offline-tested only)
+
+- **Live-validated:** taking both quests from Austin's two-quest window (the 14:58 nested `quest_ui` merge fix). At 15:11:50 a gossip row was selected, the NPC was re-INTERACTed for the remaining offer, and both 55184 and 55186 were accepted by 15:11:52.
+- **Order.** At the start the player stood at (-124,-2630). By API POI centre, 55184 was 163 yd away and 55186 was 187 yd away, so the agent began with the POI-nearer quest. This is not changed.
+- **Turn-in trip.** 55186 became complete around +198 s (Grek'og slain) while 55184 was at 3/7. `QuestBatchPolicy` deferred the turn-in at that sample (replayed offline: `{'55186'}`).
+  - From 15:14:41 a "Minimap fel/le quest-jel" MOVE committed to 55184 walked toward the hill.
+  - The floor-arrow association considered only open-quest POIs, so an arrow near the finished 55186 POI (most likely its turn-in "?") was attributed to 55184.
+  - At (80.9,-2488.5) the player was 121 yd from the 55184 POI centre. The 120 yd batch radius released the deferral, and "TDB elsődleges quest leadási keresési régió" took over at 15:15:03.
+  - Fixes: an arrow nearer to a finished quest's POI than to any open one is skipped. A turn-in that is already waiting keeps waiting while open work is within `BATCH_KEEP_RADIUS_YARDS = 220`; the 120 yd start radius is unchanged.
+  - Tests: `tests/test_quest_batch_live_20261011.py` uses the live coordinates.
+- **Jump / fall.**
+  - Evidence: FAST falling samples while running or jumping downhill spanned up to ~1.9 s of addon sample time (for example 1117297.802 → 1117299.692). Some FAST samples repeated with an unchanged `monotonic_time`.
+  - The 1 s runtime-clock confirmation failed the MOVE at 15:15:39 (`fall_in_progress`). The hazard at the player's own spot then made every replan fail with `fall_hazard_on_route`, followed by WAIT, OPEN_MAP and SEEK.
+  - Fixes: the fall duration uses the addon sample clock, with a 2 s confirmation. A hazard is skipped while the player still stands within its radius on the same floor (resolved layer within 6 yd, or unknown). Spiral/pit tests still quarantine the upper route from an approach position and allow the lower floor.
+- Not live-validated: the batching, floor-arrow and fall changes. In the next run, check that after one quest completes the agent finishes a neighbouring open quest before the turn-in walk, and that a manual jump does not stop the route.
+
+## 2026-10-11 14:52-14:54 (user run, `live-debug-20261011-145202`) — two-quest window ignored; porcupine "seen" on the turn-in walk (fixes offline-tested only)
+
+- The user reported that the agent could not take either quest from a window that listed two quests. It also kept inspecting a porcupine while walking to the turn-in. The user asked whether the pixel lane was covered by the dialog. It was not: full STATE snapshots kept completing at ~2 Hz throughout the dialog (`completed_full_states` 97 → 196).
+- **Two-quest window.**
+  - Evidence: Northbound (55173) was turned in at 14:53:33 (COMPLETE click verified). Austin then opened a list of two quests: QUEST_TURNED_IN, then NPC_DIALOG_OPENED.
+  - From there the planner returned only `WAIT "Nyitott NPC/quest ablak részleteire várakozás"`.
+  - Every stored STATE observation had `quest_ui = {open, action, quest_id, x, y}` without `entries` or `reward_choices`, and `quest_ui_entries=[]`.
+  - Root cause: `PacketAssembler.feed` publishes a completed STATE as `{**full, **fast}` whenever the last FAST sample is newer, which is almost always. FAST's compact `quest_ui` therefore replaced the full dict, including the offered-quest rows and reward choices.
+  - Fix: nested merge of `quest_ui`. FAST still wins on open/action/point. The rows and choices come from the snapshot, and are cleared when FAST says the dialog is closed.
+  - Test: `tests/test_gossip_rows_fast_merge_20261011.py` replays the live order. It fails without the fix.
+  - The same loss probably explains the 2026-10-08 Hjalmar `entries=[]` evidence and could have affected REWARD_SELECT choices.
+- **Porcupine on the turn-in walk.**
+  - Evidence: from 14:52:45 to 14:53:29 the `LOCATE_TURN_IN_REGION` MOVE was cancelled about ten times with `quest_route_visual_cue_observed`.
+  - The candidate's labels were `learned_subject_like` plus a group `learned_symbol_like` (an overhead relation), at a destination distance of 154.8 yd.
+  - Fix: on a turn-in route, the generic subject-with-symbol relation counts only within `TURN_IN_CUE_RADIUS_YARDS = 40` of the destination. Explicit `quest_marker_like`/`quest_badge_like` cues still interrupt anywhere, as the existing map-discovery test requires.
+- The learned TDB already held Austin Huxworth (154327) as the ender of 55173, as the starter of 55184 and 55186, and his learned spawn.
+- Not live-validated. Next run: after a turn-in at an NPC offering several quests, a GOSSIP_SELECT should follow, then ACCEPT for each offered quest. The turn-in walk should not stop for passing creatures.
+
+## 2026-10-11 14:20-14:26 (user run, `live-debug-20261011-142018`) — turn-in MOVE blocked by ledge "falls" (fix offline-tested only)
+
+- Evidence: in this user-run trial the zone sweep started; porcupines and goats were killed and looted; Cooking Meat and the Garrick quest were turned in. Northbound (55173) was accepted at 14:25:13 and was immediately complete, with ender Austin Huxworth (154327).
+- What failed: "MOVE Leadási hely mmap útvonalon" failed at 14:25:14 with `fall_hazard_on_route` and at 14:25:31 with `fall_in_progress`. After that the agent only alternated INSPECT/WAIT/SEEK until the 300 s trial expired at 14:25:57, so the turn-in never started.
+- Root cause:
+  - Telemetry shows many `falling=true` samples in the camp area, at about (-253,-2503) and (-210..-233,-2456..-2472).
+  - The addon's FALL_STARTED/FALL_ENDED pairs there were 0–1 s apart, i.e. ledge or slope steps, not real drops.
+  - `NavigationService.observe()` failed the MOVE on the first falling sample and quarantined 8 yd around it for 600 s. The camp routes were therefore blocked.
+- Fix:
+  - A falling sample now only pauses steering. The MOVE fails, and a hazard is recorded at the ledge (the episode's first sample), only when falling persists for at least `FALL_CONFIRM_SECONDS = 1.0` (longer than a running jump).
+  - Shorter real drops are still confirmed on landing by the existing navmesh layer-drop check (Z resolver `fell`), which replans.
+  - The FAST lane still releases W on a falling sample.
+- Tests: the fall/movement tests were updated and extended: a brief step keeps the route and leaves no hazard; a sustained fall fails the MOVE and records the hazard at the ledge.
+- Status: not live-validated. Next user run: after a quest pickup next to small ledges, the turn-in MOVE should continue. The spiral/pit fall (Hrun's pit) should still stop and replan.
+
+## 2026-10-10 17:12-17:19 (user, new character, addon 0.9.63) — FAST lane never decoded
+
+- `live-debug-20261010-171244`: capture 33.5 Hz, World3D 35.8 Hz (width 1530), but `fast_packets: 0`,
+  `two_lane_frames: 0`, every decoded page `STATE_Z`; published updates 1.9 Hz.  Quest pickup needed the
+  user to walk closer; quest-relevant murlocs were not selected (TARGET cancelled at 17:17:54).
+- Cause: `_decode_lanes` searched the vertical FAST lane only for a >224-column top lane or a plain
+  `STATE` page; 0.9.63's 128-column lane carries compressed `STATE_Z` pages.  Fixed and covered by
+  `test_compressed_state_pages_still_find_the_vertical_fast_lane`.  Rates of 0.9.63 with FAST are
+  still unmeasured (needs the next run).
+
+## 2026-10-10 — Pixel strip cost and detector mask regression (offline; live OPEN)
+
+- Sources: all `uj-mappa-2026-09-28-1918/output/live-debug` runs 10-06..10-08 (FULL_AI summaries).
+- Capture and World3D rates follow the addon version, not the window size: 0.9.59/0.9.60 runs at 1480 px
+  width captured 39-44 Hz (World3D 41-48 Hz); every 0.9.61+ run captured 31-35 Hz (World3D 31-36 Hz) at
+  1457-1480 px.  The two-lane strip redrew every cell of both lanes on each 1/60 s tick.
+- 0.9.61/62 drew the STATE lane up to 448 columns along the whole top edge; `scene.py` then hard-masked
+  the detector input for `max(148 px, 18 %)` over the full width.  Close NPC heads and overhead "!"/"?"
+  symbols fall in that band (approach overshoot, failing INSPECT hovers reported by the user).
+- 10-08 22:26 run: FAST lane rate dropped to 2-12 Hz in bursts (two-lane frames 3622 of 7269).
+- Fix (addon 0.9.63, installed): 128x33-cell STATE lane (512x132 px top-left, same 1024-byte page),
+  mask restored to that island, per-byte diff drawing (Lua mock: 1.27 -> 0.53 ms per tick).
+- Decision replay of the 10-08 16:10 telemetry through pre-merge and merged code: similar skill mix
+  (SEEK 25/28, INSPECT 9/9); merged code adds 17 TDB-driven MOVEs and 13 vs 9 route-transition SEEKs.
+- Live validation required: capture/World3D Hz with 0.9.63, approach stop distance, INSPECT success rate.
+
+## 2026-10-08 — TDB/élő POI egyeztetés és célpontig tartó MOVE (offline-tested; live OPEN)
+
+- A 21:54-es Harpy Totem futás első mentett állapotán a játékbeli quest-POI
+  `(491,-2510)` a TDB 55881/389809 objektív-poligonján belül volt. A friss
+  kód a fázisazonosító hiánya ellenére úticél-*jelöltként* elfogadja az öt
+  questhez kötött GO-spawnt, mert az élő POI és a TDB terület egyezik.
+  Az élő sárga pötty `(466.58,-2507.69)` a `600240` TDB totemhez
+  `(465.72,-2508.30)` ~1.05 yd-re esett; az offline Planner-visszajátszás
+  első javaslata most a spawnhoz vezető, navmesh-köteles `MOVE` volt.
+- Ha az élő quest-POI nem illeszkedik a TDB objective-területhez, a TDB
+  koordináta nem írja felül: marad a játékbeli POI és a helyszíni vizuális
+  azonosítás. Az elérhető quest giver és a leadó TDB-helyét is összevetjük
+  az azonos szerepű élő world-POI-val, ha van ilyen. Ismeretlen fázisú spawn
+  csak egyező élő POI mellett keresési cél, soha nem megerősített entity.
+- TDB-út közben a puszta UNKNOWN/objektum YOLO-doboz nem szakítja meg a
+  mozgást a konkrét célpont közeléig; a friss, questhez kötött addon-hover
+  továbbra is átadhatja a vezérlést. Érkezés után a tooltip, questállapot és
+  credit-ellenőrzés változatlanul kötelező.
+- Eddig **offline** ellenőrzés: 143 releváns regressziós teszt sikeres a
+  dokumentálás előtti körben, valamint mentett állapotból TDB-spawn MOVE
+  javaslat. Új live futás nincs; navmesh-út, tényleges totemhasználat,
+  több célpont közti váltás és teljes quest-befejezés még validálandó.
+
+
+## 2026-10-08 21:54–22:04 (pid 4148, user) — Harpy Totem test after TDB-primary patch
+
+- Read-only sources: `output/live-debug/live-debug-20261008-215412.jsonl`,
+  `telemetry-20261008-215412(.1).jsonl`, and the final pid-4148 status.
+  Selected TDB was READY/read-only, addon reported 0.9.62, binding preflight
+  ready, game build 69933. The user controlled the live test; any manual
+  click near a credit change is not identifiable from these summaries.
+- Actual active objective was quest 55881 **Purge the Totems**, not cocoons.
+  TDB provided objective 389809, Type 2/GO 327146 **Harpy Totem**, name and
+  five GO spawn candidates. Live mouseover repeatedly named Harpy Totem with
+  `quest_related=true`, `quest_id=55881`; a tooltip event also contained
+  `Harpy Totem ~ Purge the Totems ~ 3/5 Harpy Totems burned`. The objective
+  identity/hover path is therefore present in this run.
+- Clarification: quest 55764 **Harpy Culling** (10/10 harpies/cohorts) also
+  has a distinct four-point objective-0 TDB POI polygon candidate, linked to
+  QuestObjectiveID 389603: (499,-2586,155), (554,-2529,155),
+  (500,-2376,157), (423,-2419,154). Its Z spread is only 3 yd, so the
+  current TDB-region code generates 12 bounded interior search samples and
+  can propose a navmesh-required region while this objective is open. In the
+  inspected run it was already 10/10 at the start; this is **not** live
+  evidence of the agent using that polygon to hunt harpies.
+- The status shows five distinct `OBJECT_USE` results: `stale_observation`,
+  two `out_of_range`, `identity_uncertain`, and one
+  `object_use_credit_verified` at about 22:03:01. The skill reached
+  `SEND_USE`/`WAIT_QUEST_CREDIT`; FAST quest digest changed from 3/5 to 4/5
+  near 22:03:02. These records prove a verified credit during an active
+  OBJECT_USE attempt, but do not by themselves distinguish an agent click
+  from a possible simultaneous manual click. Earlier 2/5→3/5 also occurred
+  without a recorded OBJECT_USE success, so autonomous attribution is open.
+- TDB location guidance was **not** validated: all five GO rows have
+  PhaseId 15356, while the client state exposes no comparable phase. The
+  conservative spawn selector therefore rejects them. The four-point POI
+  spans Z 142–155 and the current floor is unknown, so the polygon selector
+  also abstains. This leaves repeated visual seeking despite correct TDB
+  objective/name/hover knowledge. Do not count this as successful TDB routing.
+  The quest-55881 objective-0 POI is a four-vertex search-area candidate
+  explicitly linked to QuestObjectiveID 389809 and QuestObjectID 327146:
+  four of the five TDB totem spawns lie within about 1 yd of its vertices,
+  and the fifth is inside. This strongly supports using its XY extent for a
+  bounded visual search, while its 142–155 Z range must not be flattened
+  into one guaranteed cave floor or mistaken for a verified player route.
+- Follow-up coordinate comparison: at the verified 3/5→4/5 credit, player
+  WORLD_YARDS XY was about (551.655,-2516.923), only 3.49 yd horizontally
+  from TDB GO spawn `600241` at (552.934,-2513.670,Z 154.253). A yellow
+  minimap dot immediately before that was at about (553.8,-2512.1), 1.8 yd
+  from the same TDB spawn. Another observed dot near (502.9,-2588.9) closely
+  matched TDB spawn `600242`. Player Z was unknown and no object GUID was
+  exported, so these are strong XY associations, not proven 3D/spawn identity.
+  `minimap_objective_dots` associates dots to the live quest API's
+  `quest_locations` (quest 55881 POI near 491,-2510), **not** to TDB spawns;
+  33 debug snapshots proposed MOVE toward a yellow quest dot. The TDB↔dot
+  matching opportunity is real but not implemented in this run.
+- The full STATE stream froze twice: state sequence 9 stayed at sample time
+  882211.658 for about 92 s, then after recovery sequence 261 stayed at
+  882404.366 to the end (state age about 227 s). FAST continued near 27 Hz.
+  At the end FAST showed 4/5, but `active_quests` still showed the stale 3/5.
+  This stale state can distort objective prioritization and post-action
+  decisions even when FAST credit verifies one use.
+- Open work: phase-aware or live-confirmed TDB spawn/POI use with navmesh
+  floor resolution, bounded out-of-range object approach, and the recurrent
+  STATE decode/freshness failure. No assistant-controlled input or code
+  change was made during this log review.
+
+## 2026-10-08 — TDB-primary integration (offline-tested; new live test OPEN)
+
+- The user's selected `TDB_full_world_1210.26091_2026_09_09.sqlite3` was
+  inspected read-only: 247 tables, 6,910,565 rows, 23 empty, quick_check ok.
+  Full structural/build census and explicit runtime/query/deferred dispositions:
+  `docs/audits/tdb-20261008.md` and `.json`. This does **not** prove the
+  accuracy of every quest or spawn in the current Retail client.
+- The shared planner now consumes TDB as primary **static candidate knowledge**
+  for quest role/objective search regions before generic API waypoints, plus
+  quest chain, GO name, item source and service information. Live addon quest
+  availability, mouseover/target identity, navigation feasibility and
+  objective/turn-in outcomes remain the necessary action/verification gates.
+- For a uniquely matched TDB GO objective (e.g. quest 55639 objective 391939,
+  GO 339568 Thick Cocoon), the quest model now carries its ID/name even if
+  the addon objective list is shorter. If the live type is unknown, TDB
+  supplies a reversible object-interaction hypothesis. An exact live tooltip
+  with an omitted object ID can confirm the name and quest link; the
+  `OBJECT_USE` skill rechecks on a fresh hover. A conflicting explicit ID
+  blocks the click. This path is **offline-tested only**.
+- For each semantic POI target, only metadata at the largest absolute
+  VerifiedBuild remains active; equal-build blobs and distinct spawn GUIDs
+  remain separate. On the real TDB, quest 9537 selects three 66384 POIs and
+  records two superseded metadata rows. Quest 55639 exposes five independent
+  Thick Cocoon spawn GUIDs with Z; the older 58238 spawn rows cannot be
+  globally dropped because no newer rows replace those identities.
+- Mixed-build point groups, ambiguous/shared geometry, unknown cave floor,
+  phase/difficulty constraints and out-of-map candidates are not silently
+  promoted into movement targets. Polygon interiors are search regions, not
+  guaranteed object coordinates or player paths.
+- This code was not present in the user's prior live run; neither the previous
+  quest turn-in nor the current TDB-first behavior is newly live-validated.
+  The user runs the next client test. Confirm the configured source path and
+  addon/bindings/PID, inspect exact quest/objective/hover identity, verify
+  navmesh route and quest-event outcome, and record any manual intervention.
+- Focused TDB/reference suite: 61 passed; final broader TDB, quest, objective,
+  interaction, OBJECT_USE, POI and cave integration selection: 187 passed.
+  The separate runtime/location selection remained at 47 passed, 2 known
+  legacy assertions failed (offline replay command count and normalized-map
+  MOVE without a traversable world route). This is not
+  the whole-project suite; previously recorded legacy runtime assertions
+  remain unresolved. No FULL_AI or WoW input was initiated here.
+
+## 2026-10-08 15:57–16:02 — reference support live check, stale detail lane
+
+- Read-only evidence: live-debug/telemetry-20261008-155516(.1).jsonl,
+  live-debug-20261008-155516.jsonl, pid-15200 status and captures from
+  20261008-155731-006-002. Reference catalogue is READY at the configured
+  Downloads path, source SHA 54a0509267bd68e0f321494466a3364bab7f29e03370f172915cdb9cd66bc404.
+- The user clarified that they may have clicked Complete Quest manually.
+  Agent INTERACT with Private Cole succeeded at 15:59:31; no subsequent
+  QUEST_DIALOG execution is visible. Capture 0114 at 15:59:51 still shows
+  Complete Quest. Around 15:59:56 FAST quest_digest is empty and revision
+  changes 2 to 4, but active_quests still contains completed quest 58915.
+  Do not count this as autonomous turn-in or verified QUEST_ROLE learning.
+- Available campaign POIs 55763, 55764 and 55881 were already present in
+  map_pois.available_quests (QUESTLINE_API), alongside side quest 56839.
+  The agent continued SEARCH_TURN_IN_AREA/SEEK for 58915 instead of moving
+  on. This is not evidence that the addon never queried campaign POIs.
+- Completed full-state counter stops at 89, STATE pages at 2129, around
+  15:58:29–30. FAST continues roughly 20–30 Hz. At the opened completion
+  dialog state_age is about 62.6 s: skill_availability rejects QUEST_DIALOG
+  above 2 s. End-of-run state_sequence remains 138. Cause of the original
+  STATE decode interruption is not proven from lossy JPGs.
+- Two read-only synthetic reproductions establish code weaknesses: with
+  correct 4.0 px synthetic lanes but cached pitch 3.98/4.02, decoder returns
+  FAST alone and retains the wrong primary geometry as successful; FAST
+  success therefore can hide STATE failure indefinitely. Separately,
+  WorldModel + normalized empty FAST digest yields accepted_quest_ids=[]
+  while retaining active_quests=[58915]. This stale quest drives old-area
+  search; a vanished quest alone must not be relabelled as verified turn-in.
+- Overlay contains 2 QUEST_DETAILS, 2 ENTITY_SEEN and 2 ROUTE_OUTCOME rows;
+  no QUEST_ROLE. Route point arrays are empty: actual player telemetry has
+  unknown Z, which the exact-WORLD_YARDS recorder correctly declines. This
+  verifies basic read/write activity, not complete route/role learning.
+- User reported possibly running an older addon, then copied the new addon.
+  Current installed Lua/Transport hashes match the working-copy files, but
+  this does not establish what Lua was loaded during the earlier run. Both
+  advertise 0.9.62, so version alone cannot distinguish these patches.
+  A user /reload is required after copying. No client input or behavioral
+  patch was performed during this diagnostic review; both code issues above
+  remain open and should be regression-fixed before claiming validation.
+
+## 2026-10-08 — raw WORLD reference integration (offline-tested, live OPEN)
+
+- Selected the user's Downloads/TDB_full_world_1210.26091_2026_09_09.sqlite3
+  through ignored local configuration. Source opened read-only; learned
+  additions/corrections are separate reference_experience rows in the
+  existing entity-memory profile. No source rows were changed.
+- Runtime/WorldQuery/quest filtering read reference plus context-matched
+  learned evidence. Added verified quest-role learning, missing quest
+  descriptions, actual entity XYZ only when exported, observer objective
+  regions, bounded route results and conservative single-point POI fallback.
+  No independent planner, direct input, or blind historical route execution.
+- Real DB reads: startup approximately 1.07 s; quests 58915/55639/59949 first
+  query approximately 5–6 ms. Quest 59949's completion text and explicit ender
+  name conflict remains ambiguous; no faction guess resolves that conflict.
+  Read-only PRAGMA quick_check returned ok; changed Python modules compile,
+  and the scoped git diff whitespace check passes.
+- Three disjoint offline selections: 95 passed (reference/memory/quest),
+  132 passed and 1 failed (interaction/cave/architecture), 47 passed and
+  2 failed (runtime/location). Total 274 passed, 3 failed. The new reference
+  support suite is green; this is not a green whole-project claim.
+- Unresolved: test_inv14_visual_local_search_has_finite_sector_and_time_budget
+  expects another seek command at 0.5 s, gets none (reproduces standalone,
+  without database use); test_map_location_precedes_db_fallback expects a
+  MOVE from normalized coordinates without a navmesh endpoint, gets none;
+  test_complete_offline_quest_combat_loot_turnin_replay expects 6 commands,
+  gets 4 (also reproduced with reference disabled). Existing assertions
+  were not altered by this integration.
+- No user-run test of this integration yet and no assistant-controlled WoW
+  input. Restart GUI, confirm reference_catalog READY/path, run a short quest,
+  inspect hover identity and verified acceptance/turn-in evidence, then check
+  learned persistence and loop latency. Full hotfix merge, POI polygon/
+  unknown-Z interpretation and autonomous route reuse remain open.
+  Configuration, storage schema and test procedure: REFERENCE_KNOWLEDGE.md.
+
+## 2026-10-08 13:36–13:44 (pid 11688, user) — wrong selected friendly blocks quest-giver retarget
+
+- Read-only sources: `output/live-debug/live-debug-20261008-133624.jsonl` and matching telemetry. Captain Garrick remained selected from about 13:43:10 while Private Cole was the addon-confirmed mouseover around 13:43:18–13:43:38 (and again immediately before 13:43:58), with matching fresh cursor/mouseover samples. Cole's body and overhead symbol were both present in World3D near the cursor. The user manually cleared Captain's target near 13:43:58; only then did the agent TARGET Cole. This run is not evidence of autonomous replacement.
+- Cause: `QuestDomain._propose_selected_friendly` could return before the already-existing `TargetPlanningPolicy` evaluated the different, quest-relevant addon mouseover. Working-copy fix: evaluate that policy first and let only its fresh, exact-GUID `TARGET` replacement preempt the old selected-friendly branch. A matching selected GUID or unverified background box does not trigger replacement.
+- Offline regression: `test_fresh_marked_mouseover_replaces_wrong_selected_friendly_target`; focused target/quest suite **126 passed**. **Not live-validated yet.**
+
+## 2026-10-08 07:49–07:54 (pid 14264, user) — quest dialog opened, movement continued
+
+- Read-only sources: `output/live-debug/live-debug-20261008-074947.jsonl`, matching telemetry, and the agent journal. At 831546.207 an `INTERACT` verified and a new `LOCATE_API_QUEST_GIVER` MOVE began with TURNLEFT. At 831546.457 the addon reported Henry Garrick's open `ACCEPT` dialog for quest 55196, but at 831548.49 it was closed with no accepted quest in the log; MOVE resumed. This was a UI ownership race, not a missing quest offer.
+- The same run's visual approach produced 15 forward control updates from 831544.54 to 831545.51 as Henry's box rose from .122 to .169 image height, and then an INTERACT succeeded. The user also observed occasional visual-approach overshoot; this trace supports early braking near a rapidly growing NPC box, but does not prove every reported overshoot has the same cause.
+- Working-copy fix (**offline-tested only**): an open quest/gossip dialog cancels any active movement and prevents MOVE, visual approach, seek and OPEN_MAP from being admitted. The quest planner chooses the dialog action first, or waits for missing button coordinates without walking away. The FAST UI edge releases movement immediately. A selected, symbol-supported quest giver suppresses unrelated World Map fallback. For a first NPC approach with rapid measured box growth, the servo stops at the earlier .17 scale and lets `INTERACT` verify range; an explicit out-of-range response retains the larger learned per-GUID threshold. The periodic `INTERACTTARGET` probe remains opt-in because it previously caused stop-and-go motion.
+- Focused offline regressions: 163 passed, 1 previously known quest-POI expectation deselected. An extended runtime suite reached 205 passed, 1 deselected, 1 failed: the legacy eight-frame offline quest replay still expects six commands, while the current agent emits four (two dialog clicks, combat, and NPC interaction). That fixture has no traversable mmap turn-in route; this count assertion does not validate the live UI handoff. **Not live-validated yet**; user runs the next client trial.
+
+## 2026-10-08 07:22–07:35 (pid 14264, user) — Private Cole missed; repeated fall on turn-in route
+
+- Read-only evidence: `output/live-debug/live-debug-20261008-072228.jsonl`, matching telemetry parts, and the agent journal. At 07:24:13, `WORLD3D:200` was Cole's body, `WORLD3D:197` the overhead `!`, with a supported ABOVE relation; the addon mouseover named Private Cole and anchored his GUID to body track 200. This was a detection-to-decision failure, not proof that YOLO missed the NPC.
+- Root cause: the body inherited `learned_symbol_like` from its visual group, and `is_symbol()` misclassified the body itself as a glyph. The four-probe cap then removed all World3D INSPECT proposals, including a marked NPC, while the `LOCATE_API_QUEST_GIVER` MOVE visual handoff was not treated as a committed quest route. The route stopped for the cue repeatedly without inspecting Cole.
+- After quest 58914 was accepted, seven separate FALL_STARTED events occurred around (265, −2217). Each new navmesh route retained the same dangerous local segment. The existing fall guard released input but the 15-second quest-failure block did not prevent the next physical attempt.
+- Working-copy fix (**offline-tested only**): classify symbols from their own labels, preserve INSPECT for symbol-attached bodies beyond the generic probe cap, and process the API giver MOVE handoff. The navigation service now records a fresh fall as a 10-minute, instance/floor-scoped hazard, including FAST-only falling samples. It refuses any replanned corridor intersecting that hazard on the same floor; it does not invent a cross-cliff detour. A safe different-floor route remains admissible. If no independently valid alternative exists, movement stops with `fall_hazard_on_route` (`PATH_BLOCKED`).
+- Validation: targeted regressions pass; **no user live run of this patch yet**. The older isolated `test_reached_quest_poi_is_not_reissued_after_camera_observation_drift` still fails on its initial MOVE expectation and is not in either changed path. Remaining limitation: a genuine alternative corridor requires navmesh/pathfinding evidence; the present fail-closed guard prevents another identical fall rather than guaranteeing arrival.
+
 ## 2026-10-01 — World Map / minimap marker YOLO pipeline (offline-tested; no model trained; live open)
 
 **Measured cause of "the map sees nothing"** (`tools/measure_map_marker_detection.py`,
@@ -3743,7 +4125,7 @@ discovery coverage: **149 passed**. A user-operated live combat run is still
 needed to validate the new path; no addon installation is required.
 # 2026-09-21 — map 2175 TrinityCore mmap integration (offline only)
 
-The user supplied `C:\Users\benei\Downloads\mmaps.zip` and identified Exile's
+The user supplied `C:\Users\<user>\Downloads\mmaps.zip` and identified Exile's
 Reach as instance/map 2175. The archive and real `2175_32_36.mmtile` data were
 parsed offline; same-tile and land-only cross-tile polygon routes were
 produced. Water polygons are excluded from walking routes. The
@@ -7770,3 +8152,177 @@ agent (RecordingExecutor, no client input).  Findings and fixes, all offline-tes
 - Done: turned in 55639 (710295), accepted and turned in 85678 (710297–710429). Then no quest: the API listed campaign "!" givers 58914 at (187, −2280) = Private Cole and 55196 at (267, −2339) = Henry Garrick (user). The agent targeted Lady Jaina from a hover next to Cole, VISUAL_APPROACH (one 30 s timeout) and INTERACT `no_response` for ~60 s, walked toward Henry Garrick, "arrived" at 8.5 yd (10 yd radius) — the reached pin is skipped for 300 s — and turned round 80 yd to Cole's pin; 68 INSPECT, 26 IDENTIFY seeks, 22 VISUAL_APPROACH, 19 TARGET; user stopped it.
 - Telemetry shows the client's `softinteract` unit at the pin: Private Cole at 3.8–5.2 yd from (187, −2280), Quartermaster Richter (vendor) at 7.5–8.9 yd. NPC world positions are not exported (only the target's).
 - Fixes (offline): API giver arrival 4 yd (was 10); within 6 yd a friendly `softinteract` NPC gets `INTERACT` with `activation_source: SOFT_INTERACT` (`INTERACTTARGET`, no hard-target identity, success = quest/gossip/vendor window; once per NPC per giver per 30 s; priority 104); after reaching a giver no other giver route for 10 s (`GIVER_LOCAL_SECONDS`, user: "25 s sok, legyen 10 s"), a drifted agent walks back to it; at an API pin a different soft-interact NPC makes the selected unit irrelevant (`soft_interact_giver_waiting`). Tests: `test_map_pois.py` (+3, one rewritten), `test_stale_friendly_target_20261005.py` (+1), `test_pit_layer_and_pins_20261005.py` (updated). Full suite: 15 baseline failures. Not live-validated; whether INTERACTTARGET always prefers the soft-interact unit over a different hard target must be confirmed live.
+
+---
+
+## 2026-10-07 11:06–11:08 (pid 15440, user, addon 0.9.59) — one cocoon, then a sweep-hop / search-cell ping-pong on the spiral
+
+- Sources (read only): uploaded `telemetry-20261007-110601.jsonl` (131.8 s) and `agent_status.json`. Journal session `1791363480-756217315`; goal created at 756719.99; the user stopped the run at 756832.78 (`mode_changed`). Final state: mode STOPPED, executor disarmed, no held keys, so no FULL_AI process was left running. Character: Mklé, warrior 7, Hrun's Barrow (map 1409, instance 2175), quest "Who Lurks in the Pit" (55639).
+- Progress: 0/5 → 1/5 at 756766.0 (`object_use_credit_verified`). Evidence: mouseover "Thick Cocoon", `SPELLCAST_SUCCEEDED` 321523, then "Freed Expedition Member". The first OBJECT_USE attempt ended `IDENTITY_UNCERTAIN` (756762.8). No further credit.
+- 756771–756810: three SEEK_VISUAL_CUE runs ended `seek_visual_cue_sectors_exhausted` (TARGET_NOT_FOUND), so no cocoon was visible from the upper spiral. The area search walked cell (81, −2272) twice. Cells (59.8, −2263) and (102.2, −2263) were retired as off-floor.
+- 756811–756832 (and a 38 yd variant before that): two MOVEs alternated every ~1.6 s, each ending `reach_arrival_verified`, while the player stayed in a 4 yd patch around (72–76, −2236…−2239) at z 67.9 (MMAP, confidence .95):
+  - (A) zone-sweep hop 4/39 at (69.1, −2239.7), z 69.5, stop distance 6.
+  - (B) quest-area cell 1:1 at (81, −2242). This cell lies over the pit hole. Its SAME-floor projection was (76.0, −2235.7), 8.06 yd from the cell, outside the 7.5 yd visit radius (30/4). The cell therefore never counted as visited (visits 0).
+- Why the two never advanced:
+  - The hop was not marked by the arrival either, because B's arrival took the player 8 yd away before the planner looked at the sweep again.
+  - After A arrived, `world_arrived` (≤ 6 yd) made the location non-actionable, so the area SEEK won (utility 79.7 against the sweep's 67.7 with its distance penalty). After B arrived, the sweep offered hop 4 again.
+  - The loop guard saw only `MOVEMENT_OSCILLATION:TURNLEFT:TURNRIGHT` ×3. The A/B alternation itself went undetected.
+- Root cause of the never-marked hop. The same cause explains two 2026-10-06 findings: "8 instant MOVEs to the same rim hop" and "not marked by the planner (fresher gate)".
+  - `zone_sweep_next` and `_search_player_z` tested freshness as `0 <= now − at <= 3`. Here `now` is the addon's `state.monotonic_time` (GetTime at sampling) and `at` is the Z resolver's fix time (agent clock at processing).
+  - Live, the sample comes ~0.1 s before the fix (status: `monotonic_time` 756836.377 vs `fast_received_at` 756836.469). Every fix was therefore rejected, and the planner's position test never marked a hop.
+- Fixes (offline-tested, `tests/test_sweep_cell_pingpong_20261007.py`, +5 tests):
+  - Both freshness tests use a symmetric window, `|now − at| <= 3`.
+  - `NavigationService.observe_verified_move` retires the zone-sweep hop of a verified arrival (`record_sweep_arrival`; only when the hop matches the current sweep within 1 yd).
+  - It also retires the search cell of a verified arrival (`search_region_id` + `search_cell_id`), including when the route ended at the cell's same-floor projection.
+  - Full suite: 33 baseline failures, 2494 passed, no new failure.
+- Other measurements:
+  - STATE assembly: 1197 pages, 82 complete snapshots (14.6 pages per snapshot, 0.77 Hz). The 0.9.58 run needed 16 pages per snapshot.
+  - After STOP, one memory maintenance pass took 2061 ms for 256 rows. FULL_AI defers maintenance, so this is outside the control path. The DB is 139 MB, grows ≈ 214 MB/h and has a backlog of 47 545 rows, so it grows unbounded during long FULL_AI runs.
+  - The binding inventory is still collecting (22 of 23 pages) and lists 22 catalog differences against the selected cache (`authoritative_for_input: false`). The selected cache file is named `pid-19664` while the selected PID is 15440. The control-binding preflight was ready with no mismatches.
+- Open, not fixed:
+  - No loop detection for alternating "successful" MOVEs.
+  - The next user run must show the sweep advancing beyond hop 4 down the spiral to the cocoons.
+  - SEEK sector exhaustion on the upper spiral.
+  - Maintenance cost and DB growth.
+
+---
+
+## 2026-10-07 11:13–11:21 (pid 15440, user, addon 0.9.59, without b0f0d32) — 3/5 cocoons; quest credit and errors stuck behind the paged STATE
+
+- Sources (read only): `_j_1.txt` + `telemetry-20261007-111331.jsonl` + `_j_2.txt`, one continuous telemetry run (mono 757176–757644), and `agent_status.json`. Goal created at 757168.65. The last agent decision was at 757578.1, after which the run was STOPPED; the user abandoned 55639 manually at 757603.8 with FULL_AI no longer running. Final state: no held keys, executor disarmed. The run did not yet contain b0f0d32.
+- Progress: 0/5 → 1/5 (757247.0) → 2/5 (757457.9) → 3/5 (757482.6). Combat: two Barrow Spiders, both killed and looted; one `loot_ui_not_opened` (757364.4) was followed by a successful loot.
+- Upper spiral (757247–757437):
+  - The agent circled the rim and walked outside once (indoors=false 757312–757326).
+  - All nine cells of area region 0 were retired at once at 757408.5 as off-floor.
+  - 34 deduplicated FALL_STARTED events, mostly short ramp-edge hops; the resolver's `fall_count` stayed 0.
+  - Eight `seek_visual_cue_sectors_exhausted` results and three `visual_track_lost` over the run.
+- Lower floor (757483–757578): the zone sweep reached hop 18/38 (58.3, −2199.5, z 21.3) and alternated with search cell (81, −2212), both "arrived". This is the ping-pong fixed by b0f0d32.
+- Cocoon 1 took 15 s and three attempts: two `STALE_OBSERVATION` results (757226.9, 757232.4) before the credit. The decision log does not reach back that far, so this stays open.
+- **Root cause found in this run: the STATE assembly rate.**
+  - 3348 STATE pages produced 108 complete snapshots (31 pages per snapshot; the 11:06 run needed 14.6).
+  - `state_sequence` stayed unchanged for more than 5 s during 323 of 468 s, with a maximum of 30.3 s.
+  - Every live FAST packet was a bounded variant without `quest_digest` or `ui_error` (reproduced with the Lua transport). Quest progress and UI errors therefore arrived only with the paged STATE.
+  - Cocoon 2 credit: STATE was frozen from 757437.0 to 757457.9 (seq 1037 → 1057). OBJECT_USE failed `QUEST_CREDIT_NOT_RECEIVED` at 757456.7 (deadline plus the 10 s grace), 1.2 s before 2/5 arrived.
+  - Cocoon 3: "You are too far away." at 757466.9 and 757467.9 became visible only at ~757471, so a second click went out first. The approach then followed (41.2 → 37.1, −2197) and the cocoon was credited.
+- Fixes (offline-tested, e329869, addon 0.9.60; the addon must be installed and the client `/reload`ed):
+  - Every FAST variant re-adds `quest_digest`/`quest_state_revision` and a fresh `ui_error` when the packet still fits (error first).
+  - `QuestProgressVerifier` credits FAST digest progress for single-objective quests. `fast_digest_progress` needs a baseline and never treats a stale digest next to a newer snapshot as progress.
+  - Accepted ids that reappear for an already active quest do not count as an acceptance.
+  - OBJECT_USE credit grace raised to 25 s while no newer snapshot has arrived.
+  - Tests: `tests/test_fast_quest_credit_20261007.py` (+9). Full suite: 33 baseline failures, 2503 passed.
+- Open:
+  - With 25 quests the digest does not fit at all, and with an error present the digest is dropped, so the single-strip FAST budget is the structural limit. User proposal: a wider top pixel strip carrying separate FAST and STATE lanes, masked out of YOLO.
+  - STALE_OBSERVATION at cocoon 1.
+  - Leaving the barrow during the area search.
+
+---
+
+## 2026-10-07 — addon 0.9.61: two-lane top pixel strip (offline-tested, not yet live)
+
+- Why: in the 11:13 run (above), full FAST samples were 1.1–1.5 KB. The 850-byte single-strip budget therefore always fell back to a bounded variant. The STATE was also sent only on one rendered frame of every four, while the capture kept ~27 of up to 60 frames/s, so 3348 pages produced only 108 snapshots. User decision: one long strip along the top, masked out of YOLO.
+- Layout (`AIPlayerControllerExport.lua`, `computePixelLayout`):
+  - 32 rows of cells exactly 4 physical pixels square, starting at 12 px from the top-left.
+  - The strip runs right up to `MinimapCluster:GetLeft()` − 8 px (a 220-unit reserve when the minimap position is unknown).
+  - FAST lane: 224 columns (packet ≤ 1784 bytes). STATE lane: the remaining columns, between 64 and 224. A 1600×829 client gets 224 + 129 columns.
+  - Re-laid out on `DISPLAY_SIZE_CHANGED`/`UI_SCALE_CHANGED`. With fewer than 240 columns (~1200 px wide clients) it falls back to the former single strip.
+- Framing:
+  - Each lane carries header (8 cells), marker byte 254, column count (2 bytes), length (2 bytes), payload and checksum. The STATE lane starts right after the FAST lane's columns.
+  - A legacy length's high byte is at most 3, so old and new strips cannot be confused.
+  - Only changed cells are redrawn, so a held STATE page costs nothing on its second frame.
+- Transport (`Transport.lua`): `NextLanePackets` returns a FAST packet (the richest variant up to the lane budget) and a STATE page every frame, each page held for two frames (`STATE_PAGE_HOLD`). The single-strip `NextPacket` is unchanged.
+- Python side:
+  - `pixel_bridge._decode_lanes` returns both packets newline-joined. A torn STATE lane keeps the frame's FAST packet.
+  - `PacketAssembler.feed`/`feed_lanes` feeds FAST first, so a snapshot completed in the same frame merges it; one bad lane does not discard the other.
+  - The page bound was raised to 4096 bytes. The sensor reports `two_lane_frames`.
+  - The YOLO `addon_hud` hard mask is now the full-width top band of max(18 % of height, 148 px).
+- Tests: `tests/test_two_lane_strip_20261007.py` (+7; the addon's own drawing code is rasterised and decoded). Full suite: 33 baseline failures, 2510 passed.
+- Next user run: install the addon and `/reload`. Then check in `agent_status.json` `sensor_diagnostics…two_lane_frames > 0`, `completed_full_states / state_pages` (it was 108/3348) and `completed_full_state_hz`, and watch the client FPS with the wider strip.
+
+---
+
+## 2026-10-07 12:06–12:17 (pid 15440, user, addon 0.9.61 two-lane strip, with b0f0d32 + e329869) — all five cocoons; health 0, cast-time and empty-corpse defects
+
+- Sources (read only): `telemetry-20261007-120632{.1,}.jsonl` (complete: from 8 s after goal creation at 760352.2 to the last status sample at 761026.0, no gap longer than 5 s) and `agent_status.json`. The user stopped FULL_AI at 760964.3 (`mode_changed`) and abandoned 55639 manually at ~760977. The user walked to the last cocoon by hand.
+- Transport (0.9.61) live:
+  - 21 965 of 21 975 captured frames were two-lane, and all of them decoded.
+  - 717 complete snapshots, ~1.12 per second (0.23 per second before). 717 of the addon's 805 snapshot sequences completed (25 % before).
+  - Longest `state_sequence` hold: 3.1 s (30 s before). Events missing from the log: 27 of 1079 (27 % before). ~29.5 fresh FAST packets per second.
+  - `quest_digest` arrives on FAST.
+  - Side effects: agent tick median 15 ms (5.8 ms in the 11:06 run's sample); memory DB growth 347 MB/h.
+- Progress: accepted 760378.8 → 1/5 760413.6 → 2/5 760525.5 → 3/5 760558.1 → 4/5 760817.3 → 5/5 760954.2. The second objective (Ralia) appeared at 5/5.
+- User report: falls were corrected well. MOVE got stuck repeatedly, and LOOT and MOVE went back and forth when entering and leaving combat. At two cocoons the mouse was on the cocoon and OBJECT_USE was proposed, but nothing happened.
+- Findings and fixes (offline-tested, `tests/test_cocoon_loot_health_20261007.py` +6, addon 0.9.62):
+  - **Health was 0 on every FAST packet.** 12.1 returns a secret `UnitHealth("player")` and `safeNumber` turned it into 0, so the agent saw 0 % health all run (the defensive-spell rule fired). Fix: `optionalNumber` in `readFastState`, and `normalize` treats 0 health of a living player as unknown.
+  - **Cocoon 4.** At 760792 "You are too far away." → approach. From 760812.1 the cocoon was hovered for 2.4 s before the cast started; the right-click apparently did nothing and the 2 s F7 fallback started it. OBJECT_USE then failed `quest_credit_not_received` at 760815.4 while `is_casting` was true; the credit came at 760817.3. Fix: the skill keeps waiting while its cast runs (`CAST_GRACE_SECONDS` 6 s).
+  - **Cocoon 5.** The FAST digest credited it (760952.7). The snapshot still read 4/5, so a second OBJECT_USE right-clicked the freed prisoner ("Invalid target", SPELLCAST_FAILED ×2). Fix: `ObjectInteractionFlow.just_credited` holds the under-cursor use for 3 s at the same cursor point.
+  - **Loot (corrected after the user's review and the decision log `live-debug-20261007-120632.jsonl`).** Barrow Spiderlings are lootable; `lootable=false` only means already looted or too far away, so the empty-corpse rule was withdrawn. The real cause: when combat ended, the suspended MOVE (`Megszakított, még mindig érvényes részfeladat kontrollált folytatása`) was injected as the *preferred* proposal and bypassed ranking. The dead target's LOOT (priority 85) also lost to the quest-dot and zone MOVEs (84–92). The agent walked off, and the later LOOT had no corpse position (Retail gives a world position only for the selected target), so `move_to_entity` returned None and the LOOT failed with `corpse_not_found` (7×) and went back and forth. Fixes: the supervisor resume waits while a LOOT, a LOOT approach or an OBJECT_USE is proposed (resume window 180 s); out of combat the dead target's LOOT is priority 107.
+  - **Cocoon 3.** OBJECT_USE (760538.8) spent ~7 s of its budget waiting for the character to stop and the hover to settle, then failed `quest_credit_not_received` ~1.5 s after the right-click. Fix: a sent click always gets 5 s (`POST_CLICK_SECONDS`, covers the 2 s F7 fallback and its cast).
+  - **Walking on the rim (user: "alapból már a szélére kormányoz teljesen").** Before cocoon 2 (760451–760457) the character dropped off a spiral bend at (82, −2209) → (58, −2198) with four falls. The cocoon was on the upper level, so a ~200 yd loop back up followed. Cause: routes to a destination without a known height (minimap quest dot, minimap up/down cue) take `_probe_reachable_layer`'s path, and that path was requested without the centring margin. Detour's string-pulled path touches the inner edge of every bend, which on the spiral is the rim over the pit. Only routes with a known target height were centred (2.5 yd margin, 2026-10-06). Fix: the probe still chooses the layer on the fast path, then walks the centred path to that layer (`tests/test_probe_path_centred_20261007.py`).
+  - Barrow Spiderlings appear under two GUIDs that differ in one bit (…0000461B1F / …0000C61B1F). At 760778 they appeared as the mouseover and the soft-interact unit at the same time, so they are probably pairs of distinct units; GUIDs are not merged.
+  - Full suite: 33 baseline failures, 2516 passed.
+- Open:
+  - Why the right-click on cocoon 4 did not start the use.
+  - Agent tick cost and memory DB growth with ~5× more snapshots.
+
+## 2026-10-07 12:56–12:59 (pid 15440, user, addon 0.9.62) — cocoon hover/use/seek loop
+
+- Read-only sources: `output/live-debug/{live-debug,telemetry}-20261007-125652.jsonl`. The two-lane strip was active (4,666 decoded two-lane frames, 145 complete states); the quest 55639 digest remained 0/5. This is a separate, shorter live run, not a validation of the fix below.
+- At ~12:58:55 the addon named `Thick Cocoon` under the cursor (quest 55639) over live `quest_object_like` track `WORLD3D:305`, box height ~0.10. `OBJECT_USE` was selected, and the client returned `You are too far away.` around 12:58:56. The character then stayed at the same position while `SEEK_VISUAL_CUE` repeatedly hovered the cocoon. Thus a click did reach the client; the failed distance recovery, not absent click dispatch, caused this particular loop.
+- Cause: `ObjectInteractionFlow` raised the desired visual scale after range failure but re-proposed `SEEK_VISUAL_CUE`. `SeekVisualCueController` deliberately treated the low-confidence quest outline as hover-only, so no approach input followed. The generic `VISUAL_APPROACH` admission also required a selected GUID and discarded a guid-less object approach.
+- Working-copy change (offline-tested, **not yet live validated**): a fresh addon-named quest object whose cursor coincides with a live learned box now proposes a bounded `VISUAL_APPROACH` before another `OBJECT_USE`. Admission rechecks the current quest hover/box; the approach follows only that track for at most 8 seconds, aborts on a contradictory named hover, and after approach the normal fresh-hover/right-click/quest-credit verification still applies. A range block no longer expires merely with time or a successful hover; it clears only after movement or a different cursor/scene. `OBJECT_USE` now reports range versus line-of-sight errors separately. A line-of-sight failure suppresses repeat clicks from the same position/cursor until the player moves at least 2 yd or another object is hovered; no blind straight-line LOS recovery is claimed.
+- Focused regressions: 57 passed. Broader runtime/visual run: 89 passed, one offline replay expectation failed (`test_complete_offline_quest_combat_loot_turnin_replay`, legacy 6-command count, currently 4); its fixture is a LOOT/turn-in quest, not the cocoon object-use path. This turn did not establish whether that failure predates the patch. User remains the live-test operator; no client input was issued by the assistant.
+
+## 2026-10-07 18:28–18:38 (user, addon 0.9.62) — 4/5 cocoons, false visual-approach completion
+
+- Read-only sources: `output/live-debug/live-debug-20261007-182832.jsonl`, matching telemetry parts, and the agent journal. Quest 55639 progressed 0/5 → 4/5, not 5/5. The user reports intervening at the fourth cocoon, perhaps clicking it; the log cannot distinguish a simultaneous human click from the agent's input as the source of credit, so the fourth credit is **not** an autonomous live validation.
+- Between 3/5 and 4/5 the agent executed 173 `SEEK_VISUAL_CUE` actions but only one `VISUAL_APPROACH`. Two `OBJECT_USE` attempts returned `OUT_OF_RANGE` near monotonic 783719. The approach at 783723.847 had `ready_bbox_height=.25`, yet completed successfully in ~0.08 s with **no movement command** while the live cocoon box was only ~.10 screen-height. This reproduces offline with the recorded proposal and nearby state.
+- Cause: the cocoon box overlapped the self-avatar box in the image, so the generic `beside_self` shortcut declared interaction range even though the client had said it was too far away. Screen overlap is not a reliable distance cue for a cave object on another Z level. Working-copy fix: `object_use_approach` now requires the configured visual-scale threshold and cannot terminate from `beside_self`, bottom-edge, a harmful action-bar range, or an unrelated open quest/gossip UI. The latter UI case fails safely. A regression test recreates the overlapping boxes and requires a `MOVEFORWARD` command. **Offline-tested only; needs a fresh user live run.**
+- The journal proves the agent issued right-click commands at 783840.159, 783842.129, 783844.262 and 783845.143; the digest credit appeared at 783844.119. That timing is compatible with agent input but does not rule out the user's reported manual click. The post-credit clicks were on a different cursor point first; their target and necessity remain unresolved.
+- Related regressions: 113 passed, one pre-existing-looking offline quest replay count mismatch (expects six commands, gets four), also seen in the preceding test run. No assistant-controlled client input or FULL_AI start.
+- User follow-up: the pointer remained on the cocoon and the use was actually in range. The live hover sample at 783724.112 names `Thick Cocoon` with matching quest id, and the learned box was live; the .10 bbox height was **not** proof of distance. The planner's `approaching_object` gate suppressed `OBJECT_USE` solely because a small box forced `VISUAL_APPROACH`, even without a current range error. This was a second, independent cause of the hover loop. Working-copy correction (offline-tested, not live-validated): a fresh named hover may propose `OBJECT_USE` regardless of bbox height; only an actual client `OUT_OF_RANGE` on that object triggers the bounded visual approach. After approach, another fresh named hover is required before retrying use. Focused tests cover both the first use and the range-error transition (18 passed); the wider selected run has 113 passed and the same unrelated offline replay count mismatch.
+- Follow-up to the user's NPC comparison (offline-tested, **not live validated**): `ObjectUseSkill` already classifies a fresh addon UI range error as `OUT_OF_RANGE`. Object orchestration now carries consecutive range-failure count through retries instead of always passing 1 to `VisualApproachController`. For an addon-confirmed cocoon box, the same controller requires 5, then 3, then 2 actual `MOVEFORWARD` pulses before the next fresh-hover/use attempt; it no longer waits for the unreliable cocoon bbox to grow to a configured height. A same-cocoon soft-interact F7 proposal is suppressed while its range block is active. Camera-induced cursor shift over the *same named object* no longer clears the client's range block; a different named object or player movement can. Successful OBJECT_USE clears the block and the step count for the next cocoon. The controller remains bounded to eight seconds and still checks visual identity and conflicting hover. Focused tests: 21 passed; related runtime/quest/approach selection: 117 passed, one known offline replay count test deselected. No assistant-controlled live run.
+
+## 2026-10-07 19:53–20:00 (user, addon 0.9.62) — 4/5, range feedback lost before the next planner tick
+
+- Read-only sources: `output/live-debug/live-debug-20261007-195317.jsonl`, matching telemetry parts, and the agent journal. Quest 55639 progressed 0/5 → 4/5. The user's physical cocoon order is not the quest-credit ordinal: one cocoon was skipped, so use time/hover/track identity rather than "second" as a log key.
+- At monotonic 788483.759, the agent began `OBJECT_USE` on a `Thick Cocoon` hover. It sent a right-click at 788484.009, received `OUT_OF_RANGE` at 788484.907, and sent **no F7** for that failed attempt. The addon still named the cocoon and World3D track `WORLD3D:539` remained ACTIVE with a ~.09-high box at 788485.75. Yet the next journal plans contained `SEEK_VISUAL_CUE`, not `VISUAL_APPROACH`; 5/3/2 recovery never started. The later successful uses are separate objects: first two credits followed right-click plus F7 ~2 s later; the fourth credit followed right-click without F7. These timings alone do not prove which command caused earlier credits. No matching soft-interact target was present at the failed hover.
+- Root cause: `ObjectInteractionFlow.note_result` was called only from objective planning with `world.runtime_context.last_result`. A rapid intervening SEEK action replaced the `OBJECT_USE` `OUT_OF_RANGE` result before a fresh hover and learned box co-occurred. The range block was never latched, so SEEK repeated. Working-copy fix: record OBJECT_USE and object-specific VISUAL_APPROACH terminal results immediately in `EngineFinishMixin._finish`, in the existing quest planning policy; later unrelated SEEK results cannot erase them. A cursor coordinate shift over the *same* named object no longer clears a block whose terminal hover identity was temporarily unavailable. This does not add a separate quest brain or bypass normal availability/identity gates.
+- Offline regressions include an engine `_finish` test and an intervening SEEK test using the live hover/box shape. Focused cocoon tests: 23 passed. Related runtime/quest/approach tests: 126 passed, one known legacy offline replay command-count mismatch deselected. **No post-fix live validation yet**; user remains the live-test operator.
+
+## 2026-10-07 20:21–20:40 (user, addon 0.9.62) — autonomous cocoon completion and turn-in; slow NPC search
+
+- Read-only sources: `output/live-debug/{live-debug,telemetry}-20261007-202145*.jsonl` and the agent journal. The user reports that this run completed and turned in the quest by itself. Quest 55639 progressed from 0/5 through the additional objectives to 7/7 complete at monotonic 791078.654; the journal records `quest_complete:55639` at 791078.75 and `quest_turned_in:55639` at 791160.72. This is live validation of the cocoon use/recovery path in this run, not a claim that every attempt was efficient.
+- The ~82 s between objective completion and turn-in contained 94 MOVE, 37 INSPECT, 4 SEEK, 4 INTERACT, 3 TARGET and 2 QUEST_DIALOG actions. At 791088 the player was ~37 yd from the turn-in API point (190, −2283); by 791104 it was ~12 yd away, but later oscillated around the point: ~12.9 yd at 791125, ~12.6 yd at 791135, ~13.5 yd at 791145, ~6 yd at 791155. The quest UI opened for completion at ~791159, then turned in. INTERACT reported OUT_OF_RANGE three times; two VISUAL_APPROACH attempts lost their target. The final NPC was Captain Garrick; earlier hover candidates included other nearby NPCs. An overhead `overhead_symbol_like` was associated with a subject only intermittently, so the symbol alone cannot identify the correct NPC.
+- Cause of much of the wandering: `turn_in_arrived` used a strict 12-yard boundary unless a route had formally completed. The user-visible position crossed that boundary during local cell search, reactivating the priority-110 API-pin MOVE; on re-entry the local search resumed. **Working-copy fix, offline-tested only:** first valid proximity arrival latches a quest/pin/floor-specific local-search region until >20 yd, while rejecting a trusted wrong Z floor. A nearby symbol-topped NPC *box* gets INSPECT priority 100 only for a completed quest near its declared/API turn-in waypoint; the hover and quest UI remain identity/turn-in authorities. The symbol box itself is not selected as the NPC.
+- Regression selection: 88 passed, including arrival-boundary, wrong-floor and symbol-subject priority cases. These two changes need a fresh user live run. No assistant-controlled client input or FULL_AI start.
+
+## 2026-10-07 20:21–20:40 navigation follow-up (pid 15436) — spiral rim, fall and late creature search
+
+- Read-only evidence: the same telemetry/live-debug files and the `journal` in `output/agent/profiles/<user>/agent_memory.sqlite3`; screenshot `output/agent/pid-15436/live-captures/20261007-202610-867-002/0160-202835-565-state_change.jpg`. At 790457.89 the supervisor resumed a MOVE to (122.8, −2238.1) suspended before combat, although cocoon progress had changed from 0/5 to 1/5. On the following spiral descent telemetry reported `falling=true` at 790462.267 and 790463.309 while the MOVE was still active; navigation's fall count stayed zero because it waited for a qualifying landing/FALL_ENDED. The client kept moving until combat interrupted it. The screenshot shows the character on the rim. This run subsequently completed and turned in the quest, so the unsafe detour was recoverable, not harmless.
+- After cocoon 5/5 at 790852.18, the final creature (Hrun) was first selected at 790985.11 and credited at 791009.13. The agent covered roughly 549 XY yards between progress and first selection, versus about 116 yd direct displacement. One reproducible planning conflict: after arriving at a yellow objective dot, the 30-second local SEEK could move the character beyond the arrival radius; `minimap_dot_move` then issued priority-88 MOVE back to the dot over priority-86 SEEK, causing repeated returns.
+- Working-copy corrections (offline-tested, **not yet live validated**): invalidate suspended movement when quest objective counts change; let an arrived dot's bounded local search retain ownership of the area; stop physical movement at a `falling=true` telemetry sample and reject movement/seek proposals until landing; permit only the immediate next spiral leg within 1.25 yd to count as a passed waypoint, rather than four legs within 2.5 yd; and fail closed when the unknown-Z layer probe has no centered path instead of using the rim-hugging raw probe. The latter is a separate unsafe fallback; this run's recreated centered path was available, so it is not asserted to be the direct cause of this fall.
+- Validation: focused regressions 53 passed; broader navigation/runtime selection 110 passed and one existing legacy offline quest-replay command-count assertion failed (4 observed vs 6 expected). Full working-tree suite: 2571 passed, 21 failed, 5 skipped. The failures include legacy quest/search expectations and import/README checks outside the modified paths; they are not claimed resolved by this navigation patch. Other run failures include ordinary target search, range and corpse recovery failures; their counts alone do not prove new root causes. No new user-controlled live run has tested these corrections. The next run should confirm that the first `falling=true` releases movement, no stale MOVE resumes after cocoon credit, and the spiral route keeps the character on the walkway.
+
+## 2026-10-08 — rejected pixel-strip layout experiment
+
+- The user tested a 3 px-cell layout with a vertical FAST lane beside the minimap and reported that the whole UI flickered and the lane was in the wrong place: they meant **under** the minimap, not beside it. This report is a failed live validation; no claim about decoding or quest behavior is made from the offline tests.
+- The experiment's addon, decoder and World3D ROI changes were reverted to the previous horizontal 4 px two-lane layout. Both addon copies match their pre-experiment hash (`B6C9C79211F99D07708681C3111A5BEE7CA41BF49C8A0C17BD047C3577DD6E39`); seven strip tests pass after rollback. The cause of the UI flicker was not measured, though the experimental STATE lane had substantially more cells and is a possible load source.
+- Open layout conflict: the default objective tracker occupies the area under the minimap and may extend downward when quests are added. A pixel lane drawn there cannot be assumed both visible to the decoder and non-overlapping with the tracker. Decide where the objective tracker or lane should live before another live attempt. The running WoW addon needs a reload/reinstall of the reverted copy if the experimental files were installed.
+
+## 2026-10-08 — corrected yellow-area strip layout (offline-tested only)
+
+- The user's marked screenshot clarified the free rectangle below the minimap, approximately x=1250–1460 and y=305–695 in a 1466×787 window. A second, compact FAST frame now occupies 192×336 physical pixels, right-aligned with an 8 px margin and starting 300 px below the **client** top; this places it inside the marked rectangle on the shown client. The STATE frame starts at the client top (no 12 px margin) and has 29 rows of 4 px cells, a maximum height of 116 px rather than 128 px. The FAST frame uses 64×112 cells of 3 px, preserving the former 1,784-byte lane capacity.
+- The two lanes have separate WoW frames rather than one large TOOLTIP-strata frame. STATE packet capacity is capped at the former 1,024 bytes, so the earlier trial's increased STATE texture/packet load is not repeated. This is a plausible mitigation of the reported UI flicker, **not a measured root-cause confirmation**. The decoder supports the old side-by-side format and the separately located FAST lane, including torn-STATE recovery. The World3D hard mask includes the fixed FAST rectangle.
+- Synthetic rendering/decoding with a quest-tracker-colored background at 1466×756 succeeded, but this proves neither live rendering order nor that quest text remains readable if the tracker grows into the FAST area. The FAST frame uses TOOLTIP strata, so overlapping objective text is expected to be covered by it rather than corrupting telemetry. This tradeoff needs user live inspection. Relevant addon/transport/vision tests: 87 passed before the final header-loss regression was added; the focused strip suite then passed 10/10. No assistant-controlled client input was issued.
+
+## 2026-10-08 14:21–14:27 — Hjalmar gossip conversation (fix offline-tested only)
+
+- Read-only user-run evidence: `output/live-debug/telemetry-20261008-142116.jsonl` and matching live-debug log. Quest 58914 was completed; quest 58915 (`Hjalmar's Final Execution`) was accepted. At about +279 s the target was Hjalmar (`Creature-0-4242-2175-7-162943-000045A66F`), the active objective was `0/1 Hjalmar the Undying slain with Execute`, and the open UI exported `action="", quest_id=0, x=0, y=0, entries=[]`. FAST packets likewise had `open=true` but no action. The screenshot shows a single clickable `(Quest) I'm ready to fight you...` conversation row; its exact option ID/coordinate was **not** present in that run's telemetry. The WAIT for NPC/quest dialog details follows from that missing sensor fact, not from a YOLO miss.
+- Working-copy fix: the read-only addon now exports a uniquely present Retail gossip option only when its actual visible row can be located; the FAST transport carries its ID, name and click point. The planner proposes a click only if exactly one active quest objective names the selected NPC; the skill rechecks the option and target GUID before input. The verifier requires the same NPC to become attackable or combat to begin; a mere click or closed dialog is not success. Ambiguous/missing rows remain WAIT.
+- Both addon packages remain byte-identical. Addon-sensor, FAST merge, planner/skill/verifier and surrounding regressions: 96 passed; Python compile checks passed. **No live run with this patch yet.** The installed addon must be updated/reloaded before the next user-run test; inspect whether `quest_ui.action=GOSSIP_OPTION_SELECT` and `gossip_option` arrive, whether a single CLICK is issued, and whether the fight transition verifies. No assistant-controlled WoW input occurred.
+
+## 2026-10-08 22:26–22:30 — Purge the Totems, 4/5 → 5/5 (follow-up offline-tested only)
+
+- Read-only user-run evidence: `output/live-debug/{live-debug,telemetry}-20261008-222646.jsonl` (PID 2688). Near the last totem, the addon repeatedly reported `Harpy Totem ~ Purge the Totems ~ 4/5 Harpy Totems burned` under the cursor. Three `OBJECT_USE` attempts were selected, but two ended `IDENTITY_UNCERTAIN` and one `STALE_OBSERVATION`; none has a verified right-click. The full `STATE_Z` sample carried a fresh, coherent tooltip and cursor but no separate FAST mouseover/cursor timestamps. The quest became 5/5 around a nearby LOOT/F7 action; the log cannot prove whether that F7 caused the totem credit. Do not count this as a verified autonomous OBJECT_USE success.
+- Working-copy corrections: a post-hover full `STATE_Z` sample may confirm both cursor and tooltip when its shared sample time is fresh, without relaxing explicit identity mismatch checks. TDB objective locations are rejected when the live objective or normalized quest model marks that objective complete. For a partly completed multi-spawn objective, a precise TDB spawn is chosen only when correlated with a live same-quest yellow dot or supported by verified consumption history; otherwise the resolver falls back to the client location instead of guessing an already-used spawn.
+- Offline checks: 84 focused object/TDB/cocoon tests and 83 reducer/TDB/object/reference tests passed (overlapping selections). The corrected behavior **has not yet been live-validated**; the user operates the next WoW run. Confirm an `OBJECT_USE` right-click before credit and no MOVE to a completed objective/TDB spawn. No assistant-controlled input or FULL_AI start occurred.

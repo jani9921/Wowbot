@@ -18,21 +18,35 @@ from .planning_types import world_point
 class QuestBatchPolicy:
     # An unfinished objective area this close is worked on before a turn-in.
     BATCH_RADIUS_YARDS = 120.
+    # A turn-in already waiting keeps waiting while the work stays this close
+    # (live 2026-10-11 15:15: walking the objective area's edge took the
+    # player 121 yd from its POI centre and the turn-in trip started).
+    BATCH_KEEP_RADIUS_YARDS = 220.
     # A turn-in point this close is handed in right away (it is "on the way").
     TURN_IN_HERE_YARDS = 40.
     # Never keep a finished quest waiting longer than this.
     MAX_DEFER_SECONDS = 600.
+    # Issue #90: an objective this far above/below (known Z on both sides) is
+    # on another floor -- a cave route, not "nearby work".
+    MAX_FLOOR_DZ_YARDS = 15.
 
     def __init__(self) -> None:
         self.completed_since: dict[str, float] = {}
+        self.waiting: set[str] = set()
 
     @staticmethod
-    def _player(state: dict) -> tuple[float, float, object] | None:
+    def _known_z(point: dict) -> float | None:
+        if point.get("z_known") is False or point.get("z_estimated") is True:
+            return None
+        return number(point.get("z"))
+
+    @classmethod
+    def _player(cls, state: dict) -> tuple[float, float, object, float | None] | None:
         position = state.get("player_world_position") or {}
         x, y = number(position.get("x")), number(position.get("y"))
         if x is None or y is None:
             return None
-        return x, y, position.get("instance_id")
+        return x, y, position.get("instance_id"), cls._known_z(position)
 
     @staticmethod
     def locations(state: dict) -> dict[str, list[dict]]:
@@ -50,6 +64,10 @@ class QuestBatchPolicy:
         if (player[2] is not None and point.get("instance_id") is not None
                 and str(player[2]) != str(point["instance_id"])):
             return None
+        point_z = cls._known_z(point)
+        if (player[3] is not None and point_z is not None
+                and abs(point_z - player[3]) > cls.MAX_FLOOR_DZ_YARDS):
+            return None      # another floor: neither nearby work nor "here"
         return math.hypot(float(point["x"]) - player[0], float(point["y"]) - player[1])
 
     def deferred_turnins(self, state: dict, now: float | None) -> frozenset[str]:
@@ -61,18 +79,20 @@ class QuestBatchPolicy:
         for quest_id in list(self.completed_since):
             if quest_id not in complete:
                 del self.completed_since[quest_id]
+        self.waiting &= complete
         if now is not None:
             for quest_id in complete:
                 self.completed_since.setdefault(quest_id, now)
         if not complete or not incomplete:
+            self.waiting.clear()
             return frozenset()
         player = self._player(state)
         places = self.locations(state)
-        nearby_work = any(
-            (distance := self._distance(player, point)) is not None
-            and distance <= self.BATCH_RADIUS_YARDS
-            for quest_id in incomplete for point in places.get(quest_id, ()))
-        if not nearby_work:
+        work = [distance for quest_id in incomplete for point in places.get(quest_id, ())
+                if (distance := self._distance(player, point)) is not None]
+        radius = self.BATCH_KEEP_RADIUS_YARDS if self.waiting else self.BATCH_RADIUS_YARDS
+        if not any(distance <= radius for distance in work):
+            self.waiting.clear()
             return frozenset()
         deferred = set()
         for quest_id in complete:
@@ -84,4 +104,5 @@ class QuestBatchPolicy:
                        for point in places.get(quest_id, ()))
             if not here:
                 deferred.add(quest_id)
+        self.waiting = set(deferred)
         return frozenset(deferred)

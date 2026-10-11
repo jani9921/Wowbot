@@ -13,6 +13,7 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
                                  tick_ms: float, backend) -> dict:
     """Project diagnostics after Agent.tick; never plan or dispatch input."""
     performance = runtime.agent.performance_monitor
+    result["reference_catalog"] = runtime.spatial.reference.diagnostics()
     sensor_diagnostics = getattr(runtime.sensor, "diagnostics", {})
     performance.observe_latency("capture_poll", sensor_diagnostics.get("poll_ms"))
     performance.observe_rate("capture_fps", sensor_diagnostics.get("poll_hz"))

@@ -34,7 +34,8 @@ class EngineControlMixin:
         self.failures.clear()
         self.failure_manager.reset()
         self.planner.blocked_until.clear()
-        self.navigation.reset()
+        # Same session and map: the player's own floor stays valid evidence.
+        self.navigation.reset(keep_floor=True)
         self.visual_approach_skill.reset_diagnostics()
         self.search_skill.reset_diagnostics()
         self.camera.reset()
@@ -199,6 +200,10 @@ class EngineControlMixin:
                     if supervision.movement_lane else DispatchLane.DISCRETE)
             self.command_dispatcher.dispatch(
                 commands, lane, correlation_id=self.pending.action_id)
+            if supervision.side_commands:
+                self.command_dispatcher.dispatch(
+                    supervision.side_commands, DispatchLane.DISCRETE,
+                    correlation_id=self.pending.action_id)
             if supervision.camera_action:
                 gesture = next(command for command in commands
                                if command.kind == "CAMERA_PAN")

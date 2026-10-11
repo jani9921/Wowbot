@@ -525,3 +525,26 @@ def test_dead_feed_process_is_restarted_and_its_error_reported(monkeypatch):
     feed._poll_status()                     # within the 10 s spacing: no second restart yet
     assert feed.restarts == 1
     feed.close()
+
+
+def test_feed_result_whose_frame_was_evicted_is_not_anchored_on_the_current_frame(monkeypatch):
+    """Issue #98: frame_for_sequence()==None fell back to the current
+    screenshot, publishing old boxes as a fresh tracked refresh."""
+    monkeypatch.setenv("AIPC_WORLD3D_TRACKER", "LEGACY")
+    width, height = 320, 240
+    current = _frame(41, width, height)
+    feed = _FakeFeed(_frame(40, width, height))
+    world3d = World3DPerceptionV3(learned_detector=feed, proposal_mode="YOLO_ONLY")
+    scene = build_scene_roi(width, height)
+    try:
+        box = WorldCandidate("unknown_subject_candidate", PixelRect(100, 80, 140, 160), .6,
+                             track_id=17, candidate_labels=("learned_subject_like",))
+        # Sequence 9 is not in the fake's frame cache (only 5 is).
+        feed.queue.append(FeedResult(9, .9, width, height, (box,), {}, 8.0, .95))
+        out = world3d.process(current[0], width, height, scene, observed_at=1.0)
+        detector = world3d.last_diagnostics["detector"]
+        assert detector["refreshed"] is False
+        assert detector["feed_frame_cache_misses"] == 1
+        assert not any(item.kind == "unknown_subject_candidate" for item in out)
+    finally:
+        world3d.close()

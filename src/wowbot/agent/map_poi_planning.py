@@ -75,6 +75,12 @@ def reachable_records(state: dict, kind: str) -> list[tuple[float, dict, dict]]:
     result = []
     for record in map_poi_records(state, kind):
         destination = world_point(record)
+        if kind == 'available_quests' and record.get('quest_id') is not None:
+            from .tdb_locations import role_region
+            # Availability comes from live API, precise giver knowledge from
+            # TDB. Do not enumerate every static quest as currently available.
+            destination = (role_region(state, record['quest_id'], 'QUEST_STARTER',
+                                       live_location=record) or destination)
         if destination is None or str(destination["instance_id"]) != str(instance):
             continue
         result.append((math.hypot(destination["x"]-px, destination["y"]-py), record, destination))

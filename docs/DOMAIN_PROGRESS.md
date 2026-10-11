@@ -17,12 +17,45 @@ Teljes tesztkör a `projekt` másolatban: **2454 passed, 5 skipped, 15 failed**.
 | [Herbalism](https://github.com/jani9921/Wowbot/milestone/5) | **0%** | ResourceDomain/HERB kattintási váz és szintetikus teszt van, de éles node-adat nincs. | [#25](https://github.com/jani9921/Wowbot/issues/25) producer → [#20](https://github.com/jani9921/Wowbot/issues/20) élő teljes ciklus. |
 | [Mining](https://github.com/jani9921/Wowbot/milestone/6) | **0%** | ResourceDomain/MINE és site-memória váz van, de éles node-adat nincs. | [#25](https://github.com/jani9921/Wowbot/issues/25) producer → [#21](https://github.com/jani9921/Wowbot/issues/21) élő teljes ciklus. |
 | [Fishing](https://github.com/jani9921/Wowbot/milestone/7) | **0%** | Cast-parancs és szintetikus bobber-állapotú planner ág van; a FISH jelenleg a castot, nem a kifogott halat igazolja. | [#26](https://github.com/jani9921/Wowbot/issues/26) bobber/kapás producer + [#27](https://github.com/jani9921/Wowbot/issues/27) teljes verifikáció → [#22](https://github.com/jani9921/Wowbot/issues/22) élő ciklus. |
-| [Skills](https://github.com/jani9921/Wowbot/milestone/8) | **45%** | Közös skill/verification út és valós object-use, item-use, loot, dialog használat. | Loot/item-use élő hibatűrés, [#36](https://github.com/jani9921/Wowbot/issues/36) typed VehicleSkill bekötése. |
-| [Combat](https://github.com/jani9921/Wowbot/milestone/9) | **45%** | Valós pókharcok és Hrun kill; célzás, rotáció, eseménykorreláció és verifikáció kódja éles. | [#6](https://github.com/jani9921/Wowbot/issues/6) GUID-váltás, range/facing/LOS, több cél és megszakítás ismételt élő elfogadása. |
+| [Skills](https://github.com/jani9921/Wowbot/milestone/8) | **50%** | Közös skill/verification út és valós object-use, item-use, loot, dialog használat; élőben igazolt járműhasználat (Scout-o-Matic, Giant Boar, Trample, visszaszállás), vendor vétel/eladás, jutalomválasztás, hover-megerősített TARGET/LOOT és interakciós hibakezelés ([#59](https://github.com/jani9921/Wowbot/issues/59)–[#63](https://github.com/jani9921/Wowbot/issues/63), [#46](https://github.com/jani9921/Wowbot/issues/46), [#47](https://github.com/jani9921/Wowbot/issues/47)). | Loot/item-use élő hibatűrés, [#36](https://github.com/jani9921/Wowbot/issues/36) typed VehicleSkill bekötése. |
+| [Combat](https://github.com/jani9921/Wowbot/milestone/9) | **50%** | Valós pókharcok és Hrun kill; célzás, rotáció, eseménykorreláció és verifikáció kódja éles; élőben igazolt auto-attack interact billentyűvel, „kill vége = harcon kívül” szabály, halál → szellem-futás → feltámadás és jármű-harc ([#64](https://github.com/jani9921/Wowbot/issues/64), [#65](https://github.com/jani9921/Wowbot/issues/65)). | [#6](https://github.com/jani9921/Wowbot/issues/6) GUID-váltás, [#44](https://github.com/jani9921/Wowbot/issues/44) NPC-utasítás, range/facing/LOS, több cél és megszakítás ismételt élő elfogadása. |
 | [World Model & Memory](https://github.com/jani9921/Wowbot/milestone/10) | **45%** | Addon FAST/FULL tények, evidence, SQLite, háttéríró és visszatöltés működő alap. | [#18](https://github.com/jani9921/Wowbot/issues/18) növekedés, [#25](https://github.com/jani9921/Wowbot/issues/25) hiányzó resource producer, cross-view azonosság. |
-| [Autonomy & Verification](https://github.com/jani9921/Wowbot/milestone/11) | **30%** | Közös goal/supervisor/anti-loop/verification út és hosszú, részben sikeres futás. | Kézi beavatkozások, hamis siker/kudarc és a 15 bukó teszt [#17](https://github.com/jani9921/Wowbot/issues/17); tartós önálló soak nincs. |
+| [Autonomy & Verification](https://github.com/jani9921/Wowbot/milestone/11) | **30%** | Közös goal/supervisor/anti-loop/verification út és hosszú, részben sikeres futás. | Kézi beavatkozások, hamis siker/kudarc, a 15 bukó teszt [#17](https://github.com/jani9921/Wowbot/issues/17), [#42](https://github.com/jani9921/Wowbot/issues/42) input_blocked → MANUAL; tartós önálló soak nincs. |
 | [Dungeon/PvE](https://github.com/jani9921/Wowbot/milestone/12) | **0%** | DungeonDomain csak kézzel injektált instance/group állapotból tudna tervezni. | [#28](https://github.com/jani9921/Wowbot/issues/28) éles állapot → [#23](https://github.com/jani9921/Wowbot/issues/23) élő ciklus. |
 | [PvP](https://github.com/jani9921/Wowbot/milestone/13) | **0%** | PvPDomain csak kézzel injektált match/objective állapotból adna MOVE-ot. | [#29](https://github.com/jani9921/Wowbot/issues/29) éles állapot → [#24](https://github.com/jani9921/Wowbot/issues/24) élő ciklus. |
+
+## Lezárt (kész) feladatok és a GitHub-sáv — 2026-10-07
+
+A `BUGFIXES.md` ✅ (élőben igazolt) tételei képességenként lezárt issue-ként kerültek
+a mérföldkövekbe, hogy a natív GitHub-sáv (lezárt / összes) a már elvégzett munkát
+is mutassa. A 🧪 (csak offline) tételek nem kaptak lezárt issue-t. A natív sáv
+továbbra sem azonos a fenti használhatósági becsléssel.
+
+| Mérföldkő | Lezárt (kész) | Nyitott | GitHub-sáv |
+|---|---|---|---:|
+| Questing | #45 lánc, #46 vendor, #47 leadás, #48 terület-bejárás, #49 barlangos quest | #1, #3, #4, #34, #37, #38 | 5/11 ≈ 45% |
+| Navigation | #50 épületek, #51 minimap-pötty, #52 zóna-szakaszok | #7, #8, #9, #10, #11, #33 | 3/9 ≈ 33% |
+| Vision | #53 YOLO v10, #54 külön folyamatok, #55 kamera-kompenzáció | #12, #13, #14, #15, #35, #40, #43 | 3/10 = 30% |
+| Runtime & Setup | #56 élesítési kézfogás, #57 fő ciklus teljesítmény, #58 addon 0.9.58 | #16, #19, #30, #31, #32, #39 | 3/9 ≈ 33% |
+| Skills | #59 járművek, #60 hover-kattintás, #61 loot, #62 objektum, #63 interakció | #2, #5, #36 | 5/8 ≈ 63% |
+| Combat | #64 auto-attack/harc vége, #65 halál | #6, #44 | 2/4 = 50% |
+| World Model & Memory | #66 quest-relevancia | #18, #25 | 1/3 ≈ 33% |
+| Autonomy & Verification | #67 helyi MI, #68 időzített FULL_AI | #17, #41, #42 | 2/5 = 40% |
+| Herbalism / Mining / Fishing | — | #20 / #21 / #22, #26, #27 (+#25) | 0% |
+| Dungeon/PvE / PvP | — | #23, #28 / #24, #29 | 0% |
+
+## Statikus kódaudit — 2026-10-07
+
+`ruff` (F, B szabályok) és célzott kézi átnézés a futási útvonalon; telepítés és
+tesztfuttatás nélkül. Nem definiált név vagy szintaktikai hiba nincs; a billentyű-
+elengedés, a vészleállítás és a bindings-ellenőrzés rendben van. Új issue-k:
+
+- [#30](https://github.com/jani9921/Wowbot/issues/30) **valódi hiba:** a `waiting_for_world3d_detector` blokkoló csak kiírás, a FULL_AI a detektor bemelegedése alatt is élesedhet (`agent/runtime.py`), teszt nincs rá.
+- [#31](https://github.com/jani9921/Wowbot/issues/31) csendben elnyelt kivételek (bejárat-tanulás, képességhatás-mentés, képkocka-figyelők).
+- [#32](https://github.com/jani9921/Wowbot/issues/32) a futó addon verzióját az élesítés nem ellenőrzi; két azonos addon-másolat.
+- [#33](https://github.com/jani9921/Wowbot/issues/33) `NavigationMemory`/`NavigationEngine` nincs az éles úton; hívásonként új, le nem zárt SQLite-kapcsolat.
+- [#41](https://github.com/jani9921/Wowbot/issues/41) 13 halott változó a modulbontás után, 50 nem használt import, 5 db 800+ soros modul (a `service.py` 1163 sor).
+- [#42](https://github.com/jani9921/Wowbot/issues/42), [#43](https://github.com/jani9921/Wowbot/issues/43), [#44](https://github.com/jani9921/Wowbot/issues/44): a `KNOWN_ISSUES.md` eddig issue nélküli pontjai (input_blocked, Live Vision talajvonal, NPC-utasítás).
 
 ## Miért nulla az öt vázkódos terület?
 

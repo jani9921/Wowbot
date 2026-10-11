@@ -17,7 +17,7 @@ def point(value) -> dict | None:
 
 
 def world_point(value) -> dict | None:
-    """Return only an explicitly API-derived WORLD_YARDS point.
+    """Return only an explicitly labelled WORLD_YARDS point (API or TDB).
 
     UI-map X/Y and world X/Y are intentionally never conflated.  Producers
     may attach the conversion as ``world_position`` to retain the original

@@ -8,8 +8,13 @@ def _objective(*, transition=False, entity=None):
     return SimpleNamespace(
         objective_id="7:reach", type="REACH_AREA", optional=False,
         confidence=.8, target_entity=entity or {},
+        # The addon attaches the C_Map world conversion; a normalized map
+        # pixel alone never authorizes movement (planning_types.world_point).
         target_location={"map_id": 1409, "x": .4, "y": .6,
-                         "source": "QUEST_API_WAYPOINT"},
+                         "source": "QUEST_API_WAYPOINT",
+                         "world_position": {"coordinate_space": "WORLD_YARDS",
+                                            "instance_id": 2175, "ui_map_id": 1409,
+                                            "x": 300., "y": -2300., "z_known": False}},
         location_candidates=(), completion_state="INCOMPLETE",
         raw={"transition_required": transition, "description": "Reach camp"})
 
@@ -21,6 +26,8 @@ def _record():
 def _world():
     world = WorldModel()
     world.state = {"map_id": 1409, "target": {}, "mouseover": {},
+                   "player_world_position": {"coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                                             "ui_map_id": 1409, "x": 200., "y": -2250.},
                    "active_quests": [{"quest_id": 7, "is_complete": False,
                                       "objectives": [{"objective_id": "reach",
                                                       "current": 0, "required": 1}]}]}

@@ -33,7 +33,7 @@ class WorldAddonReducer:
         "protocol_version", "telemetry_source", "session_id", "frame_id",
         "quest_digest", "accepted_quest_ids", "quest_state_revision",
         "quest_ui_open", "quest_ui_action", "quest_ui_x", "quest_ui_y",
-        "quest_ui_quest_id", "extra_action", "bags_open", "world_map_open",
+        "quest_ui_quest_id", "quest_ui_gossip_option", "extra_action", "bags_open", "world_map_open",
         "actionbar_fast", "combat_last_spell_id", "combat_last_cast_at",
     })
 
@@ -47,6 +47,24 @@ class WorldAddonReducer:
             if (isinstance(unit, dict) and unit.get("is_player") is None
                     and str(unit.get("guid") or "").startswith("Player-")):
                 unit["is_player"] = True
+
+    SAMPLE_TIME_KEYS = (("mouseover", "mouseover_sample_time"),
+                        ("map_mouseover", "map_mouseover_sample_time"),
+                        ("cursor_position", "cursor_sample_time"),
+                        ("target", "target_sample_time"))
+
+    @classmethod
+    def _stamp_unit_samples(cls, state: dict) -> None:
+        """The addon's compact FAST fallbacks carry mouseover/target from the
+        packet's own sample but omit the per-field sample time.  Without it
+        the merged state would pair the new GUID with an older sample time
+        (issue #88: hover confirmation must see a post-hover sample)."""
+        sampled = state.get("monotonic_time")
+        if sampled is None:
+            return
+        for key, time_key in cls.SAMPLE_TIME_KEYS:
+            if state.get(key) and state.get(time_key) is None:
+                state[time_key] = sampled
 
     def apply(self, model: "WorldModel", observation: Observation, previous: dict,
               *, defer_rebuild: bool = False) -> bool:
@@ -98,6 +116,7 @@ class WorldAddonReducer:
                     *, defer_rebuild: bool) -> bool:
         fast_delta = deepcopy({key: value for key, value in state.items()
                                if key in self.FAST_KEYS})
+        self._stamp_unit_samples(fast_delta)
         # FAST owns current dialog visibility. The bulky full snapshot can be
         # several seconds older and its nested quest_ui object otherwise stays
         # truthy even after FAST explicitly reports the frame closed. Keep the
@@ -107,12 +126,13 @@ class WorldAddonReducer:
             if fast_delta.get("quest_ui_open") is not True:
                 quest_ui.update({
                     "open": False, "action": "", "x": 0, "y": 0,
-                    "quest_id": 0, "entries": [], "reward_choices": [],
+                    "quest_id": 0, "gossip_option": None,
+                    "entries": [], "reward_choices": [],
                     "reward_selected_index": 0,
                 })
             else:
                 quest_ui["open"] = True
-                for suffix in ("action", "x", "y", "quest_id"):
+                for suffix in ("action", "x", "y", "quest_id", "gossip_option"):
                     value = fast_delta.get(f"quest_ui_{suffix}")
                     if value is not None:
                         quest_ui[suffix] = value

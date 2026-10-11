@@ -175,6 +175,15 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
         # releasing the lock between chunks.  Readers of those tables drain
         # the queue first, so they never observe a partial history.
         self._write_queue: deque = deque()
+        # Issues #71/#73: a failed batch is retried a bounded number of times
+        # and then counted as lost (sticky); the queue is bounded with a short
+        # backpressure wait, and drain_writes never reports completeness
+        # after a loss.
+        self.write_failures = 0
+        self.lost_write_batches = 0
+        self.writer_error: str | None = None
+        self.write_queue_peak = 0
+        self._write_queue_space = threading.Condition()
         self._write_wakeup = threading.Event()
         self._writer_idle = threading.Event()
         self._writer_idle.set()
@@ -238,44 +247,91 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
             finally:
                 self._tx_depth -= 1
 
+    WRITE_QUEUE_LIMIT = 512          # batches (one per sensor boundary)
+    WRITE_RETRY_LIMIT = 3
+    WRITE_RETRY_BACKOFF_SECONDS = .2
+    WRITE_BACKPRESSURE_SECONDS = 1.
+
+    def _lose_batch(self, kind: str, reason: str) -> None:
+        self.lost_write_batches += 1
+        self.writer_error = f"{kind}: {reason}"
+        _logger.error("background memory batch lost (%s; %d lost so far)",
+                      self.writer_error, self.lost_write_batches)
+
     def _writer_loop(self) -> None:
         while True:
             self._write_wakeup.wait(.25)
             self._write_wakeup.clear()
             while self._write_queue:
                 try:
-                    kind, rows = self._write_queue.popleft()
+                    kind, rows = self._write_queue[0]
                 except IndexError:
                     break
-                try:
-                    with self._tx() as db:
-                        if kind == "observations":
-                            self._insert_observations(db, rows)
-                        else:
-                            self._insert_relations(db, rows)
-                except Exception:
-                    _logger.warning("background memory write failed (%s)", kind, exc_info=True)
+                attempts = 0
+                while True:
+                    try:
+                        with self._tx() as db:
+                            if kind == "observations":
+                                self._insert_observations(db, rows)
+                            else:
+                                self._insert_relations(db, rows)
+                        break
+                    except Exception as error:
+                        attempts += 1
+                        self.write_failures += 1
+                        _logger.warning("background memory write failed (%s, attempt %d)",
+                                        kind, attempts, exc_info=True)
+                        if attempts >= self.WRITE_RETRY_LIMIT:
+                            self._lose_batch(kind, f"{type(error).__name__}: {error}")
+                            break
+                        self._writer_stop.wait(self.WRITE_RETRY_BACKOFF_SECONDS*attempts)
+                self._write_queue.popleft()
+                with self._write_queue_space:
+                    self._write_queue_space.notify_all()
             if not self._write_queue:
                 self._writer_idle.set()
             if self._writer_stop.is_set() and not self._write_queue:
                 return
 
     def _enqueue_write(self, kind: str, rows) -> None:
+        if len(self._write_queue) >= self.WRITE_QUEUE_LIMIT:
+            # Backpressure: wait briefly for the writer.  A writer that cannot
+            # keep up for that long is failing; drop explicitly (fail closed)
+            # rather than grow memory without bound or stall the loop.
+            self._write_wakeup.set()
+            with self._write_queue_space:
+                self._write_queue_space.wait_for(
+                    lambda: len(self._write_queue) < self.WRITE_QUEUE_LIMIT,
+                    timeout=self.WRITE_BACKPRESSURE_SECONDS)
+            if len(self._write_queue) >= self.WRITE_QUEUE_LIMIT:
+                self._lose_batch(kind, "write_queue_full")
+                return
         self._writer_idle.clear()
         self._write_queue.append((kind, rows))
+        self.write_queue_peak = max(self.write_queue_peak, len(self._write_queue))
         self._write_wakeup.set()
 
     def drain_writes(self, timeout: float = 10.) -> bool:
-        """Wait until every enqueued background write reached the connection."""
+        """True only when every enqueued background write reached the
+        connection and no batch was ever lost (issue #71)."""
         if self._writer_thread is None:
-            return True
+            return self.lost_write_batches == 0
         deadline = time.monotonic()+timeout
         while self._write_queue or not self._writer_idle.is_set():
             self._write_wakeup.set()
             if time.monotonic() > deadline:
                 return False
             self._writer_idle.wait(.05)
-        return True
+        return self.lost_write_batches == 0
+
+    def _drain_for_read(self, reader: str) -> bool:
+        """Drain before reading; say so when the history may be partial."""
+        complete = self.drain_writes()
+        if not complete:
+            _logger.warning("AgentMemory.%s reads possibly incomplete history "
+                            "(pending=%d, lost=%d, error=%s)", reader,
+                            len(self._write_queue), self.lost_write_batches, self.writer_error)
+        return complete
 
     def _checkpoint_loop(self, interval: float) -> None:
         try:
@@ -300,7 +356,7 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
 
     def commit_pending(self) -> None:
         """Make deferred writes durable now (shutdown, cross-connection reads)."""
-        self.drain_writes()
+        self._drain_for_read("commit_pending")
         with self._lock:
             if self._tx_depth == 0:
                 self._commit_now()
@@ -323,7 +379,7 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
 
     def close(self):
         self.flush_world_relations()
-        self.drain_writes()
+        self._drain_for_read("close")
         self._writer_stop.set()
         self._write_wakeup.set()
         if self._writer_thread is not None:
@@ -331,6 +387,11 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
         self._checkpoint_stop.set()
         if self._checkpoint_thread is not None:
             self._checkpoint_thread.join(timeout=5)
+        if self._writer_thread is not None and self._writer_thread.is_alive():
+            # Issue #73: never close the connection under a live writer.
+            _logger.error("AgentMemory.close(): writer still running with %d queued "
+                          "batches; connection left open", len(self._write_queue))
+            return
         with self._lock:
             try:
                 self._commit_now()
@@ -389,7 +450,7 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
 
     def events(self, session: str) -> list[dict]:
         import json
-        self.drain_writes()
+        self._drain_for_read("events")
         with self._ro() as db:
             rows = db.execute("SELECT id,at,event_type,source,observation_id,entity_ids,quest_ids,marker_ids,payload "
                               "FROM events WHERE session=? ORDER BY at,id", (session,)).fetchall()
@@ -399,7 +460,7 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
                  "payload": json.loads(row[8])} for row in rows]
 
     def observations(self, session: str) -> list[Observation]:
-        self.drain_writes()
+        self._drain_for_read("observations")
         with self._ro() as db:
             rows = db.execute("SELECT id,session,at,source,correlation,payload FROM observations "
                               "WHERE session=? ORDER BY COALESCE(recorded_order,9223372036854775807),at,id",
@@ -421,10 +482,12 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
 
     def hydrate_world(self, session: str):
         self.flush_world_relations()
-        self.drain_writes()
+        complete = self._drain_for_read("hydrate_world")
         """Reconstruct WorldModel solely from the append-only Observation store."""
         from .world import WorldModel
         world = WorldModel()
+        # A hydration after a lost/pending write is explicitly partial.
+        world.__dict__["memory_history_complete"] = complete
         for observation in self.observations(session):
             world.ingest(observation)
         return world

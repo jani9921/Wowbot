@@ -24,23 +24,39 @@ class ObjectUseSkill:
     # objective suppressed for 15 s.  After a use was sent, wait (bounded)
     # for a full snapshot sampled at least this long after it.
     CREDIT_SNAPSHOT_AFTER_USE_SECONDS = 1.
-    CREDIT_GRACE_SECONDS = 10.
+    # Live 2026-10-07: the paged snapshot stalled 21 s; the credit arrived
+    # 1.2 s after a 10 s grace.  Only while no snapshot newer than the use
+    # has arrived (FAST quest_digest credits immediately from 0.9.60).
+    CREDIT_GRACE_SECONDS = 25.
+    # Live 2026-10-07 12:06: the cocoon's freeing cast was still running
+    # (is_casting) when the attempt failed "credit not received"; the credit
+    # came 1.9 s later.
+    CAST_GRACE_SECONDS = 6.
+    # Live 2026-10-07 12:06 (3rd cocoon): the attempt spent 7 s of its budget
+    # waiting for the character to stop and the hover to settle; the credit
+    # wait after the right-click was then ~1.5 s.  A click always gets this
+    # long (it covers the 2 s F7 fallback and its cast).
+    POST_CLICK_SECONDS = 5.
     # Live 2026-10-06 21:16: a cocoon one floor lower answered the right-click
     # and F7 with "You are too far away." and the skill waited out 8 s twice.
-    OUT_OF_RANGE_TEXTS = ("too far", "out of range")
     # Live 21:17 (707071.9): the use began while the character still coasted
     # after a MOVE; 0.9 yd later it failed stale, the cocoon was suppressed
     # and left behind.  The cursor itself had not moved.
     MAX_VIEW_REBASES = 2
     VIEW_REBASE_WINDOW_SECONDS = 3.
 
-    @classmethod
-    def _out_of_range(cls, context: dict, world_state: dict) -> bool:
+    @staticmethod
+    def _position_error(context: dict, world_state: dict) -> FailureReason | None:
         used_at = number(context.get("used_at"))
         error_at = number(world_state.get("ui_error_at"))
-        text = str(world_state.get("ui_error") or "").lower()
-        return (used_at is not None and error_at is not None and error_at >= used_at-.1
-                and any(item in text for item in cls.OUT_OF_RANGE_TEXTS))
+        if used_at is None or error_at is None or error_at < used_at-.1:
+            return None
+        from wowbot.verification.interaction import classify_ui_error
+        classification = classify_ui_error(world_state.get("ui_error"),
+                                           world_state.get("ui_error_code"))
+        return {"RANGE": FailureReason.OUT_OF_RANGE,
+                "LINE_OF_SIGHT": FailureReason.LINE_OF_SIGHT,
+                "FACING": FailureReason.FACING_FAILED}.get(classification)
 
     def __init__(self, verifier: QuestProgressVerifier | None = None):
         self.verifier = verifier or QuestProgressVerifier()
@@ -53,11 +69,39 @@ class ObjectUseSkill:
                 and now < deadline + self.CREDIT_GRACE_SECONDS
                 and sampled < used_at + self.CREDIT_SNAPSHOT_AFTER_USE_SECONDS)
 
+    def _click_recent(self, context: dict, now: float, deadline: float) -> bool:
+        clicked_at = number(context.get("click_sent_at"))
+        return (clicked_at is not None and now < clicked_at + self.POST_CLICK_SECONDS
+                and now < deadline + self.POST_CLICK_SECONDS)
+
+    def _use_cast_running(self, context: dict, world_state: dict, now: float,
+                          deadline: float) -> bool:
+        used_at = number(context.get("used_at"))
+        return (used_at is not None and world_state.get("is_casting") is True
+                and now < deadline + self.CAST_GRACE_SECONDS)
+
     @staticmethod
     def _identity_matches(params: dict, mouse: dict) -> bool:
         object_id, item_id = params.get("object_id"), params.get("item_id")
         if object_id is not None:
-            return str(mouse.get("object_id")) == str(object_id)
+            observed_id = mouse.get('object_id')
+            if observed_id not in (None, '', 0, '0'):
+                return str(observed_id) == str(object_id)
+            # A TDB credit GO may be known by ID while the Retail mouseover
+            # exports only its name/tooltip. Revalidate the exact template
+            # name on the fresh hover; never let a different reported ID pass.
+            tdb_name = str(params.get('tdb_object_name') or '')
+            if not tdb_name:
+                return False
+            from wowbot.agent.object_interaction_flow import ObjectInteractionFlow
+            matched = ObjectInteractionFlow.mouseover_matches(
+                {'object_id': object_id, 'tdb_object_name': tdb_name}, mouse)
+            same_quest = (mouse.get('quest_related') is True
+                and any(str(mouse.get('quest_id')) == str(qid)
+                        for qid in params.get('quest_ids') or ()))
+            same_tooltip = (bool(mouse.get('tooltip'))
+                and str(mouse.get('tooltip')) == str(params.get('mouseover_tooltip') or ''))
+            return matched and (same_quest or same_tooltip)
         if item_id is not None:
             return str(mouse.get("item_id")) == str(item_id)
         expected = str(params.get("mouseover_tooltip") or "")
@@ -158,9 +202,11 @@ class ObjectUseSkill:
                                         objective_ids=context.get("objective_ids", ()))
         if result.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
-        if self._out_of_range(context, world_state):
-            # Closer first: the planner walks/seeks to the object, then uses it.
-            return SkillResult(SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
+        position_error = self._position_error(context, world_state)
+        if position_error is not None:
+            # Report the client error precisely.  Only OUT_OF_RANGE permits
+            # the confirmed-box forward approach; LOS needs a different route.
+            return SkillResult(SkillStatus.FAILURE, position_error,
                                retryable=True, replan_required=True)
         # engine.tick() marks all non-movement skills VERIFY before invoking
         # us, so the stage must live in our own context, not state.phase.
@@ -173,12 +219,28 @@ class ObjectUseSkill:
             # briefly for both cursor and mouseover samples after dispatch.
             mouse_sample = number(world_state.get("mouseover_sample_time"))
             cursor_sample = number(world_state.get("cursor_sample_time"))
+            # A complete STATE_Z packet samples mouseover and cursor together,
+            # but may omit the two FAST-lane per-field sample times. Live
+            # 2026-10-08 (Harpy Totem): repeated fresh full snapshots carried
+            # the exact tooltip under an unchanged cursor, yet the skill
+            # timed out IDENTITY_UNCERTAIN without ever sending right-click.
+            # Only a *newer complete* snapshot may substitute its shared
+            # sample time; a reused/stale packet or missing identity cannot.
+            full_sample = number(world_state.get("state_sample_time"))
+            fresh_full = (
+                mouse_sample is None and cursor_sample is None
+                and str(world_state.get("transport_kind") or "").upper() in {"STATE", "STATE_Z"}
+                and isinstance(world_state.get("mouseover"), dict)
+                and isinstance(world_state.get("cursor_position"), dict)
+                and full_sample is not None and full_sample > context["hover_sent_at"]
+                and 0 <= now-full_sample <= 1.)
             fresh = (world_state.get("monotonic_time") is None or
                      (mouse_sample is not None and cursor_sample is not None
                       and mouse_sample > context["hover_sent_at"]
                       and cursor_sample > context["hover_sent_at"]
                       and 0 <= now-mouse_sample <= 1.
-                      and abs(mouse_sample-cursor_sample) <= .1))
+                      and abs(mouse_sample-cursor_sample) <= .1)
+                     or fresh_full)
             # The optical-flow yaw estimate may be advanced repeatedly from
             # one old vision frame while the addon/character stays still
             # (live 19:17:41: -60 -> +12 in <.3 s).  It is not an authority
@@ -215,7 +277,9 @@ class ObjectUseSkill:
                                retryable=True, replan_required=True)
         state.phase = ObjectUsePhase.VERIFY.value
         if now >= state.attempt.deadline:
-            if self._credit_snapshot_pending(context, world_state, now, state.attempt.deadline):
+            if (self._credit_snapshot_pending(context, world_state, now, state.attempt.deadline)
+                    or self._use_cast_running(context, world_state, now, state.attempt.deadline)
+                    or self._click_recent(context, now, state.attempt.deadline)):
                 state.phase = ObjectUsePhase.WAIT_QUEST_CREDIT.value
                 return SkillResult(SkillStatus.RUNNING)
             return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,

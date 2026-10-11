@@ -34,6 +34,21 @@ def test_full_then_fast_same_guid_preserves_detail_identity_fields() -> None:
     assert model.last_received == 2.
 
 
+def test_full_state_z_keeps_coherent_hover_sample_for_object_use() -> None:
+    model = WorldModel()
+    assert model.ingest(_observation({
+        "transport_kind": "STATE_Z", "state_sample_time": 2.25,
+        "monotonic_time": 2.25, "active_quests": [],
+        "mouseover": {"tooltip": "Harpy Totem ~ Purge the Totems",
+                      "quest_related": True, "quest_id": 55881},
+        "cursor_position": {"nx": .55, "ny": .57},
+    }, 2.25, "full-totem"))
+    assert model.state["transport_kind"] == "STATE_Z"
+    assert model.state["state_sample_time"] == 2.25
+    assert model.state.get("mouseover_sample_time") is None
+    assert model.state["cursor_position"] == {"nx": .55, "ny": .57}
+
+
 def test_fast_different_guid_never_inherits_previous_identity() -> None:
     model = WorldModel()
     assert model.ingest(_observation({
@@ -116,7 +131,8 @@ def test_fast_closed_quest_ui_invalidates_stale_full_reward_dialog() -> None:
 
     assert model.state["quest_ui"] == {
         "open": False, "action": "", "x": 0, "y": 0,
-        "quest_id": 0, "entries": [], "reward_choices": [],
+        "quest_id": 0, "gossip_option": None,
+        "entries": [], "reward_choices": [],
         "reward_selected_index": 0,
     }
     assert model.state["quest_ui_open"] is False

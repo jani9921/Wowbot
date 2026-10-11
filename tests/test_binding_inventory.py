@@ -99,3 +99,17 @@ def test_live_validation_reports_exact_client_cache_mismatch(tmp_path):
     assert check["mismatches"] == [{"action": "TURNLEFT", "client": ["Q"],
                                      "selected_cache": ["A"]}]
     assert check["ready"] is False
+
+
+def test_known_live_control_mismatch_blocks_before_catalog_arrives(tmp_path):
+    # Issue #77: no catalog page yet, but control_bindings already contradict
+    # the selected cache; validate_actions must not report ready.
+    path = tmp_path / "bindings-cache.wtf"
+    path.write_text('bind "W" "MOVEFORWARD"\nbind "S" "MOVEBACKWARD"')
+    inventory = BindingInventory(tmp_path, BindingsCache(path), 42)
+    inventory.ingest({"control_bindings": {"MOVEFORWARD": {"primary": "Q", "secondary": ""}}}, 1)
+    result = inventory.validate_actions(["MOVEFORWARD", "MOVEBACKWARD"])
+    assert result["supported"] is False and result["ready"] is False
+    assert result["mismatches"] == [{"action": "MOVEFORWARD", "client": ["Q"], "selected_cache": ["W"]}]
+    inventory.ingest({"control_bindings": {"MOVEFORWARD": {"primary": "W", "secondary": ""}}}, 2)
+    assert inventory.validate_actions(["MOVEFORWARD", "MOVEBACKWARD"])["ready"] is True

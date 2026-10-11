@@ -21,6 +21,29 @@ from .quest_target_planning import QuestSelectedTargetMixin
 
 
 class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
+
+    @staticmethod
+    def _persist_quest_area(world, state: dict, quest_areas, quest_id) -> None:
+        """Save a closed blue minimap quest area into the learned world memory
+        once it has grown by a tenth (user 2026-10-10)."""
+        polygon = quest_areas.polygon(quest_id)
+        if not polygon:
+            return
+        cells = len(quest_areas.cells.get(str(quest_id)) or ())
+        saved = world.__dict__.setdefault("_saved_quest_area_cells", {})
+        if cells < 1.1 * saved.get(str(quest_id), 0):
+            return
+        entities = getattr(world, "entity_memory", None)
+        learned = getattr(getattr(entities, "reference_experience", None), "learned", None)
+        if learned is None:
+            return
+        position = state.get("player_world_position") or {}
+        try:
+            learned.record_quest_area(quest_id, position.get("instance_id"), state.get("map_id"),
+                                      polygon, cells)
+        except Exception:
+            return
+        saved[str(quest_id)] = cells
     def __init__(self, attempt_memory=None):
         # A client-confirmed range error opens one persistent REACH_OBJECT
         # requirement. The Movement Skill owns it until world-space arrival.
@@ -90,6 +113,19 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         self.dialog_policy = QuestDialogPlanningPolicy()
         self.target_policy = TargetPlanningPolicy()
         self.batch_policy = QuestBatchPolicy()
+
+    def note_object_interaction_result(self, result: dict, state: dict,
+                                       parameters: dict) -> None:
+        """Latch object-use feedback when the skill finishes, not on a later plan.
+
+        A SEEK can finish between an OUT_OF_RANGE use and the next fresh
+        hover/box pair.  Reading only runtime_context.last_result during
+        objective planning then loses the range error and loops on SEEK.
+        """
+        skill = result.get("skill")
+        if (skill == "OBJECT_USE" or
+                (skill == "VISUAL_APPROACH" and parameters.get("object_use_approach") is True)):
+            self.location_policy.object_interaction.note_result(result, state)
 
     # 60 s breaks the observed 26 s re-interaction loop while bounding the cost
     # of a wrong verdict (live 09:12: a far-away quest giver was gated).
@@ -357,7 +393,9 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         deferred_turnins = batch_policy.deferred_turnins(state, state_time)
         quest_areas = getattr(self.location_policy, "quest_areas", None)
         if quest_areas is not None:
-            quest_areas.observe(state)
+            observed_area = quest_areas.observe(state)
+            if observed_area is not None:
+                self._persist_quest_area(world, state, quest_areas, observed_area)
         records = world.quest_model.records
         if primary_quest_id:
             records = {quest_id: record for quest_id, record in records.items()
@@ -409,19 +447,31 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         result.extend(self.location_policy.propose_known_locations(
             world, runtime_map_scan_started, deferred=deferred_turnins))
         target = world.query.target()
-        selected = self._propose_selected_friendly(world, goal, state, state_time, target, result)
-        if selected is not None:
-            return selected
-        result.extend(self.target_policy.propose(
+        handoffs = self.target_policy.propose(
             world, goal, target=target,
             cursor_matches_mouseover=cursor_matches_mouseover,
             state_time=state_time, mouse_time=mouse_time,
             skip_friendly_guids=self.unresponsive_guid_set(state, state_time),
-        ))
+        )
+        if target.get("guid") and mouse_guid and mouse_guid != str(target["guid"]):
+            replacement = next((proposal for proposal in handoffs
+                                if proposal.skill == "TARGET"
+                                and str(proposal.parameters.get("guid") or "") == mouse_guid), None)
+            if replacement is not None:
+                # Live 2026-10-08: Captain Garrick remained selected while
+                # Cole's marked body was under the cursor for ~40 s. The
+                # selected-friendly branch returned before the mouseover
+                # policy could replace the stale selection. Only a fresh,
+                # quest-relevant addon GUID may preempt it; generic vision
+                # boxes and unrelated NPCs cannot clear a known target.
+                return [replacement]
+        selected = self._propose_selected_friendly(world, goal, state, state_time, target, result)
+        if selected is not None:
+            return selected
+        result.extend(handoffs)
         # Do not use TARGETNEARESTENEMY as an exploration/search primitive.
         # TAB can select an off-screen or quest-irrelevant unit and provides
         # identity without a usable screen/world location.  Quest targets are
         # acquired through World3D/hover evidence; ACQUIRE_TARGET remains an
         # in-combat defensive fallback in CombatPlanningPolicy only.
         return result
-

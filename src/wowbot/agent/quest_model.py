@@ -330,6 +330,72 @@ class QuestModel:
         self.quest_graph = QuestGraph()
         # (quest_id, objective text without counter) -> semantic_advisor hint
         self.semantic_hints: dict[tuple[str, str], dict] = {}
+        self.reference_knowledge: dict = {}
+
+    def apply_reference_knowledge(self, knowledge=None) -> None:
+        """Static object names aid hover search, never assert observed identity.
+
+        Do not inject a mandatory object_id: Retail tooltips can legitimately
+        lack it. Do not turn a kill-credit proxy into an NPC to attack.
+        """
+        if knowledge is not None:
+            self.reference_knowledge = knowledge
+        for qid, record in self.records.items():
+            reference = (self.reference_knowledge.get('quests') or {}).get(str(qid)) or {}
+            # Static chain edges enrich the shared graph; they do not assert
+            # quest availability or become objective readiness prerequisites.
+            chain = reference.get('chain') or {}
+            edges = list(self.quest_graph.normalize_relations(qid, record.raw))
+            for field, before, after in (
+                    ('PrevQuestID', None, qid),
+                    ('NextQuestID', qid, None),
+                    ('RewardNextQuest', qid, None)):
+                try:
+                    linked = abs(int(chain.get(field) or 0))
+                except (TypeError, ValueError):
+                    linked = 0
+                if linked and str(linked)!=str(qid):
+                    edges.append({'from':str(linked if before is None else before),
+                                  'to':str(linked if after is None else after),
+                                  'type':'FOLLOW_UP', 'source':'TDB_REFERENCE',
+                                  'verified_build':chain.get('source_build'), 'confirmed':False})
+            record.chain_relations = tuple(edges)
+            refs = reference.get('objectives') or []
+            for index, objective in enumerate(record.objectives):
+                if objective.raw.pop('tdb_promoted_type', False):
+                    objective.type = objective.raw.pop('tdb_original_type', 'UNKNOWN')
+                    objective.confidence = objective.raw.pop('tdb_original_confidence', objective.confidence)
+                    objective.evidence = tuple(objective.raw.pop('tdb_original_evidence', objective.evidence))
+                for key in ('tdb_object_name', 'tdb_object_id', 'tdb_objective_id',
+                            'tdb_objective_kind', 'tdb_verified_build'):
+                    objective.raw.pop(key, None)
+                matched = [r for r in refs if str(r.get('objective_id'))==objective.objective_id]
+                prefix, separator, suffix = objective.objective_id.partition(':')
+                if not matched and separator and prefix == str(qid) and suffix.isdigit():
+                    matched = [r for r in refs if str(r.get('order'))==suffix]
+                if not matched and len(refs)==len(record.objectives):
+                    matched = [r for r in refs if r.get('order')==index]
+                if len(matched)!=1:
+                    continue
+                source = matched[0]
+                objective.raw['tdb_objective_id'] = source.get('objective_id')
+                objective.raw['tdb_objective_kind'] = source.get('credit_kind')
+                objective.raw['tdb_verified_build'] = source.get('verified_build')
+                obj = source.get('object_template') or {}
+                if source.get('raw_type')!=2 or not obj.get('name'):
+                    continue
+                objective.raw['tdb_object_name'] = obj['name']
+                objective.raw['tdb_object_id'] = obj.get('object_id')
+                if objective.type=='UNKNOWN':
+                    # Static type is a search hypothesis; hover identity and
+                    # quest credit still gate use and success.
+                    objective.raw['tdb_promoted_type'] = True
+                    objective.raw['tdb_original_type'] = objective.type
+                    objective.raw['tdb_original_confidence'] = objective.confidence
+                    objective.raw['tdb_original_evidence'] = objective.evidence
+                    objective.type = 'INTERACT'
+                    objective.confidence = max(objective.confidence, .7)
+                    objective.evidence = (*objective.evidence, 'TDB_OBJECTIVE_TYPE')
 
     def apply_semantic_hints(self) -> None:
         for qid, record in self.records.items():
@@ -372,7 +438,10 @@ class QuestModel:
             # region when no field-completion UI is present.
             locations = [{**value, "source": value.get("source") or "QUEST_API_WAYPOINT"}
                          for value in [raw.get("waypoint")] if isinstance(value, dict)]
-            locations.extend(o.target_location for o in objectives if o.target_location)
+            # Objective targets are tagged so a completed quest can never
+            # treat one as its hand-in point (issue #89).
+            locations.extend({"role": "OBJECTIVE", **o.target_location}
+                             for o in objectives if o.target_location)
             objective_entities = [o.target_entity for o in objectives if o.target_entity]
             objective_items = [{"item_id": o.target_object.get("item_id"), "required_count": o.required_count,
                                 "objective_id": o.objective_id}
@@ -398,6 +467,7 @@ class QuestModel:
                 record.lifecycle_state = QuestState.ABSENT
                 record.history.append({"at": at, "observation_id": observation_id,
                                        "state": "ABSENT", "signature": "ABSENT"})
+        self.apply_reference_knowledge()
 
     @staticmethod
     def _objective(qid, index, raw, observation_id):

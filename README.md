@@ -49,6 +49,9 @@ kap, így egy jól működő korábbi verzió bármikor elővehető:
 | `v2026.10.05-2` | a nagy Python-fájlok szétbontása (működés változatlan) |
 | `v2026.10.05-3` | quest-lény memória, addon 0.9.56, gödör/barlang és quest-zóna bejárás, minimap szint-nyilak, útvonal a Live Visionben, körbeforgás javítása |
 | `v2026.10.06-1` | Z resolver (saját szint + célpont-magasság, VMAP-olvasó, Detour DLL szint-lekérdezés), esés-kezelés, gyorsabb kijelölés, quest-tárgy Interact Targettel, NPC-utasítás követése harcban, ismert hibák listája |
+| `v2026.10.07-1` | barlangos quest és gubó-javítások |
+| `v2026.10.07-2` | teljes kódaudit és képességterületi mérföldkövek (dokumentáció) |
+| `v2026.10.11-1` | TDB mint világmemória + tanult TDB-fájl, quest-zóna bejárás TDB POI alapján, két pixelcsík (addon 0.9.63) és Hz-javítás, több quest egy ablakban, leadás utáni követő quest, kereskedő/térkép/esés/Re-Sizer javítások |
 
 ## Ismert hibák és gyenge pontok
 Teljes lista: [KNOWN_ISSUES.md](KNOWN_ISSUES.md) (🔴 hiba · 🟠 gyenge pont · 🧪 javítva, élőben még nem igazolt). A legfontosabbak:
@@ -67,7 +70,191 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-06</b> — 4 új funkció, 18 javítás</summary>
+<summary><b>2026-10-11</b> — 0 új funkció, 14 javítás</summary>
+
+#### Bug fixes
+- 🧪 **Richterhez lassan jutott oda: hamis „túl messze”, aztán sétált a nyitott bolt mellett** (élő 15:50:51–15:52).
+  - Az addon a „túl messze” hibaüzenetet még 3 s-ig küldi. A 15:51:14-es, valójában sikeres megszólítást (a bolt
+    megnyílt) az előző próbálkozás régi hibája miatt `out_of_range`-nek könyvelte, és közelítésbe, majd térképbe
+    kezdett a nyitott bolt mellett. Most csak az adott próbálkozás alatt keletkezett hiba számít, és a megnyílt bolt
+    előbb dönt.
+  - 15:50:53–15:51:03 között 11 s-ig állt: Jaina ki volt jelölve, de egyik feladathoz sem kellett, a keresés pedig
+    „nincs target”-re várt. Ha semmi más lépés nincs, egy ilyen kijelölt barátságos NPC most nem akasztja meg a keresést.
+- 🧪 **Nyitott kereskedőablak mellett is kamerázott/sétált** (élő 15:51–15:52, Stocking Up on Supplies).
+  Egy eladás és egy vásárlás 64 s-ig tartott. Közben egy távoli UNKNOWN felé induló SEEK (87) megelőzte a
+  vásárlást (86); amikor a vendoradat 2 s-nál régebbi volt, a vásárlás/eladás nem is volt elérhető, és ilyenkor
+  is a SEEK nyert. Most ha a kereskedő nyitva van, és van még vásárlás/eladás feladat, csak a kereskedési lépések
+  (és a harci önvédelem) maradnak; friss vendoradatra rövid WAIT-tel vár.
+- 🧪 **Leadás után és leadóhoz menet azonnal térképet nyitott, ami a quest-ablakot is bezárta** (élő 15:36:59,
+  15:54:29, 15:56:56; felhasználó: „van, hogy emiatt záródik be a quest UI”, Stocking Up on Supplies).
+  - A térkép nem nyílik meg, ha egy aktív questnek ismert a helye. 15:54:29-kor a 58914 leadóhelye ismert volt,
+    csak a MOVE volt pillanatnyilag tiltva, és 1 s múlva be is zárta („Leadási hely ismert”).
+  - Leadás vagy felvétel után legfeljebb 6 s-ig kivárja a következő teljes állapotot, ami az új quest-felvevő
+    helyeket hozza, mielőtt térképet nyitna.
+  - Nyitott quest-, gossip- vagy kereskedőablak fölött soha nem nyit térképet.
+- 🧪 **A kijelölt leadó NPC mellett 25 s-ig cellákat járt** (élő 15:46, Jaina, 56034). A leadóhely körüli
+  keresés (70 + megbízhatósági bónusz) megelőzte a kijelölt Jaina megszólítását (70). Ha a kijelölt barátságos
+  NPC egy kész quest valószínű leadója, a megszólítás most 92-es prioritású.
+- 🧪 **Járműben (Giant Boar) térképet nyitott** (élő 15:47, 15:48): járműben a térkép nem nyílik meg.
+- Nem hiba: a 15:54:32-es UI_UNKNOWN megállás a felhasználó ESC-jére feljött játékmenü volt; a biztonsági
+  leállás helyesen működött.
+- 🧪 **Hjalmarnál leadta a questet, de a következőt nem vette fel, hanem elment** (élő 15:54).
+  A leadás után az ablak bezárult, és egy pillanattal korábban választott „Leadási hely” MOVE a már leadott
+  questtel még 35 s-ig vitte el. Javítás:
+  - a leadási MOVE leáll, amint a quest kikerül a naplóból;
+  - leadás után ugyanazt az NPC-t még egyszer megszólítja, 20 s-on belül, mert a folytatást általában ő adja.
+    Ha magától felkínálja, nem szól újra.
+  - Ha egy NPC-ablak 6 s után is üres (nincs gomb, se quest-sor), ESC-vel bezárja (új CLOSE_DIALOG lépés);
+    a gombot csak akkor nyomja meg, ha az ablak még nyitva van. Eddig ilyenkor örökké várt volna.
+- 🧪 **Lement a bányába, mielőtt a bánya előtti törpénél (Bjorn) leadta volna a questet** (élő 15:56–15:59).
+  A 55965 leadója a TDB-ben a bánya bejárata fölött áll (z 94.8); alatta ugyanazon az x/y-on a barlang van.
+  A tanult leadóhely magasság nélkül volt mentve, így az útvonal a barlang szintjére ment. Most a tanult hely
+  a mellette lévő TDB-spawn magasságát kapja.
+- 🧪 **Re-Sizer a Wandering Boarokon: nagyon döcögős** (élő 15:39–15:45). A quest kb. 6 percig tartott, az
+  utolsó malacot a felhasználó csinálta meg. Három ok:
+  1. A zóna-bejárás a malacoknál nem állt meg, mert az objective `USE_ITEM`, és csak a KILL/COLLECT típusoknál
+     álltunk meg élőlényért. Most minden objective-nál megáll, ahol tárgyat kell nevesített lényen használni.
+  2. Messziről nyomta az Interact gombot (`out_of_range`). Most ha a kijelölt malac a becsült helye szerint
+     7 yd-nél messzebb van, vagy a doboza a képen még kicsi, előbb odamegy.
+  3. A sikeres használatot is hibának könyvelte (`identity_uncertain`): a malac „Re-sized Boar”-rá változik,
+     a target lecserélődik, a quest-előrelépés csak utána jön. Most előbb az előrelépést nézi, és cast után
+     a határidőig kivárja.
+  4. A TDB-ből nem kapta meg a malacok helyét: az objective egy láthatatlan kill-credit lényre mutat (156722),
+     aminek nincs spawnja. Most ilyenkor az objective szövegében megnevezett lényt (Wandering Boar, 29 spawn)
+     keresi meg a TDB-ben, csak helyként; az azonosítás továbbra is tooltipből megy.
+- 🧪 **Két szomszédos quest: az egyiket leadta, aztán visszajött a másikért** (élő 15:11–15:16, 55184/55186).
+  Grek'og megölése után (55186 kész) a 55184 még 3/7 volt, ugyanott. Két hiba vitte el leadni:
+  1. Egy minimap fel/le nyilat (valószínűleg a kész quest leadási „?”-je a dombon) a nyitott 55184 céljának vett,
+     és elindult felé. A nyíl most a kész quest POI-jához tartozik, ha az közelebb van.
+  2. Így 121 yd-re került a 55184 POI-középpontjától, és a halasztás (120 yd) megszűnt.
+     A már várakozó leadás most addig vár, amíg a nyitott quest területe 220 yd-en belül van.
+- 🧪 **Ugrás után leállt a MOVE, és nem tervezett új utat** (élő 15:15:39, a felhasználó szóközt nyomott).
+  Lejtőn futva vagy ugrás közben a „zuhanás” jel 1–1,9 s-ig is tartott, és az ismételt FAST csomagok miatt
+  a mért idő akkor is nőtt, amikor nem jött új minta. A 8 yd-es veszélyzóna ott maradt, ahol a karakter állt,
+  így minden új útvonalat már az indulásnál `fall_hazard_on_route`-tal eldobott.
+  Javítás:
+  - a zuhanást az addon mintaidején mérjük, és 2 s alatt nem bukik el a MOVE;
+  - egy veszélyzóna nem blokkol, ha a karakter ugyanazon a szinten még benne áll (akkor nem volt esés);
+  - valódi esés után a karakter alsóbb szinten van, ott a régi szabály marad.
+- 🧪 **Két quest egy ablakban: nem vette fel egyiket sem** (élő 14:53, Austin Huxworth a Northbound leadása után).
+  Az addon a teljes STATE csomagban elküldte mindkét quest sorát. A Python viszont a frissebb FAST csomag kis
+  `quest_ui`-jával (nyitva / gomb / pont, sorok nélkül) egészében felülírta, így az agent üres listát látott,
+  és az ablak előtt várt. Ugyanez elvihette a jutalomválasztás sorait is.
+  Javítás: a FAST csak a saját mezőit írja felül, a sorok és jutalmak a teljes állapotból maradnak; ha a FAST
+  szerint az ablak bezárult, a sorok törlődnek. Valószínűleg a 10-08-as Hjalmar-esetben is ez okozta az üres
+  `entries` listát.
+- 🧪 **Leadás felé menet egy sündisznót kezdett „lesni”** (élő 14:52–14:53): a leadóhely 155 yd-re volt, de
+  a sündisznó doboza fölött egy általános „szimbólumszerű” doboz ült. A leadási út ezt bárhol quest-jelnek
+  vette, és kb. tízszer megszakította a sétát (SEEK/INSPECT). Most egy ilyen gyenge jel csak a leadóhely 40 yd-es
+  körzetében szakít meg. Valódi „?”/„!” quest-jel (quest_marker/badge) továbbra is bárhol megszakíthat.
+- 🧪 **Northbound felvétele után nem indult el a leadáshoz** (élő 14:25, `live-debug-20261011-142018`). A leadási
+  MOVE kétszer elbukott: előbb `fall_hazard_on_route`, aztán `fall_in_progress`, utána csak INSPECT/WAIT a teszt
+  végéig. Az ok: a táborban minden apró párkány- vagy lejtőlelépés `falling` mintát adott (0–1 s-os
+  FALL_STARTED/ENDED párok). A navigáció az első ilyen mintára elbuktatta a MOVE-ot, és 8 yd-et 10 percre
+  „zuhanásveszélyesnek” jelölt. Így a tábor útjai sorra letiltódtak, a leadóhoz vezetőé is.
+  Javítás: egy `falling` minta csak szünetelteti a kormányzást. A MOVE akkor bukik el és akkor lesz veszélyzóna,
+  ha a zuhanás 1 s-nál tovább tart (egy ugrásnál hosszabb, kb. 9–10 yd esés); a veszélyzóna ekkor a párkánynál
+  van, nem a landolásnál. Rövidebb valódi esést továbbra is a navmesh-szintváltás ellenőrzés igazol landoláskor.
+
+</details>
+
+<details>
+<summary><b>2026-10-10</b> — 2 új funkció, 16 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **A külön munkapéldány beolvasztva** (`uj-mappa-2026-09-28-1918`: GitHub-alap + barlangos javítások + két
+  pixelcsík + TDB-bekötés). Mentés: `projekt_backup_20261008_pre_chatgpt_merge`, `projekt_backup_20261010_pre_tdb_sync`.
+  A felhasználó ezentúl a `projekt` mappából futtat.
+- 🧪 **TDB mint világmemória, ami tanul** (felhasználó: „memóriaként, tudja mi hol van és a jövőben is mentse”).
+  A szerver ezt a TDB-t futtatja, ezért a TDB az elsődleges statikus tudás. Amit az agent élőben igazol
+  (beszélgetés, quest felvétele/leadása, ölés, loot, tárgyhasználat), azt a TDB formájában elmenti
+  (`learned_spawn`, `learned_quest_role` az `entity_memory.sqlite3`-ban, világszintű, nem jár le), és a TDB mellé
+  olvassa vissza: a közeli élő sor megerősíti a TDB-spawnt, a hiányt kitölti. A régi quest-creature memória
+  (147 sor) első induláskor beolvad. Valódi TDB-vel: a 55639, 58914, 55988 leadója (a TDB-ben nincs) most megvan,
+  hellyel együtt.
+
+#### Bug fixes
+- 🧪 **A látás 10-07 óta lassabb (World3D ~42 → ~32 Hz), túlfutás NPC-n, sok sikertelen INSPECT, SEEK körbe-körbe.**
+  Két ok, mindkettő a 0.9.61/62-es két-sávos csíkból:
+  - a STATE-sáv a képernyő teljes tetején futott (~1800 px széles, 116 px magas), ezért a detektor elől a teljes
+    felső sávot kitakarta — közelről az NPC feje és a „!”/„?” pont ott van, a doboz nem nőhetett felfelé, a
+    megállási méret sosem jött el;
+  - a sávok minden 1/60 mp-es tickben minden cellát újrarajzoltak (~10 ezer Lua-hívás), ez a kliens FPS-ét és vele
+    a capture-t vitte le (0.9.59/60: 39–44 Hz, 0.9.61+: 31–35 Hz azonos ablakméretnél).
+  → **Addon 0.9.63:** a STATE-sáv 128×33 cella (512×132 px, a régi csík helye a bal felső sarokban, ugyanaz az
+  1024 bájtos lap), a maszk ismét csak ezt a szigetet takarja; csak a megváltozott bájtok cellái rajzolódnak újra
+  (szimulációban 2,4× kevesebb munka tickenként).
+- 🧪 **Kijelölt, de a képen nem látható célpont: odamegy a minimap-jeléhez** (felhasználó 2026-10-11). A kijelölt
+  egység minimap-jeléből számolt világpontra (`MINIMAP_TARGET_MARKER`) navmesh-MOVE indul: barátságos célpontnál
+  10 yd felett (megállás 4,5 yd), quest-ellenségnél harcon kívül 8 yd felett (megállás 6 yd, utána COMBAT/Charge).
+  Ha az egység megjelenik a képen vagy másik célpont lesz kijelölve, a MOVE megszakad. Eddig ilyenkor csak
+  elfordult/körbenézett, ellenségnél semmi sem jött.
+- 🧪 **Tanult TDB: `tdb_learned.sqlite3`** (felhasználó: „ugyanúgy, ahogy a TDB-ben van”). A tanult adat a profil
+  mappájában egy második TDB-fájlba kerül, pontosan a TDB tábláival és oszlopaival (`creature`, `gameobject`,
+  `creature_queststarter/-ender`, `quest_poi`, `quest_poi_points`); jelölés `VerifiedBuild = -1`, guid
+  9 000 000 000-tól, a „hányszor/mikor/honnan/név” adat a `learned_row` táblában. Az eredeti TDB érintetlen marad
+  (SQLite ATTACH-csal együtt olvasható). A korábbi tanult sorok első induláskor átköltöznek. A creature/gameobject
+  sorokat **nem szabad** a szerver adatbázisába importálni (meglévő NPC-k helyei — duplán spawnolnának).
+- 🧪 **Hiányzó quest-POI pótlása a látásból** (felhasználó: „bele lehet írni a sokszöget, ha hiányos? A kék zónát
+  visionből?”): ha a minimap kék quest-területe egyszer zártan látszott, a cellák konvex burka quest_poi/
+  quest_poi_points sokszögként a tanult TDB-be kerül (csak nőhet), és a zóna-bejárás ezt használja, ha a TDB-ben
+  nincs sokszög.
+- 🧪 **Cooking Meat: a zónában egy perc WAIT** (2026-10-11 13:36): az egyetlen másik javaslat, egy MOVE az API-ponthoz,
+  később leesés-veszély miatt blokkolódott, a zóna-mód pedig „van teendő”-nek vette. → A zónán belül egy MOVE nem
+  gátolja a bejárást, a prioritás dönt; a zóna-mód csak TDB/tanult sokszögnél aktív.
+- 🧪 **Quest-zóna bejárás újratervezve** (felhasználóval egyeztetve). Célkeresési lépcső a zónában: (1) ami kéznél
+  van (quest-releváns egység/objektum az egér alatt, kijelölve, a képen); (2) sárga minimap-pötty — **pötty-memória**:
+  minden látott pöttyöt megjegyez (3 perc), elfordult kamera után is odamegy; ami a minimap látóterében, a nyíl alatt
+  kívül eltűnt, az elhasznált; (3) TDB-spawn — a minimapon belüli, pötty nélküli spawn kimarad (elhasznált/nincs ott),
+  a minimapon kívüli cél marad; (4) a TDB quest-POI sokszög bejárása: **kígyózó, 25 yd-os cellák**, a széltől 3 yd-ra
+  beljebb, spawnsűrűség szerinti enyhe súly, 10 yd-on belül számít bejártnak, megszakítás után onnan folytatja.
+  A bejárás **azonnal indul**, ha a zónában semmi nincs kéznél (eddig 4 helyben pörgés után); séta közben **2,5
+  mp-enként balra/jobbra pillant** a kamera (új CAMERA_GLANCE: bal gombos húzás, ami nem engedi el az előre-gombot,
+  a követő kamera magától visszaáll). **Csak quest-releváns dolog szakítja meg**: quest-objektum körvonal, quest-jel,
+  lény, ha az objektíva lényt kér; a helyben pörgő keresés és a tetszőleges dobozok megközelítése a zónában kimarad.
+- 🧪 **Kijelölt Kee-La mellett WAIT-en ragadt** (17:48–17:49): egy 1 mp-es OPEN_MAP letakarta a bal felső
+  STATE-csíkot; a dekóder elfelejtette a helyét, és utána csak a jobb oldali FAST-sávot olvasta — a teljes állapot
+  40+ mp-es lett, a tárgyhasználat (2 mp-nél frissebb állapotot kér) le volt tiltva. → A dekóder megjegyzi a csík
+  utolsó helyét, minden FAST-only képkockán ellenőrzi (olcsó fejléc-próba), és ~2 mp-enként teljes keresést is
+  futtat; ha a csík visszajön, azonnal újra olvassa (teszt: letakarás → csak FAST → feltakarás → mindkét sáv).
+- 🧪 **Emergency First Aid „csak bohóckodott”** (17:36–17:38, fél perces quest): kijelölt Austin Huxworth mellett
+  sem használta a First Aid Kitet. Három ok: (1) a munkapéldány TDB-patch-e az objektíva-MOVE-ot 96-os prioritásra emelte,
+  ez minden helyi lépést (tárgyhasználat, TARGET, harc) legyőzött; (2) barátságos célpontra ASSIST ment, ami csak
+  akciósávos tárgyat tud elsütni, a quest special item interact gombos; (3) a „First Aid Kit used on Austin”
+  objektíva földi objektum-keresést indított („Quest-object terület elérve: UNKNOWN cue”). → A TDB-MOVE csak akkor
+  96-os, ha nincs kéznél helyi munka; barátságos célponton interact-gombos USE_ON_TARGET; a „used on <NPC>”
+  objektíva nem objektum-keresés. Ugyanez a 96-os MOVE szakította meg a murlock-TARGET-et is (17:17).
+- 🧪 **Lootolás után a hulla újra kijelölve, ESC-ig várt** (17:25): a hullát (halál-jelző bármelyik formában, vagy
+  saját friss ölés/loot) nem jelöli ki.
+- 🧪 **2/6-nál otthagyta a murlockokat Jaina felé** (17:25): a félkész quest leadója fölött szürke „?” van, a
+  detektor nem különbözteti meg a sárgától; a TDB/tanult szerepek szerint egy félkész quest leadója fölötti jel nem
+  teszi relevánssá.
+- 🧪 **Quest-zóna bejárása a TDB quest-POI területén** (felhasználó: „a quest POI pontok által megadott területet
+  járja be”): a nyitott objektíva TDB-sokszögének belsejéből vett pontok (≤25) a bejárás cellái, a vak 3×3-as rács
+  helyett; navmesh-útvonallal.
+- 🧪 **Új karakter, 0.9.63 (17:12): a FAST-sáv egyáltalán nem olvasódott** (`fast_packets: 0`), csak a lassú STATE
+  (~1,9 Hz) — mouseover, target, mozgás késve: a quest-adóhoz kézzel kellett közelebb menni, murlockot nem jelölt ki.
+  A dekóder a minimap alatti FAST-sávot csak széles (>224 oszlop) felső sáv vagy tömörítetlen `STATE` lap után
+  kereste; a 0.9.63-as keskeny sáv tömörített `STATE_Z` lapokat visz. → A `STATE_Z` lap is indítja a keresést
+  (teszt tömörítő mockkal; a javítás nélkül elbukik).
+- 🧪 **A munkapéldány utolsó patch-e 6 tesztet eltört:** hiányzó `completion_state` mezőn elhasalt a tervező, és a
+  tábortüzet („Cook the meat”, a tooltipben nincs quest-sor) sosem használta volna. → A quest-sor csak akkor
+  kötelező, ha maga az objektum a TDB szerinti GAMEOBJECT-kredit (felhasznált totem); `quest()` nem omlik össze
+  `quest_poi` tábla nélkül; a tesztek nem olvassák a Letöltések mappában lévő TDB-t.
+- 🧪 **Az alap-tesztek újra védenek (felhasználó: „kellenének alap tesztek, hogy ne törjön el egy skill”).** 15
+  teszt hetek óta piros volt, így semmit nem jeleztek — köztük a teljes szimulált quest (felvétel → MOVE → harc →
+  loot → leadás), a „megérkezés nem teljesítés”, a „megérkezés kredit nélkül → korlátos helyi keresés”, a keresés
+  véges kerete. Az ok elavult tesztadat volt (normalizált térképpont világkoordináta nélkül, a régi 0,5 mp-es
+  keresési ütem, a régi „5 mp kiesés → MANUAL” szabály); az elvárásokat megtartva frissítve. Új alap: **0 bukás**.
+- 🧪 **A célon állva navmesh-útvonal hiánya miatt elbukott a MOVE** (`required_navmesh_route_unavailable`): ha a
+  karakter már a megállási távolságon belül van, nem kell útvonal, az érkezés sikeres.
+- 🧪 **Élőben látott, fázisazonosítós TDB-spawn kiesett** (Henry Garrick 156859, a fázis ismeretlen): a tanult
+  sorral megerősített spawn átmegy a fázisszűrőn.
+
+</details>
+
+<details>
+<summary><b>2026-10-06</b> — 3 új funkció, 18 javítás</summary>
 
 #### Új funkciók / implementációk
 - ✅ **A barlangos quest („Who Lurks in the Pit”) élőben végig lement** (21:41, ~13 perc): 5/5 gubó, Hrun megölve,

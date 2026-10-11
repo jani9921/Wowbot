@@ -19,16 +19,20 @@ def test_search_records_bounded_sector_coverage_then_reports_not_found():
     started = skill.begin(state, {"visual_candidates": []}, "frame-0", 1.)
     assert started.status is SkillStatus.RUNNING
     seen.extend(started.commands)
+    step = skill._controller(state).scan_step_interval      # one-way pass, .9 s per sector
     for index in range(1, 4):
-        now = 1. + index * .5
+        now = 1. + index * step
         result = skill.observe(state, {"visual_candidates": []}, f"frame-{index}", now)
         assert result.status is SkillStatus.RUNNING
         seen.extend(result.commands)
     snapshot = skill.snapshot(state)
     assert snapshot["scan_index"] == 4
     assert snapshot["camera_updates"] == 4
-    assert [(command.x, command.y) for command in seen] == list(skill._controller(state).sectors)
-    exhausted = skill.observe(state, {"visual_candidates": []}, "frame-final", 3.3)
+    # Each sector is one bounded turn of the character in the same direction.
+    assert len(seen) == len(skill._controller(state).sectors)
+    assert len({command.binding for command in seen}) == 1
+    assert all(command.binding in {"TURNLEFT", "TURNRIGHT"} for command in seen)
+    exhausted = skill.observe(state, {"visual_candidates": []}, "frame-final", 1. + 4 * step + .1)
     assert exhausted.status is SkillStatus.FAILURE
     assert exhausted.reason.value == "TARGET_NOT_FOUND"
     assert exhausted.metadata["search_outcome"] == "NOT_FOUND_WITHIN_BUDGET"

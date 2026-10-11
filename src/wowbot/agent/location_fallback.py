@@ -13,7 +13,9 @@ def reference_destination(state):
         return None
     matches = []
     for row in state.get("spawn_reference_candidates", []):
-        if (row.get("source") != "TDB_REFERENCE" or not row.get("source_sha256")
+        learned = (row.get("source") == "ENTITY_MEMORY_WORLD"
+                   and str(row.get("evidence_source") or "").startswith("ADDON_"))
+        if ((not learned and (row.get("source") != "TDB_REFERENCE" or not row.get("source_sha256")))
                 or row.get("npc_id") != target["npc_id"]
                 or row.get("world_map_id") != player["instance_id"]):
             continue
@@ -25,5 +27,8 @@ def reference_destination(state):
             continue
         if math.hypot(x-px,y-py) <= 60 and abs(z-pz) <= 8:
             matches.append(row)
+    learned_matches = [row for row in matches if row.get("source") == "ENTITY_MEMORY_WORLD"]
+    if learned_matches:
+        matches = learned_matches
     # No nearest-spawn guess when several phase/location candidates fit.
     return matches[0] if len(matches) == 1 else None

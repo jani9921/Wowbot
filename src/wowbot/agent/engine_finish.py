@@ -37,6 +37,11 @@ class EngineFinishMixin:
             attempt.proposal, self.goal, self.world, failure_decision,
             success=outcome == Outcome.SUCCESS, now=now)
         self.last_result = terminal.result_projection
+        # Record quest-object range feedback at the terminal boundary.  A
+        # fast SEEK result may replace last_result before the next planning
+        # tick sees a fresh addon hover and World3D box together.
+        self.planner.quest.note_object_interaction_result(
+            self.last_result, self.world.state, attempt.proposal.parameters)
         if loop_decision is not None and loop_decision.level != "NONE":
             self.supervisor.notify_loop(loop_decision, now)
             event = RuntimeEvent(

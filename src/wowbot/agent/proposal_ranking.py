@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 
 from .models import Goal, Proposal, number
+from .destination_distance import is_world_yards, world_arrived
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,9 +52,7 @@ class ProposalRanker:
             if blocked_until.get(proposal.key, 0) > now:
                 blocked_skills.append(proposal.skill)
                 continue
-            if (proposal.skill == "MOVE"
-                    and (distance := world.distance(proposal.parameters)) is not None
-                    and distance <= .003):
+            if proposal.skill == "MOVE" and world_arrived(world, proposal.parameters):
                 continue
             if proposal.skill in {"INSPECT", "OPEN_MAP"} and recent.get(proposal.key, 0) > now:
                 cooling_down_skills.append(proposal.skill)
@@ -103,6 +102,12 @@ class ProposalRanker:
             else:
                 reliability = .5
             distance = world.distance(proposal.parameters) if proposal.skill == "MOVE" else 0.
+            if proposal.skill == "MOVE" and is_world_yards(proposal.parameters):
+                # WORLD_YARDS MOVEs always carried the capped penalty (their
+                # old map-unit distance was meaningless); the live-tuned
+                # ranking relies on it, and move_world_yards breaks ties by
+                # real yards.  Keep that explicitly rather than by accident.
+                distance = .2
             contract = getattr(registry, "contracts", {}).get(proposal.skill)
             cost = getattr(contract, "cost", 1.)
             pattern_boost = (

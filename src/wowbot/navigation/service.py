@@ -63,6 +63,11 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         self._navmesh = navmesh
         self._z = ZResolver(navmesh)
         self._handled_falls = 0
+        # Confirmed falling samples are unsafe route evidence, not merely a
+        # 15-second skill retry failure. Keep it across same-context replans.
+        self._fall_hazards: list[dict[str, float | int | None]] = []
+        # First sample of the current falling episode: (monotonic time, state).
+        self._falling_since: tuple[float, dict] | None = None
         self._global_planner = GlobalNavigator(navmesh=self._navmesh, walkable=self.walkable_point)
         self._corridor_builder = PathCorridorBuilder()
         self._local_planner = LocalNavigator()
@@ -89,7 +94,22 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         # visual-search proposals take the execution slot.
         self._stuck_observation_anchor: dict[str, Any] | None = None
 
-    def reset(self) -> None:
+    def reset(self, *, keep_floor: bool = False) -> None:
+        """Drop route, controller and per-context navigation memory.
+
+        Issue #84: the Z resolver's player-floor/fall/target state and the
+        cave sweep/lower-layer caches used to survive session, map, death,
+        phase, floor and vehicle invalidations.  ``keep_floor`` is only for a
+        goal replacement in the same context, where the player's own floor
+        continuity is still valid evidence.
+        """
+        if not keep_floor:
+            self._z = ZResolver(self._z.geometry)
+            self._fall_hazards.clear()
+        for key in ("_zone_sweeps", "_lower_layer_cache", "_last_sweep_key",
+                    "_ambiguous_since"):
+            self.__dict__.pop(key, None)
+        self._layer_probe = False
         self._routes = AgentNavigator()
         self._progress.clear()
         self._movement.reset()
@@ -145,6 +165,23 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
     def start(self, destination: dict, state: dict, observation_id: str, now: float) -> None:
         self._movement.start(destination, state, observation_id, now)
 
+    @staticmethod
+    def _already_arrived(request: NavigationRequest, state: dict) -> bool:
+        """The player is already within the request's arrival distance (2D)."""
+        destination = request.destination
+        player = state.get("player_world_position") or {}
+        if (destination.get("coordinate_space") != "WORLD_YARDS"
+                or player.get("coordinate_space") != "WORLD_YARDS"
+                or destination.get("instance_id") not in (None, player.get("instance_id"))):
+            return False
+        limit = next((number(value) for value in (
+            request.arrival.radius, request.arrival.desired_range, destination.get("stop_distance"))
+            if number(value) is not None), None)
+        dx = (number(destination.get("x")) or 0.) - (number(player.get("x")) or 0.)
+        dy = (number(destination.get("y")) or 0.) - (number(player.get("y")) or 0.)
+        return (limit is not None and None not in (number(player.get("x")), number(destination.get("x")))
+                and math.hypot(dx, dy) <= limit)
+
     def start_request(self, request: NavigationRequest, state: dict, now: float) -> None:
         """Accept one typed request and delegate all control to the existing controller."""
         self._z.observe_player(state, now)
@@ -186,6 +223,11 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         self._danger.observe_hostiles(state, now)
         self._active_route = (probe_route if probe_route is not None else
                               self._global_planner.plan(request, state, now, danger_map=self._danger))
+        if self._fall_hazard_blocks(self._active_route, state, now):
+            self._active_route = replace(self._active_route, anchors=())
+            self._route_failure_reason = "fall_hazard_on_route"
+            self._movement.reset()
+            return
         confidence = number(request.destination.get("z_confidence"))
         if confidence is not None and confidence < self._z.LOW_CONFIDENCE and self._active_route.anchors:
             self._active_route = self._short_leg_route(self._active_route)
@@ -199,6 +241,12 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         self._latest_local_plan = self._local_planner.plan(
             state, self._active_corridor, destination=request.destination)
         if not self._active_route.anchors:
+            if self._already_arrived(request, state):
+                # Standing at the destination needs no route: a missing
+                # navmesh path must not turn an arrival into a failure.
+                self._route_failure_reason = None
+                self.start(dict(request.destination), state, request.correlation_id, now)
+                return
             self._route_failure_reason = "required_navmesh_route_unavailable"
             self._movement.reset()
             return
@@ -219,9 +267,11 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
     # User 2026-10-06: "a spirálon ... eléggé a szélén megy".  Taking a
     # waypoint 2.5 yd early cut every bend of the spiral toward the drop.
     INTERMEDIATE_PASS_YARDS = 1.5
-    NEXT_LEG_YARDS = 2.5
-
-    NEXT_LEG_LOOKAHEAD = 4
+    # FAST position samples are frequent enough to require the actual bend.
+    # Looking four legs ahead allowed a spiral chord to be treated as passed
+    # while the character was still cutting across the ledge (2026-10-07).
+    NEXT_LEG_YARDS = 1.25
+    NEXT_LEG_LOOKAHEAD = 1
 
     def _on_next_leg(self, current: tuple[float, float], wx: float, wy: float) -> bool:
         """Already walking a following leg: the waypoint was passed between
@@ -414,10 +464,22 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                 danger_changed=danger_changed):
             self._active_route = self._global_planner.plan(
                 self._active_request, state, now, danger_map=self._danger)
+            if self._fall_hazard_blocks(self._active_route, state, now):
+                self._route_failure_reason = "fall_hazard_on_route"
+                self._movement.reset()
+                self._latest_local_plan = None
+                return None
             self._route_danger_revision = self._danger.revision
             self._route_waypoint_index = self._first_route_index(state)
             self._route_previous_position = self._player_route_position(state)
             self._active_corridor = self._corridor_builder.build(self._active_route)
+            if not self._active_route.anchors:
+                # Issue #83: the replan may lose the navmesh route; never
+                # start({}) (KeyError) -- fail closed like start_request.
+                self._route_failure_reason = "required_navmesh_route_unavailable"
+                self._movement.reset()
+                self._latest_local_plan = None
+                return None
             self.start(self._current_route_destination(), state,
                        observation_id or f"route-replan:{now:.6f}", now)
         self._latest_local_plan = self._local_planner.plan(
@@ -463,13 +525,20 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         if (player_instance is not None and target_instance is not None
                 and player_instance != target_instance):
             return None
+        # Issue #101: a trusted target height becomes the arrival layer, so
+        # the controller's vertical check refuses "ARRIVED" one floor away
+        # (same X/Y).  An untrusted height is never turned into z=0.
+        target_z = number(position.get("z"))
+        trusted_z = target_z if (target_z is not None
+                                 and position.get("z_known") is not False) else None
         destination = {
             "target_guid": expected,
             "purpose": "INTERACT",
             "coordinate_space": "WORLD_YARDS",
             "x": tx,
             "y": ty,
-            "z": number(position.get("z")) or 0.,
+            **({"z": trusted_z, "layer_z": trusted_z} if trusted_z is not None
+               else {"z_known": False}),
             "instance_id": target_instance,
             "world_map_id": target_instance,
             "stop_distance": float(stop_distance),
@@ -483,6 +552,30 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         if self._route_failure_reason:
             return MovementAssessment(MovementPhase.FAILED, True, False,
                                       self._route_failure_reason)
+        if (state.get("movement") or {}).get("falling") is True:
+            # Live 2026-10-11 14:25: every small step off a ledge/slope in the
+            # camp reported a falling sample (0-1 s FALL_STARTED/ENDED pairs);
+            # failing the MOVE and quarantining 8 yd for 10 min on each one
+            # blocked the turn-in route ("fall_hazard_on_route").  A falling
+            # sample now only pauses steering; a fall still in progress after
+            # FALL_CONFIRM_SECONDS (longer than a jump) is a real drop: stop
+            # the route at the ledge where it started.  Shorter real drops are
+            # confirmed on landing by the navmesh layer check (``fell`` below).
+            # Duration on the addon's sample clock: a repeated FAST packet
+            # (no new sample) must not age the fall (live 2026-10-11 15:15).
+            sample_time = number(state.get("monotonic_time"))
+            clock = sample_time if sample_time is not None else now
+            if self._falling_since is None:
+                self._falling_since = (clock, state)
+            started, ledge_state = self._falling_since
+            if clock - started < self.FALL_CONFIRM_SECONDS:
+                return MovementAssessment(MovementPhase.MOVING, False, False, "fall_pending")
+            self._remember_fall_hazard(ledge_state, now)
+            self._route_failure_reason = "fall_in_progress"
+            self._movement.reset()
+            return MovementAssessment(MovementPhase.FAILED, True, False,
+                                      self._route_failure_reason)
+        self._falling_since = None
         self._z.observe_player(state, now, route_z=self._route_hint_z(state))
         fell = self._z.fall_count > self._handled_falls
         self._handled_falls = self._z.fall_count
@@ -490,6 +583,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         if passed is not None:
             return passed
         if fell and self._active_request is not None:
+            self._remember_fall_hazard(state, now)
             self._replan_from_tracked_layer(state, observation_id, now)
             if self._route_failure_reason:
                 return MovementAssessment(MovementPhase.FAILED, True, False,
@@ -573,7 +667,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         return self._transition_resolver.resolve(signals)
 
     def command(self, state: dict, observation_id: str, now: float):
-        if self._route_failure_reason:
+        if self._route_failure_reason or (state.get("movement") or {}).get("falling") is True:
             return ()
         state = self._state_with_navmesh_surface(state)
         self.local_plan(state, now=now, observation_id=observation_id)
@@ -745,6 +839,90 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
         self._z.observe_player(state, now, route_z=self._route_hint_z(state))
 
     ROUTE_HINT_CORRIDOR_YARDS = 4.
+    # The observed drop can already be several yards beyond the planned
+    # centerline (live 2026-10-08: ~4.7 yd). Quarantine the approach segment,
+    # not just the exact landing pixel.
+    FALL_HAZARD_RADIUS_YARDS = 8.
+    FALL_HAZARD_LAYER_YARDS = 6.
+    FALL_HAZARD_TTL_SECONDS = 600.
+    # A jump is airborne ~0.7-0.8 s on flat ground, but a jump or a run down
+    # a slope reported falling for up to ~1.9 s (live 2026-10-11 15:15, the
+    # user pressed space).  Two seconds of falling is a real drop (~20+ yd);
+    # shorter real drops are confirmed on landing by the navmesh layer check.
+    FALL_CONFIRM_SECONDS = 2.
+
+    def _remember_fall_hazard(self, state: dict, now: float) -> None:
+        """Remember the *upper route* at the observed fall, scoped by floor.
+
+        A lower-floor route can legitimately pass the same X/Y. Unknown route
+        height remains unsafe rather than inventing a floor or a detour.
+        """
+        if self._active_route is None or not self._active_route.anchors:
+            return
+        player = state.get("player_world_position") or {}
+        x, y = number(player.get("x")), number(player.get("y"))
+        if x is None or y is None:
+            return
+        try:
+            instance = int(player.get("instance_id"))
+        except (TypeError, ValueError):
+            return
+        self._fall_hazards = [item for item in self._fall_hazards if item["expires_at"] > now]
+        z = self._route_hint_z(state)
+        if z is None and self._z.player is not None and self._z.player.confidence >= .6:
+            z = self._z.player.z
+        if z is None:
+            index = min(max(0, self._route_waypoint_index), len(self._active_route.anchors)-1)
+            z = number(self._active_route.anchors[index].get("z"))
+        if any(item["instance_id"] == instance
+               and math.hypot(float(item["x"])-x, float(item["y"])-y) < 2.
+               and (item["z"] is None or z is None or abs(float(item["z"])-z) < 6.)
+               for item in self._fall_hazards):
+            return
+        self._fall_hazards.append({"x": x, "y": y, "z": z,
+                                   "instance_id": instance,
+                                   "expires_at": now + self.FALL_HAZARD_TTL_SECONDS})
+
+    def _fall_hazard_blocks(self, route: GlobalRoute, state: dict, now: float) -> bool:
+        if len(route.anchors) < 2 or not self._fall_hazards:
+            return False
+        player = state.get("player_world_position") or {}
+        try:
+            instance = int(player.get("instance_id"))
+        except (TypeError, ValueError):
+            return False
+        self._fall_hazards = [item for item in self._fall_hazards if item["expires_at"] > now]
+        px, py = number(player.get("x")), number(player.get("y"))
+        layer = self._z.player
+        player_z = layer.z if layer is not None and layer.confidence >= .6 else None
+        for hazard in self._fall_hazards:
+            if hazard["instance_id"] != instance:
+                continue
+            if (px is not None and py is not None
+                    and math.hypot(float(hazard["x"])-px, float(hazard["y"])-py)
+                    < self.FALL_HAZARD_RADIUS_YARDS
+                    and (player_z is None or hazard["z"] is None
+                         or abs(player_z-float(hazard["z"])) < self.FALL_HAZARD_LAYER_YARDS)):
+                # Live 2026-10-11 15:15: the player still stands at the
+                # "ledge" on its floor -- it was no drop.  Blocking every
+                # route that starts here left the agent waiting; a real fall
+                # put the player on a lower floor, where this is skipped.
+                continue
+            for left, right in zip(route.anchors, route.anchors[1:]):
+                ax, ay = float(left["x"]), float(left["y"])
+                dx, dy = float(right["x"])-ax, float(right["y"])-ay
+                length_sq = dx*dx + dy*dy
+                t = (0. if length_sq <= 1e-9 else max(0., min(1.,
+                     ((float(hazard["x"])-ax)*dx + (float(hazard["y"])-ay)*dy)/length_sq)))
+                if math.hypot(ax+t*dx-float(hazard["x"]),
+                              ay+t*dy-float(hazard["y"])) >= self.FALL_HAZARD_RADIUS_YARDS:
+                    continue
+                az, bz = number(left.get("z")), number(right.get("z"))
+                route_z = az+t*(bz-az) if az is not None and bz is not None else None
+                if (route_z is None or hazard["z"] is None
+                        or abs(route_z-float(hazard["z"])) < self.FALL_HAZARD_LAYER_YARDS):
+                    return True
+        return False
 
     def _route_hint_z(self, state: dict) -> float | None:
         """The active route's height where the player stands on it.
@@ -799,6 +977,10 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                 return
         self._active_route = self._global_planner.plan(
             self._active_request, layered, now, danger_map=self._danger)
+        if self._fall_hazard_blocks(self._active_route, layered, now):
+            self._route_failure_reason = "fall_hazard_on_route"
+            self._movement.reset()
+            return
         self._route_danger_revision = self._danger.revision
         self._route_waypoint_index = self._first_route_index(layered)
         self._route_previous_position = self._player_route_position(layered)
@@ -877,7 +1059,7 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                 **player, "z": z, "z_known": True, "z_observed": False, "z_estimated": True,
                 "z_source": "NAVMESH_LAYER_PROBE", "z_confidence": round(layer.confidence, 3)}}
             route = self._global_planner.plan(request, probe_state, now, danger_map=self._danger)
-            if route.anchors:
+            if route.anchors and not self._fall_hazard_blocks(route, probe_state, now):
                 return probe_state, route
         return None
 
@@ -1002,11 +1184,15 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
             return None
         resolved = self._z.player
         now = number(state.get("monotonic_time"))
+        # ``monotonic_time`` is the addon's GetTime() at sampling; the fix
+        # time is the agent clock at processing, normally ~0.1 s later.  A
+        # one-sided test rejected every live fix (live 2026-10-07: hop 4 was
+        # offered for minutes), so freshness is a symmetric window.
         pz = (resolved.z if resolved is not None
               and resolved.instance_id == player.get("instance_id")
               and resolved.confidence >= .7
               and math.hypot(resolved.x-px, resolved.y-py) <= self.ZONE_SWEEP_VISITED_YARDS
-              and (now is None or resolved.at is None or 0 <= now-resolved.at <= 3.)
+              and (now is None or resolved.at is None or abs(now-resolved.at) <= 3.)
               else None)
         for index, hop in enumerate(hops):
             if (pz is not None
@@ -1033,6 +1219,27 @@ class NavigationService(NavigationSearchMixin, NavigationCombatMixin, Navigation
                 "z_source": "NAVMESH_ZONE_SWEEP", "z_estimated": True,
                 "sweep_hop": remaining[0], "sweep_hops": len(hops),
                 "sweep_direction": "UP" if sweep["upward"] else "DOWN"}
+
+    def record_sweep_arrival(self, destination: dict | None) -> bool:
+        """A verified arrival at a zone-sweep hop retires that hop.
+
+        Live 2026-10-07: the planner-side position test ran only after the
+        next (area-search) MOVE had taken the player 8 yd away, so the same
+        hop came back after every arrival.  The hop must match the current
+        sweep's own coordinates; anything else is ignored.
+        """
+        if not isinstance(destination, dict) or destination.get("location_source") != "QUEST_ZONE_SWEEP":
+            return False
+        index = destination.get("sweep_hop")
+        sweep = (self.__dict__.get("_zone_sweeps") or {}).get(self.__dict__.get("_last_sweep_key"))
+        if (not isinstance(index, int) or isinstance(index, bool) or not isinstance(sweep, dict)
+                or "visited" not in sweep or not 0 <= index < len(sweep.get("hops") or ())):
+            return False
+        hop, x, y = sweep["hops"][index], number(destination.get("x")), number(destination.get("y"))
+        if x is None or y is None or math.hypot(hop["x"]-x, hop["y"]-y) > 1.:
+            return False
+        sweep["visited"].add(index)
+        return True
 
     def _sweep_hops(self, state: dict, bottom: dict) -> list[dict]:
         """The rim-to-bottom route resampled every ``ZONE_SWEEP_HOP_YARDS``."""

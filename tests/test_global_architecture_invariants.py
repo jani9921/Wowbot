@@ -30,13 +30,16 @@ def test_inv13_failure_retry_budget_is_finite_and_eventually_disallows_retry():
 
 
 def test_inv14_visual_local_search_has_finite_sector_and_time_budget():
-    search = SeekVisualCueController(max_seconds=2.)
+    # One slow one-way pass: a sector every scan_step_interval (.9 s) so the
+    # detector can stabilize between turns.
+    step = SeekVisualCueController.scan_step_interval
+    search = SeekVisualCueController(max_seconds=step*len(SeekVisualCueController.sectors))
     search.begin({}, {}, 0.)
     for index in range(len(search.sectors)):
-        now = index*.5
+        now = index*step
         assert not search.observe({"visual_candidates": []}, str(index), now).terminal
         assert search.command({}, str(index), now)
-    exhausted = search.observe({"visual_candidates": []}, "done", 2.1)
+    exhausted = search.observe({"visual_candidates": []}, "done", step*len(search.sectors)+.1)
     assert exhausted.terminal and not exhausted.success
     assert exhausted.reason in {"seek_visual_cue_safety_deadline",
                                 "seek_visual_cue_sectors_exhausted"}

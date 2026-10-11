@@ -182,6 +182,10 @@ class NavigationRecoveryMixin:
         previous = self._active_route.route_id if self._active_route else None
         self._active_route = self._global_planner.plan(
             self._active_request, state, now, danger_map=self._danger)
+        if self._fall_hazard_blocks(self._active_route, state, now):
+            self._route_failure_reason = "fall_hazard_on_route"
+            self._movement.reset()
+            return False
         self._route_danger_revision = self._danger.revision
         self._route_waypoint_index = 1 if len(self._active_route.anchors) > 1 else 0
         self._active_corridor = self._corridor_builder.build(self._active_route)

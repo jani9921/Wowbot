@@ -201,7 +201,12 @@ def project(model) -> None:
             continue
         roles = memory.roles(quest["quest_id"])
         if quest.get("is_complete") is True:
-            wanted += [{**row, "role": "ENDER", "quest_id": quest["quest_id"]} for row in roles.get("ENDER") or ()]
+            reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(str(quest["quest_id"])) or {}
+            if reference.get("turnin_status") == "LEARNED" or not roles.get("ENDER"):
+                wanted += [{**row, "role": "ENDER", "quest_id": quest["quest_id"], "confirmed": False}
+                           for row in reference.get("turnin_candidates") or ()]
+            else:
+                wanted += [{**row, "role": "ENDER", "quest_id": quest["quest_id"]} for row in roles.get("ENDER") or ()]
             continue
         wanted += [{**row, "role": "OBJECTIVE", "quest_id": quest["quest_id"]}
                    for row in roles.get("OBJECTIVE") or ()]

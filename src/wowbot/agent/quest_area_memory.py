@@ -26,6 +26,9 @@ class QuestAreaMemory:
 
     def __init__(self) -> None:
         self.cells: dict[str, set[tuple[int, int]]] = {}
+        # Instance the cells were learned in (issue #96): the same X/Y in
+        # another instance is a different place.
+        self.instances: dict[str, str] = {}
         self.closed_seen: dict[str, bool] = {}
         self._last_observed_at = None
 
@@ -80,6 +83,13 @@ class QuestAreaMemory:
         if best is None:
             return None
         quest_id = best[1]
+        instance = position.get("instance_id")
+        if instance is not None:
+            if self.instances.get(quest_id) not in (None, str(instance)):
+                # Re-learn in the new instance instead of merging two places.
+                self.cells.pop(quest_id, None)
+                self.closed_seen.pop(quest_id, None)
+            self.instances[quest_id] = str(instance)
         cells = self.cells.setdefault(quest_id, set())
         for x, y in points:
             if len(cells) >= self.MAX_CELLS_PER_QUEST:
@@ -89,9 +99,12 @@ class QuestAreaMemory:
             self.closed_seen[quest_id] = True
         return quest_id
 
-    def contains(self, quest_id, x: float, y: float) -> bool:
+    def contains(self, quest_id, x: float, y: float, instance_id=None) -> bool:
         cells = self.cells.get(str(quest_id))
         if not cells:
+            return False
+        learned = self.instances.get(str(quest_id))
+        if instance_id is not None and learned is not None and learned != str(instance_id):
             return False
         cx, cy = self._cell(x, y)
         return any((cx+dx, cy+dy) in cells for dx in (-1, 0, 1) for dy in (-1, 0, 1))
@@ -112,6 +125,36 @@ class QuestAreaMemory:
                 break
             chosen.append(far)
         return [{"x": x, "y": y} for x, y in chosen]
+
+    MIN_POLYGON_CELLS = 6
+
+    def polygon(self, quest_id) -> list[dict]:
+        """The learned area's outline (convex hull of its cells, world yards).
+
+        Only a closed outline (the whole area was inside the minimap once)
+        gives a polygon; it may be saved where the TDB has no quest POI.
+        """
+        cells = self.cells.get(str(quest_id))
+        if (not cells or len(cells) < self.MIN_POLYGON_CELLS
+                or not self.closed_seen.get(str(quest_id))):
+            return []
+        half = self.CELL_YARDS / 2.
+        points = sorted({(x+dx, y+dy) for x, y in (self._centre(cell) for cell in cells)
+                         for dx in (-half, half) for dy in (-half, half)})
+
+        def cross(o, a, b):
+            return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
+        lower, upper = [], []
+        for point in points:
+            while len(lower) >= 2 and cross(lower[-2], lower[-1], point) <= 0:
+                lower.pop()
+            lower.append(point)
+        for point in reversed(points):
+            while len(upper) >= 2 and cross(upper[-2], upper[-1], point) <= 0:
+                upper.pop()
+            upper.append(point)
+        hull = lower[:-1] + upper[:-1]
+        return [{"x": x, "y": y} for x, y in hull] if len(hull) >= 3 else []
 
     def extent(self, quest_id) -> tuple[float, float, float] | None:
         """(centre x, centre y, radius) of the learned area."""

@@ -4,6 +4,8 @@ from __future__ import annotations
 from .interaction_range import recently_verified_in_range
 
 from dataclasses import dataclass
+import logging
+import sqlite3
 
 from .models import Attempt, Outcome, Proposal
 
@@ -89,6 +91,13 @@ class ExecutionBookkeeper:
         """Project terminal compatibility facts without finishing the skill."""
         skill = attempt.proposal.skill
         parameters = attempt.proposal.parameters
+        experience = getattr(getattr(world, "entity_memory", None), "reference_experience", None)
+        if experience is not None:
+            try:
+                experience.finish(attempt, outcome, reason, world.state)
+            except sqlite3.Error:
+                # Optional learning must not interrupt terminal/recovery bookkeeping.
+                logging.getLogger(__name__).exception("Reference learning failed at skill termination")
         if (skill == "SEEK_VISUAL_CUE" and outcome == Outcome.FAILURE
                 and reason in {"seek_visual_cue_sectors_exhausted",
                                "seek_visual_cue_safety_deadline"}):

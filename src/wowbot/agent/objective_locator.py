@@ -26,6 +26,11 @@ class ObjectiveLocator:
         if self._matches(target, entity):
             return ObjectiveLocation(ObjectiveLocationStatus.LOCAL_ENTITY, confidence=.98,
                                      evidence=("selected_target_matches_objective",))
+        from .tdb_locations import objective_region
+        primary = objective_region(state, getattr(record, 'quest_id', None), objective)
+        if primary:
+            return ObjectiveLocation(ObjectiveLocationStatus.SEARCH_AREA, primary, .75,
+                                     (primary['source'], 'tdb_primary_requires_navmesh_and_live_verification'))
         location = self._valid_location(objective.target_location)
         if location:
             status = (ObjectiveLocationStatus.LOCAL_MARKER

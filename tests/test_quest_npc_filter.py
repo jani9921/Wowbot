@@ -8,8 +8,12 @@ from types import SimpleNamespace
 
 from wowbot.agent.models import Goal, Outcome, Proposal
 from wowbot.agent.quest_giver_evidence import (
-    NOT_QUEST_GIVER_SECONDS, npc_shows_quest_symbol, quest_search_allows_npc, symbol_above)
+    NOT_QUEST_GIVER_SECONDS, is_symbol, npc_shows_quest_symbol,
+    quest_search_allows_npc, symbol_above)
 from wowbot.agent.target_planning import TargetPlanningPolicy
+from wowbot.agent.quest_planning import QuestDomain
+from wowbot.agent.models import Observation
+from wowbot.agent.world import WorldModel
 from test_agent_core import quest_npc_boxes
 
 KEELA = {"guid": "Creature-0-1-2-3-158000-1", "npc_id": 158000, "name": "Kee-La",
@@ -48,6 +52,44 @@ def test_npc_without_a_quest_symbol_is_not_selected_while_questing():
 def test_npc_with_a_quest_symbol_over_its_head_is_selected():
     targets = _targets(_state(candidates=quest_npc_boxes(.5, .6, "WORLD3D:keela")))
     assert [t.parameters["guid"] for t in targets] == [KEELA["guid"]]
+
+
+def test_fresh_marked_mouseover_replaces_wrong_selected_friendly_target():
+    """Live 2026-10-08: Cole stayed hovered while Captain remained selected."""
+    cole = {"guid": "Creature-0-1-2-3-156801-1", "npc_id": 156801,
+            "name": "Private Cole", "unit_type": "NPC", "is_attackable": False}
+    captain = {"guid": "Creature-0-1-2-3-245394-1", "npc_id": 245394,
+               "name": "Captain Garrick", "unit_type": "NPC", "is_attackable": False}
+    observed = {
+        "session_id": "replace-wrong-friendly", "frame_id": "f:1",
+        "timestamp": 1., "monotonic_time": 1., "map_id": 1409,
+        "player_present": True, "is_in_combat": False,
+        "health": 100, "max_health": 100, "actionbar": [],
+        "events": [], "event_sequence": 0, "active_quests": [],
+        "target": captain, "mouseover": cole,
+        "mouseover_sample_time": 1., "cursor_sample_time": 1.,
+        "cursor_position": {"nx": .5, "ny": .6},
+        "visual_candidates": quest_npc_boxes(.5, .6, "WORLD3D:cole"),
+    }
+    world = WorldModel()
+    world.ingest(Observation.create(observed, 1.))
+    domain = QuestDomain()
+    domain.interaction_range_blocks[captain["guid"]] = {"started_at": 1.}
+    proposals = domain.propose(world, Goal.parse("Questelj", 1.))
+    assert proposals[0].skill == "TARGET"
+    assert proposals[0].parameters["guid"] == cole["guid"]
+
+
+def test_supported_group_symbol_label_does_not_turn_npc_body_into_glyph():
+    body, glyph = quest_npc_boxes(.5, .6, "WORLD3D:cole")
+    body["visual_group"] = {"belief": "SUPPORTED",
+                            "appearance_labels": ["learned_symbol_like"]}
+    state = _state(candidates=[body, glyph])
+    state["confirmed_mouseover_anchors"] = {KEELA["guid"]: {"track_id": body["track_id"]}}
+    assert not is_symbol(body)
+    assert is_symbol(glyph)
+    assert npc_shows_quest_symbol(state, KEELA["guid"])
+    assert quest_search_allows_npc(state, KEELA["guid"])
 
 
 def test_without_any_symbol_an_npc_at_an_api_giver_spot_may_be_tried():

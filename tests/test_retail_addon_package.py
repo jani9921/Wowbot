@@ -16,7 +16,7 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     toc = (CANONICAL / "AIPlayerControllerExport.toc").read_text(encoding="utf-8")
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     assert "## Interface: 120100" in toc
-    assert "## Version: 0.9.58-12.1.0" in toc
+    assert "## Version: 0.9.63-12.1.0" in toc
     assert 'local PROTOCOL_VERSION = "AIPC5"' in lua
     assert toc.index("Transport.lua") < toc.index("AIPlayerControllerExport.lua")
     assert "local SCHEMA_VERSION = 4" in lua
@@ -92,6 +92,51 @@ def test_gossip_row_lookup_handles_retail_scrollbox_wrappers_and_text_regions() 
     assert "scrollBox:ForEachFrame(inspect)" in helper
 
 
+def test_single_gossip_conversation_requires_exact_visible_row() -> None:
+    import pytest
+    lupa = pytest.importorskip("lupa")
+    lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    sensor = lua[lua.index("local function normalizedQuestRowText"):
+                 lua.index("local function rewardChoiceFrame")]
+    harness = '''
+unpack = unpack or table.unpack
+local function accessible(v) return true end
+local function safeText(v, default) return v or default end
+local function optionalNumber(v) return type(v) == "number" and v or nil end
+local function safeCall(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, result = pcall(fn, ...)
+    return ok and result or nil
+end
+local function frameIsShown(frame) return frame and frame.shown end
+local function framePoint(frame) return frame.x, frame.y end
+local row = {shown=true, x=.24, y=.71,
+    GetElementData=function() return {gossipOptionID=917} end,
+    Text={GetText=function() return "(Quest) I'm ready to fight you" end}}
+local scroll = {ForEachFrame=function(self, visit) visit(row) end}
+GossipFrame = {shown=true, GreetingPanel={ScrollBox=scroll}}
+C_GossipInfo = {GetOptions=function() return {{gossipOptionID=917,
+    name="I'm ready to fight you"}} end}
+''' + sensor + '''
+local found = readSingleGossipOption()
+local valid = found and found.id == 917 and found.x == .24 and found.y == .71
+C_GossipInfo.GetOptions = function() return {{gossipOptionID=917,name="first"},
+                                              {gossipOptionID=918,name="second"}} end
+local ambiguous = readSingleGossipOption()
+C_GossipInfo.GetOptions = function() return {{gossipOptionID=917,
+    name="I'm ready to fight you"}} end
+row.shown = false
+local hidden = readSingleGossipOption()
+row.shown = true
+Enum = {GossipOptionStatus={Available=0}}
+C_GossipInfo.GetOptions = function() return {{gossipOptionID=917,
+    name="I'm ready to fight you",status=1}} end
+local locked = readSingleGossipOption()
+return valid, ambiguous == nil, hidden == nil, locked == nil
+'''
+    assert lupa.LuaRuntime().execute(harness) == (True, True, True, True)
+
+
 def test_quest_detail_hint_cannot_reopen_a_hidden_dialog() -> None:
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     start = lua.index("local function readQuestUI")
@@ -100,7 +145,7 @@ def test_quest_detail_hint_cannot_reopen_a_hidden_dialog() -> None:
     slow_body, fast_body = lua[start:fast], lua[fast:end]
     # A QUEST_DETAIL event names the expected action, but it is not a live UI
     # context.  A hidden QuestFrame must therefore stay closed in both lanes.
-    assert "if result.open and questUIHint.open" in slow_body
+    assert "if frameIsShown(_G.QuestFrame) and questUIHint.open" in slow_body
     assert "result.open = frameIsShown(_G.GossipFrame) or frameIsShown(_G.QuestFrame)" in fast_body
     assert "or\n        (questUIHint.open" not in fast_body
 

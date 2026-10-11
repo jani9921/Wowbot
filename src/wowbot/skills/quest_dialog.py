@@ -26,7 +26,7 @@ class QuestDialogSkill:
     from the generic Complete button or a display/list ordering.
     """
 
-    _SUPPORTED_ACTIONS = frozenset({"GOSSIP_SELECT", "REWARD_SELECT", "ACCEPT", "COMPLETE", "TURN_IN", "CONTINUE"})
+    _SUPPORTED_ACTIONS = frozenset({"GOSSIP_SELECT", "GOSSIP_OPTION_SELECT", "REWARD_SELECT", "ACCEPT", "COMPLETE", "TURN_IN", "CONTINUE"})
 
     def __init__(self, verifier: QuestDialogVerifier | None = None):
         self.verifier = verifier or QuestDialogVerifier()
@@ -56,6 +56,27 @@ class QuestDialogSkill:
         if not opened:
             return SkillResult(SkillStatus.FAILURE, FailureReason.WRONG_QUEST_UI,
                                retryable=True, replan_required=True)
+        if action == "GOSSIP_OPTION_SELECT":
+            option = ui.get("gossip_option") or world_state.get("quest_ui_gossip_option") or {}
+            target = world_state.get("target") or {}
+            active = any(str(quest.get("quest_id")) == str(quest_id)
+                         for quest in world_state.get("active_quests") or ()
+                         if isinstance(quest, dict))
+            exact = (observed_action == action and active
+                     and str(target.get("guid") or "") == str(params.get("target_guid") or "")
+                     and bool(target.get("guid"))
+                     and str(option.get("id")) == str(params.get("gossip_option_id"))
+                     and str(option.get("name") or "") == str(params.get("gossip_option_name") or "")
+                     and abs((number(option.get("x")) or -1.) - x) <= .002
+                     and abs((number(option.get("y")) or -1.) - y) <= .002)
+            if not exact:
+                return SkillResult(SkillStatus.FAILURE, FailureReason.WRONG_QUEST_UI,
+                                   retryable=True, replan_required=True)
+            state.skill_context["quest_dialog"] = {"action": action,
+                "quest_id": quest_id, "target_guid": target["guid"],
+                "gossip_option_id": option["id"]}
+            state.phase = QuestDialogPhase.SELECT_GOSSIP_ROW.value
+            return SkillResult(SkillStatus.RUNNING, commands=(Command("CLICK", x=x, y=y),))
         if action == "GOSSIP_SELECT":
             # A row in GossipFrame is not an Accept button.  Click only the
             # exact addon-exported row, then wait for the same quest to expose
@@ -118,7 +139,9 @@ class QuestDialogSkill:
         result = self.verifier.evaluate(state.before_snapshot, world_state,
                                         quest_id=context.get("quest_id"),
                                         action=str(context.get("action") or ""),
-                                        reward_choice_index=context.get("reward_choice_index"))
+                                        reward_choice_index=context.get("reward_choice_index"),
+                                        target_guid=context.get("target_guid"),
+                                        gossip_option_id=context.get("gossip_option_id"))
         if result.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
         if result.reason is not None:

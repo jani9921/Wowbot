@@ -105,7 +105,10 @@ class QuestSelectedTargetMixin:
                         "x": live.get("x"), "y": live.get("y"),
                         "track_id": live.get("track_id"),
                         "visual_signature": live.get("visual_signature"),
-                        "sample_time": state_time, "source": "WORLD3D_TARGET_TRACK"}
+                        "sample_time": state_time, "source": "WORLD3D_TARGET_TRACK",
+                        # Issue #94: skill availability requires the space;
+                        # World3D track x/y are client bottom-left normalized.
+                        "coordinate_space": "CLIENT_BOTTOM_LEFT"}
                     anchor_fresh = True
             fallback_proposal = None
             if self.allow_db_fallback and distance is None:
@@ -207,6 +210,13 @@ class QuestSelectedTargetMixin:
                 # selected but off-screen; REACH_OBJECT needs world XYZ and
                 # VISUAL_APPROACH a fresh anchor, so the agent sat in WAIT.
                 # Bring the selected unit back into view instead.
+                from .target_marker_approach import minimap_target_move
+                marker_move = minimap_target_move(
+                    state, target, min_distance=10., stop_distance=stop_distance, priority=93,
+                    reason="Kijelölt, de képen kívüli barátságos target: odamegyek a minimap-jele helyére")
+                if marker_move is not None and not state.get("world_map_open"):
+                    result.append(marker_move)
+                    return result
                 commitment = world.runtime_context.get("commitment") or {}
                 stale = screen_anchor if isinstance(screen_anchor, dict) else {}
                 # Only a unit that was on screen and just got lost; a never
@@ -293,7 +303,14 @@ class QuestSelectedTargetMixin:
                 # back to an already-accepted quest giver instead of the
                 # actual objective. A changed signature (fresh accept,
                 # objective completed) clears the gate again.
-                result.append(Proposal.make("INTERACT", "A kijelölt barátságos egység interakciójának ellenőrzése", {"guid": target.get("guid")}, priority=70))
+                # Live 2026-10-11 15:46: Jaina (56034 ender) selected and in
+                # range, but the turn-in area SEEK (70 + reliability) won for
+                # 25 s and walked cells around her.  The ender itself outranks
+                # searching for it.
+                result.append(Proposal.make(
+                    "INTERACT", "A kijelölt barátságos egység interakciójának ellenőrzése",
+                    {"guid": target.get("guid")},
+                    priority=92 if self._turn_in_candidate(state, target) else 70))
         return None
 
     def _turn_in_candidate(self, state: dict, target: dict) -> bool:
@@ -352,6 +369,20 @@ class QuestSelectedTargetMixin:
             self.target_tracks[str(guid)] = str(track_id)
         return {}
 
+    # Same window skill availability uses for WORLD3D_TARGET_TRACK anchors:
+    # a World3D sample may lead the addon clock by a few seconds.
+    TRACK_MAX_AGE_SECONDS = 3.
+    TRACK_MAX_LEAD_SECONDS = 5.
+
+    @classmethod
+    def _track_sample_fresh(cls, item: dict, state: dict) -> bool:
+        """Issue #106: an ACTIVE label is not proof of a current box."""
+        now = number(state.get("monotonic_time"))
+        seen = number(item.get("last_seen", item.get("observed_at")))
+        if now is None or seen is None:
+            return True     # untimed sample: the WorldModel projection TTL applies
+        return -cls.TRACK_MAX_LEAD_SECONDS <= now - seen < cls.TRACK_MAX_AGE_SECONDS
+
     def _target_live_track(self, state: dict, guid: str, target: dict) -> dict | None:
         """The selected unit's currently observed World3D track, if known."""
         anchor = (state.get("confirmed_mouseover_anchors") or {}).get(guid) or {}
@@ -363,7 +394,8 @@ class QuestSelectedTargetMixin:
                     and str(item.get("track_id")) in track_ids
                     and str(item.get("lifecycle") or item.get("state") or "ACTIVE").upper()
                     in {"ACTIVE", "REACQUIRE_CANDIDATE", "TENTATIVE"}
-                    and number(item.get("x")) is not None and number(item.get("y")) is not None):
+                    and number(item.get("x")) is not None and number(item.get("y")) is not None
+                    and self._track_sample_fresh(item, state)):
                 return item
         return None
 
@@ -399,6 +431,8 @@ class QuestSelectedTargetMixin:
                 continue
             if str(item.get("lifecycle") or item.get("state") or "ACTIVE").upper() in {
                     "LOST_TEMPORARY", "TERMINATED"}:
+                continue
+            if not self._track_sample_fresh(item, state):
                 continue
             height = number(item.get("bbox_height_fraction"))
             if height is not None and height >= self.ready_height(guid):

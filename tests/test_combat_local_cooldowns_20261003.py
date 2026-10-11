@@ -108,7 +108,7 @@ def test_target_hovers_the_live_box_and_clicks_only_when_the_guid_is_confirmed()
     assert skill.verify(state, moved, 10.2).commands == ()
     again = skill.verify(state, moved, 10.6)
     assert again.commands[0].kind == "HOVER" and again.commands[0].x == .62
-    confirmed = {**moved, "mouseover": {"guid": goat}}
+    confirmed = {**moved, "mouseover": {"guid": goat}, "mouseover_sample_time": 10.8}
     click = skill.verify(state, confirmed, 10.8)
     assert click.commands[0].kind == "CLICK_CURRENT_CURSOR"
     assert skill.verify(state, {"target": {"guid": goat}}, 11.).status is SkillStatus.SUCCESS
@@ -127,7 +127,8 @@ def test_loot_hover_shows_an_empty_corpse_and_does_not_click():
     skill = LootSkill()
     assert skill.begin(state, {}).commands[0].kind == "HOVER"
     state.phase = "VERIFY"   # the live runtime rewrites the phase every tick
-    empty = skill.verify(state, {"mouseover": {"guid": goat, "is_dead": True, "lootable": False}}, 5.3)
+    empty = skill.verify(state, {"mouseover": {"guid": goat, "is_dead": True, "lootable": False},
+                                 "mouseover_sample_time": 5.3}, 5.3)
     assert empty.status is SkillStatus.FAILURE and empty.reason is FailureReason.NOT_LOOTABLE
 
 

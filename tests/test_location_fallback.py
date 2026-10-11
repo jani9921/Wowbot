@@ -43,7 +43,14 @@ def test_map_location_precedes_db_fallback():
     from wowbot.agent.world import WorldModel
     state, row = scene()
     state.update(map_id=1609, session_id="test", ui_error="out of range",
-                 quest_locations=[{"map_id":1609,"x":.5,"y":.6}], monotonic_time=1)
+                 quest_locations=[{"map_id":1609,"x":.5,"y":.6,
+                                   # The addon's C_Map world conversion (a bare
+                                   # map pixel never authorizes a MOVE).
+                                   "world_position": {"coordinate_space": "WORLD_YARDS",
+                                                      "instance_id": 2175, "ui_map_id": 1609,
+                                                      "x": 40., "y": 30.}}],
+                 monotonic_time=1)
+    state["player_world_position"]["coordinate_space"] = "WORLD_YARDS"
     state["target"].update(attackable=False, name="Jaina")
     world = WorldModel()
     world.state = state

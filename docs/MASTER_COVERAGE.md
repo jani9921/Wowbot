@@ -1,5 +1,22 @@
 # Master követelmény-nyilvántartás
 
+## 2026-10-08 — elsődleges TDB-tudás és tanult kiegészítések
+
+AGENT-09/10/22/34/36/37/41/62/74/75 érintett részfunkciói:
+read-only WORLD SQLite adapter, külön kontextusos tanult overlay,
+WorldQuery-projekció, igazolt quest-role tanulás, hiányzó questadatok
+megjegyzése, TDB-first POI/spawn keresési régió, quest-chain hipotézis,
+GO-objective név, itemforrás és szolgáltatáslekérdezés, valamint korlátos
+útvonaleredmény-naplózás. A 247 tábla szerkezeti/hasznossági leltára a
+`docs/audits/tdb-20261008.md` fájlban van; nem mindegyikből lett runtime fact.
+Állapot: **részleges, offline tesztelt**, nem teljes fejezet- vagy M0–M27
+elfogadás. A meglévő visual memory kapcsolódik, új re-ID modell nincs.
+Hiányzik a generikus hotfix-egyesítés, feltételes phase/floor és cross-map
+POI feloldás, a szerveroldali loot-szemantika és locale-választás,
+régi útvonalak biztonságosan validált újrafelhasználása és az élő
+end-to-end/terhelési bizonyíték. Részletek: REFERENCE_KNOWLEDGE.md.
+A lentebb nyilvántartott követelmények és nyitott kapuk megmaradnak.
+
 ## AIPC Agent 1.0 kiegészítő specifikáció (2026-09-09)
 
 A felhasználó által elfogadott 0.9.1→1.0, 0–89 fejezetes specifikáció
@@ -127,7 +144,7 @@ A 0.8.0 megvalósítás és korlátai: AGENT_0.8.0.md. Valós tesztbizonyíték:
 | ADDON-24 | DEATH / RECOVERY TELEMETRY (MASTER_ADDON_PROMPT.md:894) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-25 | UI / GAME STATE (MASTER_ADDON_PROMPT.md:922) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-26 | EVENT-DRIVEN DESIGN (MASTER_ADDON_PROMPT.md:944) | Részleges, offline tesztelt: nehéz snapshot 5 Hz-en marad, a bounded fast-state sampler külön 20–40 Hz-es contractot szolgál; runtime nem ismétli FAST mintánként a lassú quest/semantic-memory projekciókat. Live elfogadás szükséges. |
-| ADDON-27 | SNAPSHOT SYSTEM (MASTER_ADDON_PROMPT.md:978) | Részleges, offline tesztelt: AIPC5 snapshot pixel transport több felbontáson dekódolható, fizikai pitch stabilizált; 25 ms transporton 2 FAST : 1 STATE multiplex, 26,7 Hz névleges fast és 13,3 oldal/s full lane. Élő fullscreen/borderless elfogadás szükséges. PIXEL_STRIP_RESOLUTION_PROFILES.md. |
+| ADDON-27 | SNAPSHOT SYSTEM (MASTER_ADDON_PROMPT.md:978) | Részleges, offline tesztelt: AIPC5 snapshot pixel transport több felbontáson dekódolható. 0.9.61-től kétsávos felső strip (a minitérképig, 32 sor × pontosan 4 fizikai pixeles cella): FAST sáv minden képkockán a teljes (1,7 KB-ig) FAST mintával, STATE sáv minden képkockán egy lappal, laponként 2 képkockáig tartva; sávonként külön header/marker/oszlopszám/hossz/checksum, a YOLO a teljes felső sávot maszkolja. Keskeny ablakban a régi 128 oszlopos strip (3 FAST : 1 STATE). Élő elfogadás (STATE összeállási ráta, FPS-hatás) szükséges. PIXEL_STRIP_RESOLUTION_PROFILES.md. |
 | ADDON-28 | HEARTBEAT (MASTER_ADDON_PROMPT.md:1010) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-29 | VERSIONING (MASTER_ADDON_PROMPT.md:1039) | Részleges, offline tesztelt: addon 0.9.11, AIPC5, schema 4 explicit; `transport_kind`, `telemetry_lane`, `fast_sequence`, GUID nélküli strukturált Unit-tooltip név/provenance és sample-time diagnosztika kompatibilis full-state overlay mellett. A hosszú külső tooltip-szöveg és a mezőgazdag Retail FAST minta sem szoríthatja ki a mouseover GUID/NPC ID/név + azonos mintájú cursor identitásélét; a legkisebb bounded packet a movement/target/mouseover/cursor kontrollmagot őrzi. A közvetlen quest-panel/gomb állapot a FAST lane-en is megmarad. Retail UI frame láthatóságnál az effektív, parent-aware `IsVisible()` az elsődleges, hogy rejtett parent alatt `IsShown()` ne gyártson hamis modal quest UI állapotot. |
 | ADDON-30 | RATE LIMITING (MASTER_ADDON_PROMPT.md:1059) | Részleges, offline tesztelt: full snapshot 5 Hz, pixel transport 40 Hz, garantáltan bounded FAST core és 2:1 multiplex; hosszú tooltip sem éheztetheti ki a control lane-t. Live CPU/rate audit hiányzik. |
@@ -209,6 +226,13 @@ OBJECT_USE átjárókeresés fölé sorolása **offline tesztelt**; telepített 
 újratöltése és élő quest-credit elfogadása még szükséges.
 
 ## Forrásazonosítók
+
+2026-10-08, 50 / 62 (interaction skill / action verification): Hjalmar 58915
+egyetlen, látható gossip-opciójának addon → FAST → WorldModel → Planner →
+QuestDialogSkill → Verifier útvonala célzott regressziókkal **offline tesztelt**.
+Az opció Retail kliensben történő tényleges exportja és kattintása még
+**nem élőben validált**; több vagy koordináta nélküli opció továbbra is
+ismeretlen/WAIT, és a kattintás önmagában nem quest-siker.
 
 - MASTER_AGENT_PROMPT.md: SHA-256 `83ac3e4e07d072ae9d688bbe5690c80b2d2796c546460a2f5b6077f710e34978`
 - MASTER_AGENT_PROMPT_V2.md: SHA-256 `B93F21960D6D35A73D601BF16B5246486F7E1261EC11B7AB403A7218D83F124B`; részletes állapot: `MASTER_V2_COVERAGE.md`

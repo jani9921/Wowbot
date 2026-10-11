@@ -14,12 +14,15 @@ class QuestDialogPlanningPolicy:
     # then the second, the third ...  If Retail closes the dialog after an
     # accept, the same NPC is spoken to again while offers remain.
     PENDING_OFFER_SECONDS = 45.
+    # How long after a turn-in the same NPC is spoken to again.
+    FOLLOW_UP_SECONDS = 20.
 
     def __init__(self) -> None:
         self.offer_selector = QuestOfferSelector()
         self.reward_selector = QuestRewardSelector()
         self.accept_flow = QuestAcceptFlow()
         self.pending_offers: dict | None = None
+        self.turned_in_at: dict | None = None
 
     def _remember_offers(self, state: dict, rows: list[dict]) -> None:
         now = number(state.get("monotonic_time"))
@@ -52,11 +55,50 @@ class QuestDialogPlanningPolicy:
             "INTERACT", "Ugyanannál az NPC-nél még felvehető quest maradt: újra megszólítás",
             {"guid": memory["guid"], "pending_quest_ids": sorted(remaining)}, priority=95)
 
+    def _follow_up_interact(self, state: dict, dialog_open: bool, action: str) -> Proposal | None:
+        """Remember a turn-in at an NPC; once the quest has left the log and
+        the dialog has closed, talk to the same NPC once more."""
+        now = number(state.get("monotonic_time"))
+        target = state.get("target") or {}
+        guid = str(target.get("guid") or "")
+        quest_id = (state.get("quest_ui") or {}).get("quest_id") or state.get("quest_ui_quest_id")
+        if dialog_open and action in {"COMPLETE", "TURN_IN", "REWARD_SELECT"} and guid and now is not None:
+            self.turned_in_at = {"guid": guid, "quest_id": str(quest_id or ""), "at": now, "left": False}
+            return None
+        memory = getattr(self, "turned_in_at", None)
+        if not memory or now is None:
+            return None
+        if dialog_open:
+            ui = state.get("quest_ui") or {}
+            if (memory.get("left") or action == "ACCEPT"
+                    or ui.get("entries") or state.get("quest_ui_entries")):
+                # Spoken to again, or the NPC offers the next quest by itself.
+                self.turned_in_at = None
+            return None
+        if not 0 <= now - memory["at"] <= self.FOLLOW_UP_SECONDS:
+            self.turned_in_at = None
+            return None
+        open_ids = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
+                    if isinstance(quest, dict)}
+        if memory["quest_id"] and memory["quest_id"] in open_ids:
+            return None                           # not turned in (yet)
+        memory["left"] = True
+        if (guid != memory["guid"] or state.get("is_in_combat")
+                or target.get("dead", target.get("is_dead"))
+                or target.get("attackable", target.get("is_attackable")) is True):
+            return None
+        return Proposal.make(
+            "INTERACT", "Leadás után ugyanannak az NPC-nek újra: követő quest felvétele",
+            {"guid": memory["guid"], "after_turn_in_quest_id": memory["quest_id"]}, priority=95)
+
     def propose(self, state: dict, goal: Goal | None, *, primary_quest_id: str = "") -> list[Proposal]:
         result: list[Proposal] = []
         ui = state.get("quest_ui") or {}
         dialog_open = ui.get("open") is True or state.get("quest_ui_open") is True
         action = str(ui.get("action") or state.get("quest_ui_action") or "").upper()
+        follow_up = self._follow_up_interact(state, dialog_open, action)
+        if follow_up is not None:
+            result.append(follow_up)
         completion_mode = str(
             state.get("quest_completion_mode")
             or (state.get("primary_quest") or {}).get("completion_mode") or "UNKNOWN").upper()
@@ -64,6 +106,32 @@ class QuestDialogPlanningPolicy:
                         if completion_mode == "FIELD_TURN_IN"
                         and action in {"COMPLETE", "TURN_IN", "REWARD_SELECT"}
                         else "QUEST_DIALOG")
+        if dialog_open and action == "GOSSIP_OPTION_SELECT":
+            option = ui.get("gossip_option") or state.get("quest_ui_gossip_option") or {}
+            target = state.get("target") or {}
+            target_name = str(target.get("name") or "").strip()
+            target_guid = str(target.get("guid") or "")
+            option_id = number(option.get("id"))
+            x, y = number(option.get("x")), number(option.get("y"))
+            explicit_id = ((getattr(goal, "parameters", {}) or {}).get("quest_id")
+                           if goal is not None else None)
+            related = [quest for quest in state.get("active_quests") or ()
+                       if isinstance(quest, dict) and quest.get("quest_id") is not None
+                       and quest.get("is_complete") is not True
+                       and (explicit_id is None or str(quest["quest_id"]) == str(explicit_id))
+                       and target_name and any(
+                           target_name.casefold() in str(obj.get("description") or "").casefold()
+                           for obj in quest.get("objectives") or () if isinstance(obj, dict))]
+            if (len(related) == 1 and target_guid and option_id is not None
+                    and str(option.get("name") or "").strip()
+                    and x is not None and y is not None and 0 < x < 1 and 0 < y < 1
+                    and target.get("attackable", target.get("is_attackable")) is not True):
+                result.append(Proposal.make(
+                    "QUEST_DIALOG", "Aktív quest-cél NPC egyetlen, addon által azonosított beszélgetési opciója",
+                    {"action": action, "x": x, "y": y,
+                     "quest_id": related[0]["quest_id"], "target_guid": target_guid,
+                     "gossip_option_id": int(option_id),
+                     "gossip_option_name": str(option["name"])}, priority=95))
         if dialog_open and action == "REWARD_SELECT":
             parameters = getattr(goal, "parameters", {}) or {}
             selection = self.reward_selector.select(

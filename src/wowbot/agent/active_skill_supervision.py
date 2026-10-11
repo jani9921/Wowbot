@@ -28,6 +28,8 @@ class ActiveSkillSupervisionStep:
     camera_action: str | None = None
     movement_assessment: object | None = None
     next_segment_baseline: dict | None = None
+    # Sent on the discrete lane next to a movement lease (CAMERA_GLANCE).
+    side_commands: tuple = ()
 
 
 class ActiveSkillSupervisor:
@@ -111,6 +113,17 @@ class ActiveSkillSupervisor:
     def _movement(self, attempt, state: dict, latest, observation_id: str,
                   now: float, segment_baseline: dict | None,
                   visual_interrupt: str | dict | None) -> ActiveSkillSupervisionStep:
+        if ((state.get("quest_ui") or {}).get("open") is True
+                or state.get("quest_ui_open") is True
+                or (state.get("gossip_ui") or {}).get("open") is True
+                or state.get("gossip_open") is True):
+            # The click can open its dialog one telemetry page *after* an
+            # unrelated route was launched. UI ownership preempts that route
+            # immediately; reaching a waypoint is not inferred from the UI.
+            return self._verified_outcome(
+                attempt.proposal.skill, Outcome.CANCELLED,
+                "interaction_ui_opened_during_move", state,
+                stop_movement=True, verifier="INTERACTION_UI_INTERRUPT_VERIFIER")
         if visual_interrupt:
             interrupt = (visual_interrupt if isinstance(visual_interrupt, dict)
                          else {"reason": str(visual_interrupt)})
@@ -146,7 +159,30 @@ class ActiveSkillSupervisor:
             commands=tuple(movement.commands), movement_lane=True,
             event_type="MOVEMENT_CONTROL_UPDATE",
             movement_assessment=assessment,
-            next_segment_baseline=movement.next_segment_baseline)
+            next_segment_baseline=movement.next_segment_baseline,
+            side_commands=self._sweep_glance(attempt, movement.commands, now))
+
+    GLANCE_SECONDS = 2.5
+    GLANCE_OFFSET = .14
+
+    def _sweep_glance(self, attempt, movement_commands, now: float) -> tuple:
+        """Zone sweep (user 2026-10-10): keep walking, the camera looks left
+        and right in turn; Retail's follow camera swings back by itself."""
+        if (attempt.proposal.parameters.get("scan_while_moving") is not True
+                or not any(command.binding == "MOVEFORWARD" for command in movement_commands)):
+            return ()
+        glance = self.__dict__.setdefault("_glance", {})
+        if glance.get("action_id") != attempt.action_id:
+            glance.clear()
+            glance.update(action_id=attempt.action_id, at=now, side=1)
+            return ()
+        if now - glance["at"] < self.GLANCE_SECONDS:
+            return ()
+        glance["side"] = -glance["side"]
+        glance["at"] = now
+        from .models import Command
+        return (Command("CAMERA_GLANCE", x=.5 + self.GLANCE_OFFSET*glance["side"], y=.40,
+                        button="LEFT", duration=.22),)
 
     def _visual(self, active_state, state: dict, observation_id: str,
                 now: float) -> ActiveSkillSupervisionStep:

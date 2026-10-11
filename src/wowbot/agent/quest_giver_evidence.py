@@ -36,7 +36,15 @@ def _kind(item: dict) -> str:
 
 
 def is_symbol(item: dict) -> bool:
-    return "symbol" in _kind(item) or bool(_labels(item) & SYMBOL_LABELS)
+    # A visual_group shares the overhead glyph's labels with its *subject*.
+    # Those group labels describe a relation, not the subject's own class:
+    # treating Cole's body as a symbol made his actual overhead ! unusable.
+    appearance = item.get("appearance") if isinstance(item.get("appearance"), dict) else {}
+    own_labels = {str(value).lower() for value in item.get("candidate_labels") or ()}
+    own_labels.update(str(value).lower() for value in appearance.get("anchor_candidate_labels") or ())
+    hypothesis = str(appearance.get("learned_label_hypothesis") or "").lower()
+    return ("symbol" in _kind(item) or hypothesis in SYMBOL_LABELS
+            or bool(own_labels & SYMBOL_LABELS))
 
 
 def _pixel_box(item: dict) -> tuple[float, float, float, float] | None:
@@ -203,7 +211,7 @@ def is_companion_pet(unit_or_guid) -> bool:
 
 
 def is_game_object_objective(objective) -> bool:
-    """The quest API's own objective type says a game object (cocoon, chest).
+    """The live type, or a unique TDB type when live is missing, says GO.
 
     Live 2026-10-05 12:25 ("0/5 Trapped Expedition Member rescued from
     cocoons", raw type ``object``, normalized INTERACT): every friendly NPC
@@ -212,7 +220,9 @@ def is_game_object_objective(objective) -> bool:
     raw = getattr(objective, "raw", None) or {}
     # Vendor objectives ("Any item purchased from ...") are raw "object" too,
     # but their BUY/SELL type names the vendor NPC.
-    return (str(raw.get("raw_type") or "").lower() == "object"
+    return ((str(raw.get("raw_type") or "").lower() == "object"
+             or (str(raw.get('tdb_objective_kind') or '') == 'GAMEOBJECT'
+                 and not raw.get('raw_type')))
             and str(getattr(objective, "type", "") or "").upper() in {"INTERACT", "USE_OBJECT"})
 
 
@@ -234,6 +244,35 @@ def npc_objective_subjects(objectives) -> tuple[tuple[str, ...], bool]:
         else:
             unnamed = True
     return tuple(dict.fromkeys(names)), unnamed
+
+
+def ender_of_unfinished_quest_only(state: dict, guid: str) -> bool:
+    """This NPC ends an active, unfinished quest and no finished one.
+
+    Live 2026-10-10 17:25: at 2/6 First Aid Kits the agent selected Lady
+    Jaina (the ender of Murloc Mania) and walked away from the murlocs.  The
+    detector's symbol class cannot tell the grey "?" of an unfinished quest
+    from a yellow "!"/"?", and the ender of an unfinished quest always shows
+    the grey one.  The TDB/learned quest roles (reference_knowledge) say
+    whose it is.
+    """
+    from .quest_creature_memory import npc_id_from_guid
+    npc = npc_id_from_guid(guid)
+    if npc is None:
+        return False
+    reference = (state.get("reference_knowledge") or {}).get("quests") or {}
+    unfinished = finished = False
+    for quest in state.get("active_quests") or ():
+        if not isinstance(quest, dict):
+            continue
+        roles = (reference.get(str(quest.get("quest_id"))) or {}).get("quest_roles") or ()
+        if any(str(row.get("npc_id")) == str(npc) and row.get("role") == "QUEST_ENDER"
+               for row in roles if isinstance(row, dict)):
+            if quest.get("is_complete") is True:
+                finished = True
+            else:
+                unfinished = True
+    return unfinished and not finished
 
 
 def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
@@ -264,7 +303,7 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
         # objectives (cocoons), which no friendly NPC serves.
         if unnamed or (names and subject_matches_name(list(names), unit_name)):
             return True
-    if npc_shows_quest_symbol(state, guid):
+    if npc_shows_quest_symbol(state, guid) and not ender_of_unfinished_quest_only(state, guid):
         return True
     from .quest_creature_memory import remembered_creature
     if remembered_creature(state, guid, name=unit_name, roles=("ENDER", "VEHICLE")):
@@ -282,9 +321,17 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
     if px is None or py is None:
         return False
     from .planning_types import world_point
+    # Issue #92: a nearby turn-in POI is search-area evidence, not identity.
+    # It may admit an NPC only for a quest whose ender is still unnamed; a
+    # named ender was already matched (or rejected) above.
+    known_enders = state.get("quest_turn_in_names") or {}
+    reference_quests = (state.get("reference_knowledge") or {}).get("quests") or {}
+    unnamed = {quest_id for quest_id in complete
+               if not (known_enders.get(quest_id) or {}).get("name")
+               and not (reference_quests.get(quest_id) or {}).get("turnin_candidates")}
     for location in state.get("quest_locations") or ():
         point = world_point(location) if isinstance(location, dict) else None
-        if (point is not None and str(location.get("quest_id")) in complete
+        if (point is not None and str(location.get("quest_id")) in unnamed
                 and math.hypot(point["x"]-px, point["y"]-py) <= TURN_IN_NPC_RADIUS_YARDS):
             return True
     return False

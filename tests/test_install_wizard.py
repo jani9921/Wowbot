@@ -49,6 +49,7 @@ def test_runtime_model_status_names_the_selected_yolo_backend(tmp_path):
     (models / f"{stem}.engine").write_bytes(b"engine")
     assert checks.runtime_model_status(tmp_path, "NVIDIA", torch_cuda=True) == {
         "backend": "TensorRT", "pt": True, "onnx": True, "engine": True,
+        "engine_status": "unverified",
         "model_name": f"{stem}.engine", "accelerated": True}
 
 
@@ -290,3 +291,50 @@ def test_ollama_status_without_a_server(tmp_path, monkeypatch):
     status = checks.ollama_status(tmp_path, timeout=.3)
     assert status["model"] == "qwen3:4b-instruct-2507-q4_K_M"
     assert status["running"] is False and status["model_present"] is False
+
+
+def test_engine_fingerprint_gates_tensorrt_selection(tmp_path):
+    """Issues #19/#86: an engine recorded for another GPU is not TensorRT."""
+    from wowbot.install.engine_fingerprint import write_fingerprint
+    models = tmp_path / "models"
+    models.mkdir()
+    stem = "world3d_units_3class_v10_e65"
+    (models / f"{stem}.pt").write_bytes(b"model")
+    engine = models / f"{stem}.engine"
+    engine.write_bytes(b"engine")
+    here = {"gpu_name": "RTX 4070", "compute_capability": "8.9", "cuda": "12.8", "tensorrt": "10.3"}
+    write_fingerprint(engine, {**here, "gpu_name": "GTX 1060", "compute_capability": "6.1"})
+    status = checks.runtime_model_status(tmp_path, "NVIDIA", torch_cuda=True, gpu_fingerprint=here)
+    assert status["backend"] == "PyTorch CUDA" and status["engine_status"] == "mismatch:gpu_name"
+    write_fingerprint(engine, here)
+    status = checks.runtime_model_status(tmp_path, "NVIDIA", torch_cuda=True, gpu_fingerprint=here)
+    assert status["backend"] == "TensorRT" and status["engine_status"] == "verified"
+
+
+def test_engine_stage_rebuilds_an_unverified_engine_and_keeps_a_verified_one(tmp_path, monkeypatch):
+    import pytest
+    pytest.importorskip("tkinter")             # the wizard is a Tk application
+    from wowbot.install import wizard, wizard_stages
+    from wowbot.install.engine_fingerprint import write_fingerprint
+    model = tmp_path / "world3d_units_3class_v10_e65.pt"
+    model.write_bytes(b"model")
+    engine = model.with_suffix(".engine")
+    engine.write_bytes(b"old engine")
+    monkeypatch.setattr(wizard_stages, "RUNTIME_MODEL", model)
+    here = {"gpu_name": "RTX 4070", "compute_capability": "8.9", "cuda": "12.8", "tensorrt": "10.3"}
+    app = wizard.InstallWizard.__new__(wizard.InstallWizard)
+    lines, outcomes, builds = [], [], []
+    app.write = lines.append
+    app._has_gpu = lambda: True
+    app.torch_cuda = True
+    app.background = lambda work, done: done(here)
+    def run_stage(commands, cwd, title, done):
+        builds.append(commands)
+        engine.write_bytes(b"new engine")
+        write_fingerprint(engine, here)
+        done(True)
+    app._run_stage = run_stage
+    app._stage_engine(outcomes.append)        # no fingerprint: rebuilt
+    assert builds and engine.with_name(engine.name + ".stale").read_bytes() == b"old engine"
+    app._stage_engine(outcomes.append)        # verified now: reused
+    assert len(builds) == 1 and outcomes == [True, True]

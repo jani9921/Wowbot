@@ -12,6 +12,7 @@ contract without changing the perception pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import os
 from pathlib import Path
 import threading
@@ -23,6 +24,8 @@ except ModuleNotFoundError:  # pragma: no cover - installed package path
     from adapters.numpy_runtime import np
 
 from .models import PixelRect, WorldCandidate, WorldSceneROI
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -521,7 +524,15 @@ def default_runtime_model_path() -> Path:
     models = Path(__file__).resolve().parents[4] / "models"
     engine = models / RUNTIME_ENGINE_NAME
     if engine.is_file() and _cuda_available():
-        return engine
+        # Issues #19/#86: an engine recorded for another GPU/CUDA/TensorRT is
+        # skipped (PyTorch CUDA below).  An engine without a fingerprint (built
+        # before it existed) is still tried; a load failure falls back to the
+        # .pt through fallback_model_path.
+        from wowbot.install.engine_fingerprint import engine_status, probe_fingerprint
+        status = engine_status(engine, probe_fingerprint())
+        if not status.startswith("mismatch"):
+            return engine
+        _logger.warning("TensorRT engine %s not used (%s); falling back to PyTorch", engine, status)
     # User 2026-10-03: AMD/Intel GPUs have no CUDA/TensorRT; DirectML runs
     # the ONNX export on any DX12 GPU.  Without either, the .pt runs on CPU.
     from .directml import directml_available

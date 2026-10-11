@@ -51,7 +51,20 @@ class TurnInResolver:
                                     entity_guid=str(target["guid"]), completion_mode="NPC_TURN_IN",
                                     confidence=.98, evidence=("live_target_turn_in_role",))
 
+        from .tdb_locations import role_region
         locations = tuple(getattr(record, "known_locations", ()) or ())
+        live_turnin = next((location for location in locations
+                            if isinstance(location, dict)
+                            and (str(location.get('role') or '').upper() in {'TURN_IN', 'QUEST_TURN_IN'}
+                                 or str(location.get('source') or '').upper() == 'QUEST_API_WAYPOINT')
+                            and world_point(location)), None)
+        primary = role_region(state, getattr(record, 'quest_id', None), 'QUEST_ENDER',
+                              live_location=live_turnin)
+        if primary:
+            return TurnInResolution(TurnInLocationKind.TURN_IN_LOCATION, primary,
+                                    completion_mode='NPC_TURN_IN', confidence=.75,
+                                    evidence=('tdb_primary_explicit_ender_spawn',))
+
         declared = next((self._point(location) for location in locations
                          if str(location.get("role") or "").upper() in {"TURN_IN", "QUEST_TURN_IN"}
                          and self._point(location)), None)
@@ -60,8 +73,13 @@ class TurnInResolver:
                                     completion_mode="NPC_TURN_IN", confidence=.82,
                                     evidence=("declared_turn_in_location",))
         if mode == "NPC_TURN_IN":
+            # Issue #89: NPC_TURN_IN is a completion mode, not location proof.
+            # An objective/giver/memory point with a non-turn-in role is
+            # never the hand-in destination.
             mode_location = next((self._point(location) for location in locations
-                                  if self._point(location)), None)
+                                  if str(location.get("role") or "").upper()
+                                  in {"", "TURN_IN", "QUEST_TURN_IN"}
+                                  and self._point(location)), None)
             if mode_location:
                 return TurnInResolution(TurnInLocationKind.TURN_IN_LOCATION, mode_location,
                                         completion_mode=mode, confidence=.65,

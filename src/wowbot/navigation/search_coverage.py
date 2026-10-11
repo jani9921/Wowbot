@@ -14,6 +14,9 @@ class SearchCell:
     visits: int = 0
     detections: int = 0
     last_visited: float | None = None
+    # Spawn/learned-place density near the cell (quest-zone sweep, user
+    # 2026-10-10): a denser cell is walked earlier, never skipped.
+    weight: float = 0.
 
 
 class SearchCoveragePlanner:
@@ -35,7 +38,7 @@ class SearchCoveragePlanner:
         cells = []
         explicit = region.get("coverage_points")
         if isinstance(explicit, list) and explicit:
-            for index, point in enumerate(explicit[:25]):
+            for index, point in enumerate(explicit[:64]):
                 try:
                     px, py = float(point["x"]), float(point["y"])
                 except (KeyError, TypeError, ValueError):
@@ -43,7 +46,10 @@ class SearchCoveragePlanner:
                 if math.isfinite(px) and math.isfinite(py):
                     pz = point.get("z")
                     pz = float(pz) if isinstance(pz, (int, float)) and math.isfinite(pz) else None
-                    cells.append(SearchCell(f"{key}:explicit:{index}", px, py, pz))
+                    weight = point.get("weight")
+                    weight = (float(weight) if isinstance(weight, (int, float)) and math.isfinite(weight)
+                              else 0.)
+                    cells.append(SearchCell(f"{key}:explicit:{index}", px, py, pz, weight=weight))
         if not cells:
             for row in range(grid):
                 for column in range(grid):
@@ -72,7 +78,9 @@ class SearchCoveragePlanner:
             return
         if player_x is None or player_y is None:
             return
-        threshold = data["radius"] / 4.
+        visit = data["region"].get("visit_radius")
+        threshold = (float(visit) if isinstance(visit, (int, float)) and visit > 0
+                     else data["radius"] / 4.)
         for cell in data["cells"]:
             # A cave floor directly below a visited surface point is not
             # covered.  Unknown own Z cannot certify a Z-labelled cell.
@@ -110,7 +118,10 @@ class SearchCoveragePlanner:
                         if player_x is not None and player_y is not None else 0.)
             if cell.z is not None and player_z is not None:
                 distance = math.hypot(distance, cell.z-player_z)
-            return cell.visits, distance, cell.cell_id
+            # A spawn/learned place near the cell is worth 4 yd of detour (at
+            # most 12): it breaks ties between neighbouring cells without
+            # tearing the serpentine pass apart.
+            return cell.visits, distance - 4.*min(cell.weight, 3.), cell.cell_id
         chosen = min(data["cells"], key=rank)
         if chosen.visits >= 1:
             data["completed"] = True

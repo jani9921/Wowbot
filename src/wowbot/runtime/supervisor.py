@@ -126,6 +126,7 @@ class SuspendedIntent:
     source_runtime_id: str
     suspended_at: float
     reason: FailureReason
+    quest_progress: tuple | None = None
 
 
 @dataclass(frozen=True)
@@ -352,8 +353,22 @@ class Supervisor:
         self._set_state(SupervisorState.IDLE, now, reason)
         return True
 
+    @staticmethod
+    def _quest_progress(state: dict[str, Any] | None) -> tuple | None:
+        if state is None or "active_quests" not in state:
+            return None
+        quests = []
+        for quest in state.get("active_quests") or ():
+            if not isinstance(quest, dict) or quest.get("quest_id") is None:
+                continue
+            objectives = tuple((str(item.get("objective_id")), item.get("current", item.get("current_count")),
+                                item.get("required", item.get("required_count")), item.get("is_complete"))
+                               for item in quest.get("objectives") or () if isinstance(item, dict))
+            quests.append((str(quest["quest_id"]), quest.get("is_complete"), objectives))
+        return tuple(sorted(quests, key=lambda entry: entry[0]))
+
     def suspend(self, active: ActiveSkillState, now: float,
-                reason: FailureReason) -> RuntimeEvent | None:
+                reason: FailureReason, state: dict[str, Any] | None = None) -> RuntimeEvent | None:
         """Save one safe-to-retry intent after an explicit interrupt.
 
         The ActiveSkillRuntime is still cancelled by the caller.  This record
@@ -364,7 +379,10 @@ class Supervisor:
             self._last_resume_reason = f"not_resumable:{active.skill_type}"
             return None
         token = f"{active.runtime_id}:resume"
-        self._suspended = SuspendedIntent(token, active.intent, active.runtime_id, now, reason)
+        progress = (self._quest_progress(state) if active.skill_type in
+                    {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"} else None)
+        self._suspended = SuspendedIntent(token, active.intent, active.runtime_id, now, reason,
+                                          progress)
         self._last_resume_reason = None
         return RuntimeEvent(
             "SKILL_SUSPENDED", now,
@@ -387,6 +405,10 @@ class Supervisor:
         if state.get("is_in_combat") or state.get("is_dead") or state.get("is_ghost"):
             return None
         if state.get("loading") or state.get("input_blocked"):
+            return None
+        if (suspended.quest_progress is not None
+                and self._quest_progress(state) != suspended.quest_progress):
+            self.clear_resume("quest_progress_changed")
             return None
         return suspended
 

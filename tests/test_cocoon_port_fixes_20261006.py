@@ -63,7 +63,9 @@ def test_object_use_still_fails_when_a_newer_snapshot_shows_no_credit():
     skill2.begin(run2, _cocoon())
     run2.phase = "VERIFY"
     skill2.verify(run2, _cocoon(), 1.2)
-    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 19.5).status is SkillStatus.FAILURE
+    # 2026-10-07: the grace is 25 s (a live snapshot stalled 21 s).
+    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 19.5).status is SkillStatus.RUNNING
+    assert skill2.verify(run2, _cocoon(state_sample_time=.9), 34.5).status is SkillStatus.FAILURE
 
 
 # -- FAST packets without an epoch timestamp ---------------------------------
@@ -148,7 +150,7 @@ def test_hunter_pet_does_not_interrupt_the_cocoon_sweep():
 def test_too_far_cocoon_is_approached_before_another_click():
     """Live 21:16: a lower cocoon answered the click with "You are too far
     away."; the agent clicked again and walked off.  Approach to a larger box
-    first (6 s, or until the approach finishes)."""
+    first; a hover alone or elapsed wall time does not resolve range."""
     from wowbot.agent.object_interaction_flow import ObjectInteractionFlow
     flow = ObjectInteractionFlow()
     box = {"source": "WORLD3D", "track_id": "WORLD3D:41", "confidence": .7, "stable_frames": 9,
@@ -165,9 +167,10 @@ def test_too_far_cocoon_is_approached_before_another_click():
     assert seek.skill == "SEEK_VISUAL_CUE" and seek.priority == 93
     assert seek.parameters["ready_bbox_height"] == flow.object_ready_height()
     flow.note_result({"action_id": "a2", "skill": "SEEK_VISUAL_CUE", "outcome": "SUCCESS"}, seen)
+    assert flow.range_blocked(seen)
+    assert flow.range_blocked({"monotonic_time": 106.5})
+    flow.note_result({"action_id": "a3", "skill": "VISUAL_APPROACH", "outcome": "SUCCESS"}, seen)
     assert not flow.range_blocked(seen)
-    flow.note_result({"action_id": "a3", "skill": "OBJECT_USE", "reason": "out_of_range"}, seen)
-    assert not flow.range_blocked({"monotonic_time": 106.5})
 
 
 # -- the ramp under the rim: follow the route, never turn back ---------------
@@ -192,7 +195,7 @@ def test_continuity_follows_the_route_down_a_ramp_under_the_rim():
         {"player_world_position": {"x": 74., "y": -2220.4, "instance_id": 2175}}, 6.).z == 93.5
 
 
-def test_a_waypoint_passed_between_samples_is_not_walked_back_to():
+def test_a_distant_future_spiral_leg_cannot_skip_the_current_bend():
     from wowbot.navigation.service import NavigationService
     nav = NavigationService()
     anchors = tuple({"x": x, "y": y, "z": z} for x, y, z in (
@@ -201,7 +204,10 @@ def test_a_waypoint_passed_between_samples_is_not_walked_back_to():
     nav._active_route = SimpleNamespace(anchors=anchors)
     nav._route_waypoint_index = 2
     nav._z.seed_player(2175, 73.2, -2220.4, 78.6, 1.)
-    assert nav._on_next_leg((73.19, -2220.38), 81.8, -2222.9)
+    # The old four-leg lookahead called this "passed" although the current
+    # waypoint was more than eight yards away; that cut across the pit rim.
+    assert not nav._on_next_leg((73.19, -2220.38), 81.8, -2222.9)
+    assert nav._on_next_leg((79.75, -2221.2), 81.8, -2222.9)
     # a leg of the spiral one floor below at the same X/Y is not ours
     nav._z.seed_player(2175, 73.2, -2220.4, 60., 1.)
     assert not nav._on_next_leg((73.19, -2220.38), 81.8, -2222.9)
@@ -247,3 +253,30 @@ def test_an_unknown_target_height_is_not_z_zero():
     source = inspect.getsource(quest_target_planning)
     assert 'number(target_position.get("z")) or 0.' not in source
     assert '{"z_known": False, "floor_hint": "SAME"}' in source
+
+
+def test_timestampless_fast_clock_advances_and_prefers_newer_full_anchor():
+    """Issue #80: restored FAST timestamps froze at one second and an older
+    FAST anchor beat a newer full snapshot."""
+    assembler = PacketAssembler()
+    assembler.feed(_packet(1, "STATE", {"monotonic_time": 100., "timestamp": 1000,
+                                        "character_name": "Test", "map_id": 1409}), 100.)
+    stamps = [assembler.feed(_packet(seq, "FAST", {"monotonic_time": mono, "map_id": 1409}),
+                             mono)["timestamp"]
+              for seq, mono in enumerate((100.2, 100.9, 101.6, 102.3, 102.9, 112.5), 2)]
+    assert stamps == [1000, 1000, 1001, 1002, 1002, 1012]
+    assembler.feed(_packet(20, "STATE", {"monotonic_time": 113., "timestamp": 1013,
+                                         "character_name": "Test", "map_id": 1409}), 113.)
+    after = assembler.feed(_packet(21, "FAST", {"monotonic_time": 113.2, "map_id": 1409}), 113.2)
+    assert after["timestamp"] == 1013
+
+    world = WorldModel()
+    seen = []
+    for seq, mono in enumerate((100., 100.5, 101.2, 102.1), 30):
+        payload = {**state(mono, timestamp=None), "transport_kind": "FAST",
+                   "frame_id": f"s:FAST:{seq}"}
+        restored = assembler.feed(_packet(seq, "FAST", {"monotonic_time": mono + 13.,
+                                                        "map_id": 1409}), mono + 13.)
+        payload["timestamp"] = restored["timestamp"]
+        seen.append(world.ingest(Observation.create(payload, mono)))
+    assert all(seen)

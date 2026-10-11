@@ -67,7 +67,9 @@ class _StripDecoder:
     def decode(self, raw: bytes, width: int, height: int, now: float) -> tuple[str | None, int]:
         from adapters.pixel_bridge import (_GRID_CACHE, decode_payload_from_bgra,
                                            pixel_strip_diagnostics)
-        if not _GRID_CACHE and now < self.next_discovery:
+        # Issue #79: throttle per resolution -- a cached geometry for another
+        # client size must not disable the throttle for this one.
+        if (width, height) not in _GRID_CACHE and now < self.next_discovery:
             return self.last_diagnostic, PAYLOAD_NOT_VISIBLE
         payload = decode_payload_from_bgra(raw, width, height)
         if payload is None:

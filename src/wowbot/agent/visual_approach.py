@@ -48,6 +48,8 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
     # wait, and a fresh contradictory GUID still fails immediately.
     identity_recheck_timeout_seconds = 2.0
 
+    # Optional client range probing; keep continuous steering by default.
+    # When enabled, command() probes only the exact selected GUID.
     range_probe_enabled = os.environ.get("AIPC_VA_RANGE_PROBE", "0") == "1"
     # Keep the pointer on the approached unit while walking (pointer-only
     # HOVER does not release the forward lease in the executor).
@@ -130,6 +132,11 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
             # its own full safety-deadline window instead of an inherited one.
             self.reset()
         self.intent = dict(intent)
+        if self.intent.get("object_use_approach") is True:
+            # An addon-confirmed object box is a bounded steering association,
+            # not a durable GUID. Never chase it for the generic 30 seconds.
+            self.max_seconds = min(self.max_seconds,
+                                   max(2., number(self.intent.get("max_seconds")) or 8.))
         self.started_at = now if self.started_at is None else self.started_at
         self.forward_commands_total = 0          # advance required per attempt
         # The proposal's starting point came from an exact addon mouseover
@@ -255,10 +262,15 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
                 # the addon's next mouseover sample.
                 return VisualApproachAssessment(
                     self.phase, False, False, "awaiting_visual_identity_reconfirmation")
+        object_use_approach = self.intent.get("object_use_approach") is True
         if (self.intent.get("purpose") == "INTERACT"
                 and ((state.get("quest_ui") or {}).get("open")
                      or (state.get("gossip_ui") or {}).get("open")
                      or state.get("quest_ui_open") or state.get("gossip_open"))):
+            if object_use_approach:
+                self.phase = VisualApproachPhase.FAILED
+                return VisualApproachAssessment(self.phase, True, False,
+                                                "ui_opened_during_object_approach")
             self.phase = VisualApproachPhase.INTERACTION_READY
             return VisualApproachAssessment(self.phase, True, True,
                                             "interaction_ui_opened_during_approach")
@@ -267,7 +279,7 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
             action.get("is_harmful") is True and action.get("in_range") is True
             and (not rejected_binding or action.get("action") != rejected_binding)
             for action in state.get("actionbar", []))
-        if not identify and harmful_in_range:
+        if not identify and not object_use_approach and harmful_in_range:
             self.phase = VisualApproachPhase.INTERACTION_READY
             return VisualApproachAssessment(self.phase, True, True,
                                             "combat_range_supported_during_approach")
@@ -290,6 +302,27 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
                 self.phase = VisualApproachPhase.FAILED
                 return VisualApproachAssessment(self.phase, True, False, "visual_track_lost")
             return VisualApproachAssessment(self.phase, False, False, "visual_track_temporarily_occluded")
+        if self.intent.get("object_use_approach") is True:
+            from .object_interaction_flow import ObjectInteractionFlow
+            from .tooltip_quest import effective_mouseover
+            cursor = state.get("cursor_position") or {}
+            cx, cy = number(cursor.get("nx")), number(cursor.get("ny"))
+            tx, ty = number(track.get("x")), number(track.get("y"))
+            mouse_at = number(state.get("mouseover_sample_time"))
+            cursor_at = number(state.get("cursor_sample_time"))
+            mouse = effective_mouseover(state)
+            if (None not in (cx, cy, tx, ty, mouse_at, cursor_at)
+                    and abs(cx-tx) <= .035 and abs(cy-ty) <= .05
+                    and 0 <= now-mouse_at <= .75
+                    and 0 <= now-cursor_at <= .75
+                    and abs(mouse_at-cursor_at) <= .1
+                    and (mouse.get("name") or mouse.get("unit_name") or mouse.get("tooltip"))
+                    and (not ObjectInteractionFlow.mouseover_matches(self.intent, mouse)
+                         or not any(str(mouse.get("quest_id")) == str(qid)
+                                    for qid in self.intent.get("quest_ids") or ()))):
+                self.phase = VisualApproachPhase.FAILED
+                return VisualApproachAssessment(self.phase, True, False,
+                                                "object_hover_identity_changed")
         predicted = bool(track.get("_predicted"))
         measurement = self._measurement(state, observation_id, now, track, predicted=predicted)
         if predicted:
@@ -339,6 +372,16 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         # update: stop when the current growth would reach the target height
         # by the next sample (live 2026-10-01: overshoot past the NPC).
         growth = max(0., number(measurement.bbox_scale_delta) or 0.)
+        range_failures = int(number(self.intent.get("range_failures")) or 0)
+        if (self.intent.get("purpose") == "INTERACT" and range_failures == 0
+                and height is not None and height >= .145 and growth >= .004):
+            # Live 2026-10-08: Henry's box grew .159 -> .169 while continuous
+            # W was held; the .19 generic threshold walked ~1-2 yd beyond
+            # the first plausible range. Stop at the earlier scale *only*
+            # when measured growth is rapid, then let INTERACT verify real
+            # client range. An explicit range failure keeps the learned,
+            # larger per-GUID threshold and 5/3/2 step recovery.
+            ready_height = min(ready_height, .17)
         scale_ready = height is not None and height + growth >= ready_height
         reach_purpose = self.intent.get("purpose") in {"INTERACT", "LOOT"}
         bottom_reached = (reach_purpose
@@ -354,12 +397,23 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         # closer" again and again without one step.  User rule: whatever the
         # box says, after a client range error really walk closer -- 5 steps,
         # then 3, then 2 (the edge correction steps back on overshoot).
-        range_failures = int(number(self.intent.get("range_failures")) or 0)
-        scale_ready = scale_ready or (range_failures == 0 and (bottom_reached or beside_self))
+        # The cocoon can overlap the avatar on screen while one floor below.
+        # The generic NPC beside-self/bottom shortcut falsely completed the
+        # live 18:36 object approach at height .10 with zero movement.
+        scale_ready = scale_ready or (
+            not object_use_approach and range_failures == 0
+            and (bottom_reached or beside_self))
         advanced = (range_failures == 0
                     or getattr(self, "forward_commands_total", 0)
                     >= self.RANGE_ERROR_STEPS[min(range_failures, len(self.RANGE_ERROR_STEPS))-1])
-        scale_ready = scale_ready and advanced
+        if object_use_approach and range_failures > 0:
+            # Unlike a selected NPC, a world object's outline can stay small
+            # even within usable range.  After the client's explicit range
+            # error, move 5/3/2 forward pulses, then re-hover and retry use;
+            # the next client result, not bbox height, decides if it worked.
+            scale_ready = advanced
+        else:
+            scale_ready = scale_ready and advanced
         # Retail NPC interaction needs range, not exact facing; the arc
         # approach rarely arrives dead-centre.
         interact_aligned = error is not None and abs(error) <= .20

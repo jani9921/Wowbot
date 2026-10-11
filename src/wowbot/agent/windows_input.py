@@ -110,15 +110,30 @@ class WindowsInput:
         for part in order:
             if part not in KEYS and part not in {"BUTTON1", "BUTTON2", "BUTTON3", "BUTTON4", "BUTTON5"}:
                 raise ExecutionError(f"Nem támogatott fizikai billentyű: {part}")
+        pressed = []
         for part in order:
-            event = Input()
-            if part.startswith("BUTTON"):
-                code = int(part[-1])
-                flags = {1: (2, 4), 2: (8, 16), 3: (32, 64), 4: (128, 256), 5: (128, 256)}[code]
-                event.type = 0
-                event.mi = Mouse(0, 0, (code - 3) if code >= 4 else 0, flags[0 if down else 1], 0, 0)
-            else:
-                event.type = 1
-                event.ki = Keyboard(KEYS[part], 0, 0 if down else 2, 0, 0)
-            if self.api.SendInput(1, ctypes.byref(event), ctypes.sizeof(Input)) != 1:
-                raise ExecutionError(f"SendInput sikertelen: {ctypes.get_last_error()}")
+            # Issue #78: focus can change between InputExecutor._check and
+            # here, or between the events of a chord. Every press is
+            # rechecked; releases stay allowed so nothing is left held.
+            if down and not self.is_selected_foreground():
+                for held in reversed(pressed):
+                    try:
+                        self._send(held, False)
+                    except ExecutionError:
+                        pass
+                raise ExecutionError("A kiválasztott PID nincs előtérben billentyű előtt")
+            self._send(part, down)
+            pressed.append(part)
+
+    def _send(self, part: str, down: bool):
+        event = Input()
+        if part.startswith("BUTTON"):
+            code = int(part[-1])
+            flags = {1: (2, 4), 2: (8, 16), 3: (32, 64), 4: (128, 256), 5: (128, 256)}[code]
+            event.type = 0
+            event.mi = Mouse(0, 0, (code - 3) if code >= 4 else 0, flags[0 if down else 1], 0, 0)
+        else:
+            event.type = 1
+            event.ki = Keyboard(KEYS[part], 0, 0 if down else 2, 0, 0)
+        if self.api.SendInput(1, ctypes.byref(event), ctypes.sizeof(Input)) != 1:
+            raise ExecutionError(f"SendInput sikertelen: {ctypes.get_last_error()}")

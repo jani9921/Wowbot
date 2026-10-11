@@ -14,6 +14,9 @@ from .models import Observation
 EPHEMERAL_OBSERVATION_SOURCES = frozenset({
     "WORLD3D", "WORLD3D_LOCAL_VIEW", "UI_CV", "MINIMAP_CV", "WORLD_MAP_CV",
     "CROSS_VIEW", "CAMERA_CONTROL",
+    # Immutable reference data and learned identities already live in their
+    # own databases. Never serialize their joined projection on every tick.
+    "REFERENCE_MEMORY",
     # Per-tick projections of the same addon packet (live 2026-10-03: ~35k
     # rows each in 30 min, never trimmed; DB grew ~510 MB/h with a 2.2 GB WAL
     # and 13 s query latency).  The addon telemetry itself stays durable.

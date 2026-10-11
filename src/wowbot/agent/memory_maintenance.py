@@ -48,6 +48,11 @@ class MemoryMaintenanceMixin:
                 "consolidated_observations": int(runs[0]), "consolidation_runs": int(runs[1]),
                 "consolidation_ratio": round(int(runs[0])/max(1, observations+int(runs[0])), 4),
                 "query_latency_ms": round((time.perf_counter()-started)*1000, 3),
+                "write_queue_batches": len(self._write_queue),
+                "write_queue_peak": self.write_queue_peak,
+                "write_failures": self.write_failures,
+                "lost_write_batches": self.lost_write_batches,
+                "writer_error": self.writer_error,
                 "retention": "bounded perception raw; ground truth/events/episodes retained"}
 
     def consolidate(self, at: float, *, maximum_raw_observations: int = 15_000,
@@ -74,7 +79,7 @@ class MemoryMaintenanceMixin:
         WorldPointMemory -- separate database files, untouched here) are
         never removed by this policy.
         """
-        self.drain_writes()
+        self._drain_for_read("consolidate")
         maximum_raw_observations = max(4_000, int(maximum_raw_observations))
         target_raw_observations = max(2_000, min(int(target_raw_observations),
                                                  maximum_raw_observations))

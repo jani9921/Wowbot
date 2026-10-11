@@ -8,7 +8,8 @@ class LootVerifier:
     SUCCESS_THRESHOLD = .80
 
     def evaluate(self, before: dict, after: dict, *, corpse_guid: str | None,
-                 expected_item_ids: tuple[int, ...] = ()) -> VerificationResult:
+                 expected_item_ids: tuple[int, ...] = (),
+                 quest_ids: tuple = ()) -> VerificationResult:
         events = self._new_events(before, after)
         source_events = [event for event in events if isinstance(event, dict)
                          and event.get("event_type") == "LOOT_RECEIVED"
@@ -27,7 +28,12 @@ class LootVerifier:
         }
         relevant_item = not expected or bool(expected.intersection(gained_ids | event_ids))
         inventory_changed = bool(gained_ids)
-        objective_changed = self._objective_signature(before) != self._objective_signature(after)
+        # Issue #100: only progress a loot can cause (collect/item objectives,
+        # or untyped ones) of the LOOT proposal's quests counts; a KILL credit
+        # arriving in a later paged snapshot is not loot evidence.
+        wanted_quests = frozenset(str(value) for value in quest_ids or ())
+        objective_changed = (self._objective_signature(before, wanted_quests)
+                             != self._objective_signature(after, wanted_quests))
         old_loot, new_loot = before.get("loot_ui") or {}, after.get("loot_ui") or {}
         loot_ui_opened = (new_loot.get("open") is True or after.get("loot_ui_open") is True) and (
             old_loot.get("open") is not True or new_loot != old_loot)
@@ -133,11 +139,24 @@ class LootVerifier:
         return {item_id for item_id, count in after_counts.items()
                 if count > before_counts.get(item_id, 0)}
 
-    @staticmethod
-    def _objective_signature(state: dict) -> tuple:
+    # Objective kinds whose progress a loot can produce.  Untyped objectives
+    # stay eligible (auto-consumed quest items); KILL/INTERACT/... do not.
+    LOOT_OBJECTIVE_TYPES = frozenset({"COLLECT", "LOOT", "ITEM", "OBTAIN"})
+
+    @classmethod
+    def _loot_relevant(cls, objective: dict) -> bool:
+        kinds = {str(objective.get(key) or "").upper() for key in ("type", "raw_type")} - {""}
+        return not kinds or bool(kinds & cls.LOOT_OBJECTIVE_TYPES)
+
+    @classmethod
+    def _objective_signature(cls, state: dict, quest_ids: frozenset = frozenset()) -> tuple:
         rows = []
         for quest in state.get("active_quests") or ():
+            if quest_ids and str(quest.get("quest_id")) not in quest_ids:
+                continue
             for objective in quest.get("objectives") or ():
+                if not cls._loot_relevant(objective):
+                    continue
                 rows.append((str(quest.get("quest_id")),
                              str(objective.get("objective_id") or objective.get("description")),
                              objective.get("current"), objective.get("required"),

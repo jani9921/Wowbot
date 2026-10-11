@@ -13,6 +13,7 @@ from .visual_inspection_planning import VisualInspectionPolicy
 from .visual_search_planning import VisualSearchPlanningPolicy
 from .map_search_planning import WorldMapFallbackPolicy
 from .decision_fingerprint import DecisionFingerprintGuard
+from .destination_distance import world_long_move
 
 
 
@@ -281,6 +282,55 @@ class Planner:
                         + ("(a hátralévő feladat gyalogos)" if on_foot else f"({grace:.0f} s után)"))
         return None
 
+    TRADE_SKILLS = frozenset({"BUY_VENDOR", "SELL_VENDOR", "REPAIR", "OPEN_BAGS", "QUEST_DIALOG"})
+
+    def _vendor_owns_input(self, proposals: list[Proposal], world) -> list[Proposal]:
+        """An open vendor with an unfinished buy/sell objective owns the input.
+
+        Live 2026-10-11 15:51-15:52 (Stocking Up on Supplies): with the
+        vendor open a distant-UNKNOWN SEEK (87) beat BUY_VENDOR (86), and the
+        sell -> buy took 18 s of camera sweeps; BUY/SELL are also briefly
+        unavailable while the vendor snapshot is older than 2 s.
+        """
+        if (world.query.vendor() or {}).get("open") is not True:
+            return proposals
+        model = getattr(world, "quest_model", None)
+        trade_open = any(str(getattr(objective, "type", "") or "").upper() in {"BUY", "SELL"}
+                         for objective in (model.ready() if model is not None else ()))
+        if not trade_open:
+            return proposals
+        kept = [proposal for proposal in proposals
+                if proposal.skill in self.TRADE_SKILLS | {"DEFEND", "ESCAPE"}]
+        if any(proposal.skill in self.TRADE_SKILLS for proposal in kept):
+            return kept
+        return kept + [Proposal.make(
+            "WAIT", "Nyitott vendor: friss vendor-adatra várakozás a vásárláshoz/eladáshoz",
+            {"waiting_for": ["VENDOR_UI_DETAILS"]}, priority=85)]
+
+    EMPTY_DIALOG_SECONDS = 6.
+
+    def _close_empty_dialog(self, world, state: dict) -> Proposal | None:
+        """An NPC window that stays empty (no button, no quest row, no
+        conversation option) after a full snapshot was seen with it open."""
+        ui = state.get("quest_ui") or {}
+        now = number(state.get("monotonic_time"))
+        if (now is None or str(ui.get("action") or state.get("quest_ui_action") or "")
+                or ui.get("entries") or state.get("quest_ui_entries")
+                or ui.get("gossip_option") or state.get("quest_ui_gossip_option")
+                or (state.get("vendor_ui") or {}).get("open") is True):
+            self.__dict__["_empty_dialog_since"] = None
+            return None
+        since = self.__dict__.get("_empty_dialog_since")
+        if since is None:
+            self.__dict__["_empty_dialog_since"] = since = now
+        snapshot = number(state.get("state_sample_time"))
+        if now - since < self.EMPTY_DIALOG_SECONDS or snapshot is None or snapshot < since + 1.:
+            return None
+        proposal = Proposal.make(
+            "CLOSE_DIALOG", "Üres NPC-ablak (nincs gomb vagy quest-sor): bezárás ESC-vel",
+            {"waiting_for": [], "empty_seconds": round(now - since, 1)}, priority=116)
+        return proposal if self.registry.available(proposal, world) else None
+
     def candidates(self, goal: Goal, world: WorldModel, now: float) -> list[Proposal]:
         state = world.state
         from .death_recovery_planning import DeathRecoveryPolicy, player_dead_or_ghost
@@ -291,6 +341,24 @@ class Planner:
             for proposal in proposals:
                 policy.note_dispatched(proposal, now)
             return proposals
+        if goal.domain == "QUEST" and (
+                (state.get("quest_ui") or {}).get("open") is True
+                or state.get("quest_ui_open") is True
+                or (state.get("gossip_ui") or {}).get("open") is True
+                or state.get("gossip_open") is True):
+            # An open dialog owns the input boundary. A route/map proposal
+            # may have been generated just before the addon reported the UI;
+            # never let it outrank ACCEPT/selection or walk the player away.
+            dialogs = self.quest.dialog_policy.propose(state, goal)
+            available = [proposal for proposal in dialogs
+                         if self.registry.available(proposal, world)]
+            if available:
+                self.__dict__["_empty_dialog_since"] = None
+                return available
+            close = self._close_empty_dialog(world, state)
+            return [close] if close is not None else [Proposal.make(
+                "WAIT", "Nyitott NPC/quest ablak részleteire várakozás",
+                {"waiting_for": ["QUEST_OR_GOSSIP_UI_DETAILS"]}, priority=115)]
         if (state.get("in_vehicle") is True and state.get("on_taxi") is not True
                 and not state.get("is_in_combat")):
             # User 2026-10-04: sometimes the agent must leave the vehicle
@@ -399,7 +467,8 @@ class Planner:
             proposal for proposal in proposals
             if proposal.skill == "MOVE"
             and proposal.parameters.get("purpose") in {
-                "LOCATE_TURN_IN_REGION", "LOCATE_QUEST_OBJECTIVE_REGION"}
+                "LOCATE_TURN_IN_REGION", "LOCATE_QUEST_OBJECTIVE_REGION",
+                "LOCATE_API_QUEST_GIVER"}
             and proposal.parameters.get("require_navmesh") is True]
         movement_visual_handoff = self._active_movement_visual_handoff(now)
         if committed_quest_routes and movement_visual_handoff is None:
@@ -461,10 +530,11 @@ class Planner:
 
         if goal.domain == "QUEST":
             proposals = self.quest.apply_collect_strategy(proposals, world)
+            proposals = self._vendor_owns_input(proposals, world)
 
         mount = goal.parameters.get("mount_binding")
         if mount and not state.get("is_mounted") and not state.get("is_in_combat") and not state.get("is_casting"):
-            long_move = next((p for p in proposals if p.skill == "MOVE" and (world.distance(p.parameters) or 0) > .04), None)
+            long_move = next((p for p in proposals if p.skill == "MOVE" and world_long_move(world, p.parameters)), None)
             usable = any(a.get("action") == mount and a.get("is_usable") is True and a.get("cooldown_remaining") == 0 for a in state.get("actionbar", []))
             if long_move and usable:
                 proposals.append(Proposal.make("MOUNT", "Hosszabb út, felhasználó által kijelölt mount-képességgel", {"binding": mount}, priority=long_move.priority+3))

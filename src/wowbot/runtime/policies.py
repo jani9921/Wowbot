@@ -20,7 +20,7 @@ class TimeoutPolicy:
         "COMBAT": "combat", "DEFEND": "combat", "LOOT": "loot",
         "SEEK_VISUAL_CUE": "search", "REACQUIRE_TARGET": "search",
         "INSPECT": "ui_wait", "QUEST_DIALOG": "ui_wait", "FIELD_TURN_IN": "ui_wait",
-        "OPEN_MAP": "map_wait", "CLOSE_MAP": "map_wait",
+        "OPEN_MAP": "map_wait", "CLOSE_MAP": "map_wait", "CLOSE_DIALOG": "ui_wait",
     })
 
     def domain_for(self, skill: str) -> str:

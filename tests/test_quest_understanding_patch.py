@@ -74,9 +74,13 @@ def test_world_model_and_planner_use_low_priority_location_hypothesis(tmp_path):
     objective = world.quest_model.records[1].objectives[0]
     assert objective.entity_candidates and objective.location_candidates
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), world, 1)
-    move = next(item for item in proposals if item.parameters.get("hypothesis_source") == "ENTITY_MEMORY_LOCATION")
-    assert move.priority == 35 and move.confidence < 1
-    assert move.parameters["hypothesis_identity_key"] == "npc:111"
+    # Entity memory keeps normalized map cells only; a normalized map pixel
+    # never authorizes movement (planning_types.world_point).  Live-verified
+    # places in world yards now come from the learned world memory next to
+    # the TDB (learned_world.py, 2026-10-10).
+    assert not any(item.skill == "MOVE"
+                   and item.parameters.get("hypothesis_source") == "ENTITY_MEMORY_LOCATION"
+                   for item in proposals)
 
 
 def test_confirmed_objective_location_wins_without_hypothesis_move(tmp_path):
@@ -86,12 +90,16 @@ def test_confirmed_objective_location_wins_without_hypothesis_move(tmp_path):
     world.ingest(Observation.create(quest_state(active_quests=[{
         "quest_id": 1, "objectives": [{"type": "monster",
         "description": "Hogger slain: 0/1", "required": 1, "current": 0,
-        "target_location": {"map_id": 1409, "x": .9, "y": .9}}]}]), 1))
+        "target_location": {"map_id": 1409, "x": .9, "y": .9,
+                            "world_position": {"coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                                               "ui_map_id": 1409, "x": 420., "y": -2500.}}}]}],
+        player_world_position={"coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                               "ui_map_id": 1409, "x": 300., "y": -2300.}), 1))
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), world, 1)
     objective_moves = [item for item in proposals if item.skill == "MOVE"
                        and item.parameters.get("objective_id")]
     assert len(objective_moves) == 1
-    assert objective_moves[0].parameters["x"] == .9
+    assert objective_moves[0].parameters["x"] == 420.
     assert not objective_moves[0].parameters.get("hypothesis_source")
 
 

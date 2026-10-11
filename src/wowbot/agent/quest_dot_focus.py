@@ -31,12 +31,42 @@ class QuestDotFocus:
     BLIND_SECONDS = 20.
     LOCAL_SEARCH_SECONDS = 30.
     SEARCH_RETRY_SECONDS = 8.
+    # Dot memory (user 2026-10-10): every dot seen is kept for a while, so a
+    # turned camera or a dot beyond the minimap edge is not forgotten.
+    REMEMBER_SECONDS = 180.
+    REMEMBER_MERGE_YARDS = 8.
+    ARROW_COVER_YARDS = 10.
+    CONSUMED_YARDS = 12.
 
     def __init__(self) -> None:
         self.focus: DotFocus | None = None
         self.exhausted: list[tuple[str, float, float]] = []
         self.context: tuple | None = None
         self.progress_by_quest: dict[str, tuple | None] = {}
+        self.remembered: list[list] = []         # [quest_id, x, y, last_seen]
+
+    def _remember(self, dots, *, x: float, y: float, now: float, view: float | None) -> None:
+        for dx, dy, qid in dots:
+            row = next((row for row in self.remembered if row[0] == str(qid)
+                        and math.hypot(row[1]-dx, row[2]-dy) <= self.REMEMBER_MERGE_YARDS), None)
+            if row is None:
+                self.remembered.append([str(qid), dx, dy, now])
+            else:
+                row[1], row[2], row[3] = .7*row[1]+.3*dx, .7*row[2]+.3*dy, now
+        kept = []
+        for row in self.remembered:
+            if now - row[3] > self.REMEMBER_SECONDS:
+                continue
+            distance = math.hypot(row[1]-x, row[2]-y)
+            visible = any(str(qid) == row[0] and math.hypot(dx-row[1], dy-row[2]) <= self.MATCH_YARDS
+                          for dx, dy, qid in dots)
+            if (not visible and view and self.ARROW_COVER_YARDS < distance < .9*view
+                    and now - row[3] > 1.5):
+                # Inside the minimap view, not under the player arrow, yet no
+                # dot any more: the object was used or the unit is gone.
+                continue
+            kept.append(row)
+        self.remembered = kept[-48:]
 
     @staticmethod
     def _progress(state: dict, quest_id: str) -> tuple | None:
@@ -59,12 +89,14 @@ class QuestDotFocus:
         self.focus = None
 
     def select(self, state: dict, dots: list[tuple[float, float, str]], *,
-               x: float, y: float, now: float, preferred_quest: str | None = None) -> DotFocus | None:
+               x: float, y: float, now: float, preferred_quest: str | None = None,
+               view_radius: float | None = None) -> DotFocus | None:
         position = state.get("player_world_position") or {}
         context = (state.get("session_id"), state.get("map_id"), position.get("instance_id"))
         if self.context != context:
             self.focus, self.exhausted, self.context = None, [], context
             self.progress_by_quest.clear()
+            self.remembered = []
         for quest in state.get("active_quests") or ():
             if not isinstance(quest, dict) or quest.get("quest_id") is None:
                 continue
@@ -72,9 +104,15 @@ class QuestDotFocus:
             progress = self._progress(state, qid)
             if qid in self.progress_by_quest and self.progress_by_quest[qid] != progress:
                 self.exhausted = [row for row in self.exhausted if row[0] != qid]
+                # The credited place is used up: forget its remembered dot.
+                self.remembered = [row for row in self.remembered if not (
+                    row[0] == qid and math.hypot(row[1]-x, row[2]-y) <= self.CONSUMED_YARDS)]
                 if self.focus is not None and self.focus.quest_id == qid:
                     self.focus = None
             self.progress_by_quest[qid] = progress
+        self._remember(dots, x=x, y=y, now=now, view=view_radius)
+        if not dots:
+            dots = [(row[1], row[2], row[0]) for row in self.remembered]
         current = self.focus
         if current is not None and (self._progress(state, current.quest_id) != current.progress
                                     or (preferred_quest is not None and current.quest_id != preferred_quest)):

@@ -67,6 +67,11 @@ class RuntimeLifecycleMixin:
 
     NAVIGATION_OVERLAY_SECONDS = .25
 
+    def _report_suppressed(self, component: str, error: BaseException) -> None:
+        reporter = getattr(self, "suppressed_errors", None)
+        if reporter is not None:
+            reporter.report(component, error)
+
     def _publish_navigation_overlay(self, current: float) -> None:
         """Latest route view for LIVE VISION (design doc §11), ~4 Hz."""
         monitor = getattr(self, "_live_vision_monitor", None)
@@ -76,8 +81,8 @@ class RuntimeLifecycleMixin:
         self._navigation_overlay_at = current
         try:
             monitor.publish_navigation(self.agent.navigation.overlay_snapshot(self.agent.world.state))
-        except Exception:
-            pass
+        except Exception as error:
+            self._report_suppressed("navigation_overlay", error)
 
     def _save_ability_effects(self, current: float, *, force: bool = False) -> None:
         """Learned vehicle ability effects -> quest_creature_memory (only changes)."""
@@ -93,8 +98,8 @@ class RuntimeLifecycleMixin:
                      for action in self.agent.world.state.get("actionbar") or ()
                      if isinstance(action, dict) and action.get("source") == "VEHICLE_BAR"}
             memory.save_ability_effects(effects, names)
-        except Exception:
-            pass
+        except Exception as error:
+            self._report_suppressed("save_vehicle_ability_effects", error)
 
     def _write_status_now(self, result):
         write_started = time.perf_counter()

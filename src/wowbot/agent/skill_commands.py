@@ -67,6 +67,12 @@ class SkillCommandsMixin:
             return (Command("BIND", "TARGETNEARESTENEMY" if name == "ACQUIRE_TARGET" else "INTERACTTARGET"),)
         if name in {"FISH", "MOUNT", "DISMOUNT"}:
             return (Command("BIND", params["binding"]),)
+        if name == "CLOSE_DIALOG":
+            # ESC on a closed UI would open the game menu: only while the
+            # NPC window is still reported open by the fast lane.
+            if world.state.get("quest_ui_open") is not True:
+                return ()
+            return (Command("BIND", "TOGGLEGAMEMENU"),)
         if name in {"CLOSE_MAP", "OPEN_MAP"}:
             # TOGGLEWORLDMAP is not intrinsically idempotent.  Recheck the
             # current fast-lane state at dispatch so a delayed/replayed

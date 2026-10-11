@@ -11,6 +11,7 @@ from test_agent_core import binding_file
 from wowbot.agent.bindings import BindingsCache
 from wowbot.navigation.mmap_navmesh import NavMeshPath
 from wowbot.navigation.service import NavigationService
+from wowbot.runtime.contracts import FailureReason, failure_reason_from_legacy
 
 UPPER, LOWER = 79.3, 60.4
 
@@ -64,6 +65,88 @@ def test_fall_moves_the_player_to_the_layer_below_and_replans():
     assert navmesh.starts[-1] == LOWER and nav._player_layer[3] == LOWER
     again = nav.observe(_state(4., events=[_fall(5)]), "obs3", 4.)
     assert again.reason != "route_replanned_after_fall"
+
+
+def _falling(t, **kwargs):
+    state = _state(t, **kwargs)
+    state["movement"]["falling"] = True
+    return state
+
+
+def test_sustained_fall_terminates_route_before_landing():
+    nav, _ = _navigation()
+    first = nav.observe(_falling(2.), "falling", 2.)
+    assert not first.terminal and first.reason == "fall_pending"
+    assert nav.command(_falling(2.), "falling", 2.) == ()
+    assert not nav.observe(_falling(3.5), "jump-length", 3.5).terminal
+    result = nav.observe(_falling(4.1), "falling2", 4.1)
+    assert result.terminal and not result.success
+    assert result.reason == "fall_in_progress"
+
+
+def test_brief_ledge_step_keeps_the_route_and_leaves_no_hazard():
+    # Live 2026-10-11 14:25: 0-1 s falling samples on camp ledges failed the
+    # turn-in MOVE and quarantined its route for 10 minutes.
+    nav, _ = _navigation()
+    assert nav.observe(_falling(2.), "step", 2.).reason == "fall_pending"
+    assert nav.observe(_falling(2.5), "step2", 2.5).reason == "fall_pending"
+    landed = nav.observe(_state(2.7), "landed", 2.7)
+    assert not landed.terminal
+    assert nav._route_failure_reason is None and not nav._fall_hazards
+    # A later, separate short step starts a new episode instead of adding up.
+    assert nav.observe(_falling(3.2), "step3", 3.2).reason == "fall_pending"
+    assert nav._route_failure_reason is None
+
+
+def test_confirmed_fall_quarantines_same_upper_route_but_not_lower_floor():
+    nav, navmesh = _navigation()
+    nav.observe(_falling(2.), "falling", 2.)
+    assert nav.observe(_falling(4.), "falling2", 4.).reason == "fall_in_progress"
+    assert nav._fall_hazards and nav._fall_hazards[0]["z"] == UPPER
+
+    destination = {"x": 76.8, "y": -2264., "coordinate_space": "WORLD_YARDS",
+                   "instance_id": 2175, "map_id": 1409, "require_navmesh": True}
+    # Back on the upper floor, 12 yd before the ledge: the route over it is
+    # quarantined.
+    nav._z.seed_player(2175, 80.4, -2212.8, UPPER, 20.)
+    nav.start_skill_request("MOVE", destination, _state(20., y=-2212.8), "retry-upper", 20.)
+    assert nav._route_failure_reason == "fall_hazard_on_route"
+    assert nav.command(_state(20., y=-2212.8), "retry-upper", 20.) == ()
+
+    nav._z.seed_player(2175, 80.4, -2227., LOWER, 21.)
+    lower = _state(21., y=-2227.)
+    nav.start_skill_request("MOVE", destination, lower, "alternative-lower", 21.)
+    assert nav._route_failure_reason is None
+    assert nav._active_route and nav._active_route.anchors
+    assert failure_reason_from_legacy("fall_hazard_on_route") is FailureReason.PATH_BLOCKED
+    assert failure_reason_from_legacy("fall_in_progress") is FailureReason.PATH_BLOCKED
+
+
+def test_fall_several_yards_beyond_centerline_blocks_that_approach_segment():
+    from dataclasses import replace
+    nav, _ = _navigation()
+    original = nav._active_route
+    corridor = ({"x": 260., "y": -2212., "z": UPPER},
+                {"x": 275., "y": -2212., "z": UPPER})
+    nav._active_route = replace(original, anchors=corridor)
+    nav._z.seed_player(2175, 265., -2216.7, UPPER, 1.)
+    falling = _falling(2., y=-2216.7)
+    falling["player_world_position"]["x"] = 265.
+    nav.observe(falling, "falling", 2.)
+    later = _falling(4.2, y=-2219.)
+    later["player_world_position"]["x"] = 266.
+    nav.observe(later, "falling2", 4.2)
+    # The hazard sits at the ledge (first falling sample), not the landing.
+    assert nav._fall_hazards[0]["z"] == UPPER
+    assert nav._fall_hazards[0]["y"] == -2216.7
+    # Approaching the same corridor again on the upper floor, 15 yd before it.
+    nav._z.seed_player(2175, 250., -2212., UPPER, 5.)
+    approach = _state(5., y=-2212.)
+    approach["player_world_position"]["x"] = 250.
+    assert nav._fall_hazard_blocks(nav._active_route, approach, 5.)
+    # Standing at the "ledge" on its own floor means there was no drop.
+    nav._z.seed_player(2175, 265., -2216.7, UPPER, 6.)
+    assert not nav._fall_hazard_blocks(nav._active_route, falling, 6.)
 
 
 def test_a_stale_fall_in_the_first_snapshot_changes_nothing():

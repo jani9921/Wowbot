@@ -212,7 +212,9 @@ class PerceptionCycleMixin:
                                 lane["items"] = []
                                 for item_source in ("WORLD3D", "UI_CV"):
                                     group = [item for item in raw_items if item.get("source") == item_source]
-                                    if group:
+                                    # Issue #105: an empty result still ages
+                                    # this source's active tracks.
+                                    if group or self.visual_tracks.tracks.get(item_source):
                                         lane["items"].extend(self.visual_tracks.update(item_source, group, at))
                             else:
                                 lane["items"] = (self.minimap_tracker.update_markers(raw_items, at)

@@ -127,8 +127,11 @@ def resolve_entity_candidates(objective: dict, entity_memory, *, limit: int = 5)
     hits = entity_memory.find_by_name(subject, limit=limit)
     return tuple({"identity_key": hit["identity_key"], "npc_id": hit["npc_id"], "name": hit["name"],
                   "unit_type": hit["unit_type"], "seen_count": hit["seen_count"],
-                  "confidence": round(min(.85, (hit["seen_count"]+1)/(hit["seen_count"]+3)), 4),
-                  "subject_text": subject, "source": "ENTITY_MEMORY_NAME_LOOKUP"}
+                  "confidence": (.3 if hit.get("source") == "TDB_REFERENCE" else
+                                 round(min(.85, (hit["seen_count"]+1)/(hit["seen_count"]+3)), 4)),
+                  "subject_text": subject, "source": hit.get("source", "ENTITY_MEMORY_NAME_LOOKUP"),
+                  "confirmed": False,
+                  **{key: hit[key] for key in ("source_file", "source_sha256") if key in hit}}
                  for hit in hits)
 
 

@@ -213,3 +213,27 @@ def test_small_normal_candidate_counts_are_unaffected_by_the_default_cap():
     tracks = VisualTrackManager()
     result = tracks.update("WORLD3D", _flood(25), 1.)
     assert len(result) == 25
+
+
+def test_long_detector_gap_does_not_resurrect_an_active_track_id():
+    """Issue #105: after a 100 s gap a new upstream id at the same place
+    reused WORLD3D:1 (UPSTREAM_REIDENTIFIED) past every loss/re-ID bound."""
+    tracks = VisualTrackManager()
+    detection = {"kind": "unknown_subject_candidate", "x": .4, "y": .6, "confidence": .7,
+                 "upstream_track_id": "V3:1",
+                 "bbox": {"left": 10, "top": 20, "right": 30, "bottom": 70},
+                 "appearance": {"shape": "subject_like"}}
+    first = tracks.update("WORLD3D", [detection], 1.)[0]
+    later = tracks.update("WORLD3D", [{**detection, "upstream_track_id": "V3:999"}], 101.)[0]
+    assert later["track_id"] != first["track_id"]
+
+
+def test_empty_world_batches_age_active_tracks():
+    """Issue #105: an empty batch must age (and finally retire) active tracks;
+    perception_cycle now calls update() for it."""
+    tracks = VisualTrackManager()
+    detection = {"kind": "unknown_subject_candidate", "x": .4, "y": .6, "confidence": .7}
+    tracks.update("WORLD3D", [detection], 1.)
+    for at in (1.1, 1.2, 1.3, 2.4, 2.5):
+        tracks.update("WORLD3D", [], at)
+    assert not tracks.tracks["WORLD3D"]

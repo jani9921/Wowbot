@@ -205,6 +205,49 @@ def test_planner_inspects_canonical_top_attention_track_before_generic_nameplate
     assert world3d[0].parameters["semantic_type"] == "UNKNOWN"
 
 
+def test_completed_turnin_prefers_npc_box_under_symbol_for_hover():
+    subject = {
+        "source": "WORLD3D", "kind": "unknown_subject_candidate",
+        "detector_kind": "unknown_subject_candidate", "semantic_type": "UNKNOWN",
+        "track_id": "turnin-npc", "stable_frames": 4, "confidence": .58,
+        "x": .5, "y": .6, "inspectable": True, "bbox_height_fraction": .10,
+        "bbox": {"left": 45, "top": 50, "right": 65, "bottom": 100},
+        "candidate_labels": ["learned_subject_like"],
+        "appearance": {"learned_label_hypothesis": "creature_unit_like"},
+    }
+    symbol = {
+        "source": "WORLD3D", "kind": "unknown_symbol_candidate",
+        "detector_kind": "unknown_symbol_candidate", "track_id": "symbol",
+        "confidence": .8, "x": .5, "y": .4,
+        "bbox": {"left": 49, "top": 32, "right": 58, "bottom": 48},
+        "candidate_labels": ["overhead_symbol_like"],
+    }
+    other = {**subject, "track_id": "other-npc", "x": .8,
+             "bbox": {"left": 130, "top": 50, "right": 150, "bottom": 100}}
+    near_turnin = {
+        "player_world_position": {"x": 179., "y": -2283., "instance_id": 2175},
+        "active_quests": [{"quest_id": 55639, "is_complete": True}],
+        "quest_locations": [{"quest_id": 55639, "source": "QUEST_API_WAYPOINT", "world_position": {
+            "x": 190., "y": -2283., "instance_id": 2175,
+            "coordinate_space": "WORLD_YARDS"}}],
+    }
+    proposals = Planner(SkillRegistry()).inspections(
+        _world([subject, symbol, other], **near_turnin), 1., goal=Goal.parse("Questelj", 1))
+    by_track = {proposal.parameters.get("track_id"): proposal for proposal in proposals}
+    assert by_track["turnin-npc"].priority == 100
+    assert by_track["turnin-npc"].priority > by_track["other-npc"].priority
+    assert by_track["turnin-npc"].parameters["semantic_type"] == "UNKNOWN"
+
+    wrong_floor = {**near_turnin, "player_world_position": {
+        **near_turnin["player_world_position"], "z": 0., "z_confidence": .9},
+        "quest_locations": [{"quest_id": 55639, "world_position": {
+            **near_turnin["quest_locations"][0]["world_position"], "z": 30.}}],
+    }
+    wrong = Planner(SkillRegistry()).inspections(
+        _world([subject, symbol], **wrong_floor), 1., goal=Goal.parse("Questelj", 1))
+    assert next(p for p in wrong if p.parameters.get("track_id") == "turnin-npc").priority == 88
+
+
 def test_stable_learned_humanoid_is_inspectable_without_nameplate_gate():
     learned = {
         "source": "WORLD3D", "kind": "unknown_subject_candidate",

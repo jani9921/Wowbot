@@ -11,13 +11,17 @@ class NavigationSearchMixin:
     """Methods of NavigationService (service.py); moved verbatim."""
 
     def _search_player_z(self, position: dict, now: float | None) -> float | None:
-        """Use only a fresh layer fix for this exact player position."""
+        """Use only a fresh layer fix for this exact player position.
+
+        ``now`` may be the addon sample clock (GetTime), which runs slightly
+        behind the agent clock of the fix: freshness is a symmetric window.
+        """
         layer = getattr(getattr(self, "_z", None), "player", None)
         px, py = number(position.get("x")), number(position.get("y"))
         if (layer is None or layer.confidence < .7 or px is None or py is None
                 or now is None or layer.at is None
                 or str(layer.instance_id) != str(position.get("instance_id"))
-                or not 0 <= now-layer.at <= 3.
+                or abs(now-layer.at) > 3.
                 or math.hypot(layer.x-px, layer.y-py) > 5.):
             return None
         return layer.z
@@ -99,6 +103,20 @@ class NavigationSearchMixin:
 
     def observe_verified_move(self, before: dict, after: dict, destination: dict | None = None) -> None:
         self._routes.observe_verified_move(before, after, destination)
+        if not isinstance(destination, dict):
+            return
+        recorder = getattr(self, "record_sweep_arrival", None)
+        if callable(recorder):
+            recorder(destination)
+        region_id, cell_id = destination.get("search_region_id"), destination.get("search_cell_id")
+        if region_id and cell_id:
+            # A verified arrival for a cell is its coverage, also when the
+            # route ended at the cell's same-floor projection outside the
+            # X/Y visit radius (live 2026-10-07: a cell over Hrun's pit hole
+            # projected 8 yd away and was offered after every arrival).
+            at = number((after or {}).get("monotonic_time"))
+            self._search_coverage.mark_visited(str(region_id), str(cell_id),
+                                               at if at is not None else 0.)
 
     def observe_failed_move(self, before: dict, after: dict, destination: dict,
                             observation_id: str, now: float):

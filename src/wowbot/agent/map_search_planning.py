@@ -269,6 +269,39 @@ class WorldMapFallbackPolicy:
                 evidence=evidence)]
         return None
 
+    # After a quest accept/turn-in, wait this long at most for a full
+    # snapshot carrying the new quest locations / quest givers.
+    QUEST_CHANGE_SETTLE_SECONDS = 6.
+
+    @staticmethod
+    def _quest_place_known(world_state: dict) -> bool:
+        """An active quest already has an explicit world location."""
+        from .planning_types import world_point
+        active = {str(quest.get("quest_id")) for quest in world_state.get("active_quests") or ()
+                  if isinstance(quest, dict)}
+        return any(isinstance(location, dict) and str(location.get("quest_id")) in active
+                   and world_point(location) is not None
+                   for location in world_state.get("quest_locations") or ())
+
+    def _quest_change_settling(self, world_state: dict, now: float) -> bool:
+        """The quest log just changed and no full snapshot has caught up yet."""
+        ids = tuple(sorted(str(quest.get("quest_id")) for quest in world_state.get("active_quests") or ()
+                           if isinstance(quest, dict)))
+        signature = (ids, world_state.get("quest_state_revision"))
+        clock = number(world_state.get("monotonic_time"))
+        clock = now if clock is None else clock
+        memory = self.__dict__.setdefault("_quest_change", {"signature": signature, "at": None})
+        if memory["signature"] != signature:
+            memory.update(signature=signature, at=clock)
+        changed_at = memory.get("at")
+        if changed_at is None:
+            return False
+        snapshot = number(world_state.get("state_sample_time"))
+        if snapshot is None:
+            return False            # no snapshot clock: nothing to wait for
+        caught_up = snapshot >= changed_at + .5
+        return not caught_up and 0 <= clock - changed_at < self.QUEST_CHANGE_SETTLE_SECONDS
+
     def add_quest_fallbacks(self, proposals: list[Proposal], goal: Goal,
                             world, now: float, *, blocked_until: dict[str, float]) -> None:
         """Append map/TDB proposals after live quest proposals are exhausted."""
@@ -289,7 +322,21 @@ class WorldMapFallbackPolicy:
         if (world_state.get("world_map_open") is not False or ui_open or has_location
                 or has_local_action or world_state.get("is_in_combat")):
             return
+        if self._quest_place_known(world_state) or self._quest_change_settling(world_state, now):
+            # Live 2026-10-11 15:54:29: the 58914 turn-in POI was known but
+            # its MOVE briefly blocked -> map opened, closed 1 s later
+            # ("Leadási hely ismert").  15:36:59: the map opened within a
+            # second of a turn-in, before the snapshot with the next quest
+            # givers arrived.  The map adds nothing in either case.
+            return
         selected_target = world.query.target()
+        if (not world_state.get("active_quests") and selected_target.get("guid")
+                and selected_target.get("attackable", selected_target.get("is_attackable")) is False):
+            from .quest_giver_evidence import quest_search_allows_npc
+            if quest_search_allows_npc(world_state, str(selected_target["guid"])):
+                # The selected, locally supported quest giver is better
+                # evidence than another World Map scan. Keep 3D visible.
+                return
         if (selected_target.get("guid")
                 and selected_target.get("attackable", selected_target.get("is_attackable")) is True
                 and not selected_target.get("dead", selected_target.get("is_dead"))):

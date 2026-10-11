@@ -33,6 +33,19 @@ def test_supervisor_resumes_one_still_safe_interrupted_intent_only_after_combat(
     assert supervisor.resume_candidate({}, 4.) is None
 
 
+def test_suspended_quest_move_is_discarded_after_objective_credit():
+    supervisor = Supervisor()
+    running = active("MOVE")
+    before = {"active_quests": [{"quest_id": 55639, "is_complete": False,
+              "objectives": [{"objective_id": "55639:0", "current": 0, "required": 5}]}]}
+    after = {"active_quests": [{"quest_id": 55639, "is_complete": False,
+             "objectives": [{"objective_id": "55639:0", "current": 1, "required": 5}]}]}
+    supervisor.suspend(running, 2., FailureReason.INTERRUPTED, before)
+    assert supervisor.resume_candidate({**before, "is_in_combat": True}, 3.) is None
+    assert supervisor.resume_candidate(after, 4.) is None
+    assert supervisor.snapshot()["last_resume_reason"] == "quest_progress_changed"
+
+
 def test_supervisor_does_not_interrupt_combat_with_combat():
     directive = Supervisor().evaluate({"is_in_combat": True}, active("COMBAT"), 2)
     assert directive.kind is SupervisorDirectiveKind.CONTINUE

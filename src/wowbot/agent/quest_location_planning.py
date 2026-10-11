@@ -16,6 +16,7 @@ from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
 from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
 from .quest_dot_focus import QuestDotFocus
+from .destination_distance import world_arrived
 
 
 
@@ -125,15 +126,22 @@ def minimap_vertical_objective_cues(state: dict) -> list[tuple[float, float, str
                               facing=number(state.get("orientation"))) or []
     open_ids = {str(quest.get("quest_id")) for quest in state.get("active_quests") or ()
                 if isinstance(quest, dict) and quest.get("is_complete") is not True}
-    pois = []
+    pois, finished = [], []
     for location in state.get("quest_locations") or ():
         where = world_point(location) if isinstance(location, dict) else None
-        if where is not None and str(location.get("quest_id")) in open_ids:
-            pois.append((str(location["quest_id"]), float(where["x"]), float(where["y"])))
+        if where is None:
+            continue
+        spot = (str(location.get("quest_id")), float(where["x"]), float(where["y"]))
+        (pois if spot[0] in open_ids else finished).append(spot)
     result = []
     for marker, (x, y) in zip(markers, points):
         nearby = sorted((math.hypot(x-qx, y-qy), qid) for qid, qx, qy in pois
                         if math.hypot(x-qx, y-qy) <= 150.)
+        if nearby and any(math.hypot(x-qx, y-qy) < nearby[0][0] for _, qx, qy in finished):
+            # Live 2026-10-11 15:14: the arrow of a finished quest's turn-in
+            # ("?" on the hill) was taken for the open quest's objective and
+            # walked the agent out of that quest's area.
+            continue
         if nearby and (len(nearby) == 1 or nearby[1][0]-nearby[0][0] >= 25.):
             qid = nearby[0][1]
         elif not nearby and len(open_ids) == 1 and not pois:
@@ -160,6 +168,9 @@ class QuestLocationPlanningPolicy:
         self.map_pois = MapPoiPlanningPolicy()
         # quest_id -> (x, y, route z or None) of the turn-in region reached.
         self.turn_in_arrivals: dict[str, tuple[float, float, float | None]] = {}
+        # API pins are neighbourhoods, not NPC coordinates.  Crossing the
+        # arrival threshold must not re-arm the high-priority pin MOVE.
+        self._turn_in_proximity_arrivals: dict[str, tuple[float, float, float | None, str]] = {}
         from .quest_area_memory import QuestAreaMemory
         # Objective areas learned from the minimap's blue outline.
         self.quest_areas = QuestAreaMemory()
@@ -173,6 +184,7 @@ class QuestLocationPlanningPolicy:
     # visual search.  Within this distance of an arrived turn-in point the
     # agent looks for the turn-in NPC instead of walking to the point again.
     TURN_IN_ARRIVED_YARDS = 12.
+    TURN_IN_PROXIMITY_EXIT_YARDS = 20.
     TURN_IN_SEARCH_RADIUS_YARDS = 35.
     TURN_IN_SEARCH_AREA_YARDS = 18.
 
@@ -285,9 +297,15 @@ class QuestLocationPlanningPolicy:
         # arrival and must not switch MOVE to NPC search.
         arrived = self.turn_in_arrivals.get(str(quest_id))
         nearby_arrival = (arrived is not None and math.hypot(arrived[0]-dx, arrived[1]-dy) <= 5.)
+        proximity = self._turn_in_proximity_arrivals.get(str(quest_id))
+        nearby_proximity = (proximity is not None
+                            and math.hypot(proximity[0]-dx, proximity[1]-dy) <= 5.
+                            and proximity[3] == str(destination.get("instance_id")))
         player_z, target_z = number(position.get("z")), number(destination.get("z"))
         if target_z is None and nearby_arrival and len(arrived) > 2:
             target_z = arrived[2]
+        if target_z is None and nearby_proximity:
+            target_z = proximity[2]
         if (player_z is not None and target_z is not None
                 and position.get("z_known") is not False
                 and (position.get("z_observed") is True
@@ -297,6 +315,15 @@ class QuestLocationPlanningPolicy:
             return False
         distance = math.hypot(px-dx, py-dy)
         if distance <= self.TURN_IN_ARRIVED_YARDS:
+            trusted_player_z = (player_z if (position.get("z_known") is not False
+                                           and (position.get("z_observed") is True
+                                                or (number(position.get("z_confidence")) or 0.) >= .7))
+                                else None)
+            self._turn_in_proximity_arrivals[str(quest_id)] = (
+                dx, dy, target_z if target_z is not None else trusted_player_z,
+                str(destination.get("instance_id")))
+            return True
+        if nearby_proximity and distance <= self.TURN_IN_PROXIMITY_EXIT_YARDS:
             return True
         return bool(nearby_arrival and distance <= self.TURN_IN_SEARCH_RADIUS_YARDS)
 
@@ -308,12 +335,17 @@ class QuestLocationPlanningPolicy:
         dx, dy = number(destination.get("x")), number(destination.get("y"))
         if None in (px, py, dx, dy):
             return False
-        areas = self.__dict__.get("quest_areas")
-        if quest_id is not None and areas is not None and areas.contains(quest_id, px, py):
-            return True   # inside the area learned from the minimap outline
+        # Issue #96: an instance mismatch rules arrival out before the learned
+        # 2D minimap area is consulted.  Within one instance the user rule
+        # "inside the blue area = in the zone" stays deliberately 2D (cave
+        # objectives lie floors below the POI); floor coverage is #7/#8.
         if (position.get("instance_id") is not None and destination.get("instance_id") is not None
                 and str(position["instance_id"]) != str(destination["instance_id"])):
             return False
+        areas = self.__dict__.get("quest_areas")
+        if (quest_id is not None and areas is not None
+                and areas.contains(quest_id, px, py, position.get("instance_id"))):
+            return True   # inside the area learned from the minimap outline
         return math.hypot(px-dx, py-dy) <= self.OBJECTIVE_AREA_ARRIVED_YARDS
 
     # Live 2026-10-05 12:25 ("Who Lurks in the Pit", user: "spirálisan megy
@@ -408,6 +440,11 @@ class QuestLocationPlanningPolicy:
             arrived = self.turn_in_arrivals.get(str(quest_id))
             if arrived is not None and math.hypot(arrived[0]-area["x"], arrived[1]-area["y"]) <= 5.:
                 z = arrived[2] if len(arrived) > 2 else None
+        if z is None:
+            proximity = self._turn_in_proximity_arrivals.get(str(quest_id))
+            if (proximity is not None and math.hypot(proximity[0]-area["x"], proximity[1]-area["y"]) <= 5.
+                    and proximity[3] == str(destination.get("instance_id"))):
+                z = proximity[2]
         if z is not None:
             area["z"] = z
         return Proposal.make(
@@ -443,7 +480,8 @@ class QuestLocationPlanningPolicy:
                     result.append(self.turn_in_search(qid, turnin.location))
                     continue
                 result.append(Proposal.make(
-                    "MOVE", "Quest API által jelzett quest leadási keresési régió",
+                    "MOVE", ("TDB elsődleges quest leadási keresési régió" if turnin.location.get('knowledge_priority')=='PRIMARY_STATIC'
+                             else "Quest API által jelzett quest leadási keresési régió"),
                     {**turnin.location, "quest_id": qid,
                      "completion_mode": turnin.completion_mode,
                      "turnin_kind": turnin.kind.value,
@@ -452,8 +490,26 @@ class QuestLocationPlanningPolicy:
                      "require_navmesh": True}, priority=110))
         return result
 
+    @staticmethod
+    def local_work_at_hand(obj, state: dict) -> bool:
+        """A live subject of this objective, or a live quest enemy, is
+        selected or hovered: the local skills own the next step."""
+        from .quest_semantics import subject_matches_name, use_on_subjects
+        units = [unit for unit in (state.get("target") or {}, effective_mouseover(state))
+                 if isinstance(unit, dict) and unit.get("guid")
+                 and unit.get("dead") is not True and unit.get("is_dead") is not True]
+        subjects = use_on_subjects({**(getattr(obj, "raw", None) or {}),
+                                    "description": getattr(obj, "description", "")})
+        if subjects and any(unit.get("name") and subject_matches_name(subjects, unit["name"])
+                            for unit in units):
+            return True
+        return any(unit.get("attackable", unit.get("is_attackable")) is True
+                   and (unit.get("quest_related") is True
+                        or unit is (state.get("target") or {}))
+                   for unit in units)
+
     def propose_objective(self, world, obj, record, qid: str) -> list[Proposal]:
-        if record is None:
+        if record is None or getattr(obj, "completion_state", None) == "COMPLETE":
             return []
         state = world.state
         if obj.type in {"ESCORT", "FOLLOW"}:
@@ -463,9 +519,8 @@ class QuestLocationPlanningPolicy:
         route_where = world_point(located.coordinates) if located and located.coordinates else None
         learned_search_region = self._remember_blue_search_region(
             state, record.quest_id, map_where, route_where)
-        # Map coordinates are perception/location evidence. Physical movement
-        # is authorized only by Blizzard's explicit same-instance WORLD_YARDS
-        # conversion so NavigationService can build an mmap corridor.
+        # Normalized map pixels never authorize movement. API world conversion
+        # and explicitly labelled TDB world yards both go through NavigationService.
         where = route_where or map_where
         if where:
             params = {**where, "quest_id": record.quest_id,
@@ -489,30 +544,34 @@ class QuestLocationPlanningPolicy:
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if entity_target_confirmed:
                 # CombatPlanningPolicy or QuestDomain now owns the validated
                 # target handoff; do not emit another navigation proposal.
                 return []
             if reached_entity_area:
                 return entity_flow.propose_local_search(obj, record, params)
-            object_objective = obj.type in {"USE_OBJECT", "INTERACT"} and bool(
+            from .quest_semantics import use_on_subjects
+            object_objective = (obj.type in {"USE_OBJECT", "INTERACT"} and bool(
                 getattr(obj, "target_object", None)
                 or self.object_interaction.expected_identity(obj).get("expected_tooltips"))
+                # "First Aid Kit used on Austin Huxworth": the item is in our
+                # bag and the subject is an NPC, not a world object to find
+                # (live 2026-10-10: object-cue searches instead of Austin).
+                and not use_on_subjects({**(getattr(obj, "raw", None) or {}),
+                                         "description": getattr(obj, "description", "")}))
             object_identity_confirmed = (
                 object_objective
-                and self.object_interaction.mouseover_matches(
+                and self.object_interaction.quest_mouseover_matches(
                     self.object_interaction.expected_identity(obj),
-                    effective_mouseover(state)))
+                    effective_mouseover(state), state, getattr(record, 'quest_id', None)))
             reached_object_area = (
                 object_objective
                 and (self.reached_quest_locations.get(self.location_key(params))
                      == WorldModel.quest_signature(state)
                      or (located.status.value == "SEARCH_AREA"
                          and where.get("map_id") == state.get("map_id")
-                         and world.distance(where) is not None
-                         and world.distance(where) <= .003)))
+                         and world_arrived(world, where))))
             if object_identity_confirmed:
                 # QuestDomain will now emit OBJECT_USE from the same fresh
                 # addon mouseover/cursor sample. Do not obscure it with MOVE.
@@ -526,10 +585,20 @@ class QuestLocationPlanningPolicy:
             if reached_without_credit:
                 return self.travel_fallback.propose(obj, record, state, params)
             confidence, priority = obj.confidence, 40 if obj.optional else 45
+            if (where.get('knowledge_priority') == 'PRIMARY_STATIC'
+                    and not self.local_work_at_hand(obj, state)):
+                # An exact active-objective TDB route must win over the
+                # generic yellow-dot and background visual search proposals.
+                # Navigation still validates the mmap corridor, and arrival
+                # only starts live identity/credit verification.  It must
+                # never outrank work already at hand (live 2026-10-10: the
+                # selected Austin Huxworth was left for this MOVE instead of
+                # getting the First Aid Kit; a murloc TARGET was cancelled).
+                confidence, priority = .75, 96
             at_search_area = (located.status.value == "SEARCH_AREA"
                               and where.get("map_id") == state.get("map_id")
                               and not (state.get("target") or (state.get("mouseover") or {}).get("guid"))
-                              and (world.distance(where) is not None and world.distance(where) <= .003))
+                              and world_arrived(world, where))
             if at_search_area:
                 search_area = dict(learned_search_region or route_where or where)
                 return [Proposal.make(
@@ -618,9 +687,19 @@ class QuestLocationPlanningPolicy:
         candidates = minimap_objective_dots(state, turn_in_yards=self.DOT_TURN_IN_YARDS,
                                             association_yards=self.DOT_ASSOCIATION_YARDS)
         now = number(state.get("monotonic_time")) or 0.
+        dot_view = next((number(item.get("view_radius_yards")) for item in state.get("visual_candidates") or ()
+                         if isinstance(item, dict) and item.get("kind") == "minimap_quest_dot"), None)
         focus = self.dot_focus.select(state, candidates, x=px, y=py, now=now,
-                                      preferred_quest=preferred_quest)
+                                      preferred_quest=preferred_quest,
+                                      view_radius=dot_view or number(
+                                          (state.get("minimap_geometry") or {}).get("view_radius_yards")))
         if focus is None:
+            return None
+        # Once this dot has been reached, the bounded local search owns the
+        # area even if it temporarily moves outside the arrival radius.  A
+        # fresh MOVE here outranks SEEK and repeatedly drags the player back
+        # to the dot instead of letting the search finish (Hrun 2026-10-07).
+        if focus.search_started is not None:
             return None
         dx, dy, quest_key = focus.x, focus.y, focus.quest_id
         quest_id = next((quest.get("quest_id") for quest in open_quests

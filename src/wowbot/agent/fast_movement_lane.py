@@ -24,6 +24,37 @@ def advance_fast_movement(agent, payload: dict, now: float, movement_skills: set
         agent.command_dispatcher.stop_movement()
         return {"consumed": False, "force_medium": True,
                 "reason": "fast_control_safety_transition"}
+    # Issue #70: a fresh combat/death/ghost transition preempts the reach
+    # now instead of at the next medium tick (up to 1 s later). Movement that
+    # started inside combat or as a ghost (corpse run) is not a transition.
+    previous = agent.world.state
+    if (payload.get("is_dead") is True
+            or (payload.get("is_ghost") is True and previous.get("is_ghost") is not True)
+            or (payload.get("is_in_combat") is True
+                and previous.get("is_in_combat") is not True)):
+        agent.command_dispatcher.stop_movement()
+        return {"consumed": False, "force_medium": True,
+                "reason": "fast_combat_or_death_transition"}
+    if (payload.get("movement") or {}).get("falling") is True:
+        # A fresh FAST fall is a physical safety transition.  Do not wait for
+        # FALL_ENDED or the slower canonical tick while MOVEFORWARD is held.
+        # The medium tick may see only the landing: record the hazardous
+        # upper-route crossing from this exact FAST position before yielding.
+        agent.command_dispatcher.stop_movement()
+        state = {**agent.world.state}
+        for key in WorldAddonReducer.FAST_KEYS:
+            if key in payload:
+                state[key] = payload[key]
+        agent.navigation.observe(state, f"fast-fall:{now:.6f}", now, commanded=True)
+        return {"consumed": False, "force_medium": True,
+                "reason": "fast_fall_transition"}
+    if payload.get("quest_ui_open") is True or payload.get("gossip_open") is True:
+        # A FAST UI edge must release W before the paged detail state arrives.
+        # The medium lane then verifies the dialog and chooses its action.
+        agent.command_dispatcher.stop_movement()
+        agent.navigation.cancel_movement()
+        return {"consumed": False, "force_medium": True,
+                "reason": "fast_interaction_ui_opened"}
     # Live 2026-10-04 00:03: this lane consumes every FAST packet of an
     # active reach, so the world model saw no receive for 6 s, the freshness
     # gate suspended input, and it never recovered while packets kept
