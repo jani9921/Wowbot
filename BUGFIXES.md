@@ -13,6 +13,11 @@ a fájlból készül (`python tools/readme_changes.py`).
 
 ## 2026-10-11
 
+### Új funkciók / implementációk
+- 🧪 **TDB telepítési útmutató és konverter** (`docs/TDB_SETUP.md`, `tools/convert_tdb_mysql_to_sqlite.py`): az
+  adatbázis 655 MB, nem fér a repóba; a hivatalos TrinityCore TDB 1210.26091 kiadásból bárki elkészítheti.
+  A konverter az SQL-t nem futtatja, csak az értékeket tölti SQLite-ba.
+
 ### Bug fixes
 - 🧪 **Richterhez lassan jutott oda: hamis „túl messze”, aztán sétált a nyitott bolt mellett** (élő 15:50:51–15:52).
   - Az addon a „túl messze” hibaüzenetet még 3 s-ig küldi. A 15:51:14-es, valójában sikeres megszólítást (a bolt

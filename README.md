@@ -24,6 +24,10 @@ reading, injection or secret-value bypasses.
    The quest-text interpreter is on by default and simply stays idle while Ollama is not
    running; the older Ollama *planner* advisor stays off. Turn the interpreter off with
    `semantic.enabled: false` or `AIPC_SEMANTIC_ENABLED=0`.
+5. Recommended: the TrinityCore world database (TDB 1210.26091) as the agent's static world
+   memory (quest givers/enders, spawns, quest areas). It is not in the repository (655 MB as
+   SQLite): download the official release and convert it with
+   `tools/convert_tdb_mysql_to_sqlite.py` — step by step in [docs/TDB_SETUP.md](docs/TDB_SETUP.md).
 
 ## Run
 `START_AGENT.bat` (GUI) or `AUTO_START.bat`. See `HOW_TO_USE.md`.
@@ -70,7 +74,12 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-11</b> — 0 új funkció, 14 javítás</summary>
+<summary><b>2026-10-11</b> — 1 új funkció, 14 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **TDB telepítési útmutató és konverter** (`docs/TDB_SETUP.md`, `tools/convert_tdb_mysql_to_sqlite.py`): az
+  adatbázis 655 MB, nem fér a repóba; a hivatalos TrinityCore TDB 1210.26091 kiadásból bárki elkészítheti.
+  A konverter az SQL-t nem futtatja, csak az értékeket tölti SQLite-ba.
 
 #### Bug fixes
 - 🧪 **Richterhez lassan jutott oda: hamis „túl messze”, aztán sétált a nyitott bolt mellett** (élő 15:50:51–15:52).
@@ -878,6 +887,7 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 ## Not included
 - TensorRT engines (built per GPU by the wizard), training datasets and runs, personal agent
   memory and logs, the TrinityCore spawn catalog (`data/tdb_spawn_catalog.sqlite3`, optional).
+- The TDB world database itself (build it yourself: [docs/TDB_SETUP.md](docs/TDB_SETUP.md)).
 - Recast/Detour sources: a prebuilt `native/bin/aipc_detour.dll` is included; to rebuild it,
   clone https://github.com/recastnavigation/recastnavigation into `native/recastnavigation`
   and build `native/detour_shim` with CMake.
