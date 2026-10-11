@@ -19,6 +19,10 @@ a fájlból készül (`python tools/readme_changes.py`).
   A konverter az SQL-t nem futtatja, csak az értékeket tölti SQLite-ba.
 
 ### Bug fixes
+- 🧪 **#35: NPC-ablak nyitása/zárása nullázta a teljes látást** (élő 2026-10-11: kb. 40 reset 20 perc alatt, minden
+  quest-/gossip-ablaknál és térképnél). Minden reset után az NPC-k új track-azonosítóval tértek vissza (pl. Jaina
+  minden megszólítás után), a dobozok későn álltak vissza. A quest-/gossip-ablak már nem számít jelenetváltásnak:
+  a látás alatta megtartja a trackeket, bezárás után ugyanazzal az azonosítóval folytatja. A térkép továbbra is reset.
 - 🧪 **Richterhez lassan jutott oda: hamis „túl messze”, aztán sétált a nyitott bolt mellett** (élő 15:50:51–15:52).
   - Az addon a „túl messze” hibaüzenetet még 3 s-ig küldi. A 15:51:14-es, valójában sikeres megszólítást (a bolt
     megnyílt) az előző próbálkozás régi hibája miatt `out_of_range`-nek könyvelte, és közelítésbe, majd térképbe

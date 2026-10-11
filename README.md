@@ -62,11 +62,11 @@ Teljes lista: [KNOWN_ISSUES.md](KNOWN_ISSUES.md) (🔴 hiba · 🟠 gyenge pont 
 - 🔴 A gubókat és más quest-objektumokat (játékobjektumok) még nem nyitja ki.
 - 🔴 Kicsi NPC a képernyő szélén / felugró ablak alatt (pl. gnóm, kis kliensablakban): nem látja, és a kijelölt,
   de nem látott egységet nem keresi újra.
-- 🔴 A quest-zóna bejárása egyetlen útvonalat követ, nincs egységes zóna-térkép.
+- 🧪 A quest-zóna bejárása a TDB quest-POI poligonján kígyózó cellákkal megy (élőben részben igazolt); egységes zóna-térkép még nincs.
 - 🟠 Barlangon belüli indításkor az első szint-becslés a felső szintet választhatja.
 - 🟠 Kis kliensablakban a minimap szint-nyilai nem láthatók.
 - 🧪 Z resolver, esés-kezelés, gyorsabb kijelölés, quest-tárgy Interact Targettel: élő teszt kell.
-- 🔴 15 bukó teszt (régebbi elvárások, felülvizsgálandók).
+- 🧪 A 2026-10-11/12-i javítások (NPC-ablakok, térkép, kereskedő, esés, quest-sorrend, Re-Sizer, #35 látás-reset) élő tesztre várnak.
 
 ## Változások (bug fixes + implementációk)
 Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás és egy oldalon:
@@ -74,7 +74,7 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
-<summary><b>2026-10-11</b> — 1 új funkció, 14 javítás</summary>
+<summary><b>2026-10-11</b> — 1 új funkció, 15 javítás</summary>
 
 #### Új funkciók / implementációk
 - 🧪 **TDB telepítési útmutató és konverter** (`docs/TDB_SETUP.md`, `tools/convert_tdb_mysql_to_sqlite.py`): az
@@ -82,6 +82,10 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
   A konverter az SQL-t nem futtatja, csak az értékeket tölti SQLite-ba.
 
 #### Bug fixes
+- 🧪 **#35: NPC-ablak nyitása/zárása nullázta a teljes látást** (élő 2026-10-11: kb. 40 reset 20 perc alatt, minden
+  quest-/gossip-ablaknál és térképnél). Minden reset után az NPC-k új track-azonosítóval tértek vissza (pl. Jaina
+  minden megszólítás után), a dobozok későn álltak vissza. A quest-/gossip-ablak már nem számít jelenetváltásnak:
+  a látás alatta megtartja a trackeket, bezárás után ugyanazzal az azonosítóval folytatja. A térkép továbbra is reset.
 - 🧪 **Richterhez lassan jutott oda: hamis „túl messze”, aztán sétált a nyitott bolt mellett** (élő 15:50:51–15:52).
   - Az addon a „túl messze” hibaüzenetet még 3 s-ig küldi. A 15:51:14-es, valójában sikeres megszólítást (a bolt
     megnyílt) az előző próbálkozás régi hibája miatt `out_of_range`-nek könyvelte, és közelítésbe, majd térképbe

@@ -17,9 +17,15 @@ class PerceptionContextMixin:
         while HOVER moved the cursor, exactly when fast confirmation mattered.
         """
         geometry = geometry or {}
+        # Issue #35 (live 2026-10-11: ~40 full resets in 20 min, every NPC
+        # window open/close): a quest/gossip dialog covers part of the same
+        # 3D scene, it does not change it.  World3D V3 already freezes its
+        # trackers while the dialog is up (MODAL_UI), so the units keep their
+        # public IDs when it closes.  The World Map replaces the whole view
+        # and its own processor, so it still resets.
         stable_geometry = tuple((name, geometry.get(name)) for name in (
             "visible", "center_x", "center_y", "radius_fraction",
-            "world_map_open", "quest_ui_open", "gossip_open",
+            "world_map_open",
             # These alter projection/ROI semantics and must invalidate visual
             # tracks. Cursor/hover are deliberately absent: they are merely
             # active-perception hints and must not reset tracking.

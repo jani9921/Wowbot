@@ -138,6 +138,27 @@ def test_cursor_and_tooltip_probe_do_not_reset_perception_context():
         worker.close()
 
 
+def test_npc_dialog_does_not_reset_perception_context_but_world_map_does():
+    """Issue #35, live 2026-10-11: every quest/gossip window open and close
+    reset all visual tracking (~40 times in 20 min); units returned with new
+    track IDs after each NPC conversation."""
+    worker = PerceptionWorker()
+    try:
+        dimensions = (1177, 552)
+        context = ("session", "character", 1409, 0)
+        base = {"visible": True, "center_x": .9, "center_y": .15, "radius_fraction": .08,
+                "world_map_open": False, "quest_ui_open": False, "gossip_open": False}
+        closed = worker._stable_context_key(context, dimensions, True, base)
+        dialog = worker._stable_context_key(context, dimensions, True,
+                                            {**base, "quest_ui_open": True, "gossip_open": True})
+        world_map = worker._stable_context_key(context, dimensions, True,
+                                               {**base, "world_map_open": True})
+        assert closed == dialog
+        assert closed != world_map
+    finally:
+        worker.close()
+
+
 def test_stable_isolated_symbol_creates_subject_probe_not_symbol_hover():
     tracks = VisualTrackManager()
     symbol = {"kind": "unknown_symbol_candidate", "x": .5, "y": .8, "confidence": .8,

@@ -1,5 +1,16 @@
 # Live validation evidence and unresolved issues
 
+## 2026-10-11 run 153535 — issue #35: full vision reset on every NPC dialog (fix offline-tested only)
+
+- Evidence from the `context_resets` / `context_reset_last` fields in `live-debug-20261011-153535*.jsonl`: from 15:36:59 to 15:55:45 the counter went from 3 to 40. Every reset was `quest_ui_open` False↔True or `world_map_open` False↔True.
+- What each reset discarded: the WorldCandidateTracker, World3D V3, the World3D pipeline and the VisualTrackManager. Every unit therefore restarted with a new public track ID. This matches #35, where Jaina returned with a different ID and the boxes came back late.
+- Fix:
+  - `quest_ui_open`/`gossip_open` were removed from `_stable_context_key`.
+  - Under a modal dialog, V3 returns only the dialog ROI candidate and leaves its detector/fast trackers untouched (MODAL_UI branch). The VisualTrackManager re-identifies lost tracks within 12 s, which covers a dialog.
+  - `world_map_open`, UI scale, camera zoom and vehicle camera still reset.
+- Test: `test_npc_dialog_does_not_reset_perception_context_but_world_map_does`.
+- Not live-validated. Next run: check that the counter no longer rises on NPC dialogs and that a talked-to NPC keeps its track ID. #69 (stale WORLD3D boxes after a worker error) is still open.
+
 ## 2026-10-11 15:51-15:52 (same user run) — vendor open, visual search won (fix offline-tested only)
 
 - Evidence: Richter's shop opened at about 15:51:14, the SELL came at 15:52:00 and the BUY at 15:52:18.

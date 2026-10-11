@@ -1,6 +1,6 @@
 # Ismert hibák és gyenge pontok
 
-Állapot: 2026-10-07. A **nyitott/lezárt feladatok hiteles állapota** a
+Állapot: 2026-10-12. A **nyitott/lezárt feladatok hiteles állapota** a
 [GitHub Issues](https://github.com/jani9921/Wowbot/issues) oldalon van. Az alábbi
 részletes megfigyelések a 2026-10-06-i élő tesztek pillanatképét őrzik; nem
 helyettesítik az issue-k aktuális státuszát. Forrás:
@@ -38,18 +38,43 @@ elfogadási feltétel kell; a részletes futási bizonyíték továbbra is a
 
 ---
 
-## ⚠️ Nyitott a beolvasztás után (2026-10-10)
+## ⚠️ Nyitott (2026-10-12)
 
-- **Leadás/felvétel közben felesleges INSPECT:** a ChatGPT-s változat egy kész quest leadási pontjától 20 yd-on belül
-  az INSPECT-et 100-as prioritásra emeli (`visual_inspection_planning._near_completed_turnin`). Élőben ellenőrizni
-  0.9.63-mal (a maszk-javítás után a hover-találat jobb lehet); ha marad, visszavenni.
-- **SEEK körbe-körbe MOVE közben:** a TDB-ből jövő sok új MOVE („Quest objective graph következő elérhető helye”)
-  mind kap „Támogatott útvonal-átmenet” SEEK-et (visszajátszás 10-08 16:10: 13 vs 9 a régi kódban).
-- **Alap skill-tesztek (felhasználó kérése):** a meglévő zárt hurkú tesztek (szimulált quest, offline quest,
-  megérkezés, keresés) újra zöldek és védenek. A felvett telemetria ~1,5 Hz-es, ezért a VISUAL_APPROACH megállási
-  pontjára és az INSPECT-hover sikerére valódi felvételből nem lehet tesztet vágni; ehhez sűrűbb rögzítés vagy
-  egy szimulált doboz-növekedési teszt kell — még nincs meg.
-- **A tanuló világmemória élőben még nincs igazolva** (offline: 6 teszt + valódi TDB és profil-másolat).
+### 🧪 Kész, de élőben még nem igazolt (2026-10-11/12)
+- **Esés-kezelés:** rövid lelépés/ugrás (2 s alatt) nem állítja le a MOVE-ot; a veszélyzóna nem blokkol, ha a
+  karakter ugyanazon a szinten benne áll.
+- **NPC-ablakok:** két quest egy ablakban (a sorok már nem vesznek el); leadás után ugyanannak az NPC-nek
+  újra szól a folytatásért; üres ablak 6 s után ESC-vel bezárul. Figyelni: ESC nyitott ablak nélkül a
+  játékmenüt hozná fel (a kiadás előtt újraellenőrzi, a UI_UNKNOWN védelem megállítja).
+- **Térkép:** nem nyílik, ha ismert a quest helye, közvetlenül leadás/felvétel után, járműben, és nyitott
+  quest-/kereskedőablak fölött.
+- **Kereskedő:** nyitott boltnál csak vásárlás/eladás fut; a régi „túl messze” hibaüzenet nem buktat meg
+  egy sikeres megszólítást.
+- **Quest-sorrend:** szomszédos nyitott quest előbb kész, mint a leadás (halasztás 220 yd-ig); a kész quest
+  leadási nyila nem téveszthető a nyitott quest céljával.
+- **Re-Sizer / tárgyhasználat lényen:** a zóna-bejárás megáll a megnevezett lénynél, messziről előbb odamegy,
+  az átváltozó célpont nem számít hibának; a TDB a szövegben megnevezett lény spawnjait adja helyként.
+- **Leadó NPC:** a kijelölt leadó megszólítása megelőzi a körülötte való keresést; a tanult leadóhely a TDB
+  magasságát kapja (Bjorn a bánya fölött).
+- **Látás (#35):** NPC-ablak nyitása/zárása már nem nulláz minden trackert (eddig ~40-szer 20 perc alatt).
+- **Tanuló világmemória:** élőben ír (pl. Austin Huxworth felvevő/leadó), a visszaolvasás hatása még nincs
+  élőben mérve.
+
+### Nyitott, nem javított
+- **Lassú NPC-megközelítés:** Richternél az első megszólítás „túl messze”, utána közelítés; a megállási pont
+  (VISUAL_APPROACH) és az INSPECT-hover pontosságára nincs valódi felvételből vágott teszt (a telemetria
+  ~1,5 Hz-es).
+- **Felesleges újra-megszólítás** quest elfogadása után (pl. Jaina 15:46:59), kb. 1 s veszteség.
+- **SEEK körbe-körbe MOVE közben:** a sok TDB-ből jövő MOVE mind kap „Támogatott útvonal-átmenet” SEEK-et.
+- **Leadás/felvétel közben felesleges INSPECT:** a munkapéldány kész quest leadási pontjától 20 yd-on belül
+  az INSPECT-et 100-as prioritásra emeli (`visual_inspection_planning._near_completed_turnin`); élőben
+  ellenőrizni, ha marad, visszavenni.
+- **Ellentmondó leadó/felvevő:** Stocking Up on Supplies (55194) a tanult memória szerint Captain Garrick,
+  a TDB szerint Lady Jaina; Finding the Lost Expedition (54952) leadója tanult: Captain Garrick, TDB: Alaria.
+- **[#36](https://github.com/jani9921/Wowbot/issues/36):** a `VehicleSkill` osztály holt kód; a járművek a
+  `VEHICLE_ABILITY`/`EXIT_VEHICLE` úton működnek. Javaslat: a holt osztály törlése + integrációs teszt.
+- **A próbaidő (`--trial-seconds`) a felfüggesztett időt is számolja** (pl. UI_UNKNOWN, fókuszvesztés).
+- **A TDB nincs a repóban** (655 MB): [docs/TDB_SETUP.md](docs/TDB_SETUP.md) szerint kell elkészíteni.
 
 ## ⚠️ Átnézendő: Z resolver és a barlangos (többszintes) quest — működik, de nincs kész
 
