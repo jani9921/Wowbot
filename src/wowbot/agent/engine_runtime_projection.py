@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable
 
+from wowbot.query_ports import TravelCostPort
 from wowbot.runtime import RuntimeEvent
 
 
@@ -121,24 +122,63 @@ def mouseover_named_by_open_objective(state: dict[str, Any]) -> bool:
     which would select her, never ran.
     """
     mouse = state.get("mouseover") or {}
-    if (mouse.get("is_player") is True or mouse.get("dead", mouse.get("is_dead"))
+    from .target_planning import is_player_unit, TARGET_HANDOFF_MAX_SAMPLE_AGE_SECONDS
+    if (is_player_unit(mouse, state) or mouse.get("dead") is True or mouse.get("is_dead") is True
+            or number(mouse.get("health")) == 0
             or str(mouse.get("guid") or "") == str((state.get("target") or {}).get("guid") or "")):
+        return False
+    if (state.get("map_mouseover") or {}).get("surface") in {"MINIMAP", "WORLD_MAP"}:
         return False
     now, sample = number(state.get("monotonic_time")), number(state.get("mouseover_sample_time"))
     if now is not None and sample is not None and not 0 <= now-sample <= OBJECTIVE_HOVER_MAX_AGE_SECONDS:
         return False
+    if mouse.get("attackable", mouse.get("is_attackable")) is True:
+        # Yield only to a hover the TARGET policy can actually consume. A
+        # fresh GUID paired with an older/moved cursor is not a click point.
+        cursor = state.get("cursor_position") or {}
+        cursor_at = number(state.get("cursor_sample_time"))
+        target = state.get("target") or {}
+        if (state.get("is_in_combat")
+                or (mouse.get("npc_id") is None
+                    and str(mouse.get("unit_type") or "").upper() not in {"NPC", "CREATURE"})
+                or (target.get("attackable", target.get("is_attackable")) is True
+                    and target.get("dead") is not True and target.get("is_dead") is not True)
+                or None in (now, sample, cursor_at, number(cursor.get("nx")), number(cursor.get("ny")))
+                or not 0 <= now-sample <= TARGET_HANDOFF_MAX_SAMPLE_AGE_SECONDS
+                or not 0 <= now-cursor_at <= TARGET_HANDOFF_MAX_SAMPLE_AGE_SECONDS
+                or abs(sample-cursor_at) > .05):
+            return False
     return _named_by_open_objective(state, mouse)
 
 
 def _named_by_open_objective(state: dict[str, Any], unit: dict[str, Any]) -> bool:
+    from .quest_semantics import target_matches_objective, target_matches_structured_entity
+    from .target_planning import is_player_unit, tooltip_names_active_quest
+    from .tooltip_quest import creature_tooltip_open, tooltip_objectives_done
     name = str(unit.get("name") or "").strip().casefold()
-    if not unit.get("guid") or not name:
+    if (not unit.get("guid") or not name or is_player_unit(unit, state)
+            or unit.get("dead") is True or unit.get("is_dead") is True
+            or number(unit.get("health")) == 0):
         return False
+    objectives = [objective for quest in state.get("active_quests") or ()
+                  if isinstance(quest, dict) and quest.get("is_complete") is not True
+                  for objective in quest.get("objectives") or ()
+                  if isinstance(objective, dict) and not objective.get("is_complete")
+                  and not (number(objective.get("required")) is not None
+                           and number(objective.get("current")) is not None
+                           and number(objective["current"]) >= number(objective["required"]))]
+    if unit.get("attackable", unit.get("is_attackable")) is True:
+        # Use the same generic combat-subject/tooltip evidence as TARGET.
+        # "defeated Murlocs" legitimately names Murloc Watershaper, without
+        # inventing named identity from a detector box or a quest-ID hotfix.
+        return bool(objectives) and ((unit.get("quest_related") is True
+                                     and not tooltip_objectives_done(unit)
+                                     and creature_tooltip_open(unit, state))
+            or tooltip_names_active_quest(unit, state) or any(
+            target_matches_structured_entity(unit, objective.get("target_entity"))
+            or target_matches_objective(unit, objective) for objective in objectives))
     return any(name in str(objective.get("description") or "").casefold()
-               for quest in state.get("active_quests") or ()
-               if isinstance(quest, dict) and quest.get("is_complete") is not True
-               for objective in quest.get("objectives") or ()
-               if isinstance(objective, dict) and not objective.get("is_complete"))
+               for objective in objectives)
 
 
 def quest_zone_entered(params: dict, world_state: dict[str, Any]) -> dict[str, Any] | None:
@@ -185,20 +225,72 @@ def quest_zone_entered(params: dict, world_state: dict[str, Any]) -> dict[str, A
             "evidence": "MINIMAP_BLUE_AREA"}
 
 
-def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str, Any] | None:
+def movement_visual_interrupt(attempt, world_state: dict[str, Any], *,
+                              object_at_hand=None, object_handoff=None, identity_only: bool = False,
+                              skip_track_ids: frozenset[str] = frozenset(),
+                              travel_cost: TravelCostPort | None = None) -> dict[str, Any] | None:
     """Return one goal-relevant visual handoff observed during navigation.
 
     Perception remains passive while NavigationService owns MOVE.  This gate
     does not issue input or recognize an entity: it only selects a stable
     UNKNOWN track that is worth handing to INSPECT/SEEK_VISUAL_CUE.  Generic
     scenery therefore cannot continuously preempt a committed route.
+
+    ``object_at_hand(quest_id)`` answers whether an unspent quest object with
+    a known spawn is near on the player's floor (None: unknown).
+    ``object_handoff(params)`` stops a walk to one quest object for another
+    one passed on the way, a spent target or a certified hovered one.
     """
     if attempt is None:
         return None
     params = attempt.proposal.parameters
     if attempt.proposal.skill not in {"MOVE", "REACH_LOCATION", "REACH_OBJECT"}:
         return None
+    from .vehicle_prerequisites import movement_interrupt as vehicle_prerequisite_interrupt
+    vehicle_handoff = vehicle_prerequisite_interrupt(params, world_state)
+    if vehicle_handoff is not None:
+        return vehicle_handoff
+    if params.get("purpose") != "SCENE_COURSE":
+        # Live 2026-10-25 21:05:56: the Skytop race scene started while a walk
+        # to a quest NPC held the attempt; the timed course waited 15 s.
+        from wowbot.quests.scene_path_planning import active_scene_course
+        if active_scene_course(world_state)[0] is not None:
+            return {"reason": "scene_course_started", "kind": "SCENE_COURSE_STARTED"}
+    from .server_mode import server_mode_selected
+    server_mode = server_mode_selected(world_state)
+    from .vehicle_abilities import stationary_vehicle_controls
+    if stationary_vehicle_controls(world_state):
+        return {"reason": "vehicle_quest_controls_own_input", "kind": "VEHICLE_QUEST_CONTROLS"}
+    from .rescue_object_planning import (open_rescue_entries, rescue_soft_target,
+                                        rescue_interaction_in_range, RescueTargetPolicy)
+    rescue = rescue_soft_target(world_state)
+    target = world_state.get("target") or {}
+    if rescue is None and target.get("interact_near") is True and target.get("guid"):
+        entries = open_rescue_entries(world_state)
+        if (str(target.get("npc_id")) in entries
+                and rescue_interaction_in_range(world_state, target["guid"]) is not False):
+            rescue = {"guid": target["guid"], "quest_id": entries[str(target["npc_id"])]}
+    if rescue is not None:
+        # Live 2026-10-21 10:34:42: a rescue NPC on a circling drake is the
+        # soft-interact unit only for a moment; stop and press Interact.
+        return {"reason": "rescue_npc_soft_interact", "kind": "RESCUE_NPC_SOFT_INTERACT",
+                "guid": rescue["guid"], "quest_id": rescue["quest_id"]}
     purpose = str(params.get("purpose") or "")
+    if purpose == "SEARCH_QUEST_ITEM_SUBJECT":
+        from .quest_item_search import search_actor_available
+        guid = search_actor_available(params, world_state)
+        if guid is not None:
+            return {"reason": "server_item_subject_available", "kind": "SERVER_ITEM_SUBJECT_AVAILABLE",
+                    "guid": guid, "quest_id": params.get("quest_id")}
+    if purpose == "SEARCH_RESCUE_OBJECTIVE":
+        actor = RescueTargetPolicy._direct_credit_approach(world_state, open_rescue_entries(world_state))
+        if actor is not None:
+            return {"reason": "server_rescue_entity_available", "kind": "SERVER_RESCUE_ENTITY_AVAILABLE",
+                    "guid": actor.parameters["server_entity_guid"], "quest_id": params.get("quest_id")}
+    if purpose == "APPROACH_QUEST_OBJECT_SPAWN" and object_handoff is not None and not identity_only:
+        handoff = object_handoff(params)
+        if handoff:
+            return handoff
     if (purpose in {"LOCATE_TURN_IN_REGION", "SEARCH_TURN_IN_AREA"}
             and params.get("quest_id") is not None
             and isinstance(world_state.get("active_quests"), list)
@@ -208,14 +300,67 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         # Live 2026-10-11 15:54: the turn-in MOVE chosen a moment before the
         # Hjalmar turn-in landed kept walking away for 35 s afterwards.
         return {"reason": "turn_in_quest_left_log", "kind": "QUEST_LEFT_LOG"}
+    if (purpose == "LOCATE_QUEST_OBJECTIVE_REGION" and params.get("quest_id") is not None
+            and world_state.get("packet_entities")):
+        # A running POI search yields to the objective's NPC as soon as the
+        # server sends it (live 2026-10-28 10:53: Left and Right 12 yd away).
+        from .server_npc_planning import objective_npc_available
+        guid = objective_npc_available(world_state, params["quest_id"],
+                                       since=number(getattr(attempt, "started_at", None)),
+                                       travel_cost=travel_cost)
+        if guid is not None:
+            return {"reason": "server_objective_npc_available", "kind": "SERVER_OBJECTIVE_NPC_AVAILABLE",
+                    "quest_id": params["quest_id"], "guid": guid}
     if purpose == "APPROACH_SELECTED_TARGET":
         target = world_state.get("target") or {}
         if str(target.get("guid") or "") != str(params.get("target_guid") or ""):
             return {"reason": "selected_target_changed", "kind": "SELECTED_TARGET_CHANGED"}
-        if target.get("screen_position"):
+        if target.get("screen_position") and not server_mode:
             # In view: visual approach / COMBAT / INTERACT take over.
             return {"reason": "selected_target_on_screen", "kind": "SELECTED_TARGET_ON_SCREEN"}
         return None
+    if purpose in {"LOCATE_TURN_IN_REGION", "SEARCH_TURN_IN_AREA"} and params.get("quest_id") is not None:
+        from .turnin_resolver import TurnInResolver
+        ender = TurnInResolver.server_ender(params["quest_id"], world_state)
+        if ender is not None:
+            from .server_npc_planning import server_npc_interaction_ready
+            if server_npc_interaction_ready(world_state, ender["server_entity_guid"], ender):
+                return {"reason": "server_turn_in_interaction_ready", "kind": "SERVER_TURN_IN_INTERACTION_READY",
+                        "quest_id": params["quest_id"], "guid": ender["server_entity_guid"]}
+            same_guid = str(params.get("server_entity_guid") or "") == str(ender["server_entity_guid"])
+            dx, dy = number(params.get("x")), number(params.get("y"))
+            # Live 2026-10-25 10:57:25-10:58:49: a running ender drifted past
+            # 2 yd every second and the walk restarted 30 times.  The tolerance
+            # grows with the remaining distance; close by it stays 2 yd.
+            player = world_state.get("player_world_position") or {}
+            px, py = number(player.get("x")), number(player.get("y"))
+            remaining = (math.hypot(dx-px, dy-py)
+                         if None not in (dx, dy, px, py) else 0.)
+            same_point = (dx is not None and dy is not None
+                          and math.hypot(ender["x"]-dx, ender["y"]-dy) <= max(2., min(15., .25*remaining)))
+            if params.get("knowledge_priority") != "SERVER_LIVE" or not same_guid or not same_point:
+                # A running POI route yields to the matching server ender as
+                # soon as its create/status event is fused. This is a replan,
+                # not arrival, a click or a second navigation controller.
+                return {"reason": "server_turn_in_entity_available", "kind": "SERVER_TURN_IN_ENTITY_AVAILABLE",
+                        "quest_id": params["quest_id"], "guid": ender["server_entity_guid"]}
+        if params.get("knowledge_priority") == "SERVER_LIVE":
+            # The server route owns localisation all the way to F7 readiness;
+            # visual boxes / marker IDs cannot steal it, even near the NPC.
+            return None
+        from .quest_poi_evidence import current_turnin_poi
+        poi = current_turnin_poi(world_state, params['quest_id'])
+        if poi is not None:
+            x, y, z = (number(params.get(axis)) for axis in ('x','y','z'))
+            same = (x is not None and y is not None
+                    and math.hypot(poi['x']-x, poi['y']-y) <= 2.
+                    and (not poi.get('z_known') or params.get('z_known') is True
+                         and z is not None and abs(poi['z']-z) <= 2.))
+            if params.get('knowledge_priority') != poi.get('knowledge_priority') or not same:
+                packet = poi.get('knowledge_priority') == 'SERVER_POI'
+                return {'reason': 'server_turn_in_poi_available' if packet else 'quest_api_turn_in_poi_available',
+                        'kind': 'SERVER_TURN_IN_POI_AVAILABLE' if packet else 'QUEST_API_TURN_IN_POI_AVAILABLE',
+                        'quest_id': params['quest_id']}
     if purpose == "APPROACH_MINIMAP_QUEST_DOT" and target_named_by_open_objective(world_state):
         # Live 2026-10-04 00:48: Captain Garrick was selected but the dot
         # MOVE kept walking into him and he pushed the player back; the
@@ -232,8 +377,33 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
     }
     if not (reference_reach or quest_route or purpose == "APPROACH_MINIMAP_QUEST_DOT"):
         return None
-    if mouseover_named_by_open_objective(world_state):
+    if not server_mode and mouseover_named_by_open_objective(world_state):
         return {"reason": "objective_unit_under_cursor", "kind": "OBJECTIVE_UNIT_HOVERED"}
+    # A cue cooldown is only about UNKNOWN visual evidence. A fresh public
+    # ID for this route's giver/ender must still yield navigation immediately.
+    # This requests a canonical TARGET; it never clicks or proves arrival.
+    now = number(world_state.get("monotonic_time"))
+    mouse = world_state.get("mouseover") or {}
+    if not server_mode and purpose in {"LOCATE_TURN_IN_REGION", "SEARCH_TURN_IN_AREA",
+                                      "LOCATE_API_QUEST_GIVER", "FIND_QUEST_GIVER_AREA"}:
+        from wowbot.runtime.entity_identity import check_entity_identity
+        from wowbot.runtime.skill_identity import sample_fresh
+        expected_ids = list(params.get("npc_ids") or ())
+        if params.get("npc_id") is not None:
+            expected_ids.append(params["npc_id"])
+        guid = params.get("target_guid") or params.get("guid")
+        if (now is not None and mouse.get("guid") and mouse.get("is_player") is not True
+                and mouse.get("attackable", mouse.get("is_attackable")) is False
+                and number(world_state.get("mouseover_sample_time")) is not None
+                and sample_fresh(world_state, "mouseover", now, max_age=.75)
+                and any(check_entity_identity(
+                    {"npc_id": npc_id, **({"guid": guid} if guid else {})}, mouse)
+                        for npc_id in expected_ids)):
+            return {"reason": "route_npc_identity_observed", "kind": "QUEST_ROUTE_NPC_HOVERED",
+                    "guid": mouse["guid"], "npc_id": mouse.get("npc_id"),
+                    "track_id": mouse.get("track_id")}
+    if identity_only:
+        return None
     if params.get('knowledge_priority') == 'PRIMARY_STATIC' and quest_route:
         # A generic YOLO object/UNKNOWN is not proof that the TDB destination
         # has been reached. The old handoff interrupted MOVE every time a
@@ -249,16 +419,20 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         if not near_endpoint:
             return None
     from .object_interaction_flow import open_object_objective, quest_object_candidates
-    if (open_object_objective(world_state, params.get("quest_id"))
+    if (not server_mode and open_object_objective(world_state, params.get("quest_id"))
             and (quest_object_candidates(world_state)
                  or any(isinstance(target, dict) and target.get("unit_type") == "GAMEOBJECT"
-                        for target in world_state.get("soft_targets") or ()))):
+                        for target in world_state.get("soft_targets") or ()))
+            # Live 2026-10-14 14:07:18-14:08:36: cocoons on other floors /
+            # one already tried stopped every floor-walk MOVE at once; the
+            # agent stood a minute on one spot.
+            and (object_at_hand is None or object_at_hand(params.get("quest_id")) is not False)):
         # User 2026-10-06: the sweep walked past two cocoons the learned
         # detector saw.  The planner walks to the object and uses it.
         return {"reason": "quest_object_visible", "kind": "QUEST_OBJECT_VISIBLE"}
     if not (reference_reach or quest_route):
         return None
-    if purpose == "LOCATE_QUEST_OBJECTIVE_REGION":
+    if not server_mode and purpose == "LOCATE_QUEST_OBJECTIVE_REGION":
         entered = quest_zone_entered(params, world_state)
         if entered is not None:
             return entered
@@ -266,12 +440,15 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
     expected = {str(value) for value in params.get("npc_ids", []) if value is not None}
     if params.get("npc_id") is not None:
         expected.add(str(params["npc_id"]))
-    if (reference_reach and mouse.get("guid") and mouse.get("is_player") is not True
+    if (not server_mode and reference_reach and mouse.get("guid") and mouse.get("is_player") is not True
             and mouse.get("attackable", mouse.get("is_attackable")) is False
             and (not expected or str(mouse.get("npc_id")) in expected)):
         return {"reason": "live_reference_identity_observed",
                 "kind": "REFERENCE_IDENTITY", "track_id": mouse.get("track_id")}
-    now = number(world_state.get("monotonic_time"))
+    if server_mode:
+        # Server mode (user 2026-10-21): an unidentified World3D box never
+        # stops a route while the server shows what is around.
+        return None
     objective_type = str(params.get("objective_type") or "").upper()
     position = (world_state.get("player_world_position")
                 if isinstance(world_state.get("player_world_position"), dict) else {})
@@ -293,6 +470,8 @@ def movement_visual_interrupt(attempt, world_state: dict[str, Any]) -> dict[str,
         tuple[float, float, float], dict[str, Any], set[str], float, int
     ] | None = None
     for candidate in world_state.get("visual_candidates", []):
+        if str(candidate.get("track_id")) in skip_track_ids:
+            continue
         lifecycle = str(candidate.get("lifecycle") or candidate.get("track_state") or "").upper()
         from .self_avatar import is_self_avatar_box
         if (candidate.get("source") != "WORLD3D"

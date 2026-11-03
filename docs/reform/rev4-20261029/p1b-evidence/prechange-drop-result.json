@@ -1,0 +1,16 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-p1b-20261029\\pytest-prechange-drop",
+    "tests/test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index"
+  ],
+  "cwd": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-p1b-20261029\\prechange-check",
+  "returncode": 1
+}

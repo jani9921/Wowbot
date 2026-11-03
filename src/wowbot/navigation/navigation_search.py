@@ -16,6 +16,11 @@ class NavigationSearchMixin:
         ``now`` may be the addon sample clock (GetTime), which runs slightly
         behind the agent clock of the fix: freshness is a symmetric window.
         """
+        measured, sampled = number(position.get("z")), number(position.get("sample_time"))
+        if (position.get("z_observed") is True and position.get("z_known") is not False
+                and measured is not None and math.isfinite(measured)
+                and now is not None and sampled is not None and abs(now-sampled) <= 3.):
+            return measured
         layer = getattr(getattr(self, "_z", None), "player", None)
         px, py = number(position.get("x")), number(position.get("y"))
         if (layer is None or layer.confidence < .7 or px is None or py is None
@@ -123,6 +128,12 @@ class NavigationSearchMixin:
         return self._routes.observe_failed_move(before, after, destination, observation_id, now)
 
     def observe_topology(self, state: dict, observation_id: str, now: float) -> list[dict]:
+        geometry = getattr(self, "_navmesh", None)
+        if callable(getattr(geometry, "set_server_map", None)):
+            # Route on the server's cosmetic map (narrative citadel 2534).
+            position = state.get("player_world_position") or {}
+            geometry.set_server_map(position.get("instance_id"),
+                                    (state.get("packet_server_map") or {}).get("map_id"))
         tracker = getattr(self, "track_player_layer", None)
         if callable(tracker):
             tracker(state, now)

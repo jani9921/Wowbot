@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from wowbot.runtime import FailureReason, VerificationResult
+from .quest import QuestProgressVerifier
+from wowbot.agent.quest_ui_evidence import dialog_recipient
 
 
 def _sequence(value) -> float | None:
@@ -42,7 +44,8 @@ class QuestDialogVerifier:
     def evaluate(self, before: dict, after: dict, *, quest_id: object | None,
                  action: str, reward_choice_index: object | None = None,
                  target_guid: object | None = None,
-                 gossip_option_id: object | None = None) -> VerificationResult:
+                 gossip_option_id: object | None = None,
+                 gossip_transition: str = "SCRIPTED_COMBAT") -> VerificationResult:
         wanted = str(quest_id) if quest_id is not None else None
         events = _events_after_baseline(before, after)
         matching = {
@@ -56,15 +59,58 @@ class QuestDialogVerifier:
                    if isinstance(row, dict) and row.get("quest_id") is not None}
         old_accepted = {str(value) for value in before.get("accepted_quest_ids") or ()}
         new_accepted = {str(value) for value in after.get("accepted_quest_ids") or ()}
+        if action == "GOSSIP_VENDOR":
+            # The vendor row opened the shop.
+            opened = ((after.get("vendor_ui") or {}).get("open") is True
+                      and (before.get("vendor_ui") or {}).get("open") is not True)
+            return VerificationResult(opened, .95 if opened else 0., None,
+                                      (f"gossip_vendor_opened:{gossip_option_id}",) if opened else ())
         if action == "GOSSIP_OPTION_SELECT":
-            old_target, new_target = before.get("target") or {}, after.get("target") or {}
-            if (not target_guid or str(old_target.get("guid") or "") != str(target_guid)
-                    or str(new_target.get("guid") or "") != str(target_guid)):
+            old_target, new_target = dialog_recipient(before), after.get("target") or {}
+            if not target_guid or str(old_target.get("guid") or "") != str(target_guid):
                 return VerificationResult(False, 0., FailureReason.WRONG_QUEST_UI)
             old_ui, new_ui = before.get("quest_ui") or {}, after.get("quest_ui") or {}
             old_option = old_ui.get("gossip_option") or before.get("quest_ui_gossip_option") or {}
-            if str(old_option.get("id")) != str(gossip_option_id):
+            listed = any(isinstance(row, dict) and str(row.get("id")) == str(gossip_option_id)
+                         for row in old_ui.get("gossip_options") or ())
+            if str(old_option.get("id")) != str(gossip_option_id) and not listed:
                 return VerificationResult(False, 0., FailureReason.WRONG_QUEST_UI)
+            if gossip_transition == "SCENE_START":
+                # A course started again (2026-10-25, the Skytop race): a new
+                # scene runs, or the start line roots the rider.
+                old_scene, new_scene = before.get("packet_scene") or {}, after.get("packet_scene") or {}
+                old_root, new_root = before.get("movement_rooted") or {}, after.get("movement_rooted") or {}
+                started = (new_scene.get("active") is True
+                           and new_scene.get("scene_instance_id") != old_scene.get("scene_instance_id"))
+                rooted = (new_root.get("rooted") is True
+                          and (new_root.get("sampled_at") or 0) > (old_root.get("sampled_at") or 0))
+                return VerificationResult(started or rooted, .95 if started or rooted else 0., None,
+                                          (f"scene_course_restarted:{gossip_option_id}",) if started or rooted else ())
+            objective_ids = []
+            for quest in before.get("active_quests") or ():
+                if str(quest.get("quest_id")) == wanted:
+                    for index, objective in enumerate(quest.get("objectives") or ()):
+                        oid = str(objective.get("objective_id") or index)
+                        objective_ids.append(oid if oid.startswith(f"{wanted}:") else f"{wanted}:{oid}")
+            progress = QuestProgressVerifier().evaluate(
+                before, {**after, "events": events}, quest_ids=[wanted], objective_ids=objective_ids)
+            if progress.success:
+                return VerificationResult(True, .98, None,
+                    (f"gossip_option_advanced:{wanted}:{gossip_option_id}", *progress.evidence))
+            if gossip_transition == "QUEST_PROGRESS":
+                # A transformation/conversation is not a scripted duel. An
+                # unrelated mob starting combat cannot confirm this choice.
+                # A script may also replace/clear the NPC's spawn GUID before
+                # delayed credit arrives (live 2026-10-15). This is only a
+                # no-input WAIT: never rebind identity, click or retarget the
+                # replacement. Only this quest's credit (above) or the skill
+                # deadline may end it.
+                return VerificationResult(False, 0., None)
+            if str(new_target.get("guid") or "") != str(target_guid):
+                # A duel script may clear selection before attackability is
+                # reported. Keep a bounded no-input wait; a different GUID
+                # never inherits this NPC's identity or confirms the choice.
+                return VerificationResult(False, 0., FailureReason.WRONG_QUEST_UI if new_target.get("guid") else None)
             # A click alone is not completion. For this scripted-fight dialogue,
             # wait for the same NPC to become attackable or for combat to start.
             transitioned = (new_target.get("attackable", new_target.get("is_attackable")) is True
@@ -85,9 +131,10 @@ class QuestDialogVerifier:
             # presents a subsequent, explicitly named action for the exact
             # same quest.  A UI close, unrelated row, or merely changed pixels
             # is not sufficient evidence.
-            selected = (observed_action in {"ACCEPT", "COMPLETE", "TURN_IN", "CONTINUE"}
+            known_quest = observed_quest not in (None, "", 0, "0", False)
+            selected = (known_quest and observed_action in {"ACCEPT", "COMPLETE", "TURN_IN", "CONTINUE"}
                         and wanted is not None and str(observed_quest) == wanted)
-            wrong_quest = observed_quest is not None and wanted is not None and str(observed_quest) != wanted
+            wrong_quest = known_quest and wanted is not None and str(observed_quest) != wanted
             return VerificationResult(selected, .95 if selected else .0,
                                       FailureReason.WRONG_QUEST_UI if wrong_quest else None,
                                       (f"gossip_selected:{wanted}",) if selected else ())
@@ -113,9 +160,13 @@ class QuestDialogVerifier:
             return VerificationResult(accepted, .98 if accepted else .0, None,
                                       (f"quest_accepted:{wanted}",) if accepted else ())
         if action in {"COMPLETE", "TURN_IN"}:
-            complete = "QUEST_TURNED_IN" in matching
+            from wowbot.agent.quest_receipts import fresh_turn_in_receipt
+            receipt = fresh_turn_in_receipt(before, after, wanted)
+            complete = "QUEST_TURNED_IN" in matching or receipt is not None
             return VerificationResult(complete, .98 if complete else .0, None,
-                                      (f"quest_turned_in:{wanted}",) if complete else ())
+                                      ((f"quest_turned_in:{wanted}",)
+                                       + ((f"turn_in_receipt:{receipt['sequence']}",) if receipt else ()))
+                                      if complete else ())
         if action == "CONTINUE":
             old_ui, new_ui = before.get("quest_ui") or {}, after.get("quest_ui") or {}
             changed = (new_ui.get("open") is not True

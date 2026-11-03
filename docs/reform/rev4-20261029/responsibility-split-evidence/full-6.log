@@ -1,0 +1,486 @@
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+.........................................................FF............. [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+...........................F............................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+............FF.......................................................... [ 35%]
+..............................................F......................... [ 37%]
+.................................................F...................... [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+.........................s...................s.......................... [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+.............................................................s.......... [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+.........................................FF............................. [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+..............................................F.....F................... [ 74%]
+........................................................................ [ 75%]
+.....................................F...F.............................. [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+F...F...F............................................................... [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+.....s.......................................................s.......... [ 98%]
+........................................................................ [ 99%]
+.....                                                                    [100%]
+================================== FAILURES ===================================
+_ test_exact_special_item_on_selected_target_uses_interact_before_the_bag_slot _
+
+    def test_exact_special_item_on_selected_target_uses_interact_before_the_bag_slot():
+        # User 2026-10-06: target, then Interact Target within range (or a
+        # right-click); the bag item only armed a targeting cursor (Re-Sizer).
+        objective = {"description": "Re-Sizer v9.0.1 tested on Wandering Boars",
+                     "type": "USE_ITEM", "raw_type": "monster", "item_id": 170557,
+                     "current": 1, "required": 3}
+        active_quests = [{"quest_id": 56034, "title": "Re-sizing the Situation",
+                          "special_item": {"item_id": 170557}, "objectives": [objective]}]
+        inventory = {"items": [{"bag": 0, "slot": 9, "item_id": 170557,
+                                 "is_quest_item": True, "is_locked": False,
+                                 "x": .81, "y": .22,
+                                 "coordinate_space": "CLIENT_BOTTOM_LEFT"}]}
+        state = world(active_quests=active_quests, bags_open=True, inventory=inventory,
+                      actionbar=[], target={"guid": "boar-1", "name": "Wandering Boar",
+                                            "attackable": True, "dead": False})
+        proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), state, 1)
+        use = next(p for p in proposals if p.skill == "USE_ON_TARGET")
+>       assert use.parameters["activation_source"] == "INTERACT_KEY"
+E       AssertionError: assert 'INVENTORY_COORDINATE' == 'INTERACT_KEY'
+E         
+E         - INTERACT_KEY
+E         + INVENTORY_COORDINATE
+
+tests\test_exile_reach_starting_mechanics.py:67: AssertionError
+____ test_exact_special_item_objective_uses_interact_instead_of_attacking _____
+
+    def test_exact_special_item_objective_uses_interact_instead_of_attacking():
+        objective = {"description": "Re-Sizer v9.0.1 tested on Wandering Boars",
+                     "type": "USE_ITEM", "raw_type": "monster", "item_id": 170557,
+                     "current": 1, "required": 3}
+        active_quests = [{"quest_id": 56034, "special_item": {"item_id": 170557},
+                          "objectives": [objective]}]
+        state = world(active_quests=active_quests, bags_open=False,
+                      inventory={"items": [{"bag": 0, "slot": 9, "item_id": 170557,
+                                              "is_quest_item": True, "is_locked": False}]},
+                      actionbar=[], target={"guid": "boar-1", "name": "Wandering Boar",
+                                            "attackable": True, "dead": False})
+        proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), state, 1)
+>       assert any(p.skill == "USE_ON_TARGET" and p.parameters.get("activation_source") == "INTERACT_KEY"
+                   for p in proposals)
+E       assert False
+E        +  where False = any(<generator object test_exact_special_item_objective_uses_interact_instead_of_attacking.<locals>.<genexpr> at 0x00000277021CE330>)
+
+tests\test_exile_reach_starting_mechanics.py:84: AssertionError
+__ test_supported_learned_glyph_probe_beats_bare_body_after_fusion_discount ___
+
+    def test_supported_learned_glyph_probe_beats_bare_body_after_fusion_discount():
+        """Live repro: Jaina glyph/body was present, but Ke-La INSPECT won."""
+        generic = {"source": "WORLD3D", "kind": "unknown_subject_candidate",
+                   "detector_kind": "unknown_subject_candidate", "semantic_type": "UNKNOWN",
+                   "track_id": "kee-la", "stable_frames": 4, "confidence": .25,
+                   "x": .266, "y": .606, "inspectable": True,
+                   "bbox_height_fraction": .0905,
+                   "candidate_labels": ["learned_subject_like"],
+                   "appearance": {"learned_label_hypothesis": "humanoid_unit_like",
+                                  "body_geometry": .4259, "foreground_contrast": .8258}}
+        jaina_probe = {
+            "source": "WORLD3D", "kind": "unknown_subject_probe",
+            "detector_kind": "unknown_subject_probe", "semantic_type": "UNKNOWN",
+            "track_id": "jaina-probe", "stable_frames": 8, "confidence": .304,
+            "x": .536, "y": .564, "inspectable": False,
+            "servo_scale_fraction": .04,
+            "candidate_labels": ["subject_below_symbol_probe"],
+            "appearance": {"anchor_candidate_labels": ["learned_symbol_like"]},
+            "visual_relations": [{"type": "ABOVE", "belief": "SUPPORTED"}],
+            "visual_group": {"belief": "SUPPORTED",
+                             "appearance_labels": ["learned_symbol_like"]},
+        }
+        proposals = Planner(SkillRegistry()).candidates(
+            Goal.parse("Questelj", 1),
+            _world([generic, jaina_probe], world_map_open=False), 1.)
+    
+>       seek = next(proposal for proposal in proposals
+                    if proposal.skill == "SEEK_VISUAL_CUE")
+E       StopIteration
+
+tests\test_goal_aware_visual_attention.py:370: StopIteration
+_ test_combat_reacquires_same_guid_inside_same_attempt_then_resumes_rotation __
+
+    def test_combat_reacquires_same_guid_inside_same_attempt_then_resumes_rotation():
+        before = {"target": hostile(), "actionbar": [spell()]}
+        skill = CombatSkill()
+        state = active(before)
+        skill.begin(state, before, 1.)
+        intended = hostile()
+        intended["screen_position"] = {"x": .65, "y": .5, "sample_time": 2.}
+        wrong = {"monotonic_time": 2., "target": hostile("wrong"),
+                 "entities": [intended], "actionbar": [spell()]}
+    
+        recovery = skill.verify(state, wrong, 2.)
+        assert recovery.status is SkillStatus.RUNNING
+>       assert recovery.commands[-1].kind == "CLICK"
+E       AssertionError: assert 'HOVER' == 'CLICK'
+E         
+E         - CLICK
+E         + HOVER
+
+tests\test_invalid_target_recovery.py:70: AssertionError
+____ test_combat_clears_wrong_selection_only_when_verified_binding_exists _____
+
+    def test_combat_clears_wrong_selection_only_when_verified_binding_exists():
+        class Bindings:
+            @staticmethod
+            def contains(action):
+                return action == "CLEARTARGET"
+    
+        before = {"target": hostile(), "actionbar": [spell()]}
+        skill = CombatSkill(Bindings())
+        state = active(before)
+        skill.begin(state, before, 1.)
+        intended = hostile()
+        intended["screen_position"] = {"x": .65, "y": .5, "sample_time": 2.}
+        wrong = {"monotonic_time": 2., "target": hostile("wrong"),
+                 "entities": [intended], "actionbar": [spell()]}
+    
+        recovery = skill.verify(state, wrong, 2.)
+>       assert [command.binding for command in recovery.commands] == ["CLEARTARGET", None]
+E       AssertionError: assert [None] == ['CLEARTARGET', None]
+E         
+E         At index 0 diff: None != 'CLEARTARGET'
+E         Right contains one more item: None
+E         Use -v to get more diff
+
+tests\test_invalid_target_recovery.py:96: AssertionError
+________ test_emergency_first_aid_uses_the_kit_on_the_selected_soldier ________
+
+    def test_emergency_first_aid_uses_the_kit_on_the_selected_soldier():
+        """Live 2026-10-10 17:37: Austin Huxworth was selected, yet a priority-96
+        TDB objective MOVE won and no executable item use was proposed (ASSIST
+        cannot press an Interact-key special item); object-cue searches followed."""
+        selected = _ranked(_first_aid_world(
+            {"guid": AUSTIN, "name": "Austin Huxworth", "attackable": False, "dead": False}))
+        best = selected[0]
+>       assert best.skill == "USE_ON_TARGET" and best.parameters["activation_source"] == "INTERACT_KEY"
+E       AssertionError: assert ('WAIT' == 'USE_ON_TARGET'
+E         
+E         - USE_ON_TARGET
+E         + WAIT)
+
+tests\test_live_targeting_20261010.py:97: AssertionError
+__ test_identity_free_order_is_world3d_then_map_then_role_location_fallback ___
+
+    def test_identity_free_order_is_world3d_then_map_then_role_location_fallback():
+        from wowbot.agent.planner import Planner
+        from wowbot.agent.models import Goal
+        from wowbot.agent.skills import SkillRegistry
+        from wowbot.agent.world import WorldModel
+        reference = dict(source="TDB_REFERENCE", source_sha256="digest", world_map_id=2175,
+            x=10., y=0., z=0., distance_yards=10., coordinate_space="WORLD_YARDS",
+            spawn_ids=[1, 2], npc_ids=[156626, 166782], quest_ids=[54951, 59929],
+            role_hypothesis="QUEST_STARTER", identity_confirmed=False)
+        state = dict(session_id="test:new", map_id=1409, target={}, active_quests=[],
+            world_map_open=False, monotonic_time=1., orientation=0., is_in_combat=False,
+            is_casting=False, state_age=0., position={"x": .5, "y": .5},
+            player_world_position={"x": 0., "y": 0., "z": 0., "instance_id": 2175},
+            quest_role_reference_candidates=[reference])
+        model = WorldModel()
+        model.state, model.session_id = state, state["session_id"]
+        planner, goal = Planner(SkillRegistry()), Goal.parse("Questelj", 1.)
+>       assert planner.candidates(goal, model, 1.)[0].skill == "SEEK_VISUAL_CUE"
+E       AssertionError: assert 'OPEN_MAP' == 'SEEK_VISUAL_CUE'
+E         
+E         - SEEK_VISUAL_CUE
+E         + OPEN_MAP
+
+tests\test_location_fallback.py:120: AssertionError
+________ test_episode_contains_lifecycle_and_pattern_needs_repetition _________
+
+tmp_path = WindowsPath('C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-claude-feedback-20261030/full-6-temp/test_episode_contains_lifecycl0')
+
+    def test_episode_contains_lifecycle_and_pattern_needs_repetition(tmp_path):
+        memory = AgentMemory(tmp_path / "memory.sqlite3")
+        goal = SimpleNamespace(goal_id="g1", domain="QUEST")
+        first_id = None
+        for index in range(3):
+            goal.goal_id = f"g{index}"
+            episode_id = memory.start_episode(goal, f"s{index}", {"map_id": 1, "game_build": "12.1.0"}, index*10)
+            first_id = first_id or episode_id
+            memory.record_episode_step(episode_id, index*10+.5, "ACTION_INTENT", {"skill": "MOVE"})
+            memory.record_episode_step(episode_id, index*10+1, "VERIFICATION",
+                                       {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress",
+                                        'verification_id': f'v{index}', 'action_id': f'a{index}',
+                                        'baseline_observation_id': f'before{index}', 'observed_observation_id': f'after{index}',
+                                        'evidence': [f'before{index}', f'after{index}']})
+            memory.finish_episode(episode_id, {"map_id": 1, "game_build": "12.1.0"}, index*10+2,
+                                  "SUCCESS", {"done": True, 'verified': True})
+            memory.finish_episode(episode_id, {"map_id": 1, "game_build": "12.1.0"}, index*10+3,
+                                  "SUCCESS", {"done": True})
+        episode = memory.episode(first_id)
+        assert episode["status"] == "SUCCESS" and [step["kind"] for step in episode["steps"]] == ["ACTION_INTENT", "VERIFICATION"]
+        patterns = memory.task_patterns("QUEST")
+>       assert len(patterns) == 1 and patterns[0]["steps"] == ["MOVE"]
+E       assert (0 == 1)
+E        +  where 0 = len([])
+
+tests\test_procedural_sensor_memory.py:93: AssertionError
+_________ test_task_pattern_generalization_requires_multiple_contexts _________
+
+tmp_path = WindowsPath('C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-claude-feedback-20261030/full-6-temp/test_task_pattern_generalizati0')
+
+    def test_task_pattern_generalization_requires_multiple_contexts(tmp_path):
+        memory = AgentMemory(tmp_path / "memory.sqlite3")
+        goal = SimpleNamespace(goal_id="g", domain="QUEST")
+        for index, map_id in enumerate((1, 1, 2, 2, 3)):
+            goal.goal_id = f"g{index}"
+            initial = {"map_id": map_id, "game_build": "12.1.0"}
+            episode_id = memory.start_episode(goal, f"s{index}", initial, index*10)
+            memory.record_episode_step(episode_id, index*10+1, "VERIFICATION",
+                                       {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress",
+                                        'verification_id': f'v{index}', 'action_id': f'a{index}',
+                                        'baseline_observation_id': f'before{index}', 'observed_observation_id': f'after{index}',
+                                        'evidence': [f'before{index}', f'after{index}']})
+            memory.finish_episode(episode_id, initial, index*10+2, "SUCCESS", {'verified': True})
+>       pattern = memory.task_patterns("QUEST")[0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\test_procedural_sensor_memory.py:114: IndexError
+______________ test_confirmed_herb_uses_typed_interaction_skill _______________
+
+    def test_confirmed_herb_uses_typed_interaction_skill():
+        world = WorldModel()
+        node = {"id": "n1", "kind": "HERB", "confirmed": True, "map_id": 1609,
+                "x": .2, "y": .3, "x_client": .55, "y_client": .6}
+        world.ingest(Observation.create(state(resource_observations=[node]), 1))
+        proposals = Planner(SkillRegistry()).candidates(Goal.parse("Gyógynövényeket gyűjts", 1), world, 1)
+>       assert proposals[0].skill == "HERB"
+E       AssertionError: assert 'MOVE' == 'HERB'
+E         
+E         - HERB
+E         + MOVE
+
+tests\test_resource_memory.py:49: AssertionError
+___________ test_fishing_lifecycle_cast_wait_bite_then_shared_loot ____________
+
+    def test_fishing_lifecycle_cast_wait_bite_then_shared_loot():
+        action = {"kind": "spell", "name": "Fishing", "action": "ACTIONBUTTON1", "is_usable": True,
+                  "cooldown_remaining": 0}
+        goal = Goal.parse("Fishingelj", 1)
+        casting = WorldModel(); casting.ingest(Observation.create(state(actionbar=[action], fishing={}), 1))
+        assert Planner(SkillRegistry()).candidates(goal, casting, 1)[0].skill == "FISH"
+        waiting = WorldModel(); waiting.ingest(Observation.create(state(actionbar=[action], fishing={"active": True}), 2))
+        assert Planner(SkillRegistry()).candidates(goal, waiting, 2)[0].skill == "WAIT"
+        bite = WorldModel(); bite.ingest(Observation.create(state(actionbar=[action],
+            fishing={"active": True, "bite_confirmed": True, "x": .4, "y": .6}), 3))
+>       assert Planner(SkillRegistry()).candidates(goal, bite, 3)[0].skill == "GATHER"
+E       AssertionError: assert 'WAIT' == 'GATHER'
+E         
+E         - GATHER
+E         + WAIT
+
+tests\test_resource_memory.py:106: AssertionError
+_______________ test_vehicle_aim_turns_in_place_then_hands_over _______________
+
+    def test_vehicle_aim_turns_in_place_then_hands_over():
+        controller = VisualApproachController()
+        target = box("WORLD3D:50", .70, .30, .76, .45)
+        current = {"visual_candidates": [target], "monotonic_time": 1., "target": {}, "actionbar": []}
+        assessment = controller.start({"purpose": "VEHICLE_AIM", "track_id": "WORLD3D:50"}, current, "o1", 1.)
+>       assert not assessment.terminal
+E       AssertionError: assert not True
+E        +  where True = VisualApproachAssessment(phase=<VisualApproachPhase.FAILED: 'FAILED'>, terminal=True, success=False, reason='target_identity_changed').terminal
+
+tests\test_self_avatar_vehicle_20261004.py:227: AssertionError
+__ test_vehicle_aim_refinds_a_flickering_low_confidence_target_after_a_turn ___
+
+    def test_vehicle_aim_refinds_a_flickering_low_confidence_target_after_a_turn():
+        # Live 2026-10-04: a 14x26 px cadaver at 0.25 confidence came back under a
+        # new track id while the boar turned; the >=0.30 rebind rule lost it.
+        controller = VisualApproachController()
+        first = box("WORLD3D:8", .60, .28, .62, .34)
+        first["confidence"] = .25
+        state = {"visual_candidates": [first], "monotonic_time": 1., "target": {}, "actionbar": [],
+                 "orientation": 1.0}
+        controller.start({"purpose": "VEHICLE_AIM", "track_id": "WORLD3D:8"}, state, "o1", 1.)
+        # Turned right by 0.1 rad: the world panned ~0.064 left; new id, low confidence.
+        moved = box("WORLD3D:31", .536, .28, .556, .34, at=1.3)
+        moved["confidence"] = .2
+        decoy = box("WORLD3D:32", .30, .40, .35, .55, at=1.3)
+        turned = {**state, "visual_candidates": [moved, decoy], "orientation": .9}
+        assessment = controller.observe(turned, "o2", 1.3)
+        assert assessment.reason != "visual_track_lost"
+>       assert controller.intent["track_id"] == "WORLD3D:31" and controller.track_rebindings == 1
+E       AssertionError: assert ('WORLD3D:8' == 'WORLD3D:31'
+E         
+E         - WORLD3D:31
+E         ?         ^^
+E         + WORLD3D:8
+E         ?         ^)
+
+tests\test_self_avatar_vehicle_20261004.py:313: AssertionError
+_ test_visual_approach_uses_bounded_player_turn_reacquire_without_changing_identity _
+
+    def test_visual_approach_uses_bounded_player_turn_reacquire_without_changing_identity():
+        controller = VisualApproachController()
+        state = {"target": {"guid": "npc", "dead": False},
+                 "visual_candidates": [{"track_id": "track", "x": .7, "y": .5,
+                                         "confidence": .8, "source": "WORLD3D"}]}
+        controller.start({"guid": "npc", "track_id": "track", "purpose": "INTERACT"},
+                         state, "o1", 1.)
+        missing = {"target": {"guid": "npc", "dead": False}, "visual_candidates": []}
+        controller.observe(missing, "o2", 2.)
+        assert controller.command(missing, "o2", 2.) == ()
+        controller.observe(missing, "o3", 3.)
+        assert controller.phase == VisualApproachPhase.OCCLUDED
+        retry = controller.command(missing, "o3", 3.)
+        assert retry and retry[0].binding == "INTERACTTARGET"
+        # Only scan after authoritative selection has actually disappeared; a
+        # A bounded player turn keeps the exact committed GUID unchanged.
+        unselected = {**missing, "target": {}}
+        controller.observe(unselected, "o4", 3.1)
+        assert controller.command(unselected, "o4", 3.1) == ()
+        controller.observe(unselected, "o5", 3.2)
+>       command = controller.command(unselected, "o5", 3.2)[0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\test_visual_reacquire_1_0.py:26: IndexError
+_ test_wrong_replacement_hover_is_rejected_without_reach_object_wait_fallback _
+
+    def test_wrong_replacement_hover_is_rejected_without_reach_object_wait_fallback():
+        controller = VisualApproachController()
+        target = {"guid": "jaina", "dead": False}
+        old = {"track_id": "old", "x": .08, "y": .67, "confidence": .8,
+               "source": "WORLD3D", "lifecycle": "ACTIVE",
+               "detector_kind": "unknown_subject_candidate", "observed_at": 1.}
+        anchor = {"x": .08, "y": .67, "source": "CONFIRMED_MOUSEOVER_ANCHOR",
+                  "track_association": "CANDIDATE"}
+        start = {"target": target, "visual_candidates": [old],
+                 "mouseover_sample_time": 1.}
+        controller.start({"guid": "jaina", "track_id": "old", "purpose": "INTERACT",
+                          "screen_position": anchor}, start, "o1", 1.)
+        wrong = {"track_id": "kee-la", "x": .65, "y": .62, "confidence": .8,
+                 "source": "WORLD3D", "lifecycle": "ACTIVE",
+                 "detector_kind": "unknown_subject_candidate", "observed_at": 1.2,
+                 "appearance": {"body_geometry": .95},
+                 "visual_relations": [{"type": "ABOVE", "belief": "SUPPORTED"}]}
+        changed = {"target": target, "visual_candidates": [
+            {**old, "lifecycle": "LOST_TEMPORARY"}, wrong],
+            "mouseover_sample_time": 1.}
+        controller.observe(changed, "o2", 1.2)
+        assert controller.command(changed, "o2", 1.2)[0].kind == "HOVER"
+    
+        contradicted = {**changed,
+                        "mouseover": {"guid": "kee-la"},
+                        "mouseover_sample_time": 1.3,
+                        "cursor_sample_time": 1.3}
+        assessment = controller.observe(contradicted, "o3", 1.3)
+    
+        assert not assessment.terminal
+>       assert assessment.reason == "replacement_visual_track_identity_not_confirmed"
+E       AssertionError: assert 'awaiting_vis...econfirmation' == 'replacement_...not_confirmed'
+E         
+E         - replacement_visual_track_identity_not_confirmed
+E         + awaiting_visual_identity_reconfirmation
+
+tests\test_visual_reacquire_1_0.py:184: AssertionError
+_ test_predicted_occluded_track_only_drives_bounded_player_turn_reacquisition _
+
+    def test_predicted_occluded_track_only_drives_bounded_player_turn_reacquisition():
+        controller = VisualApproachController()
+        active = {"target": {"guid": "npc", "dead": False},
+                  "visual_candidates": [{"track_id": "track", "x": .62, "y": .55,
+                                          "bbox_height_fraction": .07,
+                                          "confidence": .8, "source": "WORLD3D",
+                                          "lifecycle": "ACTIVE"}]}
+        controller.start({"guid": "npc", "track_id": "track", "purpose": "COMBAT"},
+                         active, "o1", 1.)
+        occluded = {**active, "visual_candidates": [{**active["visual_candidates"][0],
+                                                       "x": .64, "confidence": .55,
+                                                       "lifecycle": "OCCLUDED"}]}
+        assessment = controller.observe(occluded, "o2", 1.05)
+        assert assessment.reason == "visual_track_predicted_during_occlusion"
+        assert controller.command(occluded, "o2", 1.05) == ()
+        unselected = {**occluded, "target": {}}
+        controller.observe(unselected, "o3", 1.10)
+        assert controller.command(unselected, "o3", 1.10) == ()
+        controller.observe(unselected, "o4", 1.15)
+>       command = controller.command(unselected, "o4", 1.15)[0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\test_visual_reacquire_1_0.py:274: IndexError
+=========================== short test summary info ===========================
+FAILED tests/test_exile_reach_starting_mechanics.py::test_exact_special_item_on_selected_target_uses_interact_before_the_bag_slot
+FAILED tests/test_exile_reach_starting_mechanics.py::test_exact_special_item_objective_uses_interact_instead_of_attacking
+FAILED tests/test_goal_aware_visual_attention.py::test_supported_learned_glyph_probe_beats_bare_body_after_fusion_discount
+FAILED tests/test_invalid_target_recovery.py::test_combat_reacquires_same_guid_inside_same_attempt_then_resumes_rotation
+FAILED tests/test_invalid_target_recovery.py::test_combat_clears_wrong_selection_only_when_verified_binding_exists
+FAILED tests/test_live_targeting_20261010.py::test_emergency_first_aid_uses_the_kit_on_the_selected_soldier
+FAILED tests/test_location_fallback.py::test_identity_free_order_is_world3d_then_map_then_role_location_fallback
+FAILED tests/test_procedural_sensor_memory.py::test_episode_contains_lifecycle_and_pattern_needs_repetition
+FAILED tests/test_procedural_sensor_memory.py::test_task_pattern_generalization_requires_multiple_contexts
+FAILED tests/test_resource_memory.py::test_confirmed_herb_uses_typed_interaction_skill
+FAILED tests/test_resource_memory.py::test_fishing_lifecycle_cast_wait_bite_then_shared_loot
+FAILED tests/test_self_avatar_vehicle_20261004.py::test_vehicle_aim_turns_in_place_then_hands_over
+FAILED tests/test_self_avatar_vehicle_20261004.py::test_vehicle_aim_refinds_a_flickering_low_confidence_target_after_a_turn
+FAILED tests/test_visual_reacquire_1_0.py::test_visual_approach_uses_bounded_player_turn_reacquire_without_changing_identity
+FAILED tests/test_visual_reacquire_1_0.py::test_wrong_replacement_hover_is_rejected_without_reach_object_wait_fallback
+FAILED tests/test_visual_reacquire_1_0.py::test_predicted_occluded_track_only_drives_bounded_player_turn_reacquisition
+16 failed, 5816 passed, 5 skipped in 215.73s (0:03:35)

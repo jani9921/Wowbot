@@ -2,57 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
 from typing import Any
 
-
-@dataclass(frozen=True)
-class Evidence:
-    observation_id: str
-    correlation_id: str
-    source: str
-    at: float
-    expires: float
-    value_json: str
-    confidence: float
-    reliability: float
-    context_json: str
-    independence_group: str
-    sensor_tier: str
-    tier_rank: int
-    kind: str = ""
-    related_entity: str | None = None
-    related_quest: str | None = None
-    related_objective: str | None = None
-
-    @property
-    def evidence_id(self) -> str:
-        return f"{self.observation_id}:{self.source}:{self.at:.6f}"
-
-    @property
-    def observed_at(self) -> float:
-        return self.at
-
-    @property
-    def expires_at(self) -> float:
-        return self.expires
-
-    @property
-    def value(self):
-        return json.loads(self.value_json)
-
-    def is_fresh(self, now: float) -> bool:
-        return now <= self.expires
-
-    def age_ms(self, now: float) -> int:
-        return max(0, round((now-self.at)*1000.))
-
-    def effective_confidence(self, now: float) -> float:
-        if not self.is_fresh(now):
-            return 0.
-        lifetime = max(1e-9, self.expires-self.at)
-        freshness = max(0., min(1., (self.expires-now)/lifetime))
-        return max(0., min(1., self.confidence*self.reliability*freshness))
+from wowbot.evidence_contracts import Evidence
 
 
 @dataclass(frozen=True)

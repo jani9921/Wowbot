@@ -1,0 +1,706 @@
+{
+  "baseline": "P1-D complete / P1-E start",
+  "changes": [
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.lua",
+      "change": "modified",
+      "before_sha256": "8f28fa7747e332e044f7371704f49ec6db05dc29e2b0dfcffc2e650117543a24",
+      "after_sha256": "1cb60de1b3759302097ce2caee32042ac6ecce3f8364628e4b664d523517667b",
+      "bytes": 182534
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.toc",
+      "change": "modified",
+      "before_sha256": "abf186d1f952559b05c8fb299450fe87881a7bd50fc45d05d8d9177f30d82d30",
+      "after_sha256": "6de647c8d18f961ddb57e6ffc33c241d0d8174d6051437d0df7bcd3b722f632e",
+      "bytes": 365
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.lua",
+      "change": "modified",
+      "before_sha256": "8f28fa7747e332e044f7371704f49ec6db05dc29e2b0dfcffc2e650117543a24",
+      "after_sha256": "1cb60de1b3759302097ce2caee32042ac6ecce3f8364628e4b664d523517667b",
+      "bytes": 182534
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.toc",
+      "change": "modified",
+      "before_sha256": "abf186d1f952559b05c8fb299450fe87881a7bd50fc45d05d8d9177f30d82d30",
+      "after_sha256": "6de647c8d18f961ddb57e6ffc33c241d0d8174d6051437d0df7bcd3b722f632e",
+      "bytes": 365
+    },
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "change": "modified",
+      "before_sha256": "8ba7356f8d70017eefd881dd2fcb47ba758da553fd37678a1d1b6f329bd03ca6",
+      "after_sha256": "2c63f82243564c4405455693bad665494b6d0fa6f55811f1ecf9c54f51d6da65",
+      "bytes": 253364
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "change": "modified",
+      "before_sha256": "eab6bb7d342645e19176157fc1da5711cd445a6c8baa52e3bf34dbf084777cbd",
+      "after_sha256": "8d4eef6f7b2b6886cef5bb56f64b272928bd8f2932a3a7bc3bfc4ba9963f0a7f",
+      "bytes": 1039890
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "change": "modified",
+      "before_sha256": "166c6e5b12a1b8bc40dfe46b7ac94708de8261fffbf9725fc28cede1e87ba039",
+      "after_sha256": "9cd19ccf5d46fe51818216af018318d9e080b7e9a5a8b7a11c733d18eb62a831",
+      "bytes": 21273
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "895928426c797419439f20904b2e3c0b26764803c80f8ec10a5b37f20428f15e",
+      "bytes": 14844
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P3_OWN_HEALTH.md",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "74f555ff4128f5d2f8333b31460fb55467c865a2ebdb402b1f0b1df3f082b598",
+      "bytes": 4018
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P7_PACKET_CASTS.md",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "03eac83fc6b713fcf191a1ca4ce16f3467c73114b4ae7b482de751013e8e198b",
+      "bytes": 4646
+    },
+    {
+      "path": "src/adapters/telemetry_packets.py",
+      "change": "modified",
+      "before_sha256": "4c309ecbbc9e7c3b873326dd535e5da4def82c448e1205434090dd19e9c72280",
+      "after_sha256": "72b2f86ad1cdcabc04af7ed029d1a01cde3890653858c60d52c47500a9799531",
+      "bytes": 20176
+    },
+    {
+      "path": "src/wowbot/agent/advisory_tools.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "035fbaae6147919c16115ed90b64a81a2e12223569b93e26f4dd5064d9cf2af1",
+      "bytes": 3566
+    },
+    {
+      "path": "src/wowbot/agent/collection_coverage.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "d00b1cf9297c9918d3c37df047868034e65eb6a4e45a28f5ff80f1bf4302aae7",
+      "bytes": 3405
+    },
+    {
+      "path": "src/wowbot/agent/engine.py",
+      "change": "modified",
+      "before_sha256": "35c0611a2f8b3dace6131b5e39c05a69d100b9a898c186b8171f0ef8d2a90ea3",
+      "after_sha256": "141e29ec15cbafb6b55630477d00cb005f2b76b4bc3dfcd36ef983b37781a2eb",
+      "bytes": 47192
+    },
+    {
+      "path": "src/wowbot/agent/engine_control.py",
+      "change": "modified",
+      "before_sha256": "3ccdc13a60d59780aaee744954ae22d8a159326f6e35d58348fbdfdbe85233e4",
+      "after_sha256": "5c31bfcd40bcbd9e582aa2583a19af66c8ba9d4129bd8d994884a97ec5a3e718",
+      "bytes": 18674
+    },
+    {
+      "path": "src/wowbot/agent/engine_finish.py",
+      "change": "modified",
+      "before_sha256": "c25efd358213f1004f21a4d84976e68d2853c6ec91bc4f3ba01bc052866196c7",
+      "after_sha256": "d92c3a7cf4bd4a9db55bfd9234c46314be1a8454cecaf58afe93dd949c3ce83b",
+      "bytes": 8537
+    },
+    {
+      "path": "src/wowbot/agent/evidence_factory.py",
+      "change": "modified",
+      "before_sha256": "54b41328c69413f3b3b738d824e12e699a11edb333895b04a98919daa8c85c8b",
+      "after_sha256": "5341b9baf78924358ce2f3b8e434da4c444f2080f79bbedcca3a90e6178d1094",
+      "bytes": 6880
+    },
+    {
+      "path": "src/wowbot/agent/gui.py",
+      "change": "modified",
+      "before_sha256": "9bb1c068bdfbbcde10ed917f1a27a0fb212dd4c47c94530385a7e3f6ab0a9082",
+      "after_sha256": "63c199a287092ce6331f8c5cb6ae193f580b32dba9999723243144f60d449505",
+      "bytes": 43173
+    },
+    {
+      "path": "src/wowbot/agent/memory.py",
+      "change": "modified",
+      "before_sha256": "e1cc96f2cfd54a68adc437697b160dd18f659c573f2cb8d7e37853b200c84724",
+      "after_sha256": "d512f8a770fb290fdbc5b8e34dbcb56553548b8d985a916ef99a1d601289b47d",
+      "bytes": 29342
+    },
+    {
+      "path": "src/wowbot/agent/memory_patterns.py",
+      "change": "modified",
+      "before_sha256": "006c9dc8f15a1b8df00db2a140dc6c7c4bf34e1dcd2a2b111af02656bd14b444",
+      "after_sha256": "6d3455ce049a804b08333e9763d2a0b62f841fd3366e7db30cedc7f3c35d7d97",
+      "bytes": 9675
+    },
+    {
+      "path": "src/wowbot/agent/objective_locator.py",
+      "change": "modified",
+      "before_sha256": "b67d43690dcc26550772f6c2d37262c98a6ad64a4255b709d8588dce55f7b63b",
+      "after_sha256": "ab3828c8a39fd5834e78e2edcc34e0e925685952dc39711f9416e43ccc0a6911",
+      "bytes": 5403
+    },
+    {
+      "path": "src/wowbot/agent/packet_combat.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "a8ed141d22c7b91101959b1150595c41fc8dfd66775cd0c22349b036dba28ed7",
+      "bytes": 3037
+    },
+    {
+      "path": "src/wowbot/agent/packet_own_health.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "36c4bdcfc4c965e30fecc7346622a6ec829a841594cc183ee1b9c9487408670a",
+      "bytes": 1553
+    },
+    {
+      "path": "src/wowbot/agent/planner.py",
+      "change": "modified",
+      "before_sha256": "4d10b21a42df007ac34a498f60c83a0a2fdd08d9c0e9518a4a4212a1d25cfec2",
+      "after_sha256": "08022c59048324f7b73ffd8d544e56f5831a054656ac8d608e8afc4095ddddd2",
+      "bytes": 52099
+    },
+    {
+      "path": "src/wowbot/agent/quest_location_planning.py",
+      "change": "modified",
+      "before_sha256": "9ff0969abcb5f2377df7ed0a2b79bb1aafd4a31e7e1925a37904c2e808174f74",
+      "after_sha256": "afbc10495bc2abe93561f9bc0e5cc684735fb52ba1ac3fa0cae35b2caaaa1478",
+      "bytes": 73916
+    },
+    {
+      "path": "src/wowbot/agent/quest_model.py",
+      "change": "modified",
+      "before_sha256": "29fb2d95b33ff824949d3eaf581260152faadb3b36d6c75802eec712eb913f5c",
+      "after_sha256": "28c3ef71e7a8f01be2ffd0d16f22eadaad300e85554e8e22bca6352028f9cbff",
+      "bytes": 36786
+    },
+    {
+      "path": "src/wowbot/agent/quest_playbooks.py",
+      "change": "modified",
+      "before_sha256": "7956f9515ec1d96f663b8ebbf7de7101d1b3f385ac7ff11b1fdac8c87df879da",
+      "after_sha256": "9ebc023320c7bcefa5f2f059e748e0af7174c7213ae48d1c76d9b414abd06d1a",
+      "bytes": 11164
+    },
+    {
+      "path": "src/wowbot/agent/quest_poi_evidence.py",
+      "change": "modified",
+      "before_sha256": "d9639aee8f1e167343c896d3fcb72957d0996874b151f2bf30f8738641170a29",
+      "after_sha256": "b8a1a6d3f6727873b9d69993c118c615ba9dea3fe0e3f985bc2f46eefdbcb1fc",
+      "bytes": 5879
+    },
+    {
+      "path": "src/wowbot/agent/quest_runtime.py",
+      "change": "modified",
+      "before_sha256": "9eaf563844868dbe6c6e6833699490d2c4e4502ac2eee6a1c00fa7c4ed614bb5",
+      "after_sha256": "ff9a46fccce5ddf7cc137763d71cd86b4c343e528ed7e6f5da080133e5861787",
+      "bytes": 15830
+    },
+    {
+      "path": "src/wowbot/agent/quest_target_context.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "cac67a2d6008b347fe38233986b597a66ab75194ab4a4558689b630cca82ae0d",
+      "bytes": 2521
+    },
+    {
+      "path": "src/wowbot/agent/reasoner.py",
+      "change": "modified",
+      "before_sha256": "3aca18b85eefddcce061c158712130ad54b0c5aaf92ee3e8c9021bda4cc736bd",
+      "after_sha256": "e4e79b637b245882edd8c7f24e5bec306f7587183581b971b22df30fb7d85b12",
+      "bytes": 11901
+    },
+    {
+      "path": "src/wowbot/agent/runtime.py",
+      "change": "modified",
+      "before_sha256": "22169fc03a5b475213da2ad8b5e5a7200cb3db82fef3a0ba4f19269f4fe7ec1c",
+      "after_sha256": "3b74e178486661b6516d793d8cb2f6202eb3613f09ce4e36fc23fd474adffe20",
+      "bytes": 32315
+    },
+    {
+      "path": "src/wowbot/agent/runtime_diagnostics_phase.py",
+      "change": "modified",
+      "before_sha256": "959f8b0dddc36b3733a45589feef25680a0b0a1f2a31d2739032dfc28691d4fc",
+      "after_sha256": "a4965d0d1eb6c18ff903093fc45c7d9d5bad6c8d7ae678297280dcd8ed120978",
+      "bytes": 9450
+    },
+    {
+      "path": "src/wowbot/agent/runtime_lifecycle.py",
+      "change": "modified",
+      "before_sha256": "c6357ea3347bb1f072f93186a59e33afd0f4d6a3d642de9e010068f8766734d5",
+      "after_sha256": "6cb6de99499a38f13aa69636e200e8019c780b832cd94984c5e641f9042bd0f8",
+      "bytes": 11786
+    },
+    {
+      "path": "src/wowbot/agent/runtime_packet_source.py",
+      "change": "modified",
+      "before_sha256": "06287d7420b2c3e88930c34abdbe651add313da7dcd5ed0cd68be08b7b46439e",
+      "after_sha256": "f46900816c98eab2f2bc96250b20341ac51c29b59be3da68ae7033f5906f35ad",
+      "bytes": 14741
+    },
+    {
+      "path": "src/wowbot/agent/runtime_vision_composition.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "568433082b8f61399dac00f2c2bd4c1a771e1e7d6f5aa4113cb7e26efb857754",
+      "bytes": 3288
+    },
+    {
+      "path": "src/wowbot/agent/skill_availability.py",
+      "change": "modified",
+      "before_sha256": "63fcc26b45682115324e62a981339d41eaacd82ca51b4574a14acc50bee2448b",
+      "after_sha256": "75f6db4a78c2d7a969d3d379c4071cb43c2fe911724daf4424e6977f9acf474d",
+      "bytes": 40674
+    },
+    {
+      "path": "src/wowbot/agent/status_projection.py",
+      "change": "modified",
+      "before_sha256": "8b9d1806d63995c0c3f033f51ccc5e17b2c4d925571aaea4552049439be18fc5",
+      "after_sha256": "f1bafb400498ab522d4d648a315f4d9b981fe8f66e2c159720e5e7b24bdbcbdd",
+      "bytes": 8575
+    },
+    {
+      "path": "src/wowbot/agent/travel_mode.py",
+      "change": "modified",
+      "before_sha256": "5f4d566c72e41a43f09d8c667061aabaf4f602035cbd9f6ca5b90234b29277d3",
+      "after_sha256": "34dbed1ad7c8decef7a0680cb16f0309224dda1ae3e5ee4333061c030e49f5c3",
+      "bytes": 31184
+    },
+    {
+      "path": "src/wowbot/agent/visual_inspection_planning.py",
+      "change": "modified",
+      "before_sha256": "36fc91c0a914ef120fce92926144830c02c7d4b11e6aa688d099f621d2a8113d",
+      "after_sha256": "ca1243334129015405a29901de63e992048a4cb23c8f2b284b3559fbc385c3c4",
+      "bytes": 25044
+    },
+    {
+      "path": "src/wowbot/agent/visual_search_planning.py",
+      "change": "modified",
+      "before_sha256": "8bb060157518b0a1570a4040e3bb8b1844900d89f72fc4d1e63cf6eb0167ad3e",
+      "after_sha256": "68c8a04f1f8f9515dbbc9b6f290c9f49fc42cdbbdbe618ebdc63c8afd2f20e7e",
+      "bytes": 46561
+    },
+    {
+      "path": "src/wowbot/agent/world.py",
+      "change": "modified",
+      "before_sha256": "d823277354f47e9eb2ab302ac7e76ab758dedd29599d0b8a867dc84e642489f7",
+      "after_sha256": "98c7b8d2c620e73e1f08edae30e2b5ad8b7f3531ee8fc43dfbc6b190657b42d9",
+      "bytes": 26909
+    },
+    {
+      "path": "src/wowbot/agent/world_addon_reducer.py",
+      "change": "modified",
+      "before_sha256": "b40c9a98a7fe8e80cd93d286146730479a42c5384d04362c5039f76c28d7f860",
+      "after_sha256": "ab54adf2654194d78bc5520b7738ab74663d8fba01443c411bd7406aef7e0885",
+      "bytes": 21050
+    },
+    {
+      "path": "src/wowbot/agent/world_beliefs.py",
+      "change": "modified",
+      "before_sha256": "937a4978b1edeea268c4c3f35715ad39ba9d82642da6f52eba1918565006a31d",
+      "after_sha256": "5a97d1c00674de52b5d72d5bbb2e18a636a7d7b56ad51ca540fef1b5febcc3ca",
+      "bytes": 16175
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "change": "modified",
+      "before_sha256": "15f013dfcbe3f859a3b844ca2aa54443bd3d9558dea11982b480cf769a0ac0d7",
+      "after_sha256": "175924c43fd1dc46c908151bcf8d22ef6569ad3fc78d3d9b76fcf93b1f75c613",
+      "bytes": 44904
+    },
+    {
+      "path": "src/wowbot/agent/world_query.py",
+      "change": "modified",
+      "before_sha256": "64ed08ae40f92ca8f9b09c3ed351db711886399abef21ad818823b96eaa593b9",
+      "after_sha256": "4721862eaa2a9248fd97a496eb052cc4171d65c48653dfbd04fd359f69bcfafb",
+      "bytes": 21636
+    },
+    {
+      "path": "src/wowbot/agent/world_state_projection.py",
+      "change": "modified",
+      "before_sha256": "7e154e087f01dde82bea11e9ce7b546e5ab57b8285d222c7bdc0f8471f2b7033",
+      "after_sha256": "434e5b005206e7df0feac8b2bbaf0f26c3369b79b3db62b8297a193a2777a244",
+      "bytes": 33474
+    },
+    {
+      "path": "src/wowbot/combat_contracts.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "3ce93b38ecd2dfe4f727e1b061a1f2fe3e881e13fc26f082fb3ad2f487799f9d",
+      "bytes": 6005
+    },
+    {
+      "path": "src/wowbot/coordinates.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "bd1c9b2ceb8f01dfcf296dce7dcf16a12c6f91c812658201d2674128fc708324",
+      "bytes": 1770
+    },
+    {
+      "path": "src/wowbot/evidence_contracts.py",
+      "change": "modified",
+      "before_sha256": "cdaec68b41cac6915fe2521dbb3baebe2441c6a382aea597815ad65bf3249905",
+      "after_sha256": "dc4ba5b6d80c3fdbd0178f951a695aacef2527eebe8382504ade99474d6618e2",
+      "bytes": 8370
+    },
+    {
+      "path": "src/wowbot/field_sources.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "69cebb9fc14db515d98339dd2303e28bfa20847735a3b6e0615593fc97d1c278",
+      "bytes": 7387
+    },
+    {
+      "path": "src/wowbot/geometry_contracts.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "c1053fe2b2db1ef4242427873434d392f9e5ce15faed5830c4438e933a127a5e",
+      "bytes": 7449
+    },
+    {
+      "path": "src/wowbot/llm_plan.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "dfe23de0ce659ba12b1e5f1b76410578f18d91a7469b03c96cea205c9d2254ba",
+      "bytes": 3775
+    },
+    {
+      "path": "src/wowbot/navigation/danger.py",
+      "change": "modified",
+      "before_sha256": "113a144306925b0915c8adc31eb762747deda26b9d55ed964dd5793b4f7ce376",
+      "after_sha256": "54bc75f8b5ae09fefb3bc31de45b953c0edd0fb63901524f0fd6d770f671bfe3",
+      "bytes": 10136
+    },
+    {
+      "path": "src/wowbot/navigation/global_planner.py",
+      "change": "modified",
+      "before_sha256": "0c78a62ae4e2860f89ec66c084c6c0086b64a905d28b4aa89357ac6f15eced72",
+      "after_sha256": "7329ac2c338f37f8619897aa8f555bdc301c1274891df3fad610620815ab2f26",
+      "bytes": 28057
+    },
+    {
+      "path": "src/wowbot/navigation/route_score.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "56ca2ffc84527f2dfc289b0f7e2ced4aa40fb69690f9d6da509d701ba7afd3f6",
+      "bytes": 6425
+    },
+    {
+      "path": "src/wowbot/navigation/service.py",
+      "change": "modified",
+      "before_sha256": "7a133d78c598ddd1b6efd73939b7bb238c02b8937c989b42cb264c03c1ce94b0",
+      "after_sha256": "c4e26262bfd0b81ce302ce0875664ab981e6282b5b634da09ac227333af8675e",
+      "bytes": 152049
+    },
+    {
+      "path": "src/wowbot/navigation/spawn_threats.py",
+      "change": "modified",
+      "before_sha256": "da5e7cb1e397dcf542b1b4dbc57eb717af6649a14e34fbab350c5fe4408d3c97",
+      "after_sha256": "ea9b7c742517a5c3dbc287c972ea1d1e07b3f2a52a21d87685a0fd644f4d0c5c",
+      "bytes": 13590
+    },
+    {
+      "path": "src/wowbot/navigation/travel.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "8ff6a93f25fb7987fec290ce46cd471b068e2cc3dd5837e960d5786cbed34bf9",
+      "bytes": 11053
+    },
+    {
+      "path": "src/wowbot/packetio/forwarder.py",
+      "change": "modified",
+      "before_sha256": "2372be12a09a4964829d4de96728b82f743cb5a4c15da259da0c495d61cfd373",
+      "after_sha256": "c56a0df2e33fbd0bdceb6b766b63acc81514477deeba72db2303638abe2ac433",
+      "bytes": 15960
+    },
+    {
+      "path": "src/wowbot/packetio/opcodes_12_1.py",
+      "change": "modified",
+      "before_sha256": "c53283e610c6de9784fad9c9e3385eb1bfdabcd043df89c29dd0101321b1df34",
+      "after_sha256": "57c79ad0fc512224748c4dbfcd28c6977f5abbb9bef769446c19344a3d1c1207",
+      "bytes": 6969
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "change": "modified",
+      "before_sha256": "8f06e9d26d443b04dbbd57b302ea5e6ba20e5c3d23e951f7d2f79d3d81efe172",
+      "after_sha256": "f425c066cc650a989e9ba0b3a36ec6bd9ecba3f2881f3117b717c167c865f3bb",
+      "bytes": 42102
+    },
+    {
+      "path": "src/wowbot/packetio/process_identity.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "eb5312b8d28ec25883aaa8b34c1a84b109426af4eb71d87f117d44a64559cea4",
+      "bytes": 4085
+    },
+    {
+      "path": "src/wowbot/packetio/spell_cast.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "d465cfdcfe3226bce944a3cfabad3d6fc02971bc4da8b8b56a287b3545ebb820",
+      "bytes": 3730
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "change": "modified",
+      "before_sha256": "29700f4ccb3661cb2ec93ef3ff726e956e852458a5bb79e51ec4c02115180217",
+      "after_sha256": "f67ff64a4dd323d1808727dad6cd38af89070b99de421b5bacd341877a8c0f9b",
+      "bytes": 17326
+    },
+    {
+      "path": "src/wowbot/packetio/ymir_bridge.py",
+      "change": "modified",
+      "before_sha256": "698ccaac2fc587735ce5f632a5dba8b2212c9e21efa09776aeaea0ba06c2c324",
+      "after_sha256": "db45b3920a9f35f888a6779ada47faf23a1dfc58ac6e95dc510e421cf72c8572",
+      "bytes": 14947
+    },
+    {
+      "path": "src/wowbot/quests/mechanics.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "726ab8134854160ab17f356af220734fef523dabbac43b95eaa36daf7533c41b",
+      "bytes": 5157
+    },
+    {
+      "path": "src/wowbot/quests/playbooks.py",
+      "change": "modified",
+      "before_sha256": "17ac3abc74a8134f33bebc10eb2b11c8bd996039cea531081817f9d241ebba62",
+      "after_sha256": "0ccfce73077af70e720070ac9d1ef7e223c38bc7141e60ccdd6872fcc1146e5b",
+      "bytes": 4635
+    },
+    {
+      "path": "src/wowbot/runtime/skill_executor.py",
+      "change": "modified",
+      "before_sha256": "186fe0d7eb4ec0570e04f5a665eb6340219d0740670bafa4e4da9ab88a06dbb3",
+      "after_sha256": "ee4d0649f714458e2be8da711646482980f0f41e960cd3b35c418e20deebee22",
+      "bytes": 10723
+    },
+    {
+      "path": "src/wowbot/runtime/skill_identity.py",
+      "change": "modified",
+      "before_sha256": "89652376b8235a871eb9d84f5eee9a866fca28a4dbddd2ae5de14d206056d57f",
+      "after_sha256": "059934f77b9b4bed8c662236ddb5553d4526ce61e045bcc3a7a222b7149a37b8",
+      "bytes": 22471
+    },
+    {
+      "path": "src/wowbot/runtime_profile.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "3abb9b883bcb4e3b6e44284bf64146829aed9588f27cc6aab7b8c3a76eb6197d",
+      "bytes": 901
+    },
+    {
+      "path": "src/wowbot/session_context.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "419517ce52678645d6e6475d253b48af3963ae02f1106fb40fdc0952b21897b0",
+      "bytes": 9555
+    },
+    {
+      "path": "src/wowbot/skills/__init__.py",
+      "change": "modified",
+      "before_sha256": "b98b826aff37021c147ff2b45ad791264dac7dce223f17834e30256a8939a189",
+      "after_sha256": "b2c3bd0af5a5b166273bda5cbec7efa6977083f96d0e8e80cc4ba255de0e1b56",
+      "bytes": 2626
+    },
+    {
+      "path": "src/wowbot/skills/ability_rules.py",
+      "change": "modified",
+      "before_sha256": "bdc0e93a317192d0971ac565ff3020b3e2275fa51a92c4b7461c3d585b0c49c8",
+      "after_sha256": "c387330369760f12861346153c39a60c3bca10e26376e73e743542cd2e128116",
+      "bytes": 18913
+    },
+    {
+      "path": "src/wowbot/skills/combat.py",
+      "change": "modified",
+      "before_sha256": "a48cef238632197755e0ad22821247352daec057e9e6138c2ca056f530dbb110",
+      "after_sha256": "e867ce7e18478cb7bfa16e39a9ffbbe1cb5869936721ea542f7c1ed78be3bfcb",
+      "bytes": 61683
+    },
+    {
+      "path": "src/wowbot/skills/combat_visual_follow.py",
+      "change": "modified",
+      "before_sha256": "01a68669f835694ff50ec995b601053a315b88cae2348abefac2a9a86b01a8d3",
+      "after_sha256": "723caa20b9e7cf12138aa343bc5deab027700346e354ab4d05a8c3ed29cbda96",
+      "bytes": 6453
+    },
+    {
+      "path": "src/wowbot/skills/interaction_runtime.py",
+      "change": "modified",
+      "before_sha256": "0e94db744db962941c1deab45053caa8948624c2d74d7763794640d69c9b390d",
+      "after_sha256": "32be6852e4d0e851352de3af9ed8d979c4ff58abd13f2cd9b2c35db432882b92",
+      "bytes": 9469
+    },
+    {
+      "path": "src/wowbot/skills/quest_item.py",
+      "change": "modified",
+      "before_sha256": "0e57e9415901ad7d5238b9380de4b035289d5824088bc12248fd08ab1eb89fc4",
+      "after_sha256": "4072d64cf501dab262cac476039ac857efaee3a5bf5efbe399e674de10219f2f",
+      "bytes": 23541
+    },
+    {
+      "path": "src/wowbot/verified_episode.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "1224aa7244f63e95e3eeab7452c934ad6087398d218a65f984277a363d7be0a8",
+      "bytes": 1130
+    },
+    {
+      "path": "src/wowbot/vision/__init__.py",
+      "change": "modified",
+      "before_sha256": "d4c1b3bceabd7cf36691b3234da7d98f027ceb61f375eb9779aa86545aa7ec72",
+      "after_sha256": "90392f114c6be479fd32cc49094f62f6d1ab4f2edefa1287cbe14700beb25985",
+      "bytes": 1193
+    },
+    {
+      "path": "src/wowbot/vision/world3d/__init__.py",
+      "change": "modified",
+      "before_sha256": "79371cc74cf68fbac5f7b3eff92fdcc4d0f688c3843cf53b0f735569129ce596",
+      "after_sha256": "b0d3311576bc9e09e266676e929c1e872f31dc90247a1a2f01b3bbbbe70e26bb",
+      "bytes": 3241
+    },
+    {
+      "path": "src/wowbot/vision/world3d/learned_detector.py",
+      "change": "modified",
+      "before_sha256": "5742dd68c6168b1acab703d00ab99fa73b36d4988d92094415ae5be7b71bc8c8",
+      "after_sha256": "24e42af1b984b994ff97251ed6e3fe2f457f69ed769fc25d6348b3c744755a2a",
+      "bytes": 33847
+    },
+    {
+      "path": "src/wowbot/vision/world3d/models.py",
+      "change": "modified",
+      "before_sha256": "dc8fc43e0bd55f0484e83b4328e39b4d0f352261ec1f4b8337c5ad006335d129",
+      "after_sha256": "3303cca9b1e5919b72ee5d8ad8a38e734133043022e353115beddeb3b695cfe2",
+      "bytes": 5967
+    },
+    {
+      "path": "src/wowbot/vision_contracts.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "854d311f7fe95b99bc82b1318622e751fdbc801cb63562d8537b0e919271a15c",
+      "bytes": 107
+    },
+    {
+      "path": "src/wowbot/world_geometry/service.py",
+      "change": "modified",
+      "before_sha256": "02b0e244773c2c835bd4d803a6fd4fd934abe818d01893403d95948f107bff7c",
+      "after_sha256": "55b1fb5729678c3b87d4c5662fda97f1fc7b8a049ccdb58026ce47d3d2cc34a7",
+      "bytes": 14465
+    },
+    {
+      "path": "tests/test_collection_coverage_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "f07c04395a7ba042e396f9043432127d22c2d66214d06b51f2ff7010d678f488",
+      "bytes": 7509
+    },
+    {
+      "path": "tests/test_combat_arbitration_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "7d10d229293a342715954ef29c9359a1398e0e644f62ee1ebd168b3afeb44f04",
+      "bytes": 3455
+    },
+    {
+      "path": "tests/test_field_sources_20261029.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "a62e699affcd2adff6abb98634bff77941bdeb880e1a70de0eee9e1f5adefa47",
+      "bytes": 5238
+    },
+    {
+      "path": "tests/test_geometry_query_contracts_20261029.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "7da554319076672a7a5f1a1ad0603dcc0fdf25d5acc18a8249feb6915c326091",
+      "bytes": 3316
+    },
+    {
+      "path": "tests/test_llm_plan_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "68bac1b18a451ba37e05f14173a7732740d80926d466afc2582e6cf06f57599a",
+      "bytes": 2944
+    },
+    {
+      "path": "tests/test_mechanic_graph_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "b73ca902581db89493e32144cf43de52dd0c04a9a99af69aebc6d06f268de6a5",
+      "bytes": 3132
+    },
+    {
+      "path": "tests/test_own_health_packets_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "8c979326e574541728212d333923657a645f426b91623738a48a10ab093f3dd7",
+      "bytes": 6057
+    },
+    {
+      "path": "tests/test_packet_combat_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "d51d82400c394fc2e26a81cdd2eb13e82dfd6ffcee9d5959db6eb471abb99496",
+      "bytes": 6109
+    },
+    {
+      "path": "tests/test_procedural_sensor_memory.py",
+      "change": "modified",
+      "before_sha256": "2ef247f9bd08e4ce7d440bc2f639e31f8713fd3e6bf2cba5639e3718784d9710",
+      "after_sha256": "563f15e9ccb539ad835beee67ad3f9d9c67a41ea8ba75e7f9da4c15fd04e79ab",
+      "bytes": 6881
+    },
+    {
+      "path": "tests/test_retail_addon_package.py",
+      "change": "modified",
+      "before_sha256": "b33d0f34822ded81cd87798f45427d3b1a08bc93e8de97c3044ac69c1c0ef9a6",
+      "after_sha256": "44dc6768bd1ef8b8498343832b25f5a2bf2fa4126b91debfb42f549431d0c15a",
+      "bytes": 15773
+    },
+    {
+      "path": "tests/test_route_score_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "578c0b29ce73e0a611d739fdbe6ea9a72485365f72997eabef099b992d364271",
+      "bytes": 4154
+    },
+    {
+      "path": "tests/test_server_composition_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "b80e89e260d8d4551ebaa6f6f959bf50f296acb135e776a82625bcca66535a54",
+      "bytes": 3467
+    },
+    {
+      "path": "tests/test_session_bootstrap_20261029.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "46ae36d7b6d224a059aa5e30881f8a98fbab235d762a5987968b00433fd5558a",
+      "bytes": 8892
+    },
+    {
+      "path": "tests/test_trip_lifecycle_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "c5601c6d225016e9e38af8a8c6e21862a175daad8d1f565e5bd9a998800c4658",
+      "bytes": 4059
+    },
+    {
+      "path": "tests/test_verified_episode_20261030.py",
+      "change": "added",
+      "before_sha256": null,
+      "after_sha256": "8859e30b8d792c47098fd7d4dcd426a83cbde132ddb37d660b7c1dd4a4316edf",
+      "bytes": 3151
+    }
+  ],
+  "removed": []
+}

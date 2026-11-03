@@ -1,0 +1,21 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-entity-pose-precedence-20261030\\pose-test-2-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-entity-pose-precedence-20261030\\pose-test-2-junit.xml",
+    "tests/test_combat_range_handoff_20261030.py",
+    "tests/test_interaction_runtime_runner.py",
+    "tests/test_m0_engine_combat_local_recovery.py",
+    "tests/test_interact_packet_range_20261022.py",
+    "tests/test_navigation_facing_geometry_20261030.py",
+    "tests/test_mmap_navmesh.py"
+  ]
+}

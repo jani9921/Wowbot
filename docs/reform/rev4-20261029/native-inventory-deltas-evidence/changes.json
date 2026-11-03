@@ -1,0 +1,97 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "f1955c7b58649cd7cd1e445a2187350462b0e1b6d79d9262f03ffa7d2a7d2245",
+      "after_sha256": "06a490030ec6a0897f417fc8ceeb0544b8aff7b8f6486179827dce18a5d2bd05"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "fe5f502fc110ef7d5847c515ab06a30356ea5bf485b877428a3d0f1eaea0f93e",
+      "after_sha256": "4d3493dbb9d35ed2f0cca2ac9f0feb51b0258e9a459bbec9d9e9d101da5e73b4"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "17469f75ca58a8735276b226b868b5b25275f21a60cfb1fabf65958e8cf5497b",
+      "after_sha256": "3e147560f3451f95c02acbb0c4c1aa4ee28d061180b1d1653a5f12b519a5a9b8"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "0cfa8c729423609af0494c28fc36448834f8d6c192248e0957510b07224dbfef",
+      "after_sha256": "eaa530ebf5835cdd0f2fa25e37bf7a7ef9656428cb4bbfb5b6ba6186ebdc6056"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "ac43b4cc83c2e0eebef1bdf21acc8379c92a43934a9aa27ae1da4400a7a3d519"
+    },
+    {
+      "path": "src/wowbot/agent/advisory_tools.py",
+      "status": "MODIFIED",
+      "before_sha256": "eea015291be9c4558ee071ee5a28488ac59312c0032646ebdc54c30b5e34c534",
+      "after_sha256": "89bad2e9a6f3e98b7a0e159337314d06cbb24028c7bfa31d19283023e0cdeef7"
+    },
+    {
+      "path": "src/wowbot/agent/packet_inventory.py",
+      "status": "MODIFIED",
+      "before_sha256": "a99eb413f22752d99144c941ee4d6da695dc0f483ff0fbd5e0a55a52813a7b27",
+      "after_sha256": "37450bee67f37e5fc20073a8e03e54225bef268ef1dc91cf9efdca6c8946701d"
+    },
+    {
+      "path": "src/wowbot/agent/world_query.py",
+      "status": "MODIFIED",
+      "before_sha256": "be2998e2cbc33a81179764a0453e4470cae7170de7c64206b200c3814dd29d15",
+      "after_sha256": "276ff6b91ffd900eab06be2a3c444236f9ab39212716616fbe7c8dcc0b0a380b"
+    },
+    {
+      "path": "src/wowbot/packetio/own_inventory_codec.py",
+      "status": "MODIFIED",
+      "before_sha256": "844f93b7c5456824e93ee5cd1eb61a063eb42fabc07671c092e741e7dd9f45c9",
+      "after_sha256": "ff0731d510db4342515938218ea21af7d3af6ddee45356ef9bf79244702c7793"
+    },
+    {
+      "path": "src/wowbot/packetio/own_item_delta.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "d99b1e19d60017d3d0dbcda5f69cb104cb082e0e3dc5d4affb77269dff370763"
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "status": "MODIFIED",
+      "before_sha256": "d82e3a00b29b8d0827695321c58b3b717f996321143e823b47b95ed4d04f9d15",
+      "after_sha256": "cb3a51f89912ef9b4a8a1b4db79622a6ef2a75c81c6b76f2842a9b5cee115d60"
+    },
+    {
+      "path": "src/wowbot/packetio/update_object.py",
+      "status": "MODIFIED",
+      "before_sha256": "b88e241f9d088e606523e1b967438c15789ae27c108ec52adaead38711cadcf6",
+      "after_sha256": "52aaec25f314ac571c9b30de0109f59a9fd0f29aa50c05a228fe5c383b0d824d"
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "status": "MODIFIED",
+      "before_sha256": "a588fcdf4864a9d3aa52a9d719b9a2ab9c7b0ba63ca4ec0ab99d83cccd12408c",
+      "after_sha256": "a073b02e5bbf09458b3cf0c6b85c93e9c9ba9f671715da66e9281005c549b33d"
+    },
+    {
+      "path": "tests/test_native_inventory_20261030.py",
+      "status": "MODIFIED",
+      "before_sha256": "01d2568c23565bfbefd4c21839a589aafb2cf2d396fb1afbbdfb4977eed351d5",
+      "after_sha256": "e146961b5f25ef84e78ca6680ec0f1f39011bc563cd4f293beffceb3031df5d8"
+    },
+    {
+      "path": "tests/test_native_inventory_delta_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "727fe5f3a934baee56ef542674e8d5c5fb7572b9a3c7ea2bfeed62025c92658f"
+    }
+  ],
+  "modified": 12,
+  "added": 3,
+  "removed": 0
+}

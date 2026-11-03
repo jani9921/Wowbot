@@ -1,0 +1,1222 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,20 @@
+ # Current-source coverage ledger
++
++2026-10-29 REV4 P1-A — per-agent TravelCostPort:
++**PARTIAL / OFFLINE_TESTED** for the broader P1; the scoped global-oracle
++removal is implemented. The composition root injects its own navigation cost
++query through quest location/runtime, turn-in/pickup, agenda, vehicle recovery
++and contextual NPC/dialog/handoff consumers. Session resets retain the owner;
++the query is not serialized into world state. Pure/legacy helpers without a
++provider retain their geometric fallback and cannot borrow another agent.
++Eleven new isolation tests pass. Final combined regression: 3162 passed,
++1 pre-existing failed, 1 skipped, 10 unchanged baseline deselections across
++250 modules. The ambiguous blank quest-drop reference test also fails on the
++pre-change source backup; it remains open and was not added to exclusions.
++All 499 source and 593 test Python files parse. No new live input/validation.
++Session/bootstrap, other geometry ports, source authority and P2–P9 remain
++unimplemented by this change. Numbered historical coverage is unchanged.
++Details: docs/reform/rev4-20261029/P1A_QUERY_ISOLATION.md and LIVE_VALIDATION.md.
+ 
+ 2026-10-29 generic flight integration (V4-024/025/026/027; DESIGN-026/027/029/031)
+ and exact TALK_CREDIT recipients (V4-014/015/017/022/033):
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,39 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-29 — REV4 P1-A cost-query isolation (offline only)
++
++**P1-A IMPLEMENTED / OFFLINE_TESTED; wider P1 PARTIAL. No new live acceptance.**
++The module-global tdb_locations.route_cost_oracle is removed. A read-only
++TravelCostPort is injected from each agent's NavigationService into the
++planner and quest runtime, then through objective/role/pickup/agenda/vehicle
++and contextual NPC/dialog/movement-handoff queries. Reset retains the owner.
++No callable is added to serialized world state; legacy calls without an
++explicit provider use their geometric fallback. Existing route/input owners,
++reference priority, addon and capture configuration are preserved.
++
++Three new tests first reproduced the pre-change cross-agent defect. The
++completed isolation module has 11 passing cases, including caller paths,
++reset, serialization and unavailable-geometry fallback; the scope/table
++adapter and isolation subset has 19 passing cases. Four existing test
++fixtures were migrated from the old global/old callback signature without
++weakening their behavioral assertions.
++
++Final combined result: **3162 passed, 1 failed, 1 skipped, 10 deselected** in
++150.84 seconds across 250 modules, exit 1. The original ten baseline
++exclusions were not expanded. The remaining failure is
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index.
++It independently fails on the separately restored pre-change source with the
++same incorrect 990401 -> 990201:0 association. It is an existing unresolved
++quest-drop ambiguity issue, not a green gate or an excluded new regression.
++The whole expanded test run is therefore not reported as entirely passing.
++
++All 499 source modules and 593 test Python files parse; source contains no
++remaining route_cost_oracle reference. Source/test/addon baseline, per-file
++hashes and patch artifacts are retained. No game/client/capture/FULL_AI process
++was started by the assistant; live behavior remains for user-run validation.
++The Unwelcome Outsider duel-start issue is not claimed fixed by this change.
++
++See [P1-A result and evidence](reform/rev4-20261029/P1A_QUERY_ISOLATION.md).
+ 
+ ## 2026-10-29 — REV4 intake and migration baseline (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -2,7 +2,10 @@
+ 
+ Dátum: 2026-10-29, Europe/Budapest.
+ Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+-Állapot: **dokumentum- és forrás-összevetés; P0 részben ellenőrizve; P1–P9 tervezett**.
++Állapot: **P0 részben ellenőrizve; P1-A offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
++
++Utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
++Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+ 
+ ## 1. Az átvétel eredménye
+ 
+--- before/docs/reform/rev4-20261029/P1A_QUERY_ISOLATION.md
++++ after/docs/reform/rev4-20261029/P1A_QUERY_ISOLATION.md
+@@ -0,0 +1,61 @@
++# REV4 P1-A — példányhoz kötött útvonalköltség-lekérdezés
++
++2026-10-29, Europe/Budapest. **ELKÉSZÜLT / OFFLINE_TESTED a P1-A hatókörében.**
++A teljes P1 továbbra is részleges; a session/bootstrap, mezőnkénti forrásfeloldás és további query-portok külön feladatok.
++
++## Mi változott?
++
++A tdb_locations modulból megszűnt a route_cost_oracle globális változó. Korábban minden AutonomousAgent-konstruktor a saját NavigationService.walk_cost metódusával felülírta azt. Egy Python-folyamat két példánya így az utolsó agent becslőjét használhatta.
++
++A közös wowbot.query_ports.TravelCostPort kisméretű, csak olvasó szerződés. Az AutonomousAgent composition root a saját navigációs metódusát adja át a Plannernek és a QuestExecutionRuntime-nak. A függés konstruktorokon és opcionális keyword paramétereken halad tovább.
++
++Bekötött utak:
++
++- ObjectiveLocator és a quest runtime helyfeloldása;
++- leadási hely és az aktuális leadási POI magasságtámpontjának keresése;
++- API-n felvehető questhez tartozó helyválasztás;
++- questagenda: munka, leadás, felvétel és feltételes folytatás;
++- jármű felszállási helyére visszatérés;
++- beszélgetési actor és szerver-NPC keresése;
++- a mozgás közben megjelenő objective-NPC közös handoffja, a gyors és közepes vezérlési ágban is.
++
++A Planner session-resetje és a quest runtime újraépítése megtartja az adott példány függését. A port a policy/runtime objektumokban él, nem a WorldModel szerializált állapotában, célkoordinátában, agenda-kimenetben vagy SQLite-ban.
++
++A régi függvényhívások továbbra is működnek explicit provider nélkül: ekkor a korábbi, provider nélküli geometriai sorrendet használják. Nem vesznek át egy másik agenttől implicit navigációt. Egy adatot leíró legacy helper tehát nem kap automatikus szolgáltatás-hozzáférést pusztán attól, hogy ugyanabban a processzben létezik agent.
++
++Az elérhető út szerinti rangsorolás, a floor-első sorrend, a legfeljebb öt vizsgált jelölt, az ismeretlen/hibázó geometria visszaesési viselkedése és a normál agent helytervezési útjai megmaradnak. Ebben az ütemben az objective- és TDB-források prioritását nem rendeztük át.
++
++## Ellenőrzés
++
++| Próba | Eredmény |
++|---|---|
++| Új regresszió a javítás előtt | A három kezdeti eset reprodukálta a globális felülírást, a reset utáni rossz választást és az implicit provider-kölcsönzést |
++| Új izolációs modul a javítás után | **11 passed**: két példány, session-reset, runtime/leadás/felvétel/agenda/jármű fogyasztók, szerializáció, geometriai fallback |
++| Scope/table adapterek + izoláció | **19 passed**; a két korábbi test-double fogadja az új opcionális query paramétert, az elvárt viselkedés változatlan |
++| Végső kombinált regresszió | **3162 passed, 1 failed, 1 skipped, 10 deselected**, 250 modul, 150.84 s |
++| Új tesztkizárás | **0**; a korábbi tízes lista változatlan |
++| Szintaxis | **499 forrásmodul + 593 teszt-Python-fájl**, 0 parse-hiba |
++| Globális oracle-hivatkozás a src-ben | **0** |
++| Addonváltozás | **0**, a mentett hashleltár alapján |
++| Élő teszt / WoW-input | Nem történt új élő teszt vagy asszisztens által indított kliensvezérlés |
++
++A végső kombinált parancs exit-kódja 1, tehát az egész tesztkör nem nevezhető teljesen zöldnek. Az egyetlen megmaradt bukás:
++
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index
++
++Ugyanez a teszt a P1-A előtti, külön kibontott forrásmentésen is ugyanazzal a hibás 990401 → 990201:0 kapcsolattal bukik. A bizonyíték a prechange-drop.log és prechange-drop-result.json. Ez az üres/ambivalens referencia-objective-k összerendelésének meglévő hibája; ebben a munkacsomagban nem változtattuk meg és nem rejtettük tesztkizárás mögé.
++
++A kiválasztott körben nem maradt új regresszió. Az offline eredmények nem igazolnak teljesített élő questet, és az Unwelcome Outsider párbajindítási elakadása továbbra is külön nyitott ügy.
++
++## Következő határ
++
++A P1 további részeiben a WorldModelhez dinamikusan csatolt többi geometriakérdés és a SessionIdentity/WorldContext szerződés rendezendő. Ezután jön az addonfüggő packet-bootstrap és a mezőnkénti source authority. A vizuális modulok kivezetése, az általános TripPlan és a Combat/questmechanika átszervezése a későbbi fázisokban marad.
++
++## Visszaállíthatóság és bizonyítékok
++
++A módosítás előtt készült baseline.zip 1101 forrás-, teszt-, addon- és kapcsolódó követési fájlt őriz; a baseline.json byte-hashekkel azonosítja őket. Az új fájlok és a módosított fájlok régi/új hash-e a change-manifest.json-ban, a szöveges módosítás a changes.diff-ben szerepel.
++
++A mentés helye: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-p1a-20261029.
++A projektben elérhető kis bizonyítékcsomag: p1a-evidence/ a jelen dokumentum mellett. A teljes mentést és az ideiglenes tesztadatokat nem másoltam az agent működési könyvtárai közé.
++
++Az aktív projekt továbbra is a projekt nevű mappa. Az új bekötést a GUI következő indítása tölti be. A felhasználó vezeti az élő teszteket; az asszisztens a naplókat ellenőrzi.
+--- before/src/wowbot/agent/agenda_sources.py
++++ after/src/wowbot/agent/agenda_sources.py
+@@ -5,6 +5,7 @@
+ import math
+ from types import SimpleNamespace
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import number
+ from .planning_types import world_point
+ from .tdb_locations import objective_region, role_region
+@@ -82,7 +83,7 @@
+             "execution": "REVALIDATE_EACH_CAPABILITY_WITH_EXISTING_SKILL_CONTRACTS"}
+ 
+ 
+-def quest_steps(world, goal):
++def quest_steps(world, goal, *, travel_cost: TravelCostPort | None = None):
+     """One work/turn-in pair per real log quest; no simulated quest credit."""
+     state = world.state
+     readiness = world.quest_model.readiness()
+@@ -102,13 +103,15 @@
+         complete = record.current_state == "COMPLETED" or record.raw.get("is_complete") is True
+         ready = [o for o in record.objectives if readiness.get(o.objective_id, {}).get("status") == "READY"]
+         points = [point for obj in ready[:4]
+-                  if (point := scoped_point(objective_region(state, qid, obj), state)) is not None]
++                  if (point := scoped_point(objective_region(
++                      state, qid, obj, travel_cost=travel_cost), state)) is not None]
+         live = next((loc for loc in state.get("quest_locations") or ()
+                      if isinstance(loc, dict) and str(loc.get("quest_id")) == qid and scoped_point(loc, state)), None)
+         if not points and not complete and live is not None:
+             points.append(scoped_point(live, state))
+         work = min(points, key=lambda point: distance(player, point)) if points else None
+-        ender = scoped_point(role_region(state, qid, "QUEST_ENDER", live_location=live if complete else None), state)
++        ender = scoped_point(role_region(state, qid, "QUEST_ENDER",
++            live_location=live if complete else None, travel_cost=travel_cost), state)
+         if ender is None and complete and live is not None:
+             ender = scoped_point(live, state)
+         mode = completion_mode(record, state, only_quest=sum(
+@@ -139,7 +142,7 @@
+     return steps
+ 
+ 
+-def offer_steps(state, goal):
++def offer_steps(state, goal, *, travel_cost: TravelCostPort | None = None):
+     """UI/map API availability is evidence; TDB alone cannot authorize accept."""
+     campaign = str(goal.parameters.get("mode") or goal.parameters.get("quest_mode") or "").upper() == "MAIN_CAMPAIGN"
+     explicit = goal.parameters.get("primary_quest_id") or goal.parameters.get("quest_id") or state.get("primary_quest_id")
+@@ -159,13 +162,15 @@
+                 or campaign and row.get("is_campaign") is not True):
+             continue
+         seen.add(qid)
+-        point = scoped_point(role_region(state, qid, "QUEST_STARTER", live_location=row), state) or scoped_point(row, state)
++        point = scoped_point(role_region(state, qid, "QUEST_STARTER", live_location=row,
++                                        travel_cost=travel_cost), state) or scoped_point(row, state)
+         reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(qid) or {}
+         future_points = [p for objective in (reference.get("objectives") or ())[:4]
+                          if (p := scoped_point(objective_region(state, qid,
+-                             SimpleNamespace(objective_id=str(objective.get("objective_id")))), state))]
++                             SimpleNamespace(objective_id=str(objective.get("objective_id"))),
++                             travel_cost=travel_cost), state))]
+         future = min(future_points, key=lambda p: distance(state.get("player_world_position") or {}, p)) if future_points else None
+-        ender = scoped_point(role_region(state, qid, "QUEST_ENDER"), state)
++        ender = scoped_point(role_region(state, qid, "QUEST_ENDER", travel_cost=travel_cost), state)
+         next_ids = [str(value) for key, value in (reference.get("chain") or {}).items()
+                     if key in {"NextQuestID", "RewardNextQuest"}
+                     and number(value) is not None and number(value) > 0]
+@@ -236,7 +241,7 @@
+     return result
+ 
+ 
+-def follow_up_steps(state, existing):
++def follow_up_steps(state, existing, *, travel_cost: TravelCostPort | None = None):
+     """Static chain read-ahead remains BLOCKED until the client offers it."""
+     from .reference_knowledge import positive_id
+     known = {step["quest_id"] for step in existing}
+@@ -252,7 +257,8 @@
+             # Reuse the existing role resolver's build/phase/map checks over
+             # a read-only reference view; never insert it into live quests.
+             scoped = {**state, "reference_knowledge": {"quests": {qid: candidate}}}
+-            point = scoped_point(role_region(scoped, qid, "QUEST_STARTER"), state)
++            point = scoped_point(role_region(scoped, qid, "QUEST_STARTER",
++                                            travel_cost=travel_cost), state)
+             result.append({"key": f"followup:{parent['quest_id']}:{qid}", "kind": "CHECK_FOLLOW_UP",
+                 "quest_id": qid, "title": candidate.get("title"), "location": point,
+                 "npc_ids": role_ids(candidate, "QUEST_STARTER"), "status": "BLOCKED",
+--- before/src/wowbot/agent/conversation_actors.py
++++ after/src/wowbot/agent/conversation_actors.py
+@@ -5,6 +5,7 @@
+ """
+ from __future__ import annotations
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import number
+ from .quest_reference_matching import objective_text_key
+ from .quest_semantics import (npc_name_candidate_matches, npc_name_subjects,
+@@ -14,7 +15,8 @@
+ from wowbot.runtime.skill_identity import sample_fresh
+ 
+ 
+-def conversation_actors(state, quest_id, description=None):
++def conversation_actors(state, quest_id, description=None, *,
++                        travel_cost: TravelCostPort | None = None):
+     quest = next((q for q in state.get("active_quests") or ()
+                   if str(q.get("quest_id")) == str(quest_id) and q.get("is_complete") is not True), None)
+     if not quest:
+@@ -57,7 +59,8 @@
+     for objective in objectives:
+         from .quest_contextual_talk import speakers_at_objective
+         explicit = identity_fields(objective.get("target_entity") or {})
+-        for speaker in speakers_at_objective(state, quest_id, objective, ref, visible_units):
++        for speaker in speakers_at_objective(state, quest_id, objective, ref, visible_units,
++                                             travel_cost=travel_cost):
+             entry = template_id(speaker.get('entry'))
+             if (not explicit or any(check_entity_identity(explicit,
+                     {'npc_id': entry, 'guid': unit['guid']}) for unit in visible_units
+--- before/src/wowbot/agent/engine.py
++++ after/src/wowbot/agent/engine.py
+@@ -72,16 +72,15 @@
+         self.command_dispatcher.pointer_gate = lambda: server_mode_selected(self.world.state)
+         self.registry = SkillRegistry(bindings)
+         from .quest_attempt_memory import QuestAttemptMemory
+-        self.quest_attempt_memory = QuestAttemptMemory(); self.planner = Planner(self.registry, memory, self.quest_attempt_memory)
++        self.quest_attempt_memory = QuestAttemptMemory()
+         self.navigation = NavigationService(bindings, navmesh=navmesh)
++        self.planner = Planner(self.registry, memory, self.quest_attempt_memory,
++                               travel_cost=self.navigation.walk_cost)
+         # Planning-only geometry query for the quest planner (pit/cave layer
+         # under a quest POI); WorldModel re-init keeps extra attributes.
+         self.world.__dict__["layer_oracle"] = self.navigation.lower_layer_point
+         self.world.__dict__["zone_sweep"] = self.navigation.zone_sweep_next
+         self.world.__dict__["player_layer"] = self.navigation.player_layer_z
+-        # TDB spawn choice by walking length (user 2026-10-20, batch paths).
+-        from . import tdb_locations
+-        tdb_locations.route_cost_oracle = self.navigation.walk_cost
+         # Safe resurrection spot (user 2026-10-20): hostiles near the corpse.
+         self.world.__dict__["hostile_units"] = self.navigation.hostile_units
+         self.world.__dict__["walk_cost"] = self.navigation.walk_cost
+@@ -184,7 +183,8 @@
+             recovery_planner=self.recovery_planner)
+         self.execution_bookkeeper = ExecutionBookkeeper()
+         self.outcome_bookkeeper = AttemptOutcomeBookkeeper()
+-        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory)
++        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory,
++                                                   travel_cost=self.navigation.walk_cost)
+         self.quest_terminal = QuestTerminalProcessor(
+             self.quest_progress_verifier, self.quest_runtime, self.planner.quest)
+         self.brain_scheduler = BrainScheduler()
+@@ -205,7 +205,9 @@
+         self._recovery_resume_ready = False
+ 
+     def _reset_quest_runtime(self) -> None:
+-        self.quest_attempt_memory.reset_execution_failures(); self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory)
++        self.quest_attempt_memory.reset_execution_failures()
++        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory,
++                                                   travel_cost=self.navigation.walk_cost)
+         self.quest_terminal = QuestTerminalProcessor(self.quest_progress_verifier, self.quest_runtime, self.planner.quest)
+     @property
+     def pending(self) -> Attempt | None:
+@@ -429,6 +431,7 @@
+                     movement_visual_interrupt(self.pending, self.world.state,
+                                               object_at_hand=self._quest_object_at_hand,
+                                               object_handoff=self._quest_object_handoff,
++                                              travel_cost=self.navigation.walk_cost,
+                                               skip_track_ids=self.planner.suppressed_movement_visual_tracks(
+                                                   self.pending.proposal, self.world.state, now))
+                     if active_skill in MOVEMENT_SKILLS else None)
+--- before/src/wowbot/agent/engine_runtime_projection.py
++++ after/src/wowbot/agent/engine_runtime_projection.py
+@@ -9,6 +9,7 @@
+ import math
+ from typing import Any, Iterable
+ 
++from wowbot.query_ports import TravelCostPort
+ from wowbot.runtime import RuntimeEvent
+ 
+ 
+@@ -226,7 +227,8 @@
+ 
+ def movement_visual_interrupt(attempt, world_state: dict[str, Any], *,
+                               object_at_hand=None, object_handoff=None, identity_only: bool = False,
+-                              skip_track_ids: frozenset[str] = frozenset()) -> dict[str, Any] | None:
++                              skip_track_ids: frozenset[str] = frozenset(),
++                              travel_cost: TravelCostPort | None = None) -> dict[str, Any] | None:
+     """Return one goal-relevant visual handoff observed during navigation.
+ 
+     Perception remains passive while NavigationService owns MOVE.  This gate
+@@ -304,7 +306,8 @@
+         # server sends it (live 2026-10-28 10:53: Left and Right 12 yd away).
+         from .server_npc_planning import objective_npc_available
+         guid = objective_npc_available(world_state, params["quest_id"],
+-                                       since=number(getattr(attempt, "started_at", None)))
++                                       since=number(getattr(attempt, "started_at", None)),
++                                       travel_cost=travel_cost)
+         if guid is not None:
+             return {"reason": "server_objective_npc_available", "kind": "SERVER_OBJECTIVE_NPC_AVAILABLE",
+                     "quest_id": params["quest_id"], "guid": guid}
+--- before/src/wowbot/agent/fast_movement_lane.py
++++ after/src/wowbot/agent/fast_movement_lane.py
+@@ -93,7 +93,8 @@
+         agent.command_dispatcher.stop_movement()
+         return {"consumed": False, "force_medium": True,
+                 "reason": "movement_ground_approach_pending"}
+-    interrupt = movement_visual_interrupt(attempt, state, identity_only=True)
++    interrupt = movement_visual_interrupt(attempt, state, identity_only=True,
++                                          travel_cost=agent.navigation.walk_cost)
+     if interrupt and interrupt.get("kind") in {"OBJECTIVE_UNIT_HOVERED", "QUEST_ROUTE_NPC_HOVERED",
+                                                "SERVER_TURN_IN_ENTITY_AVAILABLE", "SERVER_TURN_IN_INTERACTION_READY",
+                                                "SERVER_TURN_IN_POI_AVAILABLE",
+--- before/src/wowbot/agent/map_poi_planning.py
++++ after/src/wowbot/agent/map_poi_planning.py
+@@ -14,6 +14,7 @@
+ 
+ import math
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Goal, Proposal, number, words
+ from .planning_types import world_point
+ 
+@@ -28,7 +29,8 @@
+     return [record for record in records or () if isinstance(record, dict)]
+ 
+ 
+-def soft_interact_giver_waiting(state: dict, selected_guid: str) -> bool:
++def soft_interact_giver_waiting(state: dict, selected_guid: str, *,
++                               travel_cost: TravelCostPort | None = None) -> bool:
+     """At an API "!" pin (≤ SOFT_INTERACT_YARDS) another friendly NPC is the
+     client's soft-interact unit: it, not the selected unit, is the giver."""
+     point = _player_point(state)
+@@ -37,7 +39,8 @@
+     px, py, _instance = point
+     near = any(math.hypot(destination["x"]-px, destination["y"]-py)
+                <= MapPoiPlanningPolicy.SOFT_INTERACT_YARDS
+-               for _distance, _record, destination in reachable_records(state, "available_quests"))
++               for _distance, _record, destination in reachable_records(
++                   state, "available_quests", travel_cost=travel_cost))
+     return near and any(
+         isinstance(row, dict) and str(row.get("source_unit") or "").casefold() == "softinteract"
+         and str(row.get("unit_type") or "").upper() in {"NPC", "CREATURE"}
+@@ -66,7 +69,8 @@
+     return x, y, position.get("instance_id")
+ 
+ 
+-def reachable_records(state: dict, kind: str) -> list[tuple[float, dict, dict]]:
++def reachable_records(state: dict, kind: str, *,
++                      travel_cost: TravelCostPort | None = None) -> list[tuple[float, dict, dict]]:
+     """(distance yards, record, WORLD_YARDS point) on the player's instance, nearest first."""
+     player = _player_point(state)
+     if player is None:
+@@ -80,7 +84,7 @@
+             # Availability comes from live API, precise giver knowledge from
+             # TDB. Do not enumerate every static quest as currently available.
+             destination = (role_region(state, record['quest_id'], 'QUEST_STARTER',
+-                                       live_location=record) or destination)
++                                       live_location=record, travel_cost=travel_cost) or destination)
+         if destination is None or str(destination["instance_id"]) != str(instance):
+             continue
+         result.append((math.hypot(destination["x"]-px, destination["y"]-py), record, destination))
+@@ -150,7 +154,8 @@
+     QUEST_GIVER_PRIORITY = 80.
+     ENTRANCE_PRIORITY = 66.
+ 
+-    def __init__(self) -> None:
++    def __init__(self, *, travel_cost: TravelCostPort | None = None) -> None:
++        self.travel_cost = travel_cost
+         self.reached_at: dict[tuple, float] = {}
+ 
+     @staticmethod
+@@ -181,7 +186,8 @@
+                    for quest in state.get("active_quests") or ())
+ 
+     def _giver_candidates(self, state: dict) -> list[tuple[float, dict, dict]]:
+-        records = merge_packet_givers(state, reachable_records(state, "available_quests"))
++        records = merge_packet_givers(state, reachable_records(
++            state, "available_quests", travel_cost=self.travel_cost))
+         active = [quest for quest in state.get("active_quests") or () if isinstance(quest, dict)]
+         if len(active) >= self.QUEST_LOG_SOFT_LIMIT:
+             return []
+--- before/src/wowbot/agent/objective_locator.py
++++ after/src/wowbot/agent/objective_locator.py
+@@ -7,6 +7,7 @@
+ 
+ from dataclasses import dataclass
+ 
++from wowbot.query_ports import TravelCostPort
+ from wowbot.runtime import ObjectiveLocationStatus
+ from .models import number, words
+ 
+@@ -20,6 +21,9 @@
+ 
+ 
+ class ObjectiveLocator:
++    def __init__(self, *, travel_cost: TravelCostPort | None = None):
++        self.travel_cost = travel_cost
++
+     def locate(self, objective, record, state: dict) -> ObjectiveLocation:
+         target = state.get("target") or {}
+         entity = objective.target_entity or {}
+@@ -27,7 +31,8 @@
+             return ObjectiveLocation(ObjectiveLocationStatus.LOCAL_ENTITY, confidence=.98,
+                                      evidence=("selected_target_matches_objective",))
+         from .tdb_locations import objective_region
+-        primary = objective_region(state, getattr(record, 'quest_id', None), objective)
++        primary = objective_region(state, getattr(record, 'quest_id', None), objective,
++                                   travel_cost=self.travel_cost)
+         if primary:
+             return ObjectiveLocation(ObjectiveLocationStatus.SEARCH_AREA, primary, .75,
+                                      (primary['source'], 'tdb_primary_requires_navmesh_and_live_verification'))
+--- before/src/wowbot/agent/planner.py
++++ after/src/wowbot/agent/planner.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Goal, Proposal, number
+ from .world import WorldModel
+ from .planning_types import point
+@@ -21,12 +22,14 @@
+ class Planner:
+     """One planner ranks proposals from all domains; no direct input calls."""
+ 
+-    def __init__(self, registry, memory=None, quest_attempt_memory=None):
++    def __init__(self, registry, memory=None, quest_attempt_memory=None, *,
++                 travel_cost: TravelCostPort | None = None):
+         self.registry = registry
+         self.memory = memory
++        self.travel_cost = travel_cost
+         from .quest_attempt_memory import QuestAttemptMemory
+         self.quest_attempt_memory = quest_attempt_memory or QuestAttemptMemory()
+-        self.quest = QuestDomain(self.quest_attempt_memory)
++        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost)
+         self.combat_policy = CombatPlanningPolicy(registry)
+         self.visual_inspection_policy = VisualInspectionPolicy()
+         self.visual_search_policy = VisualSearchPlanningPolicy()
+@@ -50,7 +53,7 @@
+         self._movement_visual_handoff: dict | None = None
+         self._movement_visual_cooldowns: dict[tuple, float] = {}
+         from .quest_agenda import QuestAgenda
+-        self.agenda = QuestAgenda()
++        self.agenda = QuestAgenda(travel_cost=self.travel_cost)
+         self.travel_mode = TravelModePolicy()
+ 
+     def reset_session(self) -> None:
+@@ -62,7 +65,7 @@
+         half-finished search against unrelated state.
+         """
+         self.quest_attempt_memory.reset()
+-        self.quest = QuestDomain(self.quest_attempt_memory)
++        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost)
+         self.blocked_until.clear()
+         self.recent.clear()
+         self.map_search_policy.reset_session()
+@@ -615,8 +618,9 @@
+                 return [transition]
+             from .server_npc_planning import ServerNpcInteractionPolicy
+             resume = resume_proposals(
+-                state, self.quest.__dict__.setdefault("server_npcs", ServerNpcInteractionPolicy()),
+-                primary_quest_id=(world.runtime_context.get("primary_quest") or {}).get("quest_id"))
++                state, self.quest.__dict__.setdefault("server_npcs", ServerNpcInteractionPolicy(travel_cost=self.travel_cost)),
++                primary_quest_id=(world.runtime_context.get("primary_quest") or {}).get("quest_id"),
++                travel_cost=self.travel_cost)
+             if resume is not None:
+                 return self._rank_candidates(self.filter_decision_loops(resume, goal, state),
+                                              goal, world, now, ())
+--- before/src/wowbot/agent/quest_agenda.py
++++ after/src/wowbot/agent/quest_agenda.py
+@@ -8,6 +8,7 @@
+ from copy import deepcopy
+ import math
+ 
++from wowbot.query_ports import TravelCostPort
+ from .agenda_sources import discovery_steps, distance, follow_up_steps, offer_steps, quest_steps, same_area
+ from .models import Proposal, canonical
+ 
+@@ -15,7 +16,8 @@
+ class QuestAgenda:
+     MAX_DEFER_SECONDS = 600.
+ 
+-    def __init__(self):
++    def __init__(self, *, travel_cost: TravelCostPort | None = None):
++        self.travel_cost = travel_cost
+         self.reset()
+ 
+     def reset(self):
+@@ -72,9 +74,10 @@
+         if self.updated_at is not None and signature == self._signature and 0 <= now-self.updated_at < 1.:
+             return
+         self.updated_at, self._signature = now, signature
+-        steps = quest_steps(world, goal) + offer_steps(state, goal)
++        steps = quest_steps(world, goal, travel_cost=self.travel_cost)
++        steps.extend(offer_steps(state, goal, travel_cost=self.travel_cost))
+         steps.extend(discovery_steps(world, goal, steps, self.steps, now))
+-        steps.extend(follow_up_steps(state, steps))
++        steps.extend(follow_up_steps(state, steps, travel_cost=self.travel_cost))
+         active = {step["quest_id"] for step in steps if step["kind"] == "WORK"}
+         self.work_locations = {qid: p for qid, p in self.work_locations.items() if qid in active}
+         self.completed_at = {qid: at for qid, at in self.completed_at.items() if qid in active}
+--- before/src/wowbot/agent/quest_contextual_talk.py
++++ after/src/wowbot/agent/quest_contextual_talk.py
+@@ -8,6 +8,7 @@
+ import math
+ from types import SimpleNamespace
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import number, words
+ from .planning_types import world_point
+ from .quest_reference_matching import reference_objectives
+@@ -29,7 +30,8 @@
+     return True
+ 
+ 
+-def _objective_point(state, qid, objective, index, reference):
++def _objective_point(state, qid, objective, index, reference, *,
++                     travel_cost: TravelCostPort | None = None):
+     from .tdb_locations import objective_region
+     oid = objective.get('objective_id') or f'{qid}:{index}'
+     current_ids = {str(oid)}
+@@ -46,7 +48,7 @@
+     row = SimpleNamespace(objective_id=oid, description=objective.get('description'),
+                           target_location=objective.get('target_location'), completion_state='INCOMPLETE')
+     # Reuse the existing TDB/live-POI agreement and current-objective resolver.
+-    point = objective_region(state, qid, row)
++    point = objective_region(state, qid, row, travel_cost=travel_cost)
+     if point is not None:
+         return None if point.get('polygon_points') else point
+     # With no static refinement, a single current client point is sufficient.
+@@ -68,7 +70,8 @@
+     return next(iter(distinct.values())) if len(distinct) == 1 else None
+ 
+ 
+-def speakers_at_objective(state, qid, objective, reference, visible_units):
++def speakers_at_objective(state, qid, objective, reference, visible_units, *,
++                          travel_cost: TravelCostPort | None = None):
+     """Known quest giver + local objective point + live talkable actor."""
+     quest = next((q for q in state.get('active_quests') or () if str(q.get('quest_id')) == str(qid)), {})
+     objectives = quest.get('objectives') or ()
+@@ -85,7 +88,7 @@
+             or any(row.get(key) for key in ('named_creatures', 'talk_creatures', 'talk_actor_candidates',
+                                            'spellclick_creatures', 'object_template', 'item_uses'))):
+         return []
+-    point = _objective_point(state, qid, objective, index, reference)
++    point = _objective_point(state, qid, objective, index, reference, travel_cost=travel_cost)
+     player = state.get('player_world_position') or {}
+     if (point is None or str(point.get('instance_id')) != str(player.get('instance_id'))
+             or str(point.get('map_id')) != str(state.get('map_id')) or not _local(point, player)):
+--- before/src/wowbot/agent/quest_dialog_planning.py
++++ after/src/wowbot/agent/quest_dialog_planning.py
+@@ -4,6 +4,7 @@
+ import math
+ import re
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Goal, Proposal, number, words
+ from .quest_offer_selector import QuestOfferSelector
+ from .quest_reward_selector import QuestRewardSelector
+@@ -27,7 +28,8 @@
+     # How long after a turn-in the same NPC is spoken to again.
+     FOLLOW_UP_SECONDS = 20.
+ 
+-    def __init__(self) -> None:
++    def __init__(self, *, travel_cost: TravelCostPort | None = None) -> None:
++        self.travel_cost = travel_cost
+         self.offer_selector = QuestOfferSelector()
+         self.reward_selector = QuestRewardSelector()
+         self.accept_flow = QuestAcceptFlow()
+@@ -207,7 +209,8 @@
+     _STOP_WORDS = frozenset({"the", "and", "for", "with", "from", "about", "after", "your", "have", "what"})
+ 
+     @classmethod
+-    def _talk_gossip(cls, state: dict, dialog_open: bool, attempt_memory=None) -> Proposal | None:
++    def _talk_gossip(cls, state: dict, dialog_open: bool, attempt_memory=None, *,
++                     travel_cost: TravelCostPort | None = None) -> Proposal | None:
+         """Prefer an explicit quest row for an exact, open conversation actor.
+ 
+         The addon exports the API's colored "(Quest)" prefix. It is stronger
+@@ -238,7 +241,8 @@
+                 from .packet_entity_facts import proxy_credit_name
+                 talkers = list(row.get("talk_creatures") or ()) if row.get("credit_action") == "TALK" else []
+                 from .conversation_actors import conversation_actors
+-                talkers.extend(conversation_actors(state, quest["quest_id"], row.get("description")))
++                talkers.extend(conversation_actors(state, quest["quest_id"], row.get("description"),
++                                                   travel_cost=travel_cost))
+                 if any(talk.get('source') == 'QUEST_GIVER_AT_CURRENT_OBJECTIVE'
+                        and check_entity_identity({'npc_id': talk.get('entry')}, target) for talk in talkers):
+                     row = {**row, 'contextual_talk': True}
+@@ -378,7 +382,7 @@
+         vendor_row = self._vendor_gossip(state, dialog_open)
+         if vendor_row is not None:
+             result.append(vendor_row)
+-        talk_row = self._talk_gossip(state, dialog_open, attempt_memory)
++        talk_row = self._talk_gossip(state, dialog_open, attempt_memory, travel_cost=self.travel_cost)
+         if talk_row is not None:
+             result.append(talk_row)
+         follow_up = self._follow_up_interact(state, dialog_open, action)
+--- before/src/wowbot/agent/quest_location_planning.py
++++ after/src/wowbot/agent/quest_location_planning.py
+@@ -4,6 +4,7 @@
+ import math
+ import re
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Proposal, number
+ from .objective_locator import ObjectiveLocator
+ from .planning_types import point, world_point
+@@ -175,9 +176,9 @@
+ class QuestLocationPlanningPolicy:
+     """Resolve explicit quest locations without owning movement or input."""
+ 
+-    def __init__(self) -> None:
+-        self.objective_locator = ObjectiveLocator()
+-        self.turnin_resolver = TurnInResolver()
++    def __init__(self, *, travel_cost: TravelCostPort | None = None) -> None:
++        self.objective_locator = ObjectiveLocator(travel_cost=travel_cost)
++        self.turnin_resolver = TurnInResolver(travel_cost=travel_cost)
+         self.travel_fallback = TravelReachFallbackPolicy()
+         self.escort_follow = EscortFollowPolicy()
+         self.object_interaction = ObjectInteractionFlow()
+@@ -185,7 +186,7 @@
+         self.kill_flow = KillObjectiveFlow()
+         self.reached_quest_locations: dict[tuple, str] = {}
+         self.quest_search_regions: dict[tuple[str, int], dict] = {}
+-        self.map_pois = MapPoiPlanningPolicy()
++        self.map_pois = MapPoiPlanningPolicy(travel_cost=travel_cost)
+         # quest_id -> (x, y, route z or None) of the turn-in region reached.
+         self.turn_in_arrivals: dict[str, tuple[float, float, float | None]] = {}
+         # API pins are neighbourhoods, not NPC coordinates.  Crossing the
+--- before/src/wowbot/agent/quest_planning.py
++++ after/src/wowbot/agent/quest_planning.py
+@@ -7,6 +7,7 @@
+ 
+ import math
+ 
++from wowbot.query_ports import TravelCostPort
+ from .interaction_range import recently_verified_in_range
+ from .collect_strategy import CollectStrategyTracker
+ from .credit_failure_escalation import CreditFailureAction, CreditFailureEscalation
+@@ -51,7 +52,8 @@
+         except Exception:
+             return
+         saved[str(quest_id)] = cells
+-    def __init__(self, attempt_memory=None):
++    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None):
++        self.travel_cost = travel_cost
+         # A client-confirmed range error opens one persistent REACH_OBJECT
+         # requirement. The Movement Skill owns it until world-space arrival.
+         self.interaction_range_blocks: dict[str, dict] = {}
+@@ -112,13 +114,14 @@
+         # quest-item mechanic / scripted). Queried, not auto-applied -- a
+         # caller decides what to do with the current best guess.
+         self.collect_strategy = CollectStrategyTracker(history=self.strategy_history)
+-        self.location_policy = QuestLocationPlanningPolicy()
+-        self.server_npcs = ServerNpcInteractionPolicy(object_flow=self.location_policy.object_interaction)
++        self.location_policy = QuestLocationPlanningPolicy(travel_cost=self.travel_cost)
++        self.server_npcs = ServerNpcInteractionPolicy(object_flow=self.location_policy.object_interaction,
++                                                     travel_cost=self.travel_cost)
+         # Compatibility views during the engine migration; the state itself is
+         # owned only by QuestLocationPlanningPolicy.
+         self.reached_quest_locations = self.location_policy.reached_quest_locations
+         self.objective_locator = self.location_policy.objective_locator
+-        self.dialog_policy = QuestDialogPlanningPolicy()
++        self.dialog_policy = QuestDialogPlanningPolicy(travel_cost=self.travel_cost)
+         self.target_policy = TargetPlanningPolicy()
+         self.batch_policy = QuestBatchPolicy()
+ 
+@@ -232,7 +235,7 @@
+             # minute.  Standing at an API giver, its soft-interact NPC goes
+             # first (MapPoiPlanningPolicy._soft_interact_pickup).
+             from .map_poi_planning import soft_interact_giver_waiting
+-            if soft_interact_giver_waiting(state, guid):
++            if soft_interact_giver_waiting(state, guid, travel_cost=self.travel_cost):
+                 return False
+             return not handled or selected_npc_shows_quest_symbol(state, guid)
+         from .quest_giver_evidence import npc_objective_subjects
+--- before/src/wowbot/agent/quest_runtime.py
++++ after/src/wowbot/agent/quest_runtime.py
+@@ -3,6 +3,7 @@
+ 
+ from dataclasses import dataclass
+ 
++from wowbot.query_ports import TravelCostPort
+ from wowbot.runtime import ObjectiveLocationStatus
+ from .objective_locator import ObjectiveLocator
+ from .next_quest_resolver import NextQuestResolver
+@@ -35,10 +36,10 @@
+     sole component that proposes M0 skills and the executor remains the sole
+     component that sends input.
+     """
+-    def __init__(self, attempt_memory=None):
++    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None):
+         self.primary = PrimaryQuestState()
+         self.classifier = ObjectiveClassifier()
+-        self.locator = ObjectiveLocator()
++        self.locator = ObjectiveLocator(travel_cost=travel_cost)
+         self.next_quest_resolver = NextQuestResolver()
+         from .quest_attempt_memory import QuestAttemptMemory
+         self.attempt_memory = attempt_memory or QuestAttemptMemory()
+--- before/src/wowbot/agent/server_npc_planning.py
++++ after/src/wowbot/agent/server_npc_planning.py
+@@ -17,6 +17,7 @@
+ import math
+ import re
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Proposal, number
+ from .packet_entity_facts import (CREDIT_OBJECT_BASIS, best_position, credit_object_entries, go_flags_usable,
+                                   game_object_use_candidate,
+@@ -84,7 +85,8 @@
+                 and check_interaction_recipient({"guid": guid}, state, now))
+ 
+ 
+-def objective_npc_entries(state: dict) -> dict[str, str]:
++def objective_npc_entries(state: dict, *,
++                          travel_cost: TravelCostPort | None = None) -> dict[str, str]:
+     """{creature entry: quest id} named by unfinished objectives of open quests."""
+     reference = (state.get("reference_knowledge") or {}).get("quests") or {}
+     result: dict[str, str] = {}
+@@ -97,7 +99,7 @@
+             continue
+         quest_id = str(quest.get("quest_id"))
+         from .conversation_actors import conversation_actors
+-        for actor in conversation_actors(state, quest_id):
++        for actor in conversation_actors(state, quest_id, travel_cost=travel_cost):
+             result.setdefault(str(actor["entry"]), quest_id)
+         for row in (reference.get(quest_id) or {}).get("objectives") or ():
+             if not isinstance(row, dict):
+@@ -154,7 +156,8 @@
+     return result
+ 
+ 
+-def objective_npc_available(state: dict, quest_id, *, since: float | None = None) -> str | None:
++def objective_npc_available(state: dict, quest_id, *, since: float | None = None,
++                            travel_cost: TravelCostPort | None = None) -> str | None:
+     """GUID of a server-known, talkable objective NPC of this quest in reach,
+     created after ``since`` (an NPC known at planning time had its chance:
+     a talked-to one must not cancel every later search walk).
+@@ -163,7 +166,8 @@
+     with Left and Right"): the only plan was a TDB-POI walk, chosen 1.7 s
+     before the server sent Left and Right 12 yd away; the walk was never
+     replanned and spun 70 s on a waypoint of a lower floor."""
+-    entries = {entry for entry, quest in objective_npc_entries(state).items() if quest == str(quest_id)}
++    entries = {entry for entry, quest in objective_npc_entries(
++        state, travel_cost=travel_cost).items() if quest == str(quest_id)}
+     item_clicks = {guid: binding for guid, binding in collect_spellclick_units(state).items()
+                    if binding['quest_id'] == str(quest_id)}
+     entries.update(str(binding['npc_id']) for binding in item_clicks.values())
+@@ -341,7 +345,8 @@
+ class ServerNpcInteractionPolicy:
+     """Proposes MOVE then SOFT_INTERACT for server-located objective NPCs."""
+ 
+-    def __init__(self, object_flow=None) -> None:
++    def __init__(self, object_flow=None, *, travel_cost: TravelCostPort | None = None) -> None:
++        self.travel_cost = travel_cost
+         self.interacted_at: dict[str, float] = {}
+         self.pressed_at: dict[str, float] = {}
+         self.collected_sources: dict[tuple, float] = {}
+@@ -356,7 +361,7 @@
+             return []
+         # User 2026-10-20: the turn-in NPC's own position is known as soon
+         # as the server has sent it -- walk up to it the same way.
+-        wanted = {**objective_npc_entries(state), **turn_in_entries(state)}
++        wanted = {**objective_npc_entries(state, travel_cost=self.travel_cost), **turn_in_entries(state)}
+         ridden = ride_entries(state)
+         wanted.update(ridden)
+         picked = pickup_entries(state)
+--- before/src/wowbot/agent/tdb_locations.py
++++ after/src/wowbot/agent/tdb_locations.py
+@@ -9,6 +9,7 @@
+ import time
+ from functools import lru_cache
+ from copy import deepcopy
++from wowbot.query_ports import TravelCostPort
+ from .models import number
+ 
+ 
+@@ -185,13 +186,12 @@
+ # first reachable of several spawns): the BATCH_CANDIDATES nearest by straight
+ # line are re-ranked by navmesh walking length -- a spawn across a cliff or a
+ # river loses to a nearby reachable one, one without any path to any that has
+-# one.  The agent's navigation sets the oracle (NavigationService.walk_cost);
+-# without it (no mmaps, offline replay) the straight-line choice stays.
++# one. The owning caller supplies NavigationService.walk_cost explicitly;
++# without a provider (no mmaps, offline replay) the geometric choice stays.
+ BATCH_CANDIDATES = 5
+-route_cost_oracle = None
+-
+-
+-def _nearest(state, candidates):
++
++
++def _nearest(state, candidates, *, travel_cost: TravelCostPort | None = None):
+     player = state.get('player_world_position') or {}
+     px,py = _finite(player.get('x')),_finite(player.get('y'))
+     if px is None or py is None or not candidates:
+@@ -204,13 +204,12 @@
+             return (0 if abs(z-pz)<=8 else 1, math.hypot(xy,z-pz))
+         return (1,xy)
+     ranked = sorted(candidates,key=distance)
+-    oracle = route_cost_oracle
+-    if oracle is None or len(ranked) < 2:
++    if travel_cost is None or len(ranked) < 2:
+         return ranked[0]
+     walks = []
+     for row in ranked[:BATCH_CANDIDATES]:
+         try:
+-            cost = oracle(state,row)
++            cost = travel_cost(state,row)
+         except Exception:
+             cost = None
+         if cost is not None:
+@@ -363,7 +362,7 @@
+     return False
+ 
+ 
+-def objective_region(state, quest_id, objective):
++def objective_region(state, quest_id, objective, *, travel_cost: TravelCostPort | None = None):
+     # Static POIs describe all possible sites, including already completed
+     # stages. Live quest progress is the authority for whether this objective
+     # may still supply a destination at all.
+@@ -479,7 +478,7 @@
+                 return None
+     elif exact_spawns and count is not None and count > 0:
+         return None
+-    return _nearest(state,candidates)
++    return _nearest(state,candidates, travel_cost=travel_cost)
+ 
+ 
+ def _role_spawn_height(reference, role, npc_id, point, radius=20.):
+@@ -501,7 +500,8 @@
+     return None if best is None else best[1]
+ 
+ 
+-def role_region(state, quest_id, role, *, live_location=None):
++def role_region(state, quest_id, role, *, live_location=None,
++                travel_cost: TravelCostPort | None = None):
+     reference = ((state.get('reference_knowledge') or {}).get('quests') or {}).get(str(quest_id)) or {}
+     from .planning_types import world_point
+     live = world_point(live_location)
+@@ -538,4 +538,4 @@
+     if not candidates and role=='QUEST_ENDER':
+         candidates = _poi_regions(state,reference,lambda p: p.get('objective_index')==-1)
+     candidates = [candidate for candidate in candidates if agrees(candidate)]
+-    return _nearest(state,candidates)
++    return _nearest(state,candidates, travel_cost=travel_cost)
+--- before/src/wowbot/agent/turnin_resolver.py
++++ after/src/wowbot/agent/turnin_resolver.py
+@@ -4,6 +4,7 @@
+ from dataclasses import dataclass
+ from enum import StrEnum
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import number
+ from .planning_types import world_point
+ 
+@@ -67,6 +68,9 @@
+     player for a completed quest.  The resolver accepts only a declared
+     turn-in role or a current Quest API completion waypoint.
+     """
++
++    def __init__(self, *, travel_cost: TravelCostPort | None = None):
++        self.travel_cost = travel_cost
+ 
+     def locate(self, record, state: dict, completion_mode: str = "UNKNOWN") -> TurnInResolution:
+         mode = str(completion_mode or "UNKNOWN").upper()
+@@ -109,7 +113,7 @@
+                 # The current API pin keeps its XY and location authority;
+                 # a cheaper historical spawn elsewhere cannot replace it.
+                 hint = role_region(state, getattr(record, 'quest_id', None), 'QUEST_ENDER',
+-                                   live_location=server_poi)
++                                   live_location=server_poi, travel_cost=self.travel_cost)
+                 if hint and hint.get('z_known') is True:
+                     server_poi = {**server_poi, 'z': hint['z'], 'z_known': True,
+                         'z_estimated': True, 'z_observed': False, 'z_source': hint.get('z_source'),
+@@ -127,7 +131,7 @@
+                                  or str(location.get('source') or '').upper() == 'QUEST_API_WAYPOINT')
+                             and world_point(location)), None)
+         primary = role_region(state, getattr(record, 'quest_id', None), 'QUEST_ENDER',
+-                              live_location=live_turnin)
++                              live_location=live_turnin, travel_cost=self.travel_cost)
+         if primary:
+             return TurnInResolution(TurnInLocationKind.TURN_IN_LOCATION, primary,
+                                     completion_mode='NPC_TURN_IN', confidence=.75,
+--- before/src/wowbot/agent/vehicle_prerequisites.py
++++ after/src/wowbot/agent/vehicle_prerequisites.py
+@@ -6,6 +6,7 @@
+ """
+ from __future__ import annotations
+ 
++from wowbot.query_ports import TravelCostPort
+ from .models import Proposal, number
+ from .quest_reference_matching import objective_text_key, reference_objectives
+ 
+@@ -85,7 +86,8 @@
+     return result
+ 
+ 
+-def boarding_location(state: dict, requirement: dict) -> dict | None:
++def boarding_location(state: dict, requirement: dict, *,
++                       travel_cost: TravelCostPort | None = None) -> dict | None:
+     """Exact boarding objective POI/spawn, never a same-name vehicle or observer."""
+     from .tdb_locations import _nearest, _poi_regions, _spawn_regions
+     reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(
+@@ -97,10 +99,11 @@
+         str(s.get("entry")) in entries and s.get("entity_kind") in {"CREATURE", "VEHICLE"}
+         and s.get("location_kind") != "OBSERVER_POSITION"
+         and str(s.get("objective_id")) == oid))
+-    return _nearest(state, spawns or points)
++    return _nearest(state, spawns or points, travel_cost=travel_cost)
+ 
+ 
+-def resume_proposals(state: dict, server_npcs, *, primary_quest_id=None) -> list[Proposal] | None:
++def resume_proposals(state: dict, server_npcs, *, primary_quest_id=None,
++                     travel_cost: TravelCostPort | None = None) -> list[Proposal] | None:
+     """None means no missing prerequisite; a list exclusively restores it."""
+     if (state.get("in_vehicle") is not False or state.get("on_taxi") is True
+             or state.get("is_in_combat") or state.get("player_dead") or state.get("is_ghost")):
+@@ -128,7 +131,7 @@
+     # the recipient settles or the previous press is still awaiting entry.
+     candidates = server_npcs.candidates(state, vehicle_requirement=requirement)
+     if not candidates:
+-        location = boarding_location(state, requirement)
++        location = boarding_location(state, requirement, travel_cost=travel_cost)
+         if location:
+             from .destination_distance import arrived
+             move = {**location, **params, "purpose": "RETURN_TO_QUEST_VEHICLE",
+--- before/src/wowbot/query_ports.py
++++ after/src/wowbot/query_ports.py
+@@ -0,0 +1,14 @@
++"""Small, read-only query contracts shared across domain boundaries.
++
++Providers are injected into their consumers, never placed in serialized world
++state or stored in module globals. A cost query cannot execute movement/input.
++"""
++from __future__ import annotations
++
++from typing import Any, Protocol
++
++
++class TravelCostPort(Protocol):
++    """Walking length for this owner's context, or None if no route is known."""
++
++    def __call__(self, state: dict[str, Any], destination: dict[str, Any]) -> float | None: ...
+--- before/tests/test_batch_paths_safe_resurrection_20261021.py
++++ after/tests/test_batch_paths_safe_resurrection_20261021.py
+@@ -20,28 +20,19 @@
+     return {"x": x, "y": y, "z": 10., "z_known": True, "name": name}
+ 
+ 
+-@pytest.fixture
+-def oracle():
+-    previous = tdb_locations.route_cost_oracle
+-    yield
+-    tdb_locations.route_cost_oracle = previous
+-
+-
+-def test_the_spawn_with_the_shortest_walk_wins_over_the_straight_line_nearest(oracle):
++def test_the_spawn_with_the_shortest_walk_wins_over_the_straight_line_nearest():
+     across_the_river = spot(20., 0., "near but 300 yd around")
+     walkable = spot(60., 0., "farther but straight")
+     walks = {"near but 300 yd around": 300., "farther but straight": 62.}
+-    tdb_locations.route_cost_oracle = lambda state, row: walks[row["name"]]
+-    assert tdb_locations._nearest(STATE, [across_the_river, walkable]) is walkable
++    cost = lambda state, row: walks[row["name"]]
++    assert tdb_locations._nearest(STATE, [across_the_river, walkable], travel_cost=cost) is walkable
+ 
+ 
+-def test_an_unreachable_spawn_loses_and_without_any_path_the_nearest_stays(oracle):
++def test_an_unreachable_spawn_loses_and_without_any_path_the_nearest_stays():
+     unreachable, reachable = spot(10., 0., "a"), spot(80., 0., "b")
+-    tdb_locations.route_cost_oracle = lambda state, row: None if row["name"] == "a" else 85.
+-    assert tdb_locations._nearest(STATE, [unreachable, reachable]) is reachable
+-    tdb_locations.route_cost_oracle = lambda state, row: None
+-    assert tdb_locations._nearest(STATE, [unreachable, reachable]) is unreachable
+-    tdb_locations.route_cost_oracle = None
++    cost = lambda state, row: None if row["name"] == "a" else 85.
++    assert tdb_locations._nearest(STATE, [unreachable, reachable], travel_cost=cost) is reachable
++    assert tdb_locations._nearest(STATE, [unreachable, reachable], travel_cost=lambda *a: None) is unreachable
+     assert tdb_locations._nearest(STATE, [reachable, unreachable]) is unreachable
+ 
+ 
+--- before/tests/test_credit_spell_object_20261026.py
++++ after/tests/test_credit_spell_object_20261026.py
+@@ -65,7 +65,7 @@
+         "position": {"x": 1686.2, "y": 1280.3, "z": 186.6, "sampled_at": 10., "source": "PACKET_CREATE_STATIONARY"}}
+     import wowbot.agent.server_npc_planning as planning
+     original = planning.objective_npc_entries
+-    planning.objective_npc_entries = lambda state: {"189507": "66048"}
++    planning.objective_npc_entries = lambda state, **queries: {"189507": "66048"}
+     try:
+         (step,) = ServerNpcInteractionPolicy().propose(state)
+     finally:
+--- before/tests/test_current_turnin_poi_20261029.py
++++ after/tests/test_current_turnin_poi_20261029.py
+@@ -24,12 +24,11 @@
+ 
+ 
+ @pytest.mark.parametrize('qid', [70185, 90222])
+-def test_current_api_pin_wins_over_an_old_or_cheaper_static_ender(qid, monkeypatch):
+-    from wowbot.agent import tdb_locations
+-    monkeypatch.setattr(tdb_locations, 'route_cost_oracle', lambda *a: pytest.fail('Do not rank static spawns'))
++def test_current_api_pin_wins_over_an_old_or_cheaper_static_ender(qid):
++    resolver = TurnInResolver(travel_cost=lambda *a: pytest.fail('Do not rank static spawns'))
+     current = scene(qid)
+     before = deepcopy(current)
+-    resolved = TurnInResolver().locate(SimpleNamespace(quest_id=qid, known_locations=[]), current)
++    resolved = resolver.locate(SimpleNamespace(quest_id=qid, known_locations=[]), current)
+     assert resolved.location['x'] == -178. and resolved.location['y'] == 1084.
+     assert resolved.location['knowledge_priority'] == 'QUEST_API_CURRENT'
+     assert resolved.evidence == ('current_quest_api_turnin_poi',)
+--- before/tests/test_linked_quest_object_20261026.py
++++ after/tests/test_linked_quest_object_20261026.py
+@@ -54,7 +54,7 @@
+         "position": {"x": 1852.5, "y": 1268.5, "z": 189.7, "sampled_at": 10., "source": "PACKET_CREATE_STATIONARY"}}
+     import wowbot.agent.server_npc_planning as planning
+     original = planning.objective_npc_entries
+-    planning.objective_npc_entries = lambda state: {"186331": "66048"}
++    planning.objective_npc_entries = lambda state, **queries: {"186331": "66048"}
+     try:
+         (step,) = ServerNpcInteractionPolicy().propose(state)
+     finally:
+--- before/tests/test_reference_cost_isolation_20261029.py
++++ after/tests/test_reference_cost_isolation_20261029.py
+@@ -0,0 +1,159 @@
++"""REV4 P1-A: each agent ranks locations with its own navigation service."""
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++import pytest
++
++from wowbot.agent.engine import AutonomousAgent
++from wowbot.agent import tdb_locations
++from wowbot.navigation.service import NavigationService
++
++
++class NoInput:
++    def execute(self, commands):
++        raise AssertionError("Location queries cannot dispatch client input")
++
++    execute_movement = execute
++
++
++@pytest.fixture
++def agents(monkeypatch):
++    def walk_cost(navigation, state, destination):
++        return navigation._navmesh.costs[destination["x"]]
++
++    monkeypatch.setattr(NavigationService, "walk_cost", walk_cost)
++
++    def make(costs):
++        return AutonomousAgent(NoInput(), navmesh=SimpleNamespace(costs=costs))
++
++    return make
++
++
++def scene():
++    return {
++        "session_id": "first-session", "map_id": 2023,
++        "player_world_position": {"x": 0., "y": 0., "z": 10., "z_known": True,
++                                  "coordinate_space": "WORLD_YARDS", "instance_id": 2444},
++        "active_quests": [{"quest_id": 7, "is_complete": False,
++                           "objectives": [{"is_complete": False, "current": 0}]}],
++        "reference_knowledge": {"quests": {"7": {"spawn_candidates": [
++            {"spawn_id": 1, "role": "OBJECTIVE", "objective_id": "7:0",
++             "entity_kind": "CREATURE", "entry": 99, "world_map_id": 2444,
++             "x": 20., "y": 0., "z": 10.},
++            {"spawn_id": 2, "role": "OBJECTIVE", "objective_id": "7:0",
++             "entity_kind": "CREATURE", "entry": 99, "world_map_id": 2444,
++             "x": 60., "y": 0., "z": 10.},
++        ]}}},
++    }
++
++
++def choose(agent):
++    objective = SimpleNamespace(objective_id="7:0", description="",
++                                target_entity={}, target_location=None,
++                                completion_state="INCOMPLETE")
++    record = SimpleNamespace(quest_id=7)
++    return agent.planner.quest.objective_locator.locate(objective, record, scene()).coordinates
++
++
++def test_second_agent_cannot_replace_the_first_agents_location_cost(agents):
++    first = agents({20.: 300., 60.: 62.})
++    assert choose(first)["x"] == 60.
++    second = agents({20.: 20., 60.: 500.})
++    assert choose(second)["x"] == 20.
++    assert choose(first)["x"] == 60.
++
++
++def test_session_reset_keeps_each_agents_navigation_query(agents):
++    first = agents({20.: 300., 60.: 62.})
++    second = agents({20.: 20., 60.: 500.})
++    first.planner.reset_session()
++    first._reset_quest_runtime()
++    assert choose(first)["x"] == 60.
++    assert choose(second)["x"] == 20.
++
++
++def test_pure_location_query_without_a_provider_does_not_borrow_an_agents_navigation(agents):
++    agents({20.: 300., 60.: 62.})
++    candidates = [{"x": 20., "y": 0., "z": 10.},
++                  {"x": 60., "y": 0., "z": 10.}]
++    assert tdb_locations._nearest(scene(), candidates) is candidates[0]
++
++
++@pytest.mark.parametrize("consumer", ["quest_runtime", "turnin", "pickup",
++                                     "agenda_work", "agenda_offer", "vehicle"])
++def test_location_consumers_use_the_owning_cost_after_another_agent_starts(agents, consumer):
++    from wowbot.agent.models import Goal, Observation
++    from wowbot.agent.vehicle_prerequisites import resume_proposals
++
++    first = agents({20.: 300., 60.: 62.})
++    second = agents({20.: 20., 60.: 500.})
++    for agent, expected in ((first, 60.), (second, 20.)):
++        state = scene()
++        state.update(monotonic_time=10., frame_id="cost-query", player_present=True,
++                     orientation=0., position={"x": .5, "y": .5})
++        quest = state["active_quests"][0]
++        quest.update(title="Quest", is_accepted=True)
++        quest["objectives"][0].update(objective_id="7:0", type="KILL",
++                                      description="Creatures slain", required=1)
++        reference = state["reference_knowledge"]["quests"]["7"]
++
++        if consumer == "turnin":
++            quest["is_complete"] = True
++            for spawn in reference["spawn_candidates"]:
++                spawn["role"] = "QUEST_ENDER"
++        elif consumer in {"pickup", "agenda_offer"}:
++            state["active_quests"] = []
++            for spawn in reference["spawn_candidates"]:
++                spawn["role"] = "QUEST_STARTER"
++            state["map_pois"] = {"available_quests": [{
++                "quest_id": 7, "is_campaign": True, "map_id": 2023,
++                "world_position": {"coordinate_space": "WORLD_YARDS", "instance_id": 2444,
++                                   "map_id": 2023, "x": 40., "y": 0., "z": 10.}}]}
++
++        if consumer == "quest_runtime":
++            objective = SimpleNamespace(objective_id="7:0", description="", target_entity={},
++                                        target_location=None, completion_state="INCOMPLETE")
++            point = agent.quest_runtime.locator.locate(
++                objective, SimpleNamespace(quest_id=7), state).coordinates
++        elif consumer == "turnin":
++            point = agent.planner.quest.location_policy.turnin_resolver.locate(
++                SimpleNamespace(quest_id=7, known_locations=[]), state).location
++        elif consumer == "pickup":
++            (_, _, point), = agent.planner.quest.location_policy.map_pois._giver_candidates(state)
++        elif consumer == "vehicle":
++            state["in_vehicle"] = False
++            state["vehicle_requirements"] = [{"quest_id": "7", "boarding_objective_id": "7:0",
++                                              "npc_ids": ["99"]}]
++            (move,) = resume_proposals(state, agent.planner.quest.server_npcs,
++                                       travel_cost=agent.planner.travel_cost)
++            assert move.skill == "MOVE"
++            point = move.parameters
++        else:
++            agent.world.ingest(Observation.create(state, 10.))
++            agent.planner.refresh_agenda(Goal.parse("Questelj", 10.), agent.world, 10.)
++            key = "work:7" if consumer == "agenda_work" else "accept:7"
++            point = next(step["location"] for step in agent.planner.agenda.snapshot()["steps"]
++                         if step["key"] == key)
++        assert point["x"] == expected
++
++
++def test_cost_provider_is_not_serialized_with_locations_or_agenda(agents):
++    import json
++
++    first = agents({20.: 300., 60.: 62.})
++    payload = {"location": choose(first), "world": first.world.state,
++               "agenda": first.planner.agenda.snapshot(),
++               "quest_runtime": first.quest_runtime.snapshot(10.)}
++    assert json.loads(json.dumps(payload))["location"]["x"] == 60.
++
++
++def test_unavailable_cost_query_preserves_the_geometric_fallback():
++    candidates = [{"x": 20., "y": 0., "z": 10.},
++                  {"x": 60., "y": 0., "z": 10.}]
++
++    def unavailable(state, destination):
++        raise RuntimeError("No geometry available")
++
++    assert tdb_locations._nearest(scene(), candidates, travel_cost=unavailable) is candidates[0]
++

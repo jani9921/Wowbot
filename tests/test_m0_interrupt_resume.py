@@ -149,3 +149,46 @@ def test_combat_success_without_quest_credit_is_not_quest_success():
     assert value.last_result["quest_credit"]["confirmed"] is False
     assert value.goal.completed_steps == 1  # action only, never quest completion
     assert value.goal.status != "COMPLETED"
+
+
+def _dot_move_attempt():
+    proposal = Proposal.make("MOVE", "Sárga quest-pötty a minimapon", {
+        "x": 80.2, "y": -2278.7, "coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+        "map_id": 1609, "quest_id": 55639, "purpose": "APPROACH_MINIMAP_QUEST_DOT",
+        "stop_distance": 6., "require_navmesh": True, "floor_hint": "SAME",
+        "face_on_arrival": True, "dot_world": [80.2, -2278.7]})
+    return Attempt("dot-move", proposal, {}, "old-observation", 1., 91., (),
+                   Prediction("dot-move-prediction", "dot-move", "reach_destination",
+                              1., 91., "old-observation"))
+
+
+def test_combat_during_a_yellow_dot_move_resumes_the_same_dot_afterwards():
+    """User 2026-10-14: a MOVE to the yellow dot, combat -- what comes next?
+    The fight first (the MOVE is suspended), then the same dot MOVE with all
+    its parameters (face on arrival included), unless the quest progressed."""
+    from test_agent_core import world
+    here = {"player_world_position": world(70., -2270.)}
+    value, _ = agent()
+    value.pending = _dot_move_attempt()
+    interrupt = state(1., target={"guid": "spider", "attackable": True}, is_in_combat=True, **here)
+    value.executed_observation = Observation.create(interrupt, 1.).observation_id
+    value.tick(interrupt, 1.)
+    assert value.pending is None
+    assert value.supervisor.snapshot()["suspended"]["skill"] == "MOVE"
+    assert value.supervisor.resume_candidate(state(20., is_in_combat=True, **here), 20.) is None
+
+    value.tick(state(30., is_in_combat=False, **here), 30.)
+    assert value.pending and value.pending.proposal.skill == "MOVE"
+    params = value.pending.proposal.parameters
+    assert params["purpose"] == "APPROACH_MINIMAP_QUEST_DOT"
+    assert (params["x"], params["y"]) == (80.2, -2278.7) and params["face_on_arrival"] is True
+
+
+def test_after_combat_loot_and_a_quest_object_right_here_come_before_the_old_route():
+    from wowbot.agent.planning_orchestration import PlanningOrchestrator
+    pending = PlanningOrchestrator._local_interaction_pending
+    route = Proposal.make("MOVE", "dot", {"purpose": "APPROACH_MINIMAP_QUEST_DOT"})
+    assert not pending([route])
+    assert pending([route, Proposal.make("LOOT", "corpse", {})])
+    assert pending([route, Proposal.make("OBJECT_USE", "F7", {"binding": "INTERACTTARGET"})])
+    assert pending([route, Proposal.make("MOVE", "cocoon spot", {"purpose": "APPROACH_QUEST_OBJECT_SPAWN"})])

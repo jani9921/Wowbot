@@ -46,13 +46,18 @@ class PlanningOrchestrator:
     def choose(self, goal, world, planning_world: dict, now: float, *,
                recovery_resume: Proposal | None,
                recovery_resume_ready: bool) -> PlanningCycleResult:
+        state = world.state
+        target = state.get("target") or {}
+        live_combat = bool(state.get("is_in_combat")
+                           and target.get("attackable", target.get("is_attackable")) is True
+                           and not target.get("dead", target.get("is_dead")))
         proposals = self.goals.filter(
             self.planner.candidates(goal, planning_world, now),
-            self.registry.contracts, now)
-        preferred = self._inject_supervisor_resume(proposals, world, now)
+            self.registry.contracts, now, **({"live_combat": True} if live_combat else {}))
+        preferred = self._inject_supervisor_resume(proposals, world, now, goal=goal)
         events: list[tuple[str, dict]] = []
         recovery_resume, recovery_resume_ready, recovery_preferred = self._inject_recovery_resume(
-            proposals, recovery_resume, recovery_resume_ready, world, now, events)
+            proposals, recovery_resume, recovery_resume_ready, world, now, events, goal=goal)
         if recovery_preferred is not None:
             preferred = recovery_preferred
         if not proposals:
@@ -69,7 +74,14 @@ class PlanningOrchestrator:
                 Proposal.make(
                     "WAIT", "A terv confidence-e végrehajtáshoz kevés; további evidence szükséges",
                     {"rejected_proposal": proposal.key}, confidence=proposal.confidence))
-        proposal = self.autonomy.choose(proposals, proposal, goal, world, now)
+        # The ranker's scores let a clearly better objective release a
+        # commitment (objective_choice); other loops keep the old signature.
+        import inspect
+        if "scores" in inspect.signature(self.autonomy.choose).parameters:
+            proposal = self.autonomy.choose(proposals, proposal, goal, world, now,
+                                            scores=getattr(self.planner, "last_scores", None))
+        else:
+            proposal = self.autonomy.choose(proposals, proposal, goal, world, now)
         return PlanningCycleResult(
             proposal, tuple(proposals), recovery_resume, recovery_resume_ready,
             reasoning_observation, tuple(events))
@@ -113,6 +125,24 @@ class PlanningOrchestrator:
             autonomy=self.autonomy, failures=failures, now=now,
             current_recovery_for=current_recovery_for)
         proposal = recovery.proposal
+        from .planner import Planner
+        from .server_mode import server_mode_selected
+        if server_mode_selected(world.state) and Planner.vision_driven(proposal):
+            # User 2026-10-21 16:10: no screen-derived step in server mode,
+            # also not as an adapter's or a recovery's replacement.
+            proposal = next((item for item in proposals if not Planner.vision_driven(item)
+                             and self.registry.available(item, world)), Proposal.make(
+                "WAIT", "Szerver mód: nincs szerveres teendő, képernyős keresés nélkül várok",
+                {"waiting_for": ["SERVER_ENTITY"], "reason": "server_mode_no_server_option"}))
+        if world.state.get("is_in_combat"):
+            from wowbot.runtime.supervisor import Supervisor
+            if not Supervisor.combat_admissible(proposal.skill, proposal.parameters):
+                self.autonomy.reset(now, "COMBAT_ADMISSION_REJECTED")
+                proposal = next((item for item in proposals
+                                 if Supervisor.combat_admissible(item.skill, item.parameters)
+                                 and self.registry.available(item, world)), Proposal.make(
+                    "WAIT", "Harc: friss célazonosságra várakozás",
+                    {"waiting_for": ["COMBAT_TARGET_EVIDENCE"]}, priority=100))
         plan_update = self.build_plan(
             goal, proposal, proposals, mode=mode,
             replan_revision=replan_revision, now=now,
@@ -131,13 +161,18 @@ class PlanningOrchestrator:
         world position only for the selected target): ``corpse_not_found``
         and back again.  The resume waits (its window is 180 s after combat).
         """
+        # 2026-10-14: a quest object's exact spawn on our floor right here
+        # (walk 2.5 yd, face, Interact key) also comes before the old route.
         return any(item.skill in {"LOOT", "OBJECT_USE"}
                    or (item.skill == "VISUAL_APPROACH"
                        and item.parameters.get("purpose") == "LOOT")
+                   or (item.skill == "MOVE"
+                       and item.parameters.get("purpose") in {
+                           "APPROACH_QUEST_OBJECT_SPAWN", "APPROACH_SERVER_CORPSE"})
                    for item in proposals)
 
     def _inject_supervisor_resume(self, proposals: list[Proposal], world,
-                                  now: float) -> Proposal | None:
+                                  now: float, *, goal=None) -> Proposal | None:
         resume = self.supervisor.resume_candidate(world.state, now)
         if resume is None:
             return None
@@ -148,7 +183,17 @@ class PlanningOrchestrator:
             "Megszakított, még mindig érvényes részfeladat kontrollált folytatása",
             {**resume.intent.parameters, "_resume_token": resume.token},
             confidence=1., priority=101)
+        # Resume retains ownership, not permission to bypass a fresh failure.
+        # Its metadata-free movement key is the same as the policy proposal.
+        if self.planner.blocked_until.get(candidate.key, 0.) > now:
+            return None
         if self.registry.available(candidate, world):
+            if not self.goals.filter([candidate], self.registry.contracts, now):
+                return None
+            preparation = self._prepare_resumed_move(candidate, proposals, goal, world, now)
+            if preparation is not None:
+                proposals.insert(0, preparation)
+                return preparation
             proposals.insert(0, candidate)
             return candidate
         self.supervisor.clear_resume("resume_preconditions_lost")
@@ -156,8 +201,11 @@ class PlanningOrchestrator:
 
     def _inject_recovery_resume(self, proposals: list[Proposal], retained: Proposal | None,
                                 ready: bool, world, now: float,
-                                events: list[tuple[str, dict]]) -> tuple[Proposal | None, bool, Proposal | None]:
+                                events: list[tuple[str, dict]], *,
+                                goal=None) -> tuple[Proposal | None, bool, Proposal | None]:
         if not ready or retained is None:
+            return retained, ready, None
+        if self._local_interaction_pending(proposals):
             return retained, ready, None
         parameters = retained.parameters
         state = world.state
@@ -175,6 +223,10 @@ class PlanningOrchestrator:
                 confidence=retained.confidence, priority=max(99., retained.priority),
                 evidence=retained.evidence)
             if self.registry.available(candidate, world):
+                preparation = self._prepare_resumed_move(candidate, proposals, goal, world, now)
+                if preparation is not None:
+                    proposals.insert(0, preparation)
+                    return retained, ready, preparation
                 proposals.insert(0, candidate)
                 self.planner.blocked_until.pop(retained.key, None)
                 events.append(("RECOVERY_RESUME_OFFERED", {
@@ -189,3 +241,28 @@ class PlanningOrchestrator:
                 "same_map": same_map, "same_target": same_target}))
             return None, False, None
         return retained, ready, None
+
+    def _prepare_resumed_move(self, candidate: Proposal, proposals: list[Proposal],
+                              goal, world, now: float) -> Proposal | None:
+        """Route resumption must pass the same travel policy as a fresh MOVE.
+
+        A MOUNT is not consumption of the suspended/recovery MOVE. Its token
+        stays with the route until that route actually starts.
+        """
+        policy = getattr(self.planner, "travel_mode", None)
+        if policy is None or goal is None or candidate.skill != "MOVE":
+            return None
+        base = [candidate, *proposals]
+        choices = policy.apply(base, goal, world, now)
+        # Equal MOUNTs may already be present from ordinary planning. Compare
+        # the appended preparations, not dataclass equality with that list.
+        preparations = [item for item in choices[len(base):]
+                        if item.skill == "MOUNT" and self.registry.available(item, world)
+                        and self.planner.blocked_until.get(item.key, 0.) <= now]
+        loop_filter = getattr(self.planner, "filter_decision_loops", None)
+        if callable(loop_filter):
+            preparations = loop_filter(preparations, goal, world.state)
+        if not preparations:
+            return None
+        allowed = self.goals.filter(preparations, self.registry.contracts, now)
+        return allowed[0] if allowed else None

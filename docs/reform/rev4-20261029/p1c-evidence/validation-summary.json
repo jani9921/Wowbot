@@ -1,0 +1,77 @@
+{
+  "scope": "REV4 P1-C navigation query DI and shared collect-source matching",
+  "scoped_status": "IMPLEMENTED_OFFLINE_TESTED",
+  "full_P1_status": "PARTIAL",
+  "final": {
+    "modules": 267,
+    "passed": 3366,
+    "failed": 0,
+    "skipped": 1,
+    "deselected": 10,
+    "pytest_seconds": 100.55,
+    "returncode": 0
+  },
+  "new_tests": {
+    "test_navigation_query_ports_20261029": {
+      "cases": 17,
+      "passed": 17
+    },
+    "test_collect_relation_ambiguity_20261029": {
+      "cases": 13,
+      "passed": 13
+    }
+  },
+  "targeted_tests": {
+    "legacy_source_and_queries": "125 passed",
+    "cave_flight_ghost_fixture_migration": "119 passed before expansion"
+  },
+  "new_deselections": 0,
+  "fixed_preexisting_test": "tests/test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index",
+  "baseline_evidence": {
+    "navigation_boundary": "red.log: 3 failed",
+    "collect_source_and_optional_match_contract": "ambiguity-red.log: 6 failed, 4 passed; three missing-keyword cases and three data cases"
+  },
+  "addon_files_unchanged": [
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Transport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Transport.lua",
+      "unchanged": true
+    }
+  ],
+  "assistant_started_game_capture_or_full_ai": false,
+  "live_validation": false,
+  "remaining": [
+    "shared Evidence/source-lineage contract",
+    "typed geometry query results and coverage/revision statuses",
+    "independent SessionContextProvider/bootstrap and process/capture/world generations",
+    "field-level authority/parity migration",
+    "later REV4 runtime/travel/combat/mechanic phases"
+  ]
+}

@@ -103,3 +103,55 @@ def test_fast_packet_keeps_option_and_clears_it_when_dialog_changes():
     normalize(closed)
     assert model.ingest(Observation.create(closed, 2., source="ADDON_TELEMETRY"))
     assert model.state["quest_ui"]["gossip_option"] is None
+
+
+def test_noncombat_gossip_verifies_only_matching_quest_progress_not_just_ui_close():
+    from copy import deepcopy
+    before = _state()
+    before["active_quests"][0]["objectives"][0].update(current=0, required=1)
+    before["quest_digest"] = [{"id": 58915, "done": 0, "need": 1}]
+    after = deepcopy(before)
+    after["quest_ui"] = {"open": False, "action": ""}
+    verifier = QuestDialogVerifier()
+    kwargs = dict(quest_id=58915, action="GOSSIP_OPTION_SELECT",
+                  target_guid="Creature-Hjalmar", gossip_option_id=917,
+                  gossip_transition="QUEST_PROGRESS")
+    assert not verifier.evaluate(before, after, **kwargs).success
+    after["is_in_combat"] = True
+    assert not verifier.evaluate(before, after, **kwargs).success
+    after["quest_digest"] = [{"id": 100, "done": 1, "need": 1}]
+    assert not verifier.evaluate(before, after, **kwargs).success
+    after["quest_digest"] = [{"id": 58915, "done": 1, "need": 1}]
+    # Completing a conversation can clear the selected NPC; credit is the
+    # authority, not keeping the old selection forever after the spell.
+    after["target"] = {}
+    verified = verifier.evaluate(before, after, **kwargs)
+    assert verified.success and "quest_digest_progress:58915" in verified.evidence
+
+
+def test_conversation_waits_without_input_through_phasing_until_delayed_credit():
+    from copy import deepcopy
+    before = _state()
+    before["active_quests"][0]["objectives"][0].update(current=0, required=1)
+    params = {"action": "GOSSIP_OPTION_SELECT", "quest_id": 58915,
+              "x": .24, "y": .71, "target_guid": "Creature-Hjalmar",
+              "gossip_option_id": 917, "gossip_option_name": "I'm ready to fight you",
+              "gossip_transition": "QUEST_PROGRESS"}
+    active = _active(params, before)
+    skill = QuestDialogSkill()
+    assert len(skill.begin(active, before).commands) == 1
+    after = deepcopy(before)
+    after["quest_ui"] = {"open": False, "action": ""}
+    after["target"]["guid"] = "Creature-new-phase"
+    # A new spawn is not the old identity. The already-issued action waits
+    # only for quest evidence and must emit no further command.
+    for now in (2., 5., 8.):
+        result = skill.verify(active, after, now)
+        assert result.status is SkillStatus.RUNNING and result.commands == ()
+        assert active.skill_context["quest_dialog"]["target_guid"] == "Creature-Hjalmar"
+    after["active_quests"][0]["objectives"][0].update(current=1, is_complete=True)
+    verified = skill.verify(active, after, 9.)
+    assert verified.status is SkillStatus.SUCCESS and verified.commands == ()
+    # Without credit even a same-name replacement cannot verify success.
+    after["active_quests"][0]["objectives"][0].update(current=0, is_complete=False)
+    assert skill.verify(active, after, 11.).status is SkillStatus.FAILURE

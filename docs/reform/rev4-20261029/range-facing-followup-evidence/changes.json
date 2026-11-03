@@ -1,0 +1,103 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "515397abaedecd3de5a0630795e4f5a7701d88904170fccdea19a1949703fa2f",
+      "after_sha256": "42aa9a0ea54b02e5869ab7cd5b1a760b74d9745f0c0192030e6862cf8cb9d636"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "d61262097fd4f2a031e97a8ac396ff1bf27e3ab4fbb20a0a1481b10ade5d0d1b",
+      "after_sha256": "daf623306ebf914aeeff89588480e9ca79aba059aaa1deeb95324720fa0d251a"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "331d9bcb723811c2f4f96335f946d73af8907f0eac3247800a7772d8e22594db",
+      "after_sha256": "66d5c6222d0e6197b973a4d78eef15595e50b2aa3033392fa047c350fc6469da"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "07d15e81c5e0dc10d73563691deb7eacd8a9dbf005f9c24ec8b0fbfbc576630d",
+      "after_sha256": "0caec36fc855f99f29a95ba78fd3ecd96894049e12dd35248be8ec6fde899ec4"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "7b34c53f06438397d3c87a02ccb498329020935609f99da5a66c2fec6d238cc5"
+    },
+    {
+      "path": "src/wowbot/agent/movement_controller.py",
+      "status": "MODIFIED",
+      "before_sha256": "d8a61ded91a9e81d3192eef14271e34aaa50d5e83fd2e28a8b9fc3ddbdc71e03",
+      "after_sha256": "45e3730483356eabaa6dc0b9dfe476ac67e27b65e6279fb3868eee8a01b12245"
+    },
+    {
+      "path": "src/wowbot/agent/navigation_terminal.py",
+      "status": "MODIFIED",
+      "before_sha256": "55a3bb9b14ee14e2a45bc8275e7d3df960b2f6e9f2a91c85c0302a3539de1543",
+      "after_sha256": "8567dc9cecdf00ab0325e96bdb4276475139b198d15f39d7566c472ce0ddfa72"
+    },
+    {
+      "path": "src/wowbot/agent/packet_entity_facts.py",
+      "status": "MODIFIED",
+      "before_sha256": "0a716ae284c1b8f0f2f627038621d80ee02a0c8a0129ba227301dca2df50eef0",
+      "after_sha256": "258e9676e351779e3a910eec7781789bd204a1193892152f5fe00098c6dbaa0b"
+    },
+    {
+      "path": "src/wowbot/combat/positioning/__init__.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "bb0691fa6ebf2c8e7b0bc62251d7aaff878ef8b77f550861b8223a97b9fbdb6a"
+    },
+    {
+      "path": "src/wowbot/combat/positioning/range.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "ae9f62bd41d5045fe66f640a5c96cbe17fed615280c700a2b4023809dc249235"
+    },
+    {
+      "path": "src/wowbot/entity_spatial.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "dac780973aff268f2637ad15279b27a6f6031f263955ea50f606510cbe3fdf4b"
+    },
+    {
+      "path": "src/wowbot/navigation/facing_geometry.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "3a00b58ec7f23bb77da562716195e9f9c3ffa57734ec8bb41676352e86c120f1"
+    },
+    {
+      "path": "src/wowbot/skills/combat.py",
+      "status": "MODIFIED",
+      "before_sha256": "f5c613e0c5a57a1031ddc08d2dee14167a84e83e012fc0097acf181a839bd02b",
+      "after_sha256": "0abb88399cb620764b6039ed376434c03be56aa7f90d4a4b33c2d250542c5ed7"
+    },
+    {
+      "path": "tests/test_combat_range_handoff_20261030.py",
+      "status": "MODIFIED",
+      "before_sha256": "18ddb7b22c88ef59755682b8ab3d8f50efa6e4bc0876db92f7bf0d4edf06fadc",
+      "after_sha256": "ba43e0e46f568b3ea96d62400562610da11f0e1be52f12de036c5e33f26e246a"
+    },
+    {
+      "path": "tests/test_navigation_facing_geometry_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "52bffea09dd265146d656c5b5bf7ea8e1de56f77d30e3834338efb77e5344f60"
+    },
+    {
+      "path": "tests/test_server_arrival_facing_20261021.py",
+      "status": "MODIFIED",
+      "before_sha256": "8852fed7ea5c409cf8f0a11843b5cf5465a611e22f365b17e936cf43a5685f00",
+      "after_sha256": "6161b4c5c83e97466785c77ebf27d2aa23e5d36a7551b5ca8604aebd9daba500"
+    }
+  ],
+  "modified": 10,
+  "added": 6,
+  "removed": 0
+}

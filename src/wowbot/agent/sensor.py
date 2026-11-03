@@ -118,7 +118,7 @@ class PixelSensor:
 
     def poll(self, now: float):
         from adapters.pixel_bridge import (decode_payload_from_bgra, pixel_strip_diagnostics,
-                                           _GRID_CACHE)
+                                           _GRID_CACHE, _VERTICAL_FAST_CACHE)
         decoded_remotely = hasattr(self.capture, "last_decoded")
         # Issue #79: the discovery throttle covers only the expensive strip
         # search; the frame itself is still captured for perception.
@@ -148,6 +148,7 @@ class PixelSensor:
                 return None
             payload = text
         elif (not decoded_remotely and (width, height) not in _GRID_CACHE
+              and (width, height) not in _VERTICAL_FAST_CACHE
               and now < self.next_discovery):
             # No strip geometry for *this* resolution yet: throttled search.
             return None
@@ -252,6 +253,7 @@ class BufferedPixelSensor:
         self.stop_event = threading.Event()
         self.thread = None
         self.pending = None
+        self.latest_payload = None
         self.transitions = deque(maxlen=16)
         self._last_transition_key = None
         self.frame = None
@@ -296,6 +298,7 @@ class BufferedPixelSensor:
                                  and self.source.frame is not self.frame)
                     self.frame = self.source.frame
                     if value is not None:
+                        self.latest_payload = (value, finished)
                         self.updates += 1
                         self.update_rate.mark(finished)
                         self.pending, was_coalesced = coalesce_latest(
@@ -323,6 +326,7 @@ class BufferedPixelSensor:
                 with self.lock:
                     self.health = f"sensor_error:{type(error).__name__}:{error}"
                     self.pending = self.frame = None
+                    self.latest_payload = None
                 self.stop_event.wait(.25)
             self.stop_event.wait(max(0., self.interval-(time.monotonic()-started)))
 
@@ -344,6 +348,19 @@ class BufferedPixelSensor:
         if lag > .5:
             return None  # A stopped sensor cannot refresh the world with its mailbox.
         return {**value, "state_age": float(value.get("state_age") or 0)+lag}
+
+    def peek_latest(self, now):
+        """Non-consuming latest sample for the shared fast control lane.
+
+        The medium consumer still owns transition/history ingestion. Reading
+        here must not steal tooltip edges or keep a dead sensor looking live.
+        """
+        with self.lock:
+            latest = self.latest_payload
+        if latest is None or not 0 <= now-latest[1] <= .5:
+            return None
+        value, received = latest
+        return {**value, "state_age": float(value.get("state_age") or 0)+now-received}, received
 
     @staticmethod
     def _transition_key(value):
@@ -378,4 +395,5 @@ class BufferedPixelSensor:
             self.thread.join(timeout=2)
         with self.lock:
             self.pending = self.frame = None
+            self.latest_payload = None
             self.transitions.clear()

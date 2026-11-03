@@ -160,6 +160,15 @@ class WorldMapFallbackPolicy:
         world_state = world.state
         self._refresh_map_level(world, now)
         evidence = (world.latest.observation_id,) if world.latest else ()
+        from .server_mode import server_profile
+        server = server_profile(world_state)
+        if server:
+            # No map CV in the SERVER composition: the map step counts as
+            # done so the TDB fallbacks (World3D -> map -> DB) are allowed.
+            # Before, OPEN_MAP was built and then filtered, the map never
+            # opened, the step never finished and the DB fallback stayed off.
+            state.exhausted = True
+            quest.allow_db_fallback = True
         map_key = world_state.get("map_id")
         if (not world_state.get("world_map_open") and not state.exhausted
                 and now < float(state.empty_until.get(map_key, 0.))):
@@ -198,7 +207,7 @@ class WorldMapFallbackPolicy:
                    for item in world_state.get("visual_candidates") or ()):
                 state.scan_saw_candidates = True
             elapsed = now - state.scan_started
-            if (goal.domain == "QUEST" and not world_state.get("is_in_combat")
+            if (goal.domain == "QUEST" and not world_state.get("is_in_combat") and not server
                     and (state.zoom_requested or elapsed < 10 + 4 * state.zoom_count)
                     and state.probes < 4 + state.zoom_count):
                 probes = inspections(world, now, "WORLD_MAP_CV", goal)
@@ -224,7 +233,7 @@ class WorldMapFallbackPolicy:
                     False if state.parent_hops > 0 and not location_found else None),
                 parent_zone=parent_name,
             )
-            if (directive.step is MapAbsenceStep.STEP_OUT_TO_PARENT
+            if (directive.step is MapAbsenceStep.STEP_OUT_TO_PARENT and not server
                     and state.parent_map_id is not None
                     and state.step_out_attempts < 2
                     and not world_state.get("is_in_combat")):
@@ -237,7 +246,7 @@ class WorldMapFallbackPolicy:
                      "expected_parent_map_name": parent_name,
                      "absence_semantics": "UNKNOWN"},
                     priority=112, evidence=evidence)]
-            state.exhausted = not location_found
+            state.exhausted = server or not location_found
             quest.allow_db_fallback = state.exhausted
             if location_found or state.scan_saw_candidates:
                 state.empty_scans.pop(map_key, None)
@@ -345,7 +354,8 @@ class WorldMapFallbackPolicy:
             # interaction capability become available.
             return
         evidence = (world.latest.observation_id,) if world.latest else ()
-        if not state.exhausted:
+        from .server_mode import server_profile
+        if not state.exhausted and not server_profile(world_state):
             commitment = world.runtime_context.get("commitment") or {}
             committed_guid = (commitment.get("target_guid")
                               if commitment.get("kind") == "TARGET" else None)
@@ -368,7 +378,8 @@ class WorldMapFallbackPolicy:
                 "OPEN_MAP", "Nincs ismert questhely: térképi marker és tooltip keresése",
                 {"map_id": world_state.get("map_id"), "session_id": world.session_id,
                  **({"guid": committed_guid, "purpose": "LOCATE_COMMITTED_TARGET"}
-                    if committed_guid else {})},
+                    if committed_guid else {"purpose": "DISCOVER_AVAILABLE_QUESTS"}
+                    if not world_state.get("active_quests") else {})},
                 priority=60, evidence=evidence))
             return
         if world_state.get("target") or world_state.get("active_quests"):

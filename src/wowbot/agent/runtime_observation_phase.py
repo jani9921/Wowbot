@@ -54,6 +54,8 @@ def build_runtime_observations(
         else:
             remembered_locations = runtime.spatial.ingest(payload, current, probe=probe)
             runtime.spatial.experience.observe(payload, current, runtime.agent.pending)
+            # Server-shown creatures/objects fill the learned TDB (user 2026-10-21).
+            runtime.spatial.experience.packet_spawns.observe(runtime.agent.world.state, current)
 
         base_observation = Observation.create(payload, current)
         common = {
@@ -64,6 +66,8 @@ def build_runtime_observations(
         addon_provenance = {
             "producer": "AIPlayerControllerExport",
             "parent_observation_id": base_observation.observation_id,
+            "root_observation_ids": [base_observation.observation_id],
+            "observed_at_monotonic": base_observation.received_at,
             "independence_group": base_observation.observation_id,
         }
         semantic_context = {
@@ -250,6 +254,10 @@ def build_runtime_observations(
             },
         }, current, "WORLD3D"))
 
+    packet_source = getattr(runtime, "packet_telemetry", None)
+    if packet_source is not None:
+        packet_current = time.monotonic() if getattr(runtime, "started", False) else current
+        supplemental.extend(packet_source.observations(payload, runtime.agent.world, packet_current))
     return RuntimeObservationBatch(base_observation, tuple(supplemental))
 
 
@@ -282,6 +290,11 @@ def _append_visual_projection(
     current: float,
 ) -> None:
     recognition_candidates = []
+    from .server_mode import server_mode_selected
+    # User 2026-10-25 ("szedd ki ... amit már nem használunk"): in server mode
+    # targets come from server GUIDs; matching screen tracks to remembered
+    # looks only held the EntityMemory lock the medium tick waits for.
+    recognize = not server_mode_selected(runtime.agent.world.state)
     # Live 2026-09-30: recognize_visual opened a new SQLite connection and ran
     # up to three queries (two 256-row similarity scans) for every candidate on
     # every agent step, ~20 % of the agent thread.  A signature only changes on
@@ -290,10 +303,11 @@ def _append_visual_projection(
     cache = _recognition_cache_for_epoch(runtime)
     for candidate in visual_candidates:
         signature = candidate.get("visual_signature")
-        if not signature:
+        if not signature or not recognize:
             continue
         key = (str(signature.get("signature_id")) if isinstance(signature, dict)
                and signature.get("signature_id") else repr(signature))
+        worker = getattr(runtime, "visual_memory_worker", None)
         cached = cache.get(key)
         # A track's crop signature changes almost every frame, so the
         # signature cache rarely hit and recognize_visual (two 256-row
@@ -301,7 +315,10 @@ def _append_visual_projection(
         # ~18 % of samples).  Recognise one track at most once per window.
         track_key = ("track", str(candidate.get("track_id")))
         track_cached = cache.get(track_key) if candidate.get("track_id") is not None else None
-        if cached is not None and 0 <= current-cached[0] <= VISUAL_RECOGNITION_CACHE_SECONDS:
+        if worker is not None:
+            recognized = worker.lookup(signature, track_id=candidate.get("track_id"),
+                                       epoch=getattr(runtime.perception, "epoch", None), now=current)
+        elif cached is not None and 0 <= current-cached[0] <= VISUAL_RECOGNITION_CACHE_SECONDS:
             recognized = cached[1]
         elif (track_cached is not None
               and 0 <= current-track_cached[0] <= VISUAL_RECOGNITION_CACHE_SECONDS):

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 
+from wowbot.query_ports import TravelCostPort
 from .models import Goal, Proposal, number, words
 from .planning_types import world_point
 
@@ -28,7 +29,8 @@ def map_poi_records(state: dict, kind: str) -> list[dict]:
     return [record for record in records or () if isinstance(record, dict)]
 
 
-def soft_interact_giver_waiting(state: dict, selected_guid: str) -> bool:
+def soft_interact_giver_waiting(state: dict, selected_guid: str, *,
+                               travel_cost: TravelCostPort | None = None) -> bool:
     """At an API "!" pin (≤ SOFT_INTERACT_YARDS) another friendly NPC is the
     client's soft-interact unit: it, not the selected unit, is the giver."""
     point = _player_point(state)
@@ -37,7 +39,8 @@ def soft_interact_giver_waiting(state: dict, selected_guid: str) -> bool:
     px, py, _instance = point
     near = any(math.hypot(destination["x"]-px, destination["y"]-py)
                <= MapPoiPlanningPolicy.SOFT_INTERACT_YARDS
-               for _distance, _record, destination in reachable_records(state, "available_quests"))
+               for _distance, _record, destination in reachable_records(
+                   state, "available_quests", travel_cost=travel_cost))
     return near and any(
         isinstance(row, dict) and str(row.get("source_unit") or "").casefold() == "softinteract"
         and str(row.get("unit_type") or "").upper() in {"NPC", "CREATURE"}
@@ -66,7 +69,8 @@ def _player_point(state: dict) -> tuple[float, float, object] | None:
     return x, y, position.get("instance_id")
 
 
-def reachable_records(state: dict, kind: str) -> list[tuple[float, dict, dict]]:
+def reachable_records(state: dict, kind: str, *,
+                      travel_cost: TravelCostPort | None = None) -> list[tuple[float, dict, dict]]:
     """(distance yards, record, WORLD_YARDS point) on the player's instance, nearest first."""
     player = _player_point(state)
     if player is None:
@@ -80,12 +84,53 @@ def reachable_records(state: dict, kind: str) -> list[tuple[float, dict, dict]]:
             # Availability comes from live API, precise giver knowledge from
             # TDB. Do not enumerate every static quest as currently available.
             destination = (role_region(state, record['quest_id'], 'QUEST_STARTER',
-                                       live_location=record) or destination)
+                                       live_location=record, travel_cost=travel_cost) or destination)
         if destination is None or str(destination["instance_id"]) != str(instance):
             continue
         result.append((math.hypot(destination["x"]-px, destination["y"]-py), record, destination))
     result.sort(key=lambda item: item[0])
     return result
+
+
+PACKET_GIVER_SOURCE = "PACKET_QUEST_GIVER_STATUS"
+PACKET_GIVER_YARDS = 150.
+
+
+def _starters(state: dict, quest_id) -> set[str]:
+    reference = ((state.get("reference_knowledge") or {}).get("quests") or {}).get(str(quest_id)) or {}
+    return {str(row.get("npc_id")) for row in reference.get("quest_roles") or ()
+            if isinstance(row, dict) and row.get("role") == "QUEST_STARTER"}
+
+
+def merge_packet_givers(state: dict, records: list) -> list:
+    """API "!" pins plus the server's own "!" units (Ymir), nearest first.
+
+    A server giver is an exact unit GUID and position, not a search area: it
+    replaces the pin of the quest it starts (TDB/learned starter) and keeps
+    that pin's quest id and campaign flag.  One that matches no pin is a
+    side pickup (live 2026-10-19: Captain Garrick's "!" had no TDB starter).
+    """
+    from .packet_entity_facts import quest_givers
+    givers = quest_givers(state, available=True, radius=PACKET_GIVER_YARDS)
+    if not givers:
+        return records
+    covered, extra = set(), []
+    for distance, value, point in givers:
+        npc = str(value.get("entry_id"))
+        pin = next((row for row in records if id(row) not in covered
+                    and npc in _starters(state, row[1].get("quest_id"))), None)
+        if pin is not None:
+            covered.add(id(pin))
+        record = {**(pin[1] if pin else {}), "source": PACKET_GIVER_SOURCE,
+                  "packet_guid": value["guid"], "npc_id": value.get("entry_id")}
+        destination = {"x": point["x"], "y": point["y"], "z": point["z"], "z_known": True,
+                       "instance_id": point["instance_id"], "coordinate_space": "WORLD_YARDS",
+                       "map_id": state.get("map_id"), "ui_map_id": state.get("map_id"),
+                       "source": PACKET_GIVER_SOURCE}
+        extra.append((distance, record, destination))
+    merged = [row for row in records if id(row) not in covered]+extra
+    merged.sort(key=lambda row: row[0])
+    return merged
 
 
 class MapPoiPlanningPolicy:
@@ -109,14 +154,15 @@ class MapPoiPlanningPolicy:
     QUEST_GIVER_PRIORITY = 80.
     ENTRANCE_PRIORITY = 66.
 
-    def __init__(self) -> None:
+    def __init__(self, *, travel_cost: TravelCostPort | None = None) -> None:
+        self.travel_cost = travel_cost
         self.reached_at: dict[tuple, float] = {}
 
     @staticmethod
     def key(params: dict) -> tuple:
         return (str(params.get("purpose") or ""),
                 str(params.get("quest_id") or params.get("journal_instance_id")
-                    or params.get("poi_name") or ""),
+                    or params.get("poi_name") or params.get("server_entity_guid") or ""),
                 round(number(params.get("location_map_x")) or -1., 4),
                 round(number(params.get("location_map_y")) or -1., 4))
 
@@ -140,7 +186,8 @@ class MapPoiPlanningPolicy:
                    for quest in state.get("active_quests") or ())
 
     def _giver_candidates(self, state: dict) -> list[tuple[float, dict, dict]]:
-        records = reachable_records(state, "available_quests")
+        records = merge_packet_givers(state, reachable_records(
+            state, "available_quests", travel_cost=self.travel_cost))
         active = [quest for quest in state.get("active_quests") or () if isinstance(quest, dict)]
         if len(active) >= self.QUEST_LOG_SOFT_LIMIT:
             return []
@@ -191,6 +238,9 @@ class MapPoiPlanningPolicy:
             return []
         result = []
         candidates = self._giver_candidates(state)
+        known_giver = self._selected_known_giver(state, candidates, now)
+        if known_giver is not None:
+            return [known_giver]
         for row in candidates:
             arrived = self._giver_params(row)
             if row[0] <= self.ARRIVAL_YARDS and not self._recently_reached(arrived, now):
@@ -208,8 +258,13 @@ class MapPoiPlanningPolicy:
                 "location_map_y": record.get("y"),
                 "location_source": record.get("source"),
                 "purpose": API_QUEST_GIVER_PURPOSE,
+                **({"server_entity_guid": record["packet_guid"], "npc_id": record.get("npc_id")}
+                   if record.get("packet_guid") else {}),
                 "stop_distance": self.ARRIVAL_YARDS,
                 "require_navmesh": True,
+                # User 2026-10-14: face the giver there, so the soft-interact
+                # target is the giver and the Interact key talks to it.
+                "face_on_arrival": True,
             }
             if distance <= self.ARRIVAL_YARDS and not self._recently_reached(params, now):
                 # Already at the giver: the soft-interact pickup and the local
@@ -226,8 +281,10 @@ class MapPoiPlanningPolicy:
                 continue
             campaign = record.get("is_campaign") is True
             params["is_campaign"] = campaign
+            exact = record.get("source") == PACKET_GIVER_SOURCE
             result.append(Proposal.make(
-                "MOVE", ("Quest API: kampány quest giver ('!') helye; ott helyi vizuális azonosítás"
+                "MOVE", ("Szerver: quest giver ('!') pontos helye (GUID)" if exact else
+                         "Quest API: kampány quest giver ('!') helye; ott helyi vizuális azonosítás"
                          if campaign else
                          "Quest API: elérhető quest giver ('!') helye; ott helyi vizuális azonosítás"),
                 params, confidence=.75,
@@ -236,12 +293,65 @@ class MapPoiPlanningPolicy:
                 break
         return result
 
+    # The selected unit is the database/learned starter of a nearby pin's
+    # quest: talk to it instead of walking on to the next pin (live
+    # 2026-10-13 05:47: Alaria, 55639, selected 10 yd from her "!" pin; the
+    # approach lost her track and the agent left for Hjalmar's pin 260 yd
+    # away, falling into Hrun's pit on the way).
+    KNOWN_GIVER_YARDS = 30.
+    KNOWN_GIVER_RETRY_SECONDS = 8.
+
+    def _selected_known_giver(self, state: dict, candidates, now: float) -> Proposal | None:
+        from .quest_creature_memory import npc_id_from_guid
+        target = state.get("target") or {}
+        guid = str(target.get("guid") or "")
+        npc_id = target.get("npc_id") or npc_id_from_guid(guid)
+        if (not guid or npc_id is None or target.get("dead", target.get("is_dead"))
+                or target.get("attackable", target.get("is_attackable")) is not False):
+            return None
+        from .quest_giver_evidence import server_marker_allows
+        server = server_marker_allows(state, guid)
+        if server is False:
+            return None                  # the server shows nothing to take here
+        if server is True:
+            from .packet_entity_facts import best_position, entity
+            point, me = best_position(entity(state, guid) or {}), _player_point(state)
+            if (point is not None and me is not None
+                    and math.hypot(point["x"]-me[0], point["y"]-me[1]) <= self.KNOWN_GIVER_YARDS):
+                tried = self.__dict__.setdefault("_known_giver_tried", {})
+                if 0 <= now - tried.get(guid, -1e9) < self.KNOWN_GIVER_RETRY_SECONDS:
+                    return None
+                tried[guid] = now
+                return Proposal.make(
+                    "INTERACT", "A kijelölt NPC-nél a szerver szerint felvehető quest van: megszólítás",
+                    {"guid": guid, "purpose": "PICKUP_API_QUEST", "quest_source": PACKET_GIVER_SOURCE},
+                    confidence=.9, priority=104, evidence=("server_quest_giver_status",))
+        quests = (state.get("reference_knowledge") or {}).get("quests") or {}
+        for distance, record, _destination in candidates:
+            if distance > self.KNOWN_GIVER_YARDS:
+                continue
+            reference = quests.get(str(record.get("quest_id"))) or {}
+            starters = {str(row.get("npc_id")) for row in reference.get("quest_roles") or ()
+                        if isinstance(row, dict) and row.get("role") == "QUEST_STARTER"}
+            if str(npc_id) not in starters:
+                continue
+            tried = self.__dict__.setdefault("_known_giver_tried", {})
+            if 0 <= now - tried.get(guid, -1e9) < self.KNOWN_GIVER_RETRY_SECONDS:
+                return None
+            tried[guid] = now
+            return Proposal.make(
+                "INTERACT", "A kijelölt NPC a közeli \"!\" quest felvevője (TDB/tanult): megszólítás",
+                {"guid": guid, "purpose": "PICKUP_API_QUEST", "quest_id": record.get("quest_id"),
+                 "is_campaign": record.get("is_campaign") is True},
+                confidence=.85, priority=104, evidence=("selected_unit_is_known_quest_starter",))
+        return None
+
     @staticmethod
     def _giver_params(row) -> dict:
         _distance, record, destination = row
         return {**destination, "quest_id": record.get("quest_id"),
                 "location_map_x": record.get("x"), "location_map_y": record.get("y"),
-                "purpose": API_QUEST_GIVER_PURPOSE}
+                "purpose": API_QUEST_GIVER_PURPOSE, "server_entity_guid": record.get("packet_guid")}
 
     def _reached_within(self, params: dict, now: float, seconds: float) -> bool:
         reached = self.reached_at.get(self.key(params))
@@ -262,6 +372,9 @@ class MapPoiPlanningPolicy:
             key = (self.key(params), str(row["guid"]))
             if 0 <= now - tried.get(key, -1e9) < self.SOFT_RETRY_SECONDS:
                 continue
+            from .quest_giver_evidence import server_marker_allows
+            if server_marker_allows(state, row["guid"]) is False:
+                continue          # a vendor/guard next to the giver: nothing to take
             tried[key] = now
             return Proposal.make(
                 "INTERACT", "Quest-adó \"!\" helyén a kliens soft-interact NPC-je: interact billentyű",

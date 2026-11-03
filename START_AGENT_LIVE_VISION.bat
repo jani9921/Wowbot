@@ -3,6 +3,11 @@ setlocal
 cd /d "%~dp0"
 rem Navigation data paths saved by INSTALL_WIZARD.bat (maps/vmaps/mmaps in _retail_).
 if exist config\local_env.bat call config\local_env.bat
+rem Start the passive selected-PID packet inbox on GUI connect; no sniffer or FULL_AI auto-start.
+set "AIPC_PACKET_TELEMETRY=1"
+rem REV4 2026-10-30: kept under its old name for existing shortcuts only. It always
+rem resolved to SERVER (packet telemetry) and its vision settings had no effect.
+if not defined AIPC_RUNTIME_PROFILE set "AIPC_RUNTIME_PROFILE=SERVER"
 
 rem Do not start a second controller beside an already running agent.
 powershell -NoProfile -Command "$running = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tools[\\/]run_agent\.py' }; if ($running) { exit 1 }"
@@ -12,15 +17,11 @@ if errorlevel 1 (
     exit /b 2
 )
 
-rem Force Live Vision on even if the parent environment disabled it.
 set "AIPC_CAPTURE_BACKEND=dxgi"
 rem Screen grab in its own process: prevents GIL starvation stalls (live 2026-09-22, 2026-09-30).
 if not defined AIPC_CAPTURE_PROCESS set "AIPC_CAPTURE_PROCESS=1"
-set "AIPC_LIVE_VISION=1"
-set "AIPC_LIVE_VISION_HZ=60"
-set "AIPC_LIVE_VISION_OPENCV_THREADS=1"
-set "AIPC_WORLD3D_PROPOSAL_MODE=YOLO_ONLY"
-set "AIPC_YOLO_PROCESS=1"
+rem REV4 2026-10-30: no YOLO/World3D/live-vision defaults; the SERVER profile builds
+rem no vision worker and never read them. Explicit LEGACY_VISION keeps code defaults.
 
 where py >nul 2>nul
 if errorlevel 1 goto plainpython

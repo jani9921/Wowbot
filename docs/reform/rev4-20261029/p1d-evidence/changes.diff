@@ -1,0 +1,1042 @@
+--- a/docs/CURRENT_SOURCE_COVERAGE.md
++++ b/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,26 @@
+ # Current-source coverage ledger
++
++2026-10-29 REV4 P1-D — shared Evidence and source lineage:
++**PARTIAL / OFFLINE_TESTED** for wider P1. Common immutable evidence values
++are used by the existing WorldModel, reducer, belief, snapshot and read-only
++query paths; legacy Evidence imports/constructor positions remain compatible.
++Observed and received times are distinct when a real monotonic sample is
++available. Future/invalid records do not become current facts; known-origin
++copies do not restart the source lifetime. Packet direction/build/layout and
++logical/transport context metadata remain evidence, not input authority.
++Shared/overlapping ancestry and same-frame local/cross views count once;
++unknown/truncated ancestry cannot manufacture independent support. Completeness
++defaults to UNKNOWN; source priority is unchanged. Detailed ancestry stays in
++immutable query records with a bounded winner summary in diagnostics.
++Forty-nine new cases pass. Final regression: 3543 passed, 2 optional-fixture
++skips, 10 unchanged deselections, 290 modules, exit 0. All 502 source and 599
++test Python files parse; eight addon files and IPC/parser/navigation owners are
++unchanged. Synthetic benchmark adds about 0.43 ms median on the measured small
++ingest path; this is not a live FPS claim. No new live input/acceptance.
++Persistent/imported lineage, coverage/completeness consumers, per-field source
++authority, typed geometry and independent bootstrap remain open. All numbered
++and historical coverage below is retained.
++Details: docs/reform/rev4-20261029/P1D_EVIDENCE_LINEAGE.md and LIVE_VALIDATION.md.
+ 
+ 2026-10-29 REV4 P1-C — navigation query DI and collect-source identity:
+ **PARTIAL / OFFLINE_TESTED** for wider P1. Six navigation callbacks are no
+--- a/docs/LIVE_VALIDATION.md
++++ b/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,49 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-29 — REV4 P1-D common evidence/time/lineage (offline only)
++
++**Scoped P1-D IMPLEMENTED / OFFLINE_TESTED; wider P1 PARTIAL. No live acceptance.**
++The shared Evidence/SourceLineage contract is now used by the existing single
++WorldModel and its reducer/belief/snapshot/query paths. Legacy Evidence imports
++and positional fields remain compatible. Declared/known real sample time is
++kept separate from receipt; unknown clocks are not converted automatically.
++Future/invalid evidence is not current, delayed copies cannot rejuvenate a
++known origin, and packet position/flight lifetimes start at the inbox sample
++without subtracting delay twice. Direction/context metadata does not turn
++client movement into a server ACK or packet receipt into addon/input liveness.
++
++Ancestry tokens group same-root and overlapping-root copies into one vote.
++Local/cross views of the same frame remain correlated, while genuinely
++independent sources retain support. Known uncertainty and invalid parent time
++propagate. Full immutable records are read through WorldQuery.evidence;
++diagnostics include timing/completeness and one bounded winner-lineage summary.
++The empty-list/completeness and field-source authority migrations are still
++separate work; no missing field is supplied by the new types.
++
++Seven initial regressions failed before the change. The final two new modules
++have **49 passing cases** and the focused group has **66 passes**, followed
++by ten passing focused parent-clock/lineage checks. Final combined result:
++**3543 passed, 2 skipped, 10 deselected**, 290 modules, 125.47 seconds, exit 0,
++including real localhost UDP outside the sandbox.
++No exclusions were added. The two skips require absent optional live screenshot
++fixtures (Garrick detector capture and Exile's Reach raster); offline substitutes
++were not treated as live evidence. Existing quest-drop/runtime-handoff checks
++pass. All 502 source and 599 test Python files parse; all eight addon files,
++IPC/build/parser, WorldModel owner and navigation algorithm are unchanged.
++
++A three-run alternating synthetic benchmark gives 0.4605 -> 0.8858 ms median
++and 0.7546 -> 1.5949 ms p95 on the small measured ingest/belief path. Indexed
++ancestry merging reduced the initial implementation's cost. Compact diagnostic
++projection reduced its measured snapshot from 125025 to 73214 bytes (baseline
++53887). This is measured overhead, not a live FPS guarantee. Full benchmark
++and test artifacts are retained.
++
++No game, capture or FULL_AI process was started. Persistent/imported lineage,
++baseline/delta lifecycle, per-field authority, typed geometry and independent
++session bootstrap remain open. The evidence schema is not a full P1/P2 gate
++or proof of an autonomously completed quest. Numbered coverage and earlier
++live evidence are retained.
++See [P1-D implementation and evidence](reform/rev4-20261029/P1D_EVIDENCE_LINEAGE.md).
+ 
+ ## 2026-10-29 — REV4 P1-C navigation ports and collect-source matching (offline only)
+ 
+--- a/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ b/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -2,11 +2,12 @@
+ 
+ Dátum: 2026-10-29, Europe/Budapest.
+ Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+-Állapot: **P0 részben ellenőrizve; P1-A, P1-B és P1-C offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
++Állapot: **P0 részben ellenőrizve; P1-A/B/C/D offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
+ 
+ Utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
+ Elkészült a közös session/world értékszerződés és a packet-hatókörök javítása is: [P1-B eredmény és még hiányzó session-provider](P1B_SESSION_CONTEXT.md). Az addonfüggetlen bootstrap ettől még nem készült el.
+ Az explicit navigációs query-portok is be vannak kötve; a korábban nyitott quest-drop referenciahiba offline javítva: [P1-C eredmény és hátralévő Evidence/geometry kapuk](P1C_NAVIGATION_QUERIES.md).
++A közös in-memory evidence/idő/forráslánc szerződés is be van kötve: [P1-D eredmény, mért költség és nyitott lineage/authority kapuk](P1D_EVIDENCE_LINEAGE.md). A teljes SQLite/import eredetlánc és a typed geometry-válaszok továbbra is hátravannak.
+ Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+ 
+ ## 1. Az átvétel eredménye
+--- /dev/null
++++ b/docs/reform/rev4-20261029/P1D_EVIDENCE_LINEAGE.md
+@@ -0,0 +1,69 @@
++# REV4 P1-D — közös evidence és forráslánc
++
++2026-10-29, Europe/Budapest. **A munkacsomag IMPLEMENTED / OFFLINE_TESTED; a teljes P1 továbbra is PARTIAL.**
++
++Aktív projekt: a projekt nevű mappa. Az asszisztens nem indított játékot, capture-t vagy FULL_AI-t; élő questteljesítésre nincs új bizonyíték.
++
++## Közös értékszerződés és bekötés
++
++A wowbot.evidence_contracts modul tartalmazza a közös Evidence értéket, az immutable SourceLineage típust, a temporális érvényesség, az adat-teljesség és a packetirány jelöléseit. Nincs agent-, vision-, planner- vagy inputfüggése; a közös SessionContext típust használja.
++
++A korábbi wowbot.agent.world_models.Evidence és wowbot.agent.world.Evidence import ugyanarra az osztályra mutat. A korábbi pozicionális konstruktorparaméterek, at/expires mezők és a frissességi metódusok megmaradtak. Az at továbbra is beérkezés; az observed_at a rendelkezésre álló monotonic mintavételi idő, ennek hiányában a kompatibilis korábbi beérkezési idő. A nyers forrás-timestamp külön megmarad, automatikus óraátváltás nélkül.
++
++A WorldModel egyetlen evidence-tulajdonos marad. Az evidence_factory az Observationből és a már ismert, azonos mezőhöz tartozó előzményekből készít értéket, nem választ akciót vagy új provider-authorityt. A meglévő reducer-, belief-, snapshot- és WorldQuery utak az új szerződést használják.
++
++A SourceLineage név szerint engedett metaadatokat őriz: producer, szülő- és gyökérmegfigyelések, eseményazonosító, irány, build/layout, forrás-timestamp és korrelációs bizonytalanság. A listák legfeljebb 64 azonosítót tartalmaznak; a csonkolt/hibás lánc nem lesz több független megerősítés. Az ismeretlen direction, phase és completeness ismeretlen marad. Egy üres lista önmagában nem állít COMPLETE lefedettséget.
++
++A packet evidence a már hitelesített packet_contextból őrzi a PID/session/karakter/map/instance/phase/build és IPC-korszak azonosítóit. Kliens→szerver mozgásból nem lesz szerver ACK. Az addonból hiányzó PID-t vagy világkorszakot az adapter nem találja ki. A metaadatok tárolása nem helyettesíti az IPC-, frissességi és input-authority ellenőrzést.
++
++## Javított hibák
++
++1. A korábbi is_fresh és belief/snapshot szűrés csak a lejáratot nézte; a még be nem érkezett, jövőbeli rekord is frissnek számíthatott. A jövőbeli, hibás időablakú és nem véges időadat most nem használható aktuális bizonyítékként.
++2. Azonos eredetű másolatokat csak egyező independence_group vont össze. A gyökér/szülő/esemény azonosítók alapján összefüggő komponens most egy szavazat. A részlegesen átfedő gyökérhalmaz és később érkező közös szülő sem ad mesterséges háromszoros támogatást. A közös képkocka WORLD3D_LOCAL_VIEW és CROSS_VIEW feldolgozásai is ugyanabba a csoportba tartoznak.
++3. Azonos súlyú, azonos eredetű adatoknál a régi rekord maradhatott kiválasztva. A választás a meglévő tier és súly után a frissebb valódi mintát részesíti előnyben.
++4. Késve beérkező származtatott adat újrakezdhette a TTL-t. A megadott mintavételi idő és az elérhető ismert szülők/gyökerek ideje megmarad; ismert eredetet későbbi másolási timestamp nem fiatalít meg. Hibás idő és bizonytalan korreláció öröklődik a gyermekre.
++
++A packet saját pozíció/orientáció evidence TTL-je továbbra is 0.75 s, a flight evidence-é 1.5 s, de most a tényleges inbox-mintától számítva. Az adapter nem vonja le még egyszer a hálózati/továbbítási késést. A meglévő navigációs visszacsatolás, entitáséletciklus és addon/input liveness tulajdonosa változatlan.
++
++## Lekérdezés és teljesítmény
++
++A WorldQuery.evidence mezőnként tuple-ben adja az immutable rekordokat; alapból csak az érvényeseket, explicit kérésre az inaktívakat is. Az érték JSON-visszaolvasása külön másolat. A belief diagnosztika az evidence-hierarchiában csak az időt/teljességet teszi hozzá; részletes származási láncot a kiválasztott értéknél egyszer ad, legfeljebb 8 szülő/gyökér megjelenítésével és csonkolásjelzéssel. A teljes rekordok a közös queryn át elérhetők, így a státusz nem ismétli minden szavazatnál a teljes láncot.
++
++Az első változat páronkénti komponens-összehasonlítása túl drága volt. Indexelt tokenek és union-find váltotta fel; az immutable időablak statikus érvényessége konstrukciókor számolódik. A 24 lehetséges sorrendű gyökérhíd-próba ellenőrzi az összevonás sorrendfüggetlenségét.
++
++Három váltakozó, külön Python-folyamatban futó mérés, körönként 220 bemelegítés utáni szintetikus ingest/belief ciklus és minden tizedik ciklusban snapshot:
++
++| Mérés | Medián | p95 |
++|---|---:|---:|
++| P1-D előtti mentés | 0.4605 ms | 0.7546 ms |
++| Végső P1-D | 0.8858 ms | 1.5949 ms |
++
++A gazdagabb ellenőrzés mért többlete ezen a kis adatúton kb. 0.43 ms medián és 0.84 ms p95. A kezdeti P1-D mediánja 1.2553 ms volt. A mért diagnosztikai snapshot eredeti mérete 53 887 byte, az első bővített kimeneté 125 025 byte, a kompakt végsőé 73 214 byte. Ez szintetikus lokális mérés, nem élő FPS- vagy végponttól végpontig tartó agentteljesítmény-garancia. A benchmark script és a nyers eredmények megmaradnak.
++
++## Ellenőrzés
++
++A javítás előtti hét kezdeti regresszió mind bukott. A bővített célzott kör 66 tesztje sikeres.
++
++| Próba | Eredmény |
++|---|---|
++| Két új regressziós modul | **49 passed**: 7 lineage + 42 contract eset |
++| Végső kombinált regresszió | **3543 passed, 2 skipped, 10 deselected**, **290 modul**, 125.47 s, exit 0 |
++| Új tesztkizárás | **0**; a korábbi tízes lista változatlan |
++| Szintaxis | **502 forrásmodul + 599 teszt-Python-fájl**, 0 parse-hiba |
++| Addon | Mind a **8 baseline addonfájl változatlan** |
++| Élő futás / kliensinput | Nem történt új asszisztens által indított futás vagy input |
++
++A két skip hiányzó, opcionális live screenshot fixture miatt van: test_detector_on_the_live_garrick_capture és test_exile_reach_fixture_scans_fast_and_returns_candidates. Ezekhez nem gyártottunk helyettesítő élő bizonyítékot. A localhost UDP-t tartalmazó végső kör a sandboxon kívül futott. Egyes szűk futások lezárásakor a meglévő pyreadline3 Windows-handle üzenet megjelent; az exit-kód és a pytest eredmény külön megmaradt. A korábban ismert quest-drop és runtime-handoff tesztek a végső körben sikeresek.
++
++## Nyitott kapuk
++
++Ez az in-memory evidence-határ közös szerződése. A learned SQLite/import/reference provider teljes eredetláncának végigvezetése, az elveszett eredet visszaállítása és a források baseline/delta-életciklusa még nincs kész. Csak megadott vagy ténylegesen ismert előzményt használunk; hiányzó adatból nem lehet eredeti mintavételi időt bizonyítani. A gyökerek követése az adott mező meglévő, legfeljebb 20 rekordos evidence-előzménye és az explicit producer-metaadatok alapján működik.
++
++A completeness jelenleg deklarált metaadat; nem történt minden üreslista-fogyasztó, per-field forrásprioritás, session/world invalidálás és coverage-scope átállítása. A Fact/Belief további közös szerződései, a typed geometry eredmények, az addonfüggetlen bootstrap és a későbbi REV4 fázisok külön kapuk. A közös evidence osztály megléte ezeket nem teljesíti. A korábbi sikeres P1-A/B/C javítások és a 203 számozott coverage-sor megmaradnak.
++
++## Visszaállíthatóság
++
++A P1-D előtti baseline.zip 1108 forrás-, teszt-, addon- és követési fájlt mentett a baseline.json byte-hasheivel együtt. Munkamappa és teljes teszt/benchmark kimenet:
++C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-p1d-20261029.
++
++A lezárt kis bizonyítékcsomag a dokumentum melletti p1d-evidence/ könyvtárban található: eredmény, parancs, teljes tesztkimenet, benchmark, hash-manifeszt és szöveges diff. A GUI következő indítása tölti be az új forrást. Új élő validáció nem történt.
+--- /dev/null
++++ b/src/wowbot/agent/evidence_factory.py
+@@ -0,0 +1,113 @@
++"""Observation -> shared evidence value; no fusion, input or provider ownership."""
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import replace
++
++from wowbot.evidence_contracts import (
++    Evidence, EvidenceCompleteness, EvidenceDirection, SourceLineage, finite_time,
++)
++from .models import canonical
++
++
++def _text(value):
++    return value if type(value) is str and value.strip() and len(value) <= 256 else None
++
++
++def _ids(value):
++    if value is None:
++        return (), False
++    if not isinstance(value, (list, tuple)):
++        return (), True
++    valid = tuple(dict.fromkeys(v for v in value[:64] if _text(v)))
++    return valid, len(value) > 64 or any(_text(v) is None for v in value[:64])
++
++
++def evidence_from_observation(key, value, obs, confidence, reliability, tier, rank, group, *, ttl, previous=()):
++    payload = obs.payload
++    raw = payload.get("provenance")
++    provenance = raw if isinstance(raw, Mapping) else {}
++    invalid_group = (_text(group) is None or "independence_group" in provenance
++                     and _text(provenance["independence_group"]) is None)
++    group = _text(group) or obs.observation_id
++    parents, bad_parents = _ids(provenance.get("parent_observation_ids"))
++    parent = _text(provenance.get("parent_observation_id"))
++    if parent is not None:
++        parents = tuple(dict.fromkeys((*parents, parent)))
++    if len(parents) > 64:
++        parents, bad_parents = parents[:64], True
++    roots, bad_roots = _ids(provenance.get("root_observation_ids"))
++    known = {entry.observation_id: entry for entry in previous}
++    if not roots and "root_observation_ids" not in provenance:
++        if parents and all(p in known and known[p].lineage is not None for p in parents):
++            roots = tuple(dict.fromkeys(root for p in parents for root in known[p].lineage.root_observation_ids))
++            if len(roots) > 64:
++                roots, bad_roots = roots[:64], True
++        elif not parents:
++            roots = (obs.observation_id,)
++    event = payload.get("packet_event") if obs.source == "PACKET_TELEMETRY" else None
++    event = event if isinstance(event, Mapping) else {}
++    packet_provenance = event.get("provenance") or {}
++    packet_provenance = packet_provenance if isinstance(packet_provenance, Mapping) else {}
++    direction = event.get("direction", provenance.get("direction"))
++    try:
++        direction = EvidenceDirection(direction)
++    except (ValueError, TypeError):
++        direction = EvidenceDirection.UNKNOWN
++    build = packet_provenance.get("game_build", payload.get("game_build"))
++    if type(build) is str and build.isascii() and build.isdigit():
++        build = int(build)
++    build = build if type(build) is int and build > 0 else None
++    lineage = SourceLineage(
++        producer=_text(provenance.get("producer")), parent_observation_ids=parents,
++        root_observation_ids=roots, event_id=_text(event.get("event_id") or provenance.get("source_event_id")),
++        direction=direction, game_build=build,
++        payload_layout=_text(packet_provenance.get("payload_layout") or provenance.get("payload_layout")),
++        source_timestamp=obs.timestamp if finite_time(obs.timestamp) else None,
++        correlation_uncertain=bad_parents or bad_roots or (raw is not None and not isinstance(raw, Mapping))
++            or invalid_group
++            or ("parent_observation_id" in provenance and parent is None)
++            or ("root_observation_ids" in provenance and not roots and not parents))
++    sampled, invalid = obs.received_at, None
++    if "sampled_at_monotonic" in event:
++        sampled = event["sampled_at_monotonic"]
++    elif "observed_at_monotonic" in provenance:
++        sampled = provenance["observed_at_monotonic"]
++    elif parents and all(p in known for p in parents):
++        sampled = min(known[p].observed_at for p in parents)
++    if not finite_time(sampled):
++        sampled, invalid = obs.received_at, "INVALID_OBSERVED_TIME"
++    elif finite_time(obs.received_at) and sampled > obs.received_at:
++        invalid = "INVALID_OBSERVED_TIME"
++    ancestors = [known[identity] for identity in (*parents, *roots) if identity in known]
++    if not lineage.correlation_uncertain and any(
++            entry.lineage and entry.lineage.correlation_uncertain for entry in ancestors):
++        lineage = replace(lineage, correlation_uncertain=True)
++    if ancestors and finite_time(sampled):
++        observed = [entry.observed_at for entry in ancestors if finite_time(entry.observed_at)]
++        if observed:
++            sampled = min(sampled, *observed)  # copying a known origin cannot rejuvenate it
++        if any(entry.invalid_reason for entry in ancestors):
++            invalid = "INVALID_ANCESTOR"
++    if not finite_time(ttl) or ttl < 0:
++        ttl, invalid = 0., "INVALID_LIFETIME"
++    context = {"session_id": obs.session_id, "map_id": payload.get("map_id"), "surface": payload.get("surface")}
++    packet_context = payload.get("packet_context") if event else None
++    if isinstance(packet_context, Mapping):
++        context.update({name: packet_context[name] for name in (
++            "selected_pid", "character_guid", "map_id", "instance_id", "phase", "game_build",
++            "runtime_id", "context_id") if name in packet_context})
++    else:
++        context.update({name: payload[name] for name in ("character_guid", "game_build", "phase") if name in payload})
++        position = payload.get("player_world_position")
++        if isinstance(position, Mapping) and "instance_id" in position:
++            context["instance_id"] = position["instance_id"]
++    try:
++        completeness = EvidenceCompleteness(provenance.get("completeness", "UNKNOWN"))
++    except (ValueError, TypeError):
++        completeness = EvidenceCompleteness.UNKNOWN
++    return Evidence(obs.observation_id, obs.correlation_id, obs.source, obs.received_at,
++        sampled+ttl, canonical(value), confidence, reliability, canonical(context), group, tier, rank, key,
++        str(payload.get("entity_id") or payload.get("guid") or "") or None,
++        str(payload.get("quest_id") or "") or None, str(payload.get("objective_id") or "") or None,
++        sampled_at_monotonic=sampled, lineage=lineage, completeness=completeness, invalid_reason=invalid)
+--- a/src/wowbot/agent/runtime_observation_phase.py
++++ b/src/wowbot/agent/runtime_observation_phase.py
+@@ -66,6 +66,8 @@
+         addon_provenance = {
+             "producer": "AIPlayerControllerExport",
+             "parent_observation_id": base_observation.observation_id,
++            "root_observation_ids": [base_observation.observation_id],
++            "observed_at_monotonic": base_observation.received_at,
+             "independence_group": base_observation.observation_id,
+         }
+         semantic_context = {
+--- a/src/wowbot/agent/world_beliefs.py
++++ b/src/wowbot/agent/world_beliefs.py
+@@ -7,6 +7,8 @@
+ from dataclasses import field
+ from .models import Observation, canonical, number
+ from .world_models import Belief, ContradictionRecord, Evidence
++from .evidence_factory import evidence_from_observation
++from wowbot.evidence_contracts import EvidenceValidity, finite_time, independent_evidence
+ 
+ 
+ RELIABILITY = {"ADDON_TELEMETRY": 1., "MOUSEOVER": 1., "TOOLTIP": .9,
+@@ -37,6 +39,11 @@
+     "REFERENCE_MEMORY": "REASONING",
+     "PACKET_TELEMETRY": "STRONG",  # only typed, verified reducer claims have confidence
+ }
++
++CORRELATED_FRAME_SOURCES = frozenset({
++    "MINIMAP_CV", "WORLD_MAP_CV", "WORLD3D", "WORLD3D_LOCAL_VIEW", "UI_CV", "VISION",
++    "CROSS_VIEW", "AI", "VLM",
++})
+ 
+ 
+ # These fields describe a continuously changing sampled state, not durable
+@@ -141,19 +148,13 @@
+         reliability = dynamic if dynamic is not None else RELIABILITY.get(obs.source, .4)
+         reliability = max(0., min(1., float(reliability)))
+         sensor_tier = SOURCE_TIERS.get(obs.source, "UNKNOWN")
+-        context = {"session_id": obs.session_id, "map_id": obs.payload.get("map_id"),
+-                   "surface": obs.payload.get("surface")}
+         provenance = obs.payload.get("provenance") or {}
++        provenance = provenance if isinstance(provenance, dict) else {}
+         independence_group = str(provenance.get("independence_group") or
+-                                 (obs.correlation_id if obs.source in {"MINIMAP_CV", "WORLD_MAP_CV", "WORLD3D", "UI_CV", "VISION", "AI"}
++                                 (obs.correlation_id if obs.source in CORRELATED_FRAME_SOURCES
+                                   else obs.observation_id))
+-        entries.append(Evidence(obs.observation_id, obs.correlation_id, obs.source, obs.received_at,
+-                                obs.received_at + ttl, canonical(value), confidence, reliability,
+-                                canonical(context), independence_group, sensor_tier,
+-                                SENSOR_TIERS[sensor_tier], key,
+-                                str(obs.payload.get("entity_id") or obs.payload.get("guid") or "") or None,
+-                                str(obs.payload.get("quest_id") or "") or None,
+-                                str(obs.payload.get("objective_id") or "") or None))
++        entries.append(evidence_from_observation(key, value, obs, confidence, reliability,
++            sensor_tier, SENSOR_TIERS[sensor_tier], independence_group, ttl=ttl, previous=entries))
+ 
+     @staticmethod
+     def _diagnostic_claim_value(key: str, value):
+@@ -186,19 +187,14 @@
+ 
+     def belief(self, key: str, now: float) -> dict:
+         entries = list(self.evidence.get(key, ()))
+-        active = [e for e in entries if e.expires >= now]
++        active = [e for e in entries if e.is_fresh(now)]
+         if not active:
+-            return {"status": "STALE" if entries else "UNKNOWN", "value": None, "evidence": []}
++            return {"status": "STALE" if any(e.validity(now) is EvidenceValidity.EXPIRED for e in entries)
++                    else "UNKNOWN", "value": None, "evidence": []}
+         # Several visual/AI passes over one captured frame are correlated. Keep
+         # only the strongest vote in such a group rather than manufacturing
+         # independent support from the same pixels.
+-        groups = {}
+-        for entry in active:
+-            current = groups.get(entry.independence_group)
+-            if current is None or (entry.tier_rank, entry.reliability * entry.confidence) > (
+-                    current.tier_rank, current.reliability * current.confidence):
+-                groups[entry.independence_group] = entry
+-        ranked = sorted(list(groups.values()),
++        ranked = sorted(independent_evidence(active),
+                         key=lambda e: (e.tier_rank, e.reliability * e.confidence, e.at), reverse=True)
+         winning_rank = ranked[0].tier_rank
+         peers = [entry for entry in ranked if entry.tier_rank == winning_rank]
+@@ -232,10 +228,15 @@
+                 "source_reliability": {e.source: e.reliability for e in ranked},
+                 "evidence_hierarchy": [{"observation_id": e.observation_id, "source": e.source,
+                                         "tier": e.sensor_tier, "tier_rank": e.tier_rank,
+-                                        "weighted_confidence": e.reliability*e.confidence}
++                                        "weighted_confidence": e.reliability*e.confidence,
++                                        "observed_at": e.observed_at, "received_at": e.received_at,
++                                        "completeness": e.completeness.value}
+                                        for e in ranked],
+                 "correlation_groups": sorted({e.correlation_id for e in ranked}),
+                 "independence_groups": sorted({e.independence_group for e in ranked}),
++                # Detailed metadata once for the chosen value; all immutable
++                # records remain available through WorldQuery.evidence().
++                "provenance": best.lineage.as_dict(limit=8) if best.lineage else None,
+                 "context": json.loads(best.context_json)}
+ 
+     def typed_belief(self, key: str, now: float) -> Belief:
+@@ -252,7 +253,10 @@
+         tick -- snapshot()'s own beliefs projection separately skips dead
+         keys on every call regardless of when this last ran.
+         """
+-        dead = [k for k, entries in self.evidence.items() if not any(e.expires >= now for e in entries)]
++        if not finite_time(now):
++            return 0
++        dead = [k for k, entries in self.evidence.items() if not any(
++            e.validity(now) in {EvidenceValidity.VALID, EvidenceValidity.FUTURE} for e in entries)]
+         for k in dead:
+             del self.evidence[k]
+         return len(dead)
+--- a/src/wowbot/agent/world_models.py
++++ b/src/wowbot/agent/world_models.py
+@@ -2,57 +2,9 @@
+ from __future__ import annotations
+ 
+ from dataclasses import dataclass, field
+-import json
+ from typing import Any
+ 
+-
+-@dataclass(frozen=True)
+-class Evidence:
+-    observation_id: str
+-    correlation_id: str
+-    source: str
+-    at: float
+-    expires: float
+-    value_json: str
+-    confidence: float
+-    reliability: float
+-    context_json: str
+-    independence_group: str
+-    sensor_tier: str
+-    tier_rank: int
+-    kind: str = ""
+-    related_entity: str | None = None
+-    related_quest: str | None = None
+-    related_objective: str | None = None
+-
+-    @property
+-    def evidence_id(self) -> str:
+-        return f"{self.observation_id}:{self.source}:{self.at:.6f}"
+-
+-    @property
+-    def observed_at(self) -> float:
+-        return self.at
+-
+-    @property
+-    def expires_at(self) -> float:
+-        return self.expires
+-
+-    @property
+-    def value(self):
+-        return json.loads(self.value_json)
+-
+-    def is_fresh(self, now: float) -> bool:
+-        return now <= self.expires
+-
+-    def age_ms(self, now: float) -> int:
+-        return max(0, round((now-self.at)*1000.))
+-
+-    def effective_confidence(self, now: float) -> float:
+-        if not self.is_fresh(now):
+-            return 0.
+-        lifetime = max(1e-9, self.expires-self.at)
+-        freshness = max(0., min(1., (self.expires-now)/lifetime))
+-        return max(0., min(1., self.confidence*self.reliability*freshness))
++from wowbot.evidence_contracts import Evidence
+ 
+ 
+ @dataclass(frozen=True)
+--- a/src/wowbot/agent/world_packet_reducer.py
++++ b/src/wowbot/agent/world_packet_reducer.py
+@@ -558,12 +558,13 @@
+                     point = copy(model.addon_state.get("player_world_position") or {})
+                     point.update({k: body[k] for k in ("x", "y", "z")})
+                     point.update(coordinate_space="WORLD_YARDS", source="PACKET_CLIENT_MOVEMENT", sample_time=sampled)
+-                    ttl = max(0., .75-(obs.received_at-sampled))
+-                    model.add_evidence("player_world_position", point, obs, confidence=1., ttl=ttl)
+-                    model.add_evidence("orientation", body["facing"], obs, confidence=1., ttl=ttl)
++                    # Evidence lifetime starts at the inbox's real sample
++                    # time, not receipt. Do not subtract transport age twice.
++                    model.add_evidence("player_world_position", point, obs, confidence=1., ttl=.75)
++                    model.add_evidence("orientation", body["facing"], obs, confidence=1., ttl=.75)
+                     # Skyriding/flight feedback (user 2026-10-25): pitch and the
+                     # measured forward/up speed come only from these packets.
+-                    model.add_evidence("packet_flight", flight, obs, confidence=1., ttl=max(ttl, 1.5))
++                    model.add_evidence("packet_flight", flight, obs, confidence=1., ttl=1.5)
+             if kind in COURSE_KINDS:
+                 _remember_scene(model, kind, safe["direction"], body, sampled, expected)
+             applicable = kind not in COURSE_KINDS
+--- a/src/wowbot/agent/world_query.py
++++ b/src/wowbot/agent/world_query.py
+@@ -7,6 +7,8 @@
+ 
+ from dataclasses import asdict, is_dataclass
+ from typing import TYPE_CHECKING
++
++from wowbot.evidence_contracts import Evidence
+ 
+ from .entity_belief import EntityBelief, fuse_identity
+ from .evidence_freshness import FreshnessTier, classify
+@@ -305,6 +307,12 @@
+     def typed_belief(self, key: str, now: float | None = None) -> Belief:
+         return self.model.typed_belief(key, self.model.last_received if now is None else now)
+ 
++    def evidence(self, key: str, now: float | None = None, *, include_inactive: bool = False) -> tuple[Evidence, ...]:
++        """Immutable source records; values decode to isolated JSON copies."""
++        current = self.model.last_received if now is None else now
++        return tuple(entry for entry in self.model.evidence.get(key, ())
++                     if include_inactive or entry.is_fresh(current))
++
+     def contradiction_history(self, key: str | None = None) -> list[ContradictionRecord]:
+         return [deepcopy(item) for item in self.model.contradiction_history
+                 if key is None or item.key == key]
+--- a/src/wowbot/agent/world_snapshot.py
++++ b/src/wowbot/agent/world_snapshot.py
+@@ -108,7 +108,7 @@
+         def newest_active_at(entries):
+             newest = None
+             for item in entries:
+-                if item.expires >= now and (newest is None or item.at > newest):
++                if item.is_fresh(now) and (newest is None or item.at > newest):
+                     newest = item.at
+             return newest
+         live_keys = ((newest, key) for key, entries in model.evidence.items()
+--- /dev/null
++++ b/src/wowbot/evidence_contracts.py
+@@ -0,0 +1,206 @@
++"""Immutable evidence values; no agent, sensor, planner or input ownership."""
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from enum import StrEnum
++import json
++import math
++
++from .context_contracts import SessionContext
++
++
++class EvidenceValidity(StrEnum):
++    """Temporal validity only; VALID does not establish source/input authority."""
++
++    VALID = "VALID"
++    FUTURE = "FUTURE"
++    EXPIRED = "EXPIRED"
++    INVALID = "INVALID"
++
++
++class EvidenceCompleteness(StrEnum):
++    UNKNOWN = "UNKNOWN"
++    PARTIAL = "PARTIAL"
++    COMPLETE = "COMPLETE"
++
++
++class EvidenceDirection(StrEnum):
++    UNKNOWN = "UNKNOWN"
++    CLIENT_TO_SERVER = "CLIENT_TO_SERVER"
++    SERVER_TO_CLIENT = "SERVER_TO_CLIENT"
++
++
++def finite_time(value) -> bool:
++    return type(value) in {int, float} and math.isfinite(value)
++
++
++@dataclass(frozen=True, slots=True)
++class SourceLineage:
++    producer: str | None = None
++    parent_observation_ids: tuple[str, ...] = ()
++    root_observation_ids: tuple[str, ...] = ()
++    event_id: str | None = None
++    direction: EvidenceDirection = EvidenceDirection.UNKNOWN
++    game_build: int | None = None
++    payload_layout: str | None = None
++    source_timestamp: float | None = None
++    correlation_uncertain: bool = False
++
++    def __post_init__(self):
++        for ids in (self.parent_observation_ids, self.root_observation_ids):
++            if (type(ids) is not tuple or len(ids) > 64
++                    or any(type(value) is not str or not value.strip() or len(value) > 256 for value in ids)):
++                raise ValueError("bounded immutable observation IDs required")
++        if not isinstance(self.direction, EvidenceDirection):
++            raise ValueError("explicit evidence direction required")
++        for value in (self.producer, self.event_id, self.payload_layout):
++            if value is not None and (type(value) is not str or not value.strip() or len(value) > 256):
++                raise ValueError("bounded textual provenance required")
++        if self.game_build is not None and (type(self.game_build) is not int or self.game_build <= 0):
++            raise ValueError("invalid source build")
++        if self.source_timestamp is not None and not finite_time(self.source_timestamp):
++            raise ValueError("invalid source timestamp")
++        if type(self.correlation_uncertain) is not bool:
++            raise ValueError("explicit correlation state required")
++
++    def as_dict(self, *, limit: int = 64) -> dict:
++        return {"producer": self.producer, "parent_observation_ids": list(self.parent_observation_ids[:limit]),
++                "root_observation_ids": list(self.root_observation_ids[:limit]), "event_id": self.event_id,
++                "direction": self.direction.value, "game_build": self.game_build,
++                "payload_layout": self.payload_layout, "source_timestamp": self.source_timestamp,
++                "correlation_uncertain": self.correlation_uncertain,
++                "lineage_truncated": len(self.parent_observation_ids) > limit or len(self.root_observation_ids) > limit}
++
++
++@dataclass(frozen=True)
++class Evidence:
++    # Positional fields remain compatible with agent.world_models.Evidence.
++    observation_id: str
++    correlation_id: str
++    source: str
++    at: float
++    expires: float
++    value_json: str
++    confidence: float
++    reliability: float
++    context_json: str
++    independence_group: str
++    sensor_tier: str
++    tier_rank: int
++    kind: str = ""
++    related_entity: str | None = None
++    related_quest: str | None = None
++    related_objective: str | None = None
++    sampled_at_monotonic: float | None = None
++    lineage: SourceLineage | None = None
++    completeness: EvidenceCompleteness = EvidenceCompleteness.UNKNOWN
++    invalid_reason: str | None = None
++    _time_valid: bool = field(init=False, repr=False, compare=False)
++
++    def __post_init__(self):
++        if self.lineage is not None and not isinstance(self.lineage, SourceLineage):
++            raise ValueError("immutable source lineage required")
++        if not isinstance(self.completeness, EvidenceCompleteness):
++            raise ValueError("explicit completeness required")
++        observed = self.observed_at
++        object.__setattr__(self, "_time_valid", not self.invalid_reason
++            and all(finite_time(t) for t in (self.at, observed, self.expires))
++            and observed <= self.at and observed <= self.expires)
++
++    @property
++    def evidence_id(self) -> str:
++        identity = f"{self.observation_id}:{self.source}:{self.at:.6f}"
++        return f"{identity}:{self.kind}" if self.kind else identity
++
++    @property
++    def observed_at(self) -> float:
++        return self.at if self.sampled_at_monotonic is None else self.sampled_at_monotonic
++
++    @property
++    def received_at(self) -> float:
++        return self.at
++
++    @property
++    def expires_at(self) -> float:
++        return self.expires
++
++    @property
++    def value(self):
++        return json.loads(self.value_json)
++
++    @property
++    def session_context(self) -> SessionContext | None:
++        try:
++            return SessionContext.from_mapping(json.loads(self.context_json))
++        except (ValueError, TypeError):
++            return None
++
++    def validity(self, now: float) -> EvidenceValidity:
++        if not self._time_valid or not finite_time(now):
++            return EvidenceValidity.INVALID
++        if now > self.expires:
++            return EvidenceValidity.EXPIRED
++        if now < self.at or now < self.observed_at:
++            return EvidenceValidity.FUTURE
++        return EvidenceValidity.VALID
++
++    def is_fresh(self, now: float) -> bool:
++        return self.validity(now) is EvidenceValidity.VALID
++
++    def age_ms(self, now: float) -> int:
++        if not finite_time(now) or not finite_time(self.observed_at):
++            return 0
++        return max(0, round((now-self.observed_at)*1000.))
++
++    def effective_confidence(self, now: float) -> float:
++        if not self.is_fresh(now) or not all(finite_time(v) for v in (self.confidence, self.reliability)):
++            return 0.
++        lifetime = max(1e-9, self.expires-self.observed_at)
++        freshness = max(0., min(1., (self.expires-now)/lifetime))
++        return max(0., min(1., self.confidence*self.reliability*freshness))
++
++    def correlation_tokens(self) -> frozenset[tuple[str, str]]:
++        tokens = {("group", self.independence_group), ("observation", self.observation_id)}
++        if self.lineage is not None:
++            tokens.update(("observation", value) for value in self.lineage.parent_observation_ids)
++            tokens.update(("observation", value) for value in self.lineage.root_observation_ids)
++            if self.lineage.event_id:
++                tokens.add(("event", self.lineage.event_id))
++            if self.lineage.correlation_uncertain:
++                tokens.add(("uncertain_lineage", "shared"))
++        return frozenset(tokens)
++
++
++def independent_evidence(entries) -> list[Evidence]:
++    """One strongest/current vote per connected ancestry component.
++
++    Different wrappers and partially overlapping root sets cannot turn one
++    observation into several votes. Only suppresses correlation; it never
++    changes a source's authority tier or supplies missing facts.
++    """
++    entries = list(entries)
++    parents = list(range(len(entries)))
++    owners: dict[tuple[str, str], int] = {}
++
++    def root(index):
++        while parents[index] != index:
++            parents[index] = parents[parents[index]]
++            index = parents[index]
++        return index
++
++    # Token indexing avoids pairwise component comparisons on every belief
++    # projection. Union-find still handles a late bridge across several roots.
++    for index, entry in enumerate(entries):
++        for token in entry.correlation_tokens():
++            other = owners.setdefault(token, index)
++            a, b = root(index), root(other)
++            if a != b:
++                parents[a] = b
++    winners = {}
++    for index, entry in enumerate(entries):
++        identity = root(index)
++        priority = (entry.tier_rank, entry.reliability*entry.confidence, entry.observed_at, entry.at)
++        current = winners.get(identity)
++        if current is None or priority > current[0]:
++            winners[identity] = priority, entry
++    return [entry for _, entry in winners.values()]
+--- /dev/null
++++ b/tests/test_evidence_contracts_20261029.py
+@@ -0,0 +1,241 @@
++"""Contract compatibility, bounded provenance and actual packet sample times."""
++from dataclasses import FrozenInstanceError, replace
++import json
++import math
++
++import pytest
++
++from test_evidence_lineage_20261029 import claim, evidence
++from test_packet_agent_bridge import bridge, deliver
++from test_packet_codecs import decoded
++from wowbot.agent.models import Observation
++from wowbot.agent.world import Evidence as WorldEvidence, WorldModel
++from wowbot.agent.world_models import Evidence as LegacyEvidence
++from wowbot.evidence_contracts import (
++    Evidence, EvidenceCompleteness, EvidenceDirection, EvidenceValidity, SourceLineage,
++)
++
++
++def test_existing_evidence_imports_are_the_common_contract_and_keep_positional_arguments():
++    assert Evidence is WorldEvidence is LegacyEvidence
++    value = evidence()
++    assert value.at == value.received_at == value.observed_at == 10.
++    assert value.expires == value.expires_at == 12.
++    assert value.completeness is EvidenceCompleteness.UNKNOWN
++    assert value.session_context is None
++
++
++@pytest.mark.parametrize("now,status", [(9., "FUTURE"), (10., "VALID"), (12., "VALID"),
++    (12.001, "EXPIRED"), (math.nan, "INVALID"), (math.inf, "INVALID"), (True, "INVALID")])
++def test_time_status_never_treats_future_or_nonfinite_as_fresh(now, status):
++    value = evidence()
++    assert value.validity(now).value == status
++    assert value.is_fresh(now) is (status == "VALID")
++    if status != "VALID":
++        assert value.effective_confidence(now) == 0.
++
++
++def test_sample_and_receipt_are_separate_and_invalid_windows_stay_invalid():
++    value = evidence(at=2., sampled_at_monotonic=1., expires=3.)
++    assert value.age_ms(2.) == 1000
++    assert value.validity(1.5) is EvidenceValidity.FUTURE
++    assert value.is_fresh(2.)
++    assert evidence(expires=9.).validity(5.) is EvidenceValidity.INVALID
++    assert evidence(sampled_at_monotonic=11.).validity(11.) is EvidenceValidity.INVALID
++
++
++@pytest.mark.parametrize("sample", ["nan", math.nan, math.inf, True, None, 11.])
++def test_bad_declared_sample_time_does_not_silently_become_receipt_time(sample):
++    world = WorldModel()
++    claim(world, "bad-clock", at=10., provenance={"observed_at_monotonic": sample})
++    assert world.belief("claim", 10.)["value"] is None
++
++
++def test_different_claims_of_one_observation_have_different_evidence_ids():
++    assert evidence(kind="health").evidence_id != evidence(kind="target").evidence_id
++
++
++def test_lineage_and_evidence_are_immutable_but_values_are_independent_json_copies():
++    lineage = SourceLineage(parent_observation_ids=("parent",), root_observation_ids=("root",))
++    value = evidence(value_json='{"items":[1]}', lineage=lineage)
++    decoded_value = value.value
++    decoded_value["items"].append(2)
++    assert value.value == {"items": [1]}
++    with pytest.raises(FrozenInstanceError):
++        lineage.root_observation_ids = ("other",)
++    with pytest.raises(ValueError):
++        SourceLineage(root_observation_ids=["mutable"])
++    with pytest.raises(ValueError):
++        replace(value, lineage={"mutable": True})
++
++
++@pytest.mark.parametrize("declared,expected", [(None, "UNKNOWN"), ("PARTIAL", "PARTIAL"),
++    ("COMPLETE", "COMPLETE"), (True, "UNKNOWN"), ("invalid", "UNKNOWN")])
++def test_empty_lists_do_not_invent_completeness(declared, expected):
++    world = WorldModel()
++    claim(world, "empty", [], provenance={} if declared is None else {"completeness": declared})
++    record, = world.query.evidence("claim", 1.)
++    assert record.completeness.value == expected
++    assert world.belief("claim", 1.)["evidence_hierarchy"][0]["completeness"] == expected
++
++
++def test_parent_and_grandparent_aliases_preserve_the_original_root_and_sample():
++    world = WorldModel()
++    root = claim(world, "root", at=1.)
++    parent = claim(world, "parent", at=2., provenance={"parent_observation_id": root.observation_id})
++    claim(world, "child", at=3., provenance={"parent_observation_id": parent.observation_id})
++    entries = world.query.evidence("claim", 3.)
++    assert entries[-1].lineage.root_observation_ids == (root.observation_id,)
++    assert entries[-1].observed_at == 1.
++    assert len(world.belief("claim", 3.)["evidence"]) == 1
++
++
++def test_a_late_copy_cannot_override_a_known_origin_with_a_newer_timestamp():
++    world = WorldModel()
++    root = claim(world, "root", at=1.)
++    claim(world, "late", at=10., provenance={"root_observation_ids": [root.observation_id],
++          "observed_at_monotonic": 10.})
++    assert world.belief("claim", 10.)["value"] is None
++    assert world.query.evidence("claim", 10.) == ()
++    assert len(world.query.evidence("claim", 10., include_inactive=True)) == 2
++
++
++def test_partial_or_malformed_lineage_is_bounded_and_cannot_raise_independent_support():
++    world = WorldModel()
++    for index in range(3):
++        claim(world, str(index), provenance={"root_observation_ids": [f"{index}:{j}" for j in range(65)]})
++    entries = world.query.evidence("claim", 1.)
++    assert all(len(e.lineage.root_observation_ids) == 64 and e.lineage.correlation_uncertain for e in entries)
++    belief = world.belief("claim", 1.)
++    assert len(belief["evidence"]) == 1 and belief["sensor_tier"] == "PERCEPTION"
++    assert belief["provenance"]["lineage_truncated"] is True
++
++
++def test_provenance_projection_copies_only_the_named_metadata_fields():
++    world = WorldModel()
++    claim(world, "safe", provenance={"producer": "test", "ipc_key": "FAKE_SECRET", "raw_payload": "FAKE_RAW"})
++    record, = world.query.evidence("claim", 1.)
++    projected = json.dumps(record.lineage.as_dict())
++    assert "FAKE_SECRET" not in projected and "FAKE_RAW" not in projected
++    assert json.dumps(world.belief("claim", 1.))
++
++
++def test_packet_evidence_keeps_direction_scope_and_real_sample_age_without_double_subtraction(bridge):
++    deliver(bridge, decoded(timestamp=999.6)[-1])
++    record = next(e for e in bridge.world.query.evidence("player_world_position", 10.)
++                  if e.source == "PACKET_TELEMETRY")
++    assert record.observed_at == pytest.approx(9.6) and record.received_at == 10.
++    assert record.expires_at == pytest.approx(10.35)
++    assert record.age_ms(10.) == 400
++    assert record.lineage.direction is EvidenceDirection.CLIENT_TO_SERVER
++    assert record.lineage.event_id and record.lineage.game_build == 69587 and record.lineage.payload_layout
++    assert record.session_context.identity.selected_pid == 77
++    assert record.session_context.world.instance_id == 2175
++    assert record.session_context.world.ui_map_id == 1409
++    assert record.is_fresh(10.3) and not record.is_fresh(10.36)
++    assert bridge.world.last_received == 9.  # receipt does not grant addon/input liveness
++
++
++def test_pruning_retains_not_yet_received_data_but_drops_expired_and_invalid_records():
++    world = WorldModel()
++    claim(world, "future", at=10.)
++    assert world.prune_expired_evidence(1.) == 0
++    assert world.prune_expired_evidence(math.nan) == 0
++    assert world.prune_expired_evidence(20.) == 1
++
++
++def test_independent_origins_remain_independent_without_promoting_named_identity_to_truth():
++    world = WorldModel()
++    for index in range(3):
++        claim(world, f"capture:{index}", provenance={"root_observation_ids": [f"source:{index}"]})
++    belief = world.belief("claim", 1.)
++    assert len(belief["evidence"]) == 3
++    assert belief["sensor_tier"] == "STRONG" and belief["status"] == "SUPPORTED"
++
++
++def test_a_correlated_copy_does_not_replace_the_existing_source_priority():
++    world = WorldModel()
++    root = claim(world, "parent", "current", source="ADDON_TELEMETRY")
++    claim(world, "derived", "guess", source="WORLD3D", provenance={
++        "root_observation_ids": [root.observation_id]})
++    belief = world.belief("claim", 1.)
++    assert belief["source"] == "ADDON_TELEMETRY" and belief["value"] == "current"
++    assert belief["evidence"] == [root.observation_id]
++
++
++def test_ancestry_bridge_merges_components_in_every_ingestion_order():
++    from itertools import permutations
++    from wowbot.evidence_contracts import independent_evidence
++
++    roots = (("A",), ("B",), ("C",), ("A", "B", "C"))
++    records = [evidence(observation_id=f"obs:{index}", independence_group=f"group:{index}",
++                       lineage=SourceLineage(root_observation_ids=origins)) for index, origins in enumerate(roots)]
++    assert all(len(independent_evidence(order)) == 1 for order in permutations(records))
++
++
++@pytest.mark.parametrize("bad", [{"root_observation_ids": "wrong"}, {"parent_observation_ids": [None]},
++    {"independence_group": ["not-an-ID"]}, {"parent_observation_id": True}])
++def test_malformed_lineage_cannot_masquerade_as_independent_copies(bad):
++    world = WorldModel()
++    for index in range(3):
++        claim(world, f"malformed:{index}", provenance=bad)
++    assert all(e.lineage.correlation_uncertain for e in world.query.evidence("claim", 1.))
++    assert len(world.belief("claim", 1.)["evidence"]) == 1
++
++
++@pytest.mark.parametrize("bad_time", [True, 11., math.inf])
++def test_invalid_parent_time_cannot_be_laundered_by_a_new_child_timestamp(bad_time):
++    world = WorldModel()
++    parent = claim(world, "bad-parent", at=1., provenance={"observed_at_monotonic": bad_time})
++    claim(world, "child", at=2., provenance={"parent_observation_id": parent.observation_id,
++          "observed_at_monotonic": 2.})
++    assert world.belief("claim", 2.)["value"] is None
++    assert world.query.evidence("claim", 2., include_inactive=True)[-1].invalid_reason == "INVALID_ANCESTOR"
++
++
++def test_query_returns_records_without_mutating_the_world_or_granting_input_authority():
++    world = WorldModel()
++    obs = claim(world, "passive", {"guid": "candidate"})
++    before = dict(world.state)
++    query = world.query.evidence("claim", 1.)
++    assert isinstance(query, tuple) and query[0].observation_id == obs.observation_id
++    query[0].value["guid"] = "changed copy"
++    assert query[0].value == {"guid": "candidate"}
++    assert world.state == before and world.last_received == 0.
++
++
++def test_sibling_sources_keep_the_original_addon_time_and_identity_group():
++    from test_agent_core import state
++
++    world = WorldModel()
++    parent = Observation.create(state(mouseover={"guid": "npc"}), 1.)
++    world.ingest(parent)
++    derived = Observation.create({"session_id": world.session_id, "timestamp": 1.,
++        "frame_id": parent.correlation_id, "mouseover": {"guid": "npc"},
++        "provenance": {"producer": "AIPlayerControllerExport", "parent_observation_id": parent.observation_id,
++          "root_observation_ids": [parent.observation_id], "observed_at_monotonic": 1.,
++          "independence_group": parent.observation_id}}, 1.2, "MOUSEOVER")
++    assert world.ingest(derived)
++    records = world.query.evidence("mouseover", 1.2)
++    assert records[-1].received_at == 1.2 and records[-1].observed_at == 1.
++    assert len(world.belief("mouseover", 1.2)["evidence"]) == 1
++    assert world.last_received == 1.
++
++
++def test_a_child_preserves_the_known_parents_uncertain_ancestry():
++    world = WorldModel()
++    parent = claim(world, "partial-parent", provenance={"root_observation_ids": [None]})
++    claim(world, "partial-child", at=2., provenance={"parent_observation_id": parent.observation_id})
++    assert world.query.evidence("claim", 2.)[-1].lineage.correlation_uncertain is True
++
++
++def test_diagnostic_view_does_not_repeat_the_full_ancestry_for_every_vote():
++    world = WorldModel()
++    for index in range(3):
++        claim(world, f"sample:{index}", provenance={"root_observation_ids": [f"root:{index}"]})
++    belief = world.belief("claim", 1.)
++    assert len(belief["evidence_hierarchy"]) == 3
++    assert all("provenance" not in row for row in belief["evidence_hierarchy"])
++    assert belief["provenance"]["root_observation_ids"]
++    assert {root for entry in world.query.evidence("claim", 1.) for root in entry.lineage.root_observation_ids} == {
++        "root:0", "root:1", "root:2"}
+--- /dev/null
++++ b/tests/test_evidence_lineage_20261029.py
+@@ -0,0 +1,74 @@
++"""Common evidence must retain time and ancestry without creating authority."""
++from wowbot.agent.models import Observation
++from wowbot.agent.world import Evidence, WorldModel
++
++
++def evidence(**changes):
++    return Evidence(**{"observation_id": "obs", "correlation_id": "frame", "source": "WORLD3D",
++        "at": 10., "expires": 12., "value_json": '"A"', "confidence": .6, "reliability": .5,
++        "context_json": "{}", "independence_group": "frame", "sensor_tier": "PERCEPTION",
++        "tier_rank": 2, **changes})
++
++
++def claim(world, frame, value="A", *, at=1., source="WORLD3D", provenance=None):
++    observation = Observation.create({"session_id": "lineage", "frame_id": frame,
++        "timestamp": at, "provenance": provenance or {}}, at, source)
++    world.add_evidence("claim", value, observation, confidence=.6, ttl=5.)
++    return observation
++
++
++def test_an_evidence_value_cannot_be_fresh_before_it_is_received():
++    value = evidence()
++    assert not value.is_fresh(9.)
++    assert value.effective_confidence(9.) == 0.
++
++
++def test_future_received_evidence_cannot_enter_a_current_belief_or_snapshot():
++    world = WorldModel()
++    claim(world, "future", at=10.)
++    assert world.belief("claim", 1.)["value"] is None
++    assert "claim" not in world.snapshot(1.)["beliefs"]
++
++
++def test_rewrapped_copies_with_the_same_root_are_one_vote():
++    world = WorldModel()
++    for index in range(3):
++        claim(world, f"copy:{index}", provenance={"independence_group": f"wrapper:{index}",
++            "root_observation_ids": ["original-packet"]})
++    belief = world.belief("claim", 1.1)
++    assert len(belief["evidence"]) == 1
++    assert belief["sensor_tier"] == "PERCEPTION"
++    assert belief["confidence"] < .5
++
++
++def test_partly_overlapping_ancestry_cannot_make_three_independent_observations():
++    world = WorldModel()
++    for frame, roots in (("A", ["root-A"]), ("AB", ["root-A", "root-B"]), ("B", ["root-B"])):
++        claim(world, frame, provenance={"root_observation_ids": roots})
++    belief = world.belief("claim", 1.1)
++    assert len(belief["evidence"]) == 1
++    assert belief["sensor_tier"] == "PERCEPTION"
++
++
++def test_local_view_and_cross_view_of_the_same_capture_are_correlated():
++    world = WorldModel()
++    for source in ("WORLD3D", "WORLD3D_LOCAL_VIEW", "CROSS_VIEW"):
++        claim(world, "one-capture", source=source)
++    belief = world.belief("claim", 1.1)
++    assert len(belief["evidence"]) == 1
++    assert belief["sensor_tier"] == "PERCEPTION"
++
++
++def test_equal_weight_copies_of_one_origin_keep_the_newer_sample():
++    world = WorldModel()
++    provenance = {"independence_group": "one-origin"}
++    claim(world, "old", "old", at=1., provenance=provenance)
++    claim(world, "new", "new", at=2., provenance=provenance)
++    assert world.belief("claim", 2.)["value"] == "new"
++
++
++def test_delayed_derived_observation_does_not_restart_the_original_ttl():
++    world = WorldModel()
++    claim(world, "late-copy", at=10., provenance={"observed_at_monotonic": 1.,
++          "parent_observation_id": "old-parent", "root_observation_ids": ["old-parent"]})
++    assert world.belief("claim", 10.)["value"] is None

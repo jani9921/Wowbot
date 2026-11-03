@@ -154,6 +154,36 @@ class QuestDotFocus:
                               self._progress(state, qid), now, now)
         return self.focus
 
+    def forget_other_floor(self, quest_id: str, x: float, y: float) -> bool:
+        """The dot at (x, y) now carries a floor arrow: it is not on our floor.
+
+        Live 2026-10-14 20:31-20:33 (Hrun's pit, 5th cocoon): the focused
+        yellow dot showed a down arrow once the route had climbed the spiral
+        above it; its "same floor" local search repeated and held the floor
+        walk back.  Drop the focus and the remembered dot there (seen yellow
+        again from its own floor, it is remembered anew).
+        """
+        focus = self.focus
+        dropped = bool(focus is not None and focus.quest_id == str(quest_id)
+                       and math.hypot(focus.x-x, focus.y-y) <= self.MATCH_YARDS)
+        if dropped:
+            self.focus = None
+        self.remembered = [row for row in self.remembered if not (
+            row[0] == str(quest_id) and math.hypot(row[1]-x, row[2]-y) <= self.MATCH_YARDS)]
+        return dropped
+
+    def live_quest_ids(self, now: float) -> set[str]:
+        """Quests with a yellow objective dot still to visit: the current
+        focus, or a remembered dot not searched out yet."""
+        live = {self.focus.quest_id} if self.focus is not None else set()
+        for qid, x, y, seen in self.remembered:
+            if now - seen > self.REMEMBER_SECONDS:
+                continue
+            if not any(qid == old_id and math.hypot(x-ox, y-oy) <= self.MATCH_YARDS
+                       for old_id, ox, oy in self.exhausted):
+                live.add(qid)
+        return live
+
     def arrived(self, now: float) -> None:
         if self.focus is not None and self.focus.search_started is None:
             self.focus.search_started = now

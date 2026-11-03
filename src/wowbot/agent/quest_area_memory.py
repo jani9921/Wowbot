@@ -13,7 +13,7 @@ import math
 
 from .models import number
 from .planning_types import world_point
-from wowbot.vision.minimap_quest_area import offsets_to_world
+from wowbot.coordinates import offsets_to_world
 
 
 class QuestAreaMemory:

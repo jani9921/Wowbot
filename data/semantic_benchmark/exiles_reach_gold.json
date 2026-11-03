@@ -1,0 +1,54 @@
+{
+  "_note": "Gold labels for Exile's Reach objectives (2026-10-12). Quest texts and TDB facts are read from the local TDB at run time (tools/semantic_benchmark.py --tdb); only quest ids, the short objective lines and the expected answers live here. Turn-in gold = the TDB quest ender(s). Left out: vendor objectives (55194, rule-handled), emote objectives (55981 /wave /dance /point, no action class), and objectives whose correct class is unclear (55763).",
+  "quests": [
+    {"quest_id": 54951, "objectives": [
+      {"text": "First Aid Kit used on Bjorn Stouthands", "action": ["USE_ITEM_ON_TARGET"], "target": ["Bjorn Stouthands"]},
+      {"text": "First Aid Kit used on Kee-La", "action": ["USE_ITEM_ON_TARGET"], "target": ["Kee-La"]},
+      {"text": "First Aid Kit used on Austin Huxworth", "action": ["USE_ITEM_ON_TARGET"], "target": ["Austin Huxworth"]}]},
+    {"quest_id": 54952, "objectives": [
+      {"text": "Travel north to find any expedition survivors", "action": ["GO_TO"], "target": [null, "expedition survivors"]}]},
+    {"quest_id": 55122, "objectives": [
+      {"text": "First Aid Kits recovered from defeated Murlocs", "action": ["COLLECT"], "target": ["First Aid Kits", "First Aid Kit", "Murlocs", "Murloc", null]}]},
+    {"quest_id": 55174, "objectives": [
+      {"text": "Raw Meat collected from wildlife", "action": ["COLLECT"], "target": ["Raw Meat", "wildlife", null]},
+      {"text": "Cook the meat on the campfire", "action": ["INTERACT_OBJECT"], "target": ["campfire"]}]},
+    {"quest_id": 55184, "objectives": [
+      {"text": "Quilboar slain", "action": ["KILL"], "target": ["Quilboar"]}]},
+    {"quest_id": 55193, "objectives": [
+      {"text": "Use Scout-o-Matic 5000 to scout the area", "action": ["RIDE_VEHICLE"], "target": ["Scout-o-Matic 5000", null]}]},
+    {"quest_id": 55639, "objectives": [
+      {"text": "Trapped Expedition Member rescued from cocoons", "action": ["INTERACT_OBJECT"], "target": ["cocoons", "cocoon", "Trapped Expedition Member"]},
+      {"text": "Defeat Hrun to rescue Ralia Dreamchaser", "action": ["KILL"], "target": ["Hrun"]},
+      {"text": "Ride Ralia Dreamchaser to escape", "action": ["RIDE_VEHICLE"], "target": ["Ralia Dreamchaser", null]}]},
+    {"quest_id": 55764, "objectives": [
+      {"text": "Harpies and cohorts slain", "action": ["KILL"], "target": ["Harpies", "Harpy", "Harpies and cohorts"]}]},
+    {"quest_id": 55879, "objectives": [
+      {"text": "Ride the Giant Boar", "action": ["RIDE_VEHICLE"], "target": ["Giant Boar", null]}]},
+    {"quest_id": 55881, "objectives": [
+      {"text": "Harpy Totems burned", "action": ["INTERACT_OBJECT"], "target": ["Harpy Totems", "Harpy Totem"]}]},
+    {"quest_id": 55981, "objectives": [
+      {"text": "Ask Meredy to perform ogre transformation spell", "action": ["TALK"], "target": ["Meredy", "Meredy Huntswell"]},
+      {"text": "Enter Darkmaul Citadel", "action": ["GO_TO"], "target": ["Darkmaul Citadel", null]},
+      {"text": "Find the ogre cooking area", "action": ["GO_TO"], "target": ["ogre cooking area", null]},
+      {"text": "Reach the citadel entrance", "action": ["GO_TO"], "target": ["citadel entrance", null]}]},
+    {"quest_id": 55988, "objectives": [
+      {"text": "Ogres slain", "action": ["KILL"], "target": ["Ogres", "Ogre"]}]},
+    {"quest_id": 55989, "objectives": [
+      {"text": "Catapults destroyed", "action": ["INTERACT_OBJECT"], "target": ["Catapults", "Catapult"]}]},
+    {"quest_id": 55990, "objectives": [
+      {"text": "Jugnug's ward stone recovered", "action": ["COLLECT"], "target": ["Jugnug's ward stone", "Jugnug", null]},
+      {"text": "Wug's ward stone recovered", "action": ["COLLECT"], "target": ["Wug's ward stone", "Wug", null]},
+      {"text": "Grunk's ward stone recovered", "action": ["COLLECT"], "target": ["Grunk's ward stone", "Grunk", null]},
+      {"text": "Disable runes holding Captain Kelra", "action": ["INTERACT_OBJECT"], "target": ["runes", "rune"]}]},
+    {"quest_id": 55991, "objectives": [
+      {"text": "Speak to Kalecgos to travel to the Dragon Isles", "action": ["TALK"], "target": ["Kalecgos"]}]},
+    {"quest_id": 56034, "objectives": [
+      {"text": "Re-Sizer v9.0.1 tested on Wandering Boars", "action": ["USE_ITEM_ON_TARGET"], "target": ["Wandering Boars", "Wandering Boar"]}]},
+    {"quest_id": 58915, "objectives": [
+      {"text": "Hjalmar the Undying slain with Execute", "action": ["KILL"], "target": ["Hjalmar the Undying"]}]},
+    {"quest_id": 59254, "objectives": [
+      {"text": "Abilities proven against Captain Garrick", "action": ["KILL"], "target": ["Captain Garrick"]}]}
+  ],
+  "turnin_quests": [54951, 54952, 55122, 55173, 55174, 55184, 55186, 55193, 55194, 55639, 55764, 55879,
+                    55881, 55882, 55965, 55981, 55988, 55989, 55990, 55991, 56034, 56344, 58914, 58915, 59254]
+}

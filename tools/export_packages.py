@@ -22,6 +22,7 @@ from datetime import datetime
 import fnmatch
 import os
 from pathlib import Path
+import re
 import shutil
 import zipfile
 
@@ -38,7 +39,13 @@ SKIP_FILES = ["*.pyc", "*.engine", "runs_*.log", "*.tmp"]
 
 MIGRATION_EXTRA_SKIP = ["data/tdb_spawn_catalog.*.sqlite3"]
 GITHUB_SKIP = ["data/*.sqlite3", "weights/*", "native/recastnavigation/*", "native/recastnavigation",
-               "native/bin/*.bak", "native/build*"]
+               "native/WowPacketParser/*", "native/WowPacketParser", "runtime/ymir/wpp_work/*",
+               "native/bin/*.bak", "native/build*", "native/*/obj", "native/*/obj/*",
+               "native/db2_exporter/bin", "native/db2_exporter/bin/*",
+               "native/db2_struct_exporter/bin", "native/db2_struct_exporter/bin/*",
+               "runtime/ymir", "runtime/ymir/*", "*.pkt", "*.pcap", "*.pcapng",
+               "*.sqlite3", "*.sqlite3-*", "*.sqlite", "*.db", "*.zip",
+               "examples/bindings-cache-pid-*.wtf", ".env", ".env.*", "*/.env", "*/.env.*"]
 GITHUB_MODELS = {"world3d_units_3class_v10_e65.pt", "world3d_units_3class_v10_e65.onnx",
                  "world3d_units_3class_v10_e65_512.pt", "world3d_units_3class_v10_e65_512.onnx"}
 
@@ -135,7 +142,7 @@ reading, injection or secret-value bypasses.
 ## Not included
 - TensorRT engines (built per GPU by the wizard), training datasets and runs, personal agent
   memory and logs, the TrinityCore spawn catalog (`data/tdb_spawn_catalog.sqlite3`, optional).
-- Recast/Detour sources: a prebuilt `native/bin/aipc_detour.dll` is included; to rebuild it,
+- Recast/Detour sources: prebuilt `native/bin/aipc_detour_walking_v2.dll` (v1 as fallback) is included; to rebuild it,
   clone https://github.com/recastnavigation/recastnavigation into `native/recastnavigation`
   and build `native/detour_shim` with CMake.
 - `weights/yolo26n.pt` (Ultralytics base weights, only for training; downloaded by Ultralytics).
@@ -175,9 +182,13 @@ def build_migration() -> Path:
 
 
 def build_github(name: str = "wow-ai-agent") -> Path:
+    # Export to a fresh staging directory, then review/sync into the checkout.
+    # Rebuilding must never recursively erase an existing repository or package.
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+        raise ValueError("GitHub export name must be a single directory name")
     target = EXPORT / "github" / name
     if target.exists():
-        shutil.rmtree(target)
+        raise FileExistsError(f"Refusing to replace existing export: {target}; choose a fresh name")
     target.mkdir(parents=True)
     count = 0
     for path, rel in iter_files("github"):
@@ -200,7 +211,10 @@ def build_github(name: str = "wow-ai-agent") -> Path:
     # Public copy: no local Windows user name in paths.
     home = str(Path.home())
     for path in target.rglob("*"):
-        if path.is_file() and path.suffix.lower() in {".md", ".py", ".txt", ".json", ".bat", ".toc", ".lua"}:
+        if path.is_file() and path.suffix.lower() in {
+            ".md", ".py", ".txt", ".json", ".jsonl", ".bat", ".toc", ".lua",
+            ".xml", ".log", ".patch", ".diff", ".cs", ".cpp", ".h", ".config", ".csv", ".tsv",
+        }:
             try:
                 text = path.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Iterable, Mapping, Any
 
 from .models import number, words
+from wowbot.runtime.entity_identity import check_entity_identity, identity_fields, template_id
 
 
 _SOFT_UNIT_TOKENS = frozenset({"softenemy", "softfriend", "softinteract"})
@@ -20,6 +21,7 @@ class SoftTargetHint:
     source_unit: str
     guid: str | None = None
     npc_id: int | None = None
+    object_id: int | None = None
     name: str | None = None
     unit_type: str | None = None
     reaction: int | None = None
@@ -69,10 +71,12 @@ def observe_soft_targets(values: object) -> tuple[SoftTargetHint, ...]:
             continue
         guid = _text(raw.get("guid"), 128)
         npc_id = _integer(raw.get("npc_id"))
+        object_id = template_id(raw.get("object_id"))
         name = _text(raw.get("name"), 96)
-        if not any((guid, npc_id, name)):
+        if not any((guid, npc_id, object_id, name)):
             continue
-        identity_key = guid or (f"npc:{npc_id}" if npc_id is not None else f"name:{words(name or '')}")
+        identity_key = guid or (f"object:{object_id}" if object_id is not None else
+                               f"npc:{npc_id}" if npc_id is not None else f"name:{words(name or '')}")
         key = (source_unit, identity_key)
         if key in seen:
             continue
@@ -85,6 +89,7 @@ def observe_soft_targets(values: object) -> tuple[SoftTargetHint, ...]:
             source_unit=source_unit,
             guid=guid,
             npc_id=npc_id,
+            object_id=object_id,
             name=name,
             unit_type=_text(raw.get("unit_type"), 24),
             reaction=_integer(raw.get("reaction")),
@@ -106,15 +111,22 @@ def use_as_candidate_hint(hints: Iterable[SoftTargetHint], candidate: Mapping[st
     """
     candidate_guid = _text(candidate.get("guid"), 128)
     candidate_npc = _integer(candidate.get("npc_id"))
+    candidate_object = template_id(candidate.get("object_id"))
     candidate_name = words(str(candidate.get("name") or "").strip())
     matches: list[SoftTargetMatch] = []
     for hint in hints:
+        constraints = identity_fields(candidate)
+        if constraints and not check_entity_identity(constraints, {
+                "guid": hint.guid, "npc_id": hint.npc_id, "object_id": hint.object_id}):
+            continue
         reasons: list[str] = []
         score = 0.
         if candidate_guid and hint.guid and candidate_guid == hint.guid:
             score, reasons = .85, ["exact_guid"]
         elif candidate_npc is not None and hint.npc_id == candidate_npc:
             score, reasons = .62, ["matching_npc_id"]
+        elif candidate_object is not None and hint.object_id == candidate_object:
+            score, reasons = .62, ["matching_object_id"]
         elif candidate_name and hint.name and candidate_name == words(hint.name):
             score, reasons = .4, ["matching_name"]
         if reasons:

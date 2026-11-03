@@ -1,0 +1,307 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,14 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 exact server-pose priority — **OFFLINE_TESTED / full
++ownership migration PARTIAL**. Exact scoped server actor XYZ wins over nonempty
++addon UnitPosition; numeric Retail addon unit Z remains UNKNOWN. No fabricated
++zero layer, selected-target/F7/spell authority unchanged; moving recipient
++updates the same reach. Existing own stationary height/probe is preserved,
++but pre-route acquisition and M0 typed-route handoff remain separate gaps.
++Selected regression: **4029 passed, 2 skipped, 10 unchanged deselections, 324 modules, exit 0**. 203 numbered rows unchanged, addon/Ymir
++unchanged, no assistant live input/capture/database writes or live acceptance.
++See [pose fix/checkpoint](reform/rev4-20261029/P5_ENTITY_POSE_PRECEDENCE.md).
+ 
+ 2026-10-30 REV4 P5/P7 range/facing follow-up — **OFFLINE_TESTED / full
+ ownership migration PARTIAL**. Mobility opener range no longer becomes the
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,15 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — server pose / addon Z (offline)
++
++Exact scoped server XYZ now wins over a nonempty selected-unit addon point.
++UNIT_POSITION height is unknown for all addon recipient forms; real server
++Z=0 is preserved. Moving recipient pose follows the same GUID/reach. No
++guessed ground layer, target selection, F7 readiness or spell range permission.
++Own stationary height/probe remains, pre-route acquisition is a separate gap.
++Targeted: 141 pass; selected regression **4029 passed, 2 skipped, 10 unchanged deselections, 324 modules, exit 0**, no new live acceptance.
++No assistant game/capture/FULL_AI/input/live DB changes; addon/Ymir unchanged.
++[Details/checkpoint](reform/rev4-20261029/P5_ENTITY_POSE_PRECEDENCE.md).
+ 
+ ## 2026-10-30 — sustained range/facing follow-up (offline)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 4015 passed, 2 skipped, 10 változatlan deselection, 324 modul, exit 0.
++Végső kijelölt regresszió: 4029 passed, 2 skipped, 10 változatlan deselection, 324 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -73,6 +73,11 @@
+ vizsgálat és bounded terminal diagnostics tartozik. Ez nem a teljes mozgó
+ entity-goal/floor migráció és nem minden élő facing-hiba igazolt javítása.
+ 
++Az [exact server-pose javítás](P5_ENTITY_POSE_PRECEDENCE.md) a nem üres addon
++unit-pozíció mellett is a GUID-hoz tartozó szerver XYZ-t használja. Az addon
++UNIT_POSITION magassága UNKNOWN, a saját mozgáscsomagos helymeghatározás
++tervezés előtti bekötése külön következő feladat.
++
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+ késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+@@ -114,7 +119,7 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **4015 passed, 2 skipped, 10 deselected; 324 modul; 163.87 s; exit 0** |
++| Végső kijelölt regresszió | **4029 passed, 2 skipped, 10 deselected; 324 modul; 163.87 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+ | Teljes Python AST | 557 source + 633 tests Python-fájl; 632 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+--- before/docs/reform/rev4-20261029/P5_ENTITY_POSE_PRECEDENCE.md
++++ after/docs/reform/rev4-20261029/P5_ENTITY_POSE_PRECEDENCE.md
+@@ -0,0 +1,39 @@
++# REV4 P5/P7 — exact server pose és ismeretlen addon-Z
++
++2026-10-30. A felhasználó pontosítása: Retail addonból nincs használható Z;
++a saját world XYZ mozgáscsomagokból érkezik. Offline javítás a kijelölt
++`projekt` mappában; új élő elfogadás nincs.
++
++A selected-target megközelítés korábban csak üres addon-pozíció mellett
++használta a szerver actorját. Most a meglévő exact GUID / azonos instance /
++nem removed / megfelelő kind ellenőrzésű szerverpozíció kap elsőbbséget
++akkor is, ha az addon ad nem üres XY-t és hamis z_known / Z=0 értéket.
++A kiválasztás és a friss target-azonosság továbbra is addon/UI bizonyíték;
++a szerverpozíció nem választ targetet és nem engedélyez F7-et vagy spellt.
++A mozgó server recipient ugyanazon reachen frissíti XYZ/layer értékeit.
++
++Az addon-normalizáló minden UNIT_POSITION eredetű target/mouseover/soft-target/
++visible-unit magasságot UNKNOWN-ként kezel, a használható XY-t és GUID-ot
++megtartja. Az érkező szerver valós Z=0 értéke megmarad. Szerver hiányában
++a navigation fallback és controller sem gyárt z=0 / layer_z=0 magasságot.
++Az eredeti Observationt a navigáció nem írja át.
++
++A saját álló karakter utolsó szervermagasságának meglévő megtartása és a
++HEIGHT_PROBE_TURN változatlan: a korábbi ugrást a 2026-10-28-as mérés után
++helyben fordítás váltotta fel. Külön nyitott sorrendi hiba: a typed route
++tervezése a controller probe-ja előtt is lefuthat vagy elbukhat. Ez a
++checkpoint önmagában még nem a tervezés előtti pozíciószerzés javítása.
++A move_to_entity meglévő M0 ága továbbra is közvetlen controller reach;
++a require_navmesh jelző jelenléte nem bizonyít tényleges typed MMAP route-ot.
++Ennek medium-lane handoffja külön migrációs munka.
++
++Célzott kör: 141 pass. Kijelölt regresszió: **4029 passed, 2 skipped, 10 unchanged deselections, 324 modules, exit 0**.
++A korábbi tíz deselection változatlan; nem a teljes teszttár futtatása.
++Az első célzott parancs egy nem létező modult nevezett meg, ezért ott nem
++futott teszt; javított modullistával a két célzott kör 74 / 141 pass lett.
++203 számozott coverage-sor változatlan. Addon/Ymir nem módosult.
++
++[Forrás/diff/JUnit/parancs checkpoint](entity-pose-precedence-evidence/verification.json).
++Az asszisztens nem indított játékot/capture-t/FULL_AI-t, nem küldött inputot,
++nem módosított éles adatbázist. A tizenegy korábbi facing-hiba, teljes Travel/
++Combat/Quest migráció és retained-provider paritás továbbra sincs lezárva.
+--- before/src/adapters/telemetry_packets.py
++++ after/src/adapters/telemetry_packets.py
+@@ -112,6 +112,19 @@
+         value.setdefault('power_sample_time', value['monotonic_time'])
+ 
+ 
++def _normalize_unit_position(unit) -> None:
++    """Retail addon UnitPosition height is unknown, even when numeric.
++
++    Keep available XY/identity. Exact server XYZ lives in packet_entities and
++    is resolved separately; an addon clock or z_known flag cannot supply Z.
++    """
++    position = unit.get("world_position") if isinstance(unit, dict) else None
++    if isinstance(position, dict) and position.get("source") == "UNIT_POSITION":
++        position.pop("z", None)
++        position.update(z_known=False, z_observed=False, z_estimated=False,
++                        z_source="RETAIL_UNIT_POSITION_Z_UNAVAILABLE")
++
++
+ def normalize(value: dict) -> dict:
+     _stamp_health_sample(value)
+     # Full snapshots carry the same public recipient, with their original
+@@ -131,6 +144,11 @@
+     for key in ("quest_ui", "extra_action", "inventory", "position", "target", "mouseover", "map_mouseover", "combat_hint", "map_context"):
+         if value.get(key) and not isinstance(value[key], dict):
+             raise ValueError(f"AIPC5 {key} must be an object")
++    for key in ("target", "mouseover"):
++        _normalize_unit_position(value.get(key))
++    for key in ("visible_units", "soft_targets"):
++        for unit in value.get(key, ()):
++            _normalize_unit_position(unit)
+     # The public tooltip's typed object/item ID is identity, not presentation
+     # text. Older full snapshots nested it even when the compact top-level
+     # field was absent. Never use the untyped generic tooltip `id` as NPC ID.
+--- before/src/wowbot/agent/movement_controller.py
++++ after/src/wowbot/agent/movement_controller.py
+@@ -274,6 +274,18 @@
+ 
+     def _refresh_object_destination(self, state: dict) -> bool:
+         """Update a moving object's endpoint without replacing the REACH attempt."""
++        recipient = (self.destination or {}).get("interaction_recipient_guid")
++        if recipient:
++            from .packet_entity_facts import interaction_position
++            point = interaction_position(state, recipient)
++            if point is None:
++                return False
++            if ((self.destination or {}).get("interaction_identity_source") == "TARGET"
++                    and str((state.get("target") or {}).get("guid") or "") != str(recipient)):
++                return False
++            self.destination.update({key: point[key] for key in ("x", "y", "z", "instance_id")})
++            self.destination.update(layer_z=point["z"], z_known=True, z_source="PACKET_ENTITY")
++            return True
+         if self.destination and self.destination.get("follow_group_leader"):
+             group = state.get("group_state") or {}
+             position = group.get("leader_position") or {}
+@@ -337,11 +349,17 @@
+         if (target_instance is not None and player_instance is not None
+                 and target_instance != player_instance):
+             return False
+-        self.destination.update(x=x, y=y, z=number(position.get("z")) or 0.,
+-                                instance_id=target_instance,
+-                                coordinate_space="WORLD_YARDS")
+         live_z = number(position.get("z"))
+-        if "layer_z" in self.destination and live_z is not None and position.get("z_known") is not False:
++        trusted_z = (live_z is not None and position.get("z_known") is not False
++                     and position.get("source") != "UNIT_POSITION")
++        self.destination.update(x=x, y=y, instance_id=target_instance, coordinate_space="WORLD_YARDS")
++        if trusted_z:
++            self.destination["z"] = live_z
++        else:
++            self.destination.pop("z", None)
++            self.destination.pop("layer_z", None)
++            self.destination["z_known"] = False
++        if "layer_z" in self.destination and trusted_z:
+             # Issue #101: a moving target's trusted height keeps the arrival
+             # layer current (ramps/stairs) instead of the start-time value.
+             self.destination["layer_z"] = live_z
+--- before/src/wowbot/navigation/service.py
++++ after/src/wowbot/navigation/service.py
+@@ -799,8 +799,10 @@
+         from wowbot.runtime.skill_identity import check_interaction_recipient, soft_interact, sample_fresh
+         packet_point = interaction_position(state, expected)
+         soft = recipient == "SOFT_INTERACT"
+-        server_target = (recipient == "TARGET" and not target.get("world_position")
+-                         and packet_point is not None)
++        # The selected Retail UnitPosition may contain a plausible XY but a
++        # frozen/zero height. A current exact same-world server actor supplies
++        # the approach pose even when the addon position is nonempty.
++        server_target = recipient == "TARGET" and packet_point is not None
+         if soft or server_target:
+             if not expected or packet_point is None or not self._reachability.permits(expected, now):
+                 return None
+@@ -854,7 +856,8 @@
+         # (same X/Y).  An untrusted height is never turned into z=0.
+         target_z = number(position.get("z"))
+         trusted_z = target_z if (target_z is not None
+-                                 and position.get("z_known") is not False) else None
++                                 and position.get("z_known") is not False
++                                 and position.get("source") != "UNIT_POSITION") else None
+         destination = {
+             "target_guid": expected,
+             "purpose": "INTERACT",
+--- before/src/wowbot/skills/combat.py
++++ after/src/wowbot/skills/combat.py
+@@ -974,9 +974,8 @@
+                 or target.get("dead", target.get("is_dead"))
+                 or target.get("attackable", target.get("is_attackable")) is not True):
+             return None
+-        if not position:
+-            from wowbot.agent.packet_entity_facts import interaction_position
+-            position=interaction_position(world_state,expected_guid) or {}
++        from wowbot.agent.packet_entity_facts import interaction_position
++        position=interaction_position(world_state,expected_guid) or position
+         if None in {number(player.get("x")), number(player.get("y")),
+                     number(position.get("x")), number(position.get("y"))}:
+             return None
+--- before/tests/test_agent_transport.py
++++ after/tests/test_agent_transport.py
+@@ -19,6 +19,25 @@
+     assert position["z_known"] is False
+     assert position["z_observed"] is False
+     assert position["z_source"] == "LEGACY_UNIT_POSITION_Z_REJECTED"
++
++
++@pytest.mark.parametrize("field", ["target", "mouseover", "soft_targets", "visible_units"])
++@pytest.mark.parametrize("z", [0., 123.])
++def test_retail_unitposition_numeric_height_is_unknown_for_every_addon_recipient(field, z):
++    unit = {"guid": "Creature-1", "world_position": {
++        "source": "UNIT_POSITION", "x": 4., "y": 5., "z": z,
++        "z_known": True, "z_observed": True, "instance_id": 0}}
++    state = normalize({field: [unit] if field in {"soft_targets", "visible_units"} else unit})
++    point = (state[field][0] if isinstance(state[field], list) else state[field])["world_position"]
++    assert point["x"] == 4. and point["y"] == 5.
++    assert "z" not in point and point["z_known"] is False and point["z_observed"] is False
++    assert point["z_source"] == "RETAIL_UNIT_POSITION_Z_UNAVAILABLE"
++
++
++def test_unitposition_normalization_does_not_discard_a_real_server_zero_height():
++    point = {"source": "PACKET_CREATE_MOVEMENT", "x": 4., "y": 5., "z": 0.,
++             "z_known": True, "instance_id": 0}
++    assert normalize({"target": {"guid": "Creature-1", "world_position": dict(point)}})["target"]["world_position"] == point
+ 
+ 
+ @pytest.mark.parametrize("is_open", [False, True])
+--- before/tests/test_combat_range_handoff_20261030.py
++++ after/tests/test_combat_range_handoff_20261030.py
+@@ -128,3 +128,49 @@
+     charge=next(a for a in actions if a['id']==100)
+     assert engagement_range([*actions,{'kind':'spell','max_range':40.,'is_harmful':True}],
+                             skill.ability_rules.definition(charge))==3.5
++
++
++@pytest.mark.parametrize('addon_map',[0,1])
++def test_exact_server_pose_beats_nonempty_zero_height_or_wrong_world_addon_pose(addon_map):
++    world=state()
++    world['target']['world_position']={'x':5.,'y':1.,'z':0.,'z_known':True,
++        'instance_id':addon_map,'source':'UNIT_POSITION','sample_time':10.}
++    assert CombatSkill._world_approach_request(world,GUID) is not None
++    navigation=NavigationService()
++    destination=navigation.move_to_entity(world,GUID,'pose-priority',10.,stop_distance=3.5)
++    assert destination['server_entity_guid']==GUID and destination['z_source']=='PACKET_ENTITY'
++    assert (destination['x'],destination['y'],destination['z'],destination['instance_id'])==(7.,0.,10.,0)
++    assert world['target']['world_position']['z']==0.  # source observation is not rewritten
++
++
++def test_foreign_server_world_does_not_override_a_fresh_selected_same_world_pose():
++    world=state();world['packet_entities'][GUID]['map_id']=1
++    world['target']['world_position']={'x':5.,'y':1.,'z':12.,'z_known':True,
++        'instance_id':0,'sample_time':10.,'coordinate_space':'WORLD_YARDS'}
++    destination=NavigationService().move_to_entity(world,GUID,'addon-still-scoped',10.)
++    assert destination.get('server_entity_guid') is None
++    assert (destination['x'],destination['y'],destination['z'],destination['instance_id'])==(5.,1.,12.,0)
++
++
++def test_no_server_height_leaves_addon_target_xy_without_a_fake_zero_layer():
++    world=state();world['packet_entities']={}
++    world['target']['world_position']={'x':5.,'y':1.,'z':0.,'z_known':True,
++        'source':'UNIT_POSITION','instance_id':0,'sample_time':10.}
++    nav=NavigationService()
++    destination=nav.move_to_entity(world,GUID,'no-server-height',10.)
++    assert destination['z_known'] is False and 'layer_z' not in destination and 'z' not in destination
++    assert nav._movement.destination['z_known'] is False
++    assert 'z' not in nav._movement.destination and 'layer_z' not in nav._movement.destination
++
++
++def test_server_recipient_reach_refreshes_the_same_guid_instead_of_freezing_its_start_pose():
++    world=state();nav=NavigationService()
++    nav.move_to_entity(world,GUID,'moving',10.)
++    moved=deepcopy(world)
++    moved['packet_entities'][GUID]['position'].update(x=12.,y=3.,z=11.)
++    assert nav._movement._refresh_object_destination(moved)
++    point=nav._movement.destination
++    assert (point['x'],point['y'],point['z'],point['layer_z'])==(12.,3.,11.,11.)
++    assert point['server_entity_guid']==GUID
++    moved['packet_entities'][GUID]['removed']=True
++    assert not nav._movement._refresh_object_destination(moved)

@@ -1,0 +1,67 @@
+{
+  "counts": {
+    "src": 502,
+    "tests": 599
+  },
+  "errors": [],
+  "common_evidence_imports": [
+    "__future__",
+    "dataclasses",
+    "enum",
+    "context_contracts"
+  ],
+  "protected_boundaries": [
+    {
+      "path": "src/wowbot/agent/models.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/world.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/world_state_projection.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/session_transition.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/context_contracts.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/query_ports.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/ipc.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/inbox.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/builds.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/forwarder.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/navigation/service.py",
+      "unchanged": true
+    }
+  ]
+}

@@ -207,6 +207,8 @@ class ReferenceCatalog:
     """Small cached queries over an immutable imported catalogue."""
 
     def __init__(self, path: Path | None = None):
+        from wowbot.quests.client_catalog import ClientCatalog
+        self.client = ClientCatalog()
         self.path = Path(path) if path is not None else default_reference_path()
         self.lock = threading.RLock()
         self.db = None
@@ -244,7 +246,14 @@ class ReferenceCatalog:
     def diagnostics(self):
         return {"status": self.status, "available": self.available, "path": str(self.path),
                 "sources": [dict(source) for source in self.sources], "read_only": True,
-                "policy": "TDB_PRIMARY_LIVE_VERIFIED"}
+                "policy": "TDB_PRIMARY_LIVE_VERIFIED", "client_db2": self.client.diagnostics()}
+
+    def client_quest(self, quest_id: int, *, details=False):
+        """Supplementary DB2 facts; the existing TDB stays the WORLD provider."""
+        return self.client.quest(quest_id, details=details)
+
+    def quest_scripts(self, quest_id: int):
+        return self.raw.quest_scripts(quest_id) if self.raw is not None else ()
 
     def provenance(self, kind="WORLD"):
         return next(({"source_file": s["filename"], "source_sha256": s["sha256"]}

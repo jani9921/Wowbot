@@ -191,6 +191,19 @@ class ObjectiveClassifier:
         if vendor is not None:
             evidence = ({"type": vendor[0], "confidence": .85, "source": "VENDOR_CLAUSE_TEXT"},)
             return ObjectiveClassification(vendor[0], .85, evidence, self._canonical.get(vendor[0], vendor[0]))
+        from .quest_semantics import talk_to_subject
+        typed_credit = (normalized in {"KILL", "INTERACT"}
+                        or words(str(raw.get("raw_type") or "")) in {"monster", "object"})
+        text = words(str(raw.get("description") or ""))
+        ask_clause = re.search(r"\bask\s+.+?\s+to\b", text)
+        combat_clause = any(re.search(pattern, text) for kind, patterns in _TEXT_RULES
+                            if kind == "KILL" for pattern in patterns)
+        if (normalized in {"KILL", "INTERACT", "UNKNOWN", ""}
+                and (ask_clause or (typed_credit and not combat_clause)) and talk_to_subject(raw)):
+            # A creature-credit counter does not mean killing: "Ask X to
+            # perform a spell" is deterministically an NPC conversation.
+            evidence = ({"type": "TALK_TO", "confidence": .8, "source": "SPEAK_CLAUSE_TEXT"},)
+            return ObjectiveClassification("TALK_TO", .8, evidence, self._canonical["TALK_TO"])
         if normalized in {"KILL", "UNKNOWN", ""} and use_npc_subject(raw):
             evidence = ({"type": "INTERACT_NPC", "confidence": .8, "source": "USE_NPC_CLAUSE_TEXT"},)
             return ObjectiveClassification("INTERACT_NPC", .8, evidence, self._canonical["INTERACT_NPC"])
@@ -324,6 +337,34 @@ def semantic_objective_key(text) -> str:
     return re.sub(r"^\d+\s*/\s*\d+\s*", "", words(str(text or ""))).strip()
 
 
+def apply_quest_tool(objective: QuestObjective, quest: dict) -> None:
+    """Bind an API-exported special item to a literal healing objective.
+
+    The original coarse monster/type evidence stays in raw. An LLM DEFEND
+    interpretation must not override this tool/action pair. Static NPC entry
+    enrichment remains a search candidate; selected GUID/item readiness is
+    still checked at the normal command boundary.
+    """
+    from .quest_semantics import healing_subject
+    subject = healing_subject(objective.raw)
+    tool = quest.get("special_item") or {}
+    item_id = number(tool.get("item_id"))
+    if not subject or item_id is None or item_id <= 0 or not item_id.is_integer():
+        return
+    objective.type = "USE_ITEM_ON_TARGET"
+    objective.confidence = max(objective.confidence, .9)
+    objective.target_object = {"item_id": int(item_id), "name": tool.get("item_name"),
+                               "source": "QUEST_LOG_SPECIAL_ITEM"}
+    objective.raw.update(quest_tool_kind="HEAL", quest_tool_item_id=int(item_id))
+    objective.raw.pop("item_target_name", None)
+    if (objective.target_entity is None
+            or objective.target_entity.get("source") == "TDB_HEAL_REFERENCE"):
+        objective.target_entity = {"name": subject, "npc_id": None, "source": "HEAL_CLAUSE_TEXT"}
+    evidence = {"type": "USE_ITEM_ON_TARGET", "confidence": .9, "source": "QUEST_TOOL_HEAL_CLAUSE"}
+    if evidence not in objective.semantic_candidates:
+        objective.semantic_candidates = (*objective.semantic_candidates, evidence)
+
+
 class QuestModel:
     def __init__(self):
         self.records: dict[int | str, QuestRecord] = {}
@@ -362,6 +403,9 @@ class QuestModel:
             record.chain_relations = tuple(edges)
             refs = reference.get('objectives') or []
             for index, objective in enumerate(record.objectives):
+                from .quest_item_knowledge import clear_item_knowledge, apply_item_knowledge
+                clear_item_knowledge(objective)
+                apply_quest_tool(objective, record.raw)
                 if objective.raw.pop('tdb_promoted_type', False):
                     objective.type = objective.raw.pop('tdb_original_type', 'UNKNOWN')
                     objective.confidence = objective.raw.pop('tdb_original_confidence', objective.confidence)
@@ -369,19 +413,24 @@ class QuestModel:
                 for key in ('tdb_object_name', 'tdb_object_id', 'tdb_objective_id',
                             'tdb_objective_kind', 'tdb_verified_build'):
                     objective.raw.pop(key, None)
-                matched = [r for r in refs if str(r.get('objective_id'))==objective.objective_id]
-                prefix, separator, suffix = objective.objective_id.partition(':')
-                if not matched and separator and prefix == str(qid) and suffix.isdigit():
-                    matched = [r for r in refs if str(r.get('order'))==suffix]
-                if not matched and len(refs)==len(record.objectives):
-                    matched = [r for r in refs if r.get('order')==index]
+                from .quest_reference_matching import reference_objectives
+                matched = reference_objectives(qid, objective.objective_id, objective.description, refs)
                 if len(matched)!=1:
                     continue
                 source = matched[0]
                 objective.raw['tdb_objective_id'] = source.get('objective_id')
                 objective.raw['tdb_objective_kind'] = source.get('credit_kind')
                 objective.raw['tdb_verified_build'] = source.get('verified_build')
+                if objective.raw.get('quest_tool_kind') == 'HEAL':
+                    from .packet_entity_facts import rescue_credit_entry
+                    entry = rescue_credit_entry(source)
+                    if entry and (not (objective.target_entity or {}).get('npc_id')
+                                  or (objective.target_entity or {}).get('source') == 'TDB_HEAL_REFERENCE'):
+                        objective.target_entity = {'npc_id': int(entry), 'name': source['credit_name'],
+                                                   'source': 'TDB_HEAL_REFERENCE'}
+                        objective.raw['item_target_name'] = source['credit_name']
                 obj = source.get('object_template') or {}
+                apply_item_knowledge(objective, source, record.raw, reference)
                 if source.get('raw_type')!=2 or not obj.get('name'):
                     continue
                 objective.raw['tdb_object_name'] = obj['name']
@@ -404,16 +453,19 @@ class QuestModel:
                     apply_semantic_hint(objective, self.semantic_hints.get(
                         (str(qid), semantic_objective_key(objective.description))))
 
-    def ingest(self, quests: list[dict], observation_id: str, at: float):
+    def ingest(self, quests: list[dict], observation_id: str, at: float, *, complete: bool = True):
         present = set()
         for raw in quests:
             qid = raw.get("quest_id")
             if qid is None:
                 continue
             present.add(qid)
+            if raw.get('objectives_coverage') not in (None, 'COMPLETE') and qid in self.records:
+                raw = {**raw, 'objectives': self.records[qid].raw.get('objectives') or []}
             objectives = [self._objective(qid, index, value, observation_id)
                           for index, value in enumerate(raw.get("objectives") or [])]
             for objective in objectives:
+                apply_quest_tool(objective, raw)
                 apply_semantic_hint(objective, self.semantic_hints.get(
                     (str(qid), semantic_objective_key(objective.description))))
             # Ordering is inferred only when the producer explicitly declares
@@ -462,12 +514,14 @@ class QuestModel:
             record.chain_relations = self.quest_graph.normalize_relations(qid, raw)
             self.records[qid] = record
         for qid, record in self.records.items():
-            if qid not in present and record.current_state in {"ACTIVE", "COMPLETED", "FAILED"}:
+            if complete and qid not in present and record.current_state in {"ACTIVE", "COMPLETED", "FAILED"}:
                 record.current_state = "ABSENT"
                 record.lifecycle_state = QuestState.ABSENT
                 record.history.append({"at": at, "observation_id": observation_id,
                                        "state": "ABSENT", "signature": "ABSENT"})
         self.apply_reference_knowledge()
+        from .server_quest_definitions import apply_bindings
+        apply_bindings(self, at)
 
     @staticmethod
     def _objective(qid, index, raw, observation_id):
@@ -498,6 +552,11 @@ class QuestModel:
                              "source": "QUEST_API"}
         if target_entity is None and kind == "INTERACT_NPC" and use_npc_subject(raw):
             target_entity = {"npc_id": None, "name": use_npc_subject(raw), "source": "OBJECTIVE_TEXT"}
+        if target_entity is None and kind == "TALK_TO":
+            from .quest_semantics import talk_to_subject
+            subject = talk_to_subject(raw)
+            if subject:
+                target_entity = {"npc_id": None, "name": subject, "source": "SPEAK_CLAUSE_TEXT"}
         if target_entity is None and kind in {"BUY", "SELL"} and vendor_clause(raw):
             target_entity = {"npc_id": None, "name": vendor_clause(raw)[1], "source": "VENDOR_CLAUSE_TEXT"}
         target_object = raw.get("target_object")

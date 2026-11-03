@@ -1,0 +1,19 @@
+{
+  "canonical_typed_entity_route": true,
+  "fast_initial_route_query": false,
+  "same_skill_action_retry_deadline": true,
+  "moving_goal_is_pinned_guid": true,
+  "corridor_anchor_not_overwritten_by_entity_follow": true,
+  "nested_terminal_physical_stop": true,
+  "handoff_preserves_owned_request": true,
+  "bounded_nested_failure_detail": true,
+  "own_navigation_projection_shared": true,
+  "corpse_pose_proves_loot_eligibility": false,
+  "general_fast_requery_audit_complete": false,
+  "dispatch_time_freshness_audit_complete": false,
+  "asynchronous_main_route_worker": false,
+  "full_migration_complete": false,
+  "new_live_acceptance": false,
+  "assistant_live_input": false,
+  "live_database_write": false
+}

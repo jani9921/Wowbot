@@ -13,7 +13,7 @@ import math
 from types import MappingProxyType
 from typing import Mapping
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 
 
 @dataclass(frozen=True, slots=True)

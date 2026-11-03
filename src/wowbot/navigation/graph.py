@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import math
 from typing import Iterable
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 
 
 @dataclass(frozen=True, slots=True)

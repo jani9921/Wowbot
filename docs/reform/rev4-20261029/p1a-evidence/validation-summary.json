@@ -1,0 +1,11 @@
+{
+  "initial_regression": "3 failures reproduced before implementation",
+  "new_isolation_module": "11 passed in 0.92s",
+  "final_adapter_subset": "19 passed in 1.56s",
+  "final_combined": "3162 passed, 1 failed, 1 skipped, 10 deselected in 150.84s",
+  "combined_test_modules": 250,
+  "new_exclusions": 0,
+  "remaining_failure": "test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index",
+  "prechange_same_failure": true,
+  "live_validation": false
+}

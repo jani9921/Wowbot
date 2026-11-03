@@ -1,0 +1,52 @@
+[
+  {
+    "path": "docs/LIVE_TEST_FIXES_20261102_GOLEM_ITEM.md",
+    "before_sha256": null,
+    "after_sha256": "116138612908ba65cc17c118e1c4ece2c752d8c0166fff866f07b30dae9f5e4a"
+  },
+  {
+    "path": "docs/LIVE_VALIDATION.md",
+    "before_sha256": "18b0691a70c0c7d1d263f4a9cf3c3a8611121472b526190603349d4faacc2481",
+    "after_sha256": "bc115119d54dadd2193caf030909b5ee1ff2af6e291b266bfc5ff89d94e63466"
+  },
+  {
+    "path": "src/wowbot/agent/packet_entity_facts.py",
+    "before_sha256": "cbbf26d1a7913f93a2db335f90a2dcfc9d0561a1b1005dfb38e54cb9e3a2799a",
+    "after_sha256": "8e21fcddd197fcfc61194248561c2be9e44f8b94d2953a293d64b8fb0504e439"
+  },
+  {
+    "path": "src/wowbot/agent/quest_item_knowledge.py",
+    "before_sha256": "568d41b136fc15d8f70bc09332c8b7bf2bb328e06c3ef893173cf6ada5d5b3c6",
+    "after_sha256": "c6a4e5069670f2915fe6b193b31f759a4a89d7bbf5322bc02b6304828bcc41ae"
+  },
+  {
+    "path": "src/wowbot/agent/quest_objective_planning.py",
+    "before_sha256": "14f1c5886ecf869b8f5f4a228d4629eb65518e70ff42ee0e337b1889375833ca",
+    "after_sha256": "fb0e3b02a8ca74df96913d62e80190e58a2e0e23483397849c3cbbb230858ab0"
+  },
+  {
+    "path": "src/wowbot/agent/reference_knowledge.py",
+    "before_sha256": "a965526eafcf98c179de50f9ea9adcf8c2e8559583c61b8cc7c0faed18ac9500",
+    "after_sha256": "34f3404a9f489805f52dd633f9b77927b5bd1de843d5b863a68b6ea419fa988a"
+  },
+  {
+    "path": "src/wowbot/agent/tdb_knowledge.py",
+    "before_sha256": "1a903d1755525254d7487957799fe3834833bfef5bb1c50edb029f755add3eec",
+    "after_sha256": "32bbd61fa457f8242a48a784fb7064beedc5de1f53cf306faf0342e129ccbad8"
+  },
+  {
+    "path": "src/wowbot/quests/client_supplement.py",
+    "before_sha256": "6e9d6aafe1ac649f08c9efc91363b69870c23038117dbbf630b380c57496176f",
+    "after_sha256": "0ebecf97a0fb6e695ff8d29e69d1f9e9d775801f011beb12b7ebfaf8de61cdf5"
+  },
+  {
+    "path": "src/wowbot/quests/item_target_conditions.py",
+    "before_sha256": null,
+    "after_sha256": "d2e63d002e29a3523d5abb5c8b318f98d6b1939c1210adc4c65fe0c340830805"
+  },
+  {
+    "path": "tests/test_item_summon_objective_20261102.py",
+    "before_sha256": null,
+    "after_sha256": "75929f4d4716aabab3c9e1dfe5ef9ca677301c79bf81f1a391bc4bd4f77ec6eb"
+  }
+]

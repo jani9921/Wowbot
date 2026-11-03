@@ -1,0 +1,11 @@
+{
+  "one_canonical_implementation": true,
+  "legacy_paths_identical_reexports": true,
+  "core_imports_agent_skills_navigation_vision": false,
+  "unchanged_ast_declarations": 27,
+  "supplement_original_bytes_preserved": true,
+  "new_rotation_or_input_authority": false,
+  "complete_combat_fsm_rewrite": false,
+  "full_role_provider_parity": false,
+  "new_live_acceptance": false
+}

@@ -65,11 +65,13 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
         self._fallback = WorldCandidateTracker(max_misses=8)
         self._states: dict[int, _TrackState] = {}
         self._native_to_public: dict[int, int] = {}
+        self._fallback_to_public: dict[int, int] = {}
         self._next_public_id = 1
         self._cutover_complete = False
         # Short-gap re-identification (see _reidentify): last box of every
         # published id, and ids that vanished recently (camera-compensated).
         self.reid_seconds = 1.5
+        self.reid_gallery_seconds = 8.
         # 8 of 25 live one-frame re-births jumped 1.21-1.39 box heights.
         self.reid_max_heights = 1.5
         # The avatar is missed by the detector for 1-7 s at a time (live PID
@@ -82,9 +84,11 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
         # (PID 4588): with GMC working the avatar changed id 12 times in 94 s.
         self.screen_anchored = os.environ.get("AIPC_TRACK_SCREEN_ANCHORED", "1") != "0"
         self._anchored: dict[int, dict] = {}
+        self._screen_anchor_last: tuple[tuple[int, int, int, int], float] | None = None
         self._last_boxes: dict[int, dict] = {}
         self._recently_lost: dict[int, dict] = {}
         self.reidentified = 0
+        self.exact_box_rebindings = 0
         self.frame_index = 0
         self.last_diagnostics: dict[str, object] = {
             "backend": self.backend, "status": "not_loaded",
@@ -205,9 +209,37 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
         return np.frombuffer(raw, dtype=np.uint8).reshape(
             (height, width, 4))[:, :, :3]
 
+    @staticmethod
+    def _appearance_descriptor(image: Any | None, rect: PixelRect) -> tuple[float, ...] | None:
+        """Cheap colour signature for an *unambiguous* short-lived visual ReID.
+
+        Only the inner box is sampled, so a change in surrounding scenery
+        during a camera turn does not dominate the descriptor. Flat/blank
+        captures have no distinguishing power and deliberately return None.
+        """
+        if image is None:
+            return None
+        height, width = image.shape[:2]
+        left = max(0, min(width, rect.left + rect.width//5))
+        right = max(0, min(width, rect.right - rect.width//5))
+        top = max(0, min(height, rect.top + rect.height//10))
+        bottom = max(0, min(height, rect.bottom - rect.height//10))
+        if right-left < 6 or bottom-top < 6:
+            return None
+        step = max(1, max(right-left, bottom-top)//32)
+        pixels = image[top:bottom:step, left:right:step].reshape(-1, 3)
+        if len(pixels) < 32 or float(np.std(pixels)) < 12.:
+            return None
+        bins = []
+        for channel in range(3):
+            counts = np.bincount(pixels[:, channel] >> 5, minlength=8)
+            bins.extend(float(value)/len(pixels) for value in counts)
+        return tuple(bins)
+
     def _tracked_candidate(self, candidate: WorldCandidate, track: Any,
                            timestamp: float | None, width: int,
-                           height: int, public_track_id: int) -> WorldCandidate:
+                           height: int, public_track_id: int,
+                           *, native: bool = True) -> WorldCandidate:
         track_id = int(public_track_id)
         coordinates = track.xyxy.tolist()
         rect = PixelRect(
@@ -268,10 +300,12 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
             "track_association": (
                 "ultralytics_botsort+gmc+kalman+family_gate"
                 if self.backend == "botsort"
-                else "ultralytics_bytetrack+kalman+family_gate"),
-            "tracker_backend": self.backend,
+                else "ultralytics_bytetrack+kalman+family_gate")
+                if native else "legacy_tentative+public_id_reid",
             "track_hits": state.hits,
         })
+        if native:
+            enriched_appearance["tracker_backend"] = self.backend
         return WorldCandidate(
             kind=enriched.kind, rect=enriched.rect,
             confidence=enriched.confidence, evidence=enriched.evidence,
@@ -312,9 +346,9 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                 gmc = self._tracker.gmc
                 if isinstance(gmc, _PrescaledTranslationGMC) and gray is not None and gray_step:
                     gmc.set_frame(gray, gray_step)
-            anchored_index = ([index for index, candidate in enumerate(candidates)
-                               if self._screen_anchored(candidate, width, height)]
-                              if self.screen_anchored else [])
+            anchored_index, anchor_candidates = (
+                self._screen_anchor_indices(candidates, width, height, timestamp)
+                if self.screen_anchored else ([], 0))
             anchored_set = set(anchored_index)
             world_index = [index for index in range(len(candidates))
                            if index not in anchored_set]
@@ -328,7 +362,10 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                 for candidate in (candidates[index] for index in world_index)
             ], dtype=np.float32).reshape((-1, 6))
             boxes = self._boxes_type(rows, orig_shape=(height, width))
-            self._tracker.update(boxes, img=self._bgr_view(raw, width, height))
+            image = self._bgr_view(raw, width, height)
+            descriptors = tuple(self._appearance_descriptor(image, candidate.rect)
+                                for candidate in candidates)
+            self._tracker.update(boxes, img=image)
             current: dict[int, Any] = {}
             for track in self._tracker.tracked_stracks:
                 if int(track.frame_id) != int(self._tracker.frame_id):
@@ -344,8 +381,9 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                 # partial result is a normal MOT lifecycle state rather than
                 # a broken library contract.
                 for index, track in current.items():
-                    self._native_to_public[int(track.track_id)] = int(
-                        fallback_output[index].track_id)
+                    fallback_id = int(fallback_output[index].track_id)
+                    self._native_to_public[int(track.track_id)] = fallback_id
+                    self._fallback_to_public[fallback_id] = fallback_id
                 self._next_public_id = max(
                     [self._next_public_id, *self._native_to_public.values()]) + 1
                 self._cutover_complete = True
@@ -359,7 +397,16 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                 native_id = int(track.track_id)
                 if native_id not in self._native_to_public:
                     fallback_id = int(fallback_output[index].track_id)
-                    reidentified = self._reidentify(candidates[index], in_use)
+                    alias = self._fallback_to_public.get(fallback_id)
+                    if alias is not None and not self._alias_compatible(
+                            alias, descriptors[index], timestamp):
+                        alias = None
+                    reidentified = (None if alias is not None and alias not in in_use
+                                    else self._reidentify(candidates[index], in_use,
+                                                          timestamp=timestamp,
+                                                          descriptor=descriptors[index]))
+                    if alias is not None and alias not in in_use:
+                        self._native_to_public[native_id] = alias
                     if reidentified is not None:
                         # Detach the vanished native track so a later
                         # recovery of it cannot publish a duplicate id.
@@ -368,7 +415,8 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                                 del self._native_to_public[old_native]
                         self._native_to_public[native_id] = reidentified
                         self.reidentified += 1
-                    elif (fallback_id not in self._native_to_public.values()
+                    elif (native_id not in self._native_to_public
+                          and fallback_id not in self._native_to_public.values()
                           and fallback_id not in self._anchored
                           and fallback_id not in in_use):
                         # This also bridges a track that was published during
@@ -378,10 +426,72 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                         self._native_to_public[native_id] = fallback_id
                         self._next_public_id = max(
                             self._next_public_id, fallback_id + 1)
-                    else:
+                    elif native_id not in self._native_to_public:
                         self._native_to_public[native_id] = self._next_public_id
                         self._next_public_id += 1
+                    for old_native, public in list(self._native_to_public.items()):
+                        if old_native != native_id and public == self._native_to_public[native_id]:
+                            del self._native_to_public[old_native]
+                    self._fallback_to_public[fallback_id] = self._native_to_public[native_id]
                     in_use.add(self._native_to_public[native_id])
+                else:
+                    self._fallback_to_public[int(fallback_output[index].track_id)] = (
+                        self._native_to_public[native_id])
+            tentative_ids: dict[int, int] = {}
+            for index, candidate in enumerate(candidates):
+                if index in current or index in anchored_ids:
+                    continue
+                fallback_id = int(fallback_output[index].track_id)
+                alias = self._fallback_to_public.get(fallback_id)
+                if alias is not None and not self._alias_compatible(
+                        alias, descriptors[index], timestamp):
+                    alias = None
+                if alias is None or alias in in_use:
+                    alias = self._reidentify(candidate, in_use, timestamp=timestamp,
+                                             descriptor=descriptors[index])
+                    if alias is not None:
+                        for old_native, public in list(self._native_to_public.items()):
+                            if public == alias:
+                                del self._native_to_public[old_native]
+                        self.reidentified += 1
+                if alias is None:
+                    if (fallback_id not in self._native_to_public.values()
+                            and fallback_id not in self._anchored
+                            and fallback_id not in in_use):
+                        alias = fallback_id
+                    else:
+                        alias = self._next_public_id
+                        self._next_public_id += 1
+                tentative_ids[index] = alias
+                self._fallback_to_public[fallback_id] = alias
+                self._next_public_id = max(self._next_public_id, alias + 1)
+                in_use.add(alias)
+            # A native track can be confirmed on one frame but withheld on
+            # the next. Its fallback may have a different legacy alias. Merge
+            # only a virtually identical box from the immediately preceding
+            # frame; this is not long-term visual/person ReID.
+            assigned_ids = {
+                index: (anchored_ids[index] if index in anchored_ids else
+                        self._native_to_public[int(current[index].track_id)]
+                        if index in current else tentative_ids[index])
+                for index in range(len(candidates))}
+            for index, candidate in enumerate(candidates):
+                if index in anchored_ids:
+                    continue
+                public_id = assigned_ids[index]
+                other_ids = {value for other, value in assigned_ids.items() if other != index}
+                bridge = self._coalesce_exact_continuation(
+                    candidate, public_id, other_ids, timestamp, descriptors[index])
+                if bridge is None:
+                    continue
+                winner, loser = bridge
+                self._merge_public_alias(winner, loser)
+                if index in current:
+                    self._native_to_public[int(current[index].track_id)] = winner
+                else:
+                    tentative_ids[index] = winner
+                assigned_ids[index] = winner
+                self.exact_box_rebindings += 1
             # BoT-SORT/ByteTrack may omit a just-created tentative detection
             # until a later frame confirms it. Publish that detection through
             # the continuously-running conservative tracker for now, while
@@ -401,14 +511,20 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                         [candidate.rect.left, candidate.rect.top,
                          candidate.rect.right, candidate.rect.bottom], dtype=np.float64)),
                     timestamp, width, height, anchored_ids[index])
-                if index in anchored_ids else fallback_output[index]
+                if index in anchored_ids else
+                self._tracked_candidate(
+                    candidate,
+                    SimpleNamespace(xyxy=np.asarray(
+                        [candidate.rect.left, candidate.rect.top,
+                         candidate.rect.right, candidate.rect.bottom], dtype=np.float64)),
+                    timestamp, width, height, tentative_ids[index], native=False)
                 for index, candidate in enumerate(candidates))
             output = self._unique_ids(output, current, anchored_ids)
-            self._remember_published(output, timestamp)
+            self._remember_published(output, timestamp, descriptors)
             active_ids = {
                 self._native_to_public[int(track.track_id)]
                 for track in self._tracker.tracked_stracks
-                if int(track.track_id) in self._native_to_public} | set(self._anchored)
+                if int(track.track_id) in self._native_to_public} | set(self._anchored) | set(tentative_ids.values())
             lost_ids = {
                 self._native_to_public[int(track.track_id)]
                 for track in self._tracker.lost_stracks
@@ -423,15 +539,23 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
                     state.lost_since = state.lost_since or timestamp
                     continue
                 del self._states[track_id]
+            retained_fallback = set(self._fallback._tracks) | set(self._fallback._lost)
+            self._fallback_to_public = {
+                fallback: public for fallback, public in self._fallback_to_public.items()
+                if fallback in retained_fallback}
             self.last_diagnostics.update({
                 "status": ("ready" if len(current)+len(anchored_ids) == len(candidates)
                            else "ready_partial"),
                 "screen_anchored": len(anchored_ids),
+                "screen_anchor_candidates": anchor_candidates,
                 "frame_index": self.frame_index,
                 "detections": len(candidates), "published": len(output),
                 "native_assignments": len(current),
                 "tentative_legacy_bridge": len(candidates)-len(current),
                 "active_tracks": len(active_ids), "lost_tracks": len(lost_ids),
+                "reidentified": self.reidentified,
+                "exact_box_rebindings": self.exact_box_rebindings,
+                "appearance_reid": "conservative_histogram_gallery",
             })
             return output
         except Exception as exc:
@@ -466,8 +590,12 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
     def invalidate_all(self, reason: str) -> None:
         self._states.clear()
         self._anchored.clear()
+        self._screen_anchor_last = None
+        self._last_boxes.clear()
+        self._recently_lost.clear()
         self._tracker = None
         self._native_to_public.clear()
+        self._fallback_to_public.clear()
         self._cutover_complete = False
         self._fallback.invalidate_all(reason)
         self.last_diagnostics.update({"status": "invalidated", "reason": reason})
@@ -476,9 +604,11 @@ class UltralyticsAssociationTracker(AssociationIdentityMixin):
         """Clear temporal state without repeating the expensive module load."""
         self._states.clear()
         self._native_to_public.clear()
+        self._fallback_to_public.clear()
         self._last_boxes.clear()
         self._recently_lost.clear()
         self._anchored.clear()
+        self._screen_anchor_last = None
         self._next_public_id = 1
         self._cutover_complete = False
         self._fallback = WorldCandidateTracker(max_misses=8)

@@ -84,6 +84,7 @@ class PerceptionSourcesMixin:
                 else "")
             tracks.append({
                 "track_id": item.get("track_id"), "bbox": dict(bbox),
+                "upstream_track_id": item.get("upstream_track_id"),
                 "detector_kind": item.get("detector_kind") or item.get("kind"),
                 "appearance": appearance,
                 "candidate_labels": list(item.get("candidate_labels") or ()),

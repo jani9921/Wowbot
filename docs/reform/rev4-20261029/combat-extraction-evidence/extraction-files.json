@@ -1,0 +1,134 @@
+{
+  "files": [
+    {
+      "path": "src/wowbot/combat/__init__.py",
+      "sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406",
+      "bytes": 75
+    },
+    {
+      "path": "src/wowbot/combat/target/__init__.py",
+      "sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406",
+      "bytes": 75
+    },
+    {
+      "path": "src/wowbot/combat/ability/__init__.py",
+      "sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406",
+      "bytes": 75
+    },
+    {
+      "path": "src/wowbot/value_helpers.py",
+      "sha256": "713ff2ebee355a1c3f83a81c2827ff8fa0e7b0efe44d50e317d3123909f83ec1",
+      "bytes": 358
+    },
+    {
+      "path": "src/wowbot/agent/models.py",
+      "sha256": "67c7f273185c0fcf0083ae505e1785f5fb480b6f0f6fb011554d34f9eb4d34e3",
+      "bytes": 16344
+    },
+    {
+      "path": "src/wowbot/entity_identity.py",
+      "sha256": "60ea7ca96c37627e480353b17dae58ce12f218a1186ac8b92ad5269c29df7ddd",
+      "bytes": 5535
+    },
+    {
+      "path": "src/wowbot/runtime/entity_identity.py",
+      "sha256": "1fcc541ce65b8ad64c37260dd2f48d1eadf52c6a638c38699d7e71d0f5c5d36c",
+      "bytes": 402
+    },
+    {
+      "path": "src/wowbot/combat/target/system.py",
+      "sha256": "3782b34a31f80d4bd393493462c8325357cb54036f8850608ec49e7d6c325cce",
+      "bytes": 12979
+    },
+    {
+      "path": "src/wowbot/agent/target_manager.py",
+      "sha256": "875ff67301d2eeaeb2d27e0c7577d98c3cbbd3dceb384953a37cf6154aecb5a2",
+      "bytes": 284
+    },
+    {
+      "path": "src/wowbot/combat/ability/contracts.py",
+      "sha256": "6f133589e2f76fdce94b86e2192d8d800269a4db989a2c44d38bbc74158f3115",
+      "bytes": 1824
+    },
+    {
+      "path": "src/wowbot/combat/ability/evaluator.py",
+      "sha256": "8d29225469e183e234521cafe217c38db91a89572e345dbf33e10f0e5c7b2645",
+      "bytes": 17066
+    },
+    {
+      "path": "src/wowbot/combat/ability/catalog.py",
+      "sha256": "3236848321c659714b3c9dfa5cdf1714347709601150091b4c7b696b085ddf18",
+      "bytes": 1409
+    },
+    {
+      "path": "src/wowbot/skills/combat_ability_catalog.py",
+      "sha256": "de25f8bc519478abf8e1f865289b549366cc666ccdfca30416233fea9af3dfe4",
+      "bytes": 212
+    },
+    {
+      "path": "src/wowbot/skills/ability_rules.py",
+      "sha256": "d839b6d518fec9b1b360536661dd83e4d1e7c179c8ba356494d5f3b7ff5b5c13",
+      "bytes": 442
+    },
+    {
+      "path": "src/wowbot/combat/contracts.py",
+      "sha256": "a15d29335f29f7d60b6a122cfe634bdff8dc363deec0eac255ad95ed4f57142c",
+      "bytes": 3832
+    },
+    {
+      "path": "src/wowbot/combat/arbitrator.py",
+      "sha256": "ea2348ccdaa3fb878cc7772826dadde953e9bae20cab5c2339c0cab228830b0d",
+      "bytes": 2505
+    },
+    {
+      "path": "src/wowbot/combat_contracts.py",
+      "sha256": "34e61a126456d87eaac76af521e861324d904248bf4b1d1e27e0f371b5114c13",
+      "bytes": 296
+    },
+    {
+      "path": "src/wowbot/agent/combat_controller.py",
+      "sha256": "1d1a90656ee01ca780d616782a9998d456faebdacc8f85864a265bcf7b311301",
+      "bytes": 10625
+    },
+    {
+      "path": "src/wowbot/agent/skills.py",
+      "sha256": "3ab0069792d057c5bfa79631b25fc4e019a84af88e9a6848ad6badc409d19914",
+      "bytes": 1079
+    },
+    {
+      "path": "src/wowbot/skills/__init__.py",
+      "sha256": "9bbf8093ef5317b2e5ee5998dcf05a91369e53f2b1c67e86b3e23618838d0330",
+      "bytes": 2668
+    },
+    {
+      "path": "src/wowbot/agent/reasoner.py",
+      "sha256": "cac9b2869ea13adeb23b03b34511f862e627b41e9c23b3ba9d3e6fdce9852555",
+      "bytes": 11901
+    },
+    {
+      "path": "src/wowbot/agent/world_state_projection.py",
+      "sha256": "bb1e07c3f95ec7960f21f90a544570ffa64919ca66a4c49ade5064b8f87b0a35",
+      "bytes": 33474
+    },
+    {
+      "path": "src/wowbot/skills/combat.py",
+      "sha256": "6b6c3a30c99a50a51d4cdc29dd0989531cd27b7fa3c1142dd45830ce0bcfa913",
+      "bytes": 60433
+    },
+    {
+      "path": "src/wowbot/combat/target/facing.py",
+      "sha256": "9431c95125970a5a1b0707c0f3b3a193936ac97864a33ce8a64613fcabaed4a6",
+      "bytes": 620
+    },
+    {
+      "path": "docs/reform/rev4-20261029/input/SRC_MIGRACIOS_TERV_20261029_HU.md",
+      "sha256": "d4c7136232748c71e03400e0ed97fadec40f55189b1d2d9132831dde5310c1e4",
+      "bytes": 25233
+    },
+    {
+      "path": "docs/reform/rev4-20261029/supplement-manifest.json",
+      "sha256": "98075eb05f77386333b3de1be8ca6c38885fb5fd1cf542bdc13136e7f5288215",
+      "bytes": 537
+    }
+  ]
+}

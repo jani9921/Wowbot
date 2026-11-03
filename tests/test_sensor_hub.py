@@ -1,6 +1,7 @@
 import pytest
 
 from wowbot.agent.sensor_hub import SensorHub
+from wowbot.agent.sensor import BufferedPixelSensor
 
 
 class Source:
@@ -77,3 +78,58 @@ def test_hub_rejects_invalid_configuration():
         hub.set_rate("telemetry", 0)
     with pytest.raises(KeyError, match="unknown sensor"):
         hub.mark_sensor_failure("missing", "bad")
+
+
+def test_hub_exposes_buffered_latest_without_consuming_or_restamping_edges():
+    sensor = BufferedPixelSensor(Source())
+    edge = {"frame_id": "hover-edge", "mouseover": {"guid": "npc"}}
+    latest = {"frame_id": "latest", "state_age": .02}
+    sensor.transitions.append((edge, 10.))
+    sensor.pending = sensor.latest_payload = (latest, 10.05)
+    hub = SensorHub.for_primary(sensor)
+    try:
+        assert hub.supports_peek_latest
+        for _ in range(3):
+            payload, received_at = hub.peek_latest(10.1)
+            assert payload["frame_id"] == "latest"
+            assert payload["state_age"] == pytest.approx(.07)
+            assert received_at == 10.05
+        assert len(sensor.transitions) == 1
+        assert hub.poll(10.1)["frame_id"] == "hover-edge"
+        assert hub.poll(10.1)["frame_id"] == "latest"
+        assert hub.poll(10.1) is None
+        assert hub.peek_latest(10.1)[1] == 10.05
+        assert latest["state_age"] == .02
+    finally:
+        hub.close()
+    assert hub.peek_latest(10.1) is None
+
+
+@pytest.mark.parametrize("now", [9.99, 10.21, float("nan")])
+def test_hub_peek_uses_original_receipt_time_and_its_freshness_limit(now):
+    sensor = BufferedPixelSensor(Source())
+    sensor.latest_payload = ({"frame_id": "one"}, 10.)
+    hub = SensorHub.for_primary(sensor, freshness_seconds=.2)
+    try:
+        assert hub.peek_latest(now) is None
+        assert hub.peek_latest(10.1)[1] == 10.
+    finally:
+        hub.close()
+
+
+def test_hub_peek_respects_failure_and_never_reads_another_sensor():
+    from types import SimpleNamespace
+    first = SimpleNamespace(peek_latest=lambda now: ({"frame_id": "primary"}, 10.))
+    other = SimpleNamespace(peek_latest=lambda now: pytest.fail("read secondary sensor"))
+    hub = SensorHub({"telemetry": first, "other": other})
+    assert hub.peek_latest(10.1)[0]["frame_id"] == "primary"
+    hub.mark_sensor_failure("telemetry", "DEVICE_RESET")
+    assert hub.peek_latest(10.1) is None
+    hub.close()
+    assert hub.peek_latest(10.1) is None
+
+
+def test_poll_only_hub_does_not_claim_fast_snapshot_capability():
+    hub = SensorHub.for_primary(Source())
+    assert not hub.supports_peek_latest
+    assert hub.peek_latest(10.) is None

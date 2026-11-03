@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.V12_0_0_65390/Parsers/QueryHandler.cs",
+      "sha256": "c0398bc3dbb8f3c5b883151c671629ee8066ef2159190a649311be65d0308dbc"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.V10_0_0_46181/Parsers/QueryHandler.cs",
+      "sha256": "f977c7539e68996cf0f5437047ebf0dc0b6378bf4c5ca226be87b8d98003d2a8"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.V10_0_0_46181/Parsers/QuestHandler.cs",
+      "sha256": "334388136b29196f25c178a551929421dc0e5d43b6abb6aae825c48ea535afc6"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParser/Enums/Version/V12_1_0_69214/Opcodes.cs",
+      "sha256": "bbef16b719126ebbdd8172f7437a159fc596e73143e88a550aa1c7b7097d7776"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParser/Enums/Version/V12_1_5_70340/Opcodes.cs",
+      "sha256": "4f7486b1aea2499f2ad26f0e646f6a98fadf22afe4d4ca6c769a32e31ed44c09"
+    }
+  ],
+  "scope": "SMSG_QUERY_QUEST_INFO_RESPONSE, exact 12.1 whole-record layout",
+  "opcode": "0x650016",
+  "objective_storage_is_not_ui_ordinal": true,
+  "live_validated": false
+}

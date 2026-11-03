@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "b9de833fa2d6318e2ac5a589c6d02f0cce755aa2ef35f207d3f7e59cd3ec14d8",
+      "after_sha256": "515397abaedecd3de5a0630795e4f5a7701d88904170fccdea19a1949703fa2f"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "9a02ff960fcc862dca0139a91c6696b74507417a33b1311d551bdbca51fb711f",
+      "after_sha256": "d61262097fd4f2a031e97a8ac396ff1bf27e3ab4fbb20a0a1481b10ade5d0d1b"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "0e8db8d2503acee121a340fbf8987ee3f18027f83c5170aedc80fe3a9f675c18",
+      "after_sha256": "331d9bcb723811c2f4f96335f946d73af8907f0eac3247800a7772d8e22594db"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "1812169a61ed6ac7543c5b8d4a2d2de9eea02da39f5d727ee247c1ea00f060c6",
+      "after_sha256": "07d15e81c5e0dc10d73563691deb7eacd8a9dbf005f9c24ec8b0fbfbc576630d"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "edfb7775b5fe03b58d5f53ce56a6cd132e2a309aec260afa4a6bd6a82af59654"
+    },
+    {
+      "path": "src/wowbot/combat/ability/catalog.py",
+      "status": "MODIFIED",
+      "before_sha256": "3236848321c659714b3c9dfa5cdf1714347709601150091b4c7b696b085ddf18",
+      "after_sha256": "18da96b924e74b5f08cffba309ba68779c2a239c0e1a8ea84ee6a3d5e6d3f492"
+    },
+    {
+      "path": "src/wowbot/combat/mobility.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "e67b8a9cfabaed40cd711277b3132a342cee30e8f3d762987380a55a232744be"
+    },
+    {
+      "path": "src/wowbot/skills/combat.py",
+      "status": "MODIFIED",
+      "before_sha256": "6b6c3a30c99a50a51d4cdc29dd0989531cd27b7fa3c1142dd45830ce0bcfa913",
+      "after_sha256": "f5c613e0c5a57a1031ddc08d2dee14167a84e83e012fc0097acf181a839bd02b"
+    },
+    {
+      "path": "tests/test_combat_range_handoff_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "18ddb7b22c88ef59755682b8ab3d8f50efa6e4bc0876db92f7bf0d4edf06fadc"
+    }
+  ],
+  "modified": 6,
+  "added": 3,
+  "removed": 0
+}

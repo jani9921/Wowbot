@@ -1,0 +1,179 @@
+{
+  "project": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight claude\\ai_visual_bot_midnight 1.2\\projekt",
+  "scope": "REV4 P1-B",
+  "baseline_sha256": "e9a5543cc86d7e1db804a2acd6e75f27cd92154758199407e50029df248202b8",
+  "baseline_files": 1095,
+  "changes": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "operation": "modified",
+      "before_sha256": "d9330af24d48177f46e84cef8e8e1ca4f0f29781098c37dafb82b2083ad399a3",
+      "after_sha256": "2e848fb5ae158d3af3ceb3842ead2977ae5a2ba816f39bcbb1f2d33af7363ed4",
+      "before_bytes": 245606,
+      "after_bytes": 246979
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "operation": "modified",
+      "before_sha256": "315b433267045108df4353c65744d6124f80b0a733c272de42f243094abb984a",
+      "after_sha256": "9c32f40c3894a11a2367fdd4815decea90977ce232cedf5ac2cf501f21e6841e",
+      "before_bytes": 1025216,
+      "after_bytes": 1027789
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "operation": "modified",
+      "before_sha256": "39e61e763999e9f6c9aa4a833f6673a0b2d2e138a998ac3b3179e43dfa898fd9",
+      "after_sha256": "56ef04ac1db489e7870fd6a52f020e3276cdc67397183368ea2fdc013174469a",
+      "before_bytes": 19614,
+      "after_bytes": 19856
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1B_SESSION_CONTEXT.md",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "1f3316754f5023c12ce5a21ee4f9c4adae9bd6d40b610eb8f5971bbb6a115dc0",
+      "before_bytes": null,
+      "after_bytes": 7245
+    },
+    {
+      "path": "src/wowbot/agent/gui_packet_status.py",
+      "operation": "modified",
+      "before_sha256": "2b4e3f499ca1e64e679e364ad942971e74298ec4ccf072ce09f8d64a8855485d",
+      "after_sha256": "3a9bb975eeac49b8a6661db5d5e9a0591cfdb0fe1a3fa99942498852b384a68e",
+      "before_bytes": 2365,
+      "after_bytes": 2596
+    },
+    {
+      "path": "src/wowbot/agent/runtime_packet_source.py",
+      "operation": "modified",
+      "before_sha256": "5ba0e08b2b003858bb3d5fa6179a0be0adc4cdca2f3a8a799bc330c209b36be2",
+      "after_sha256": "06287d7420b2c3e88930c34abdbe651add313da7dcd5ed0cd68be08b7b46439e",
+      "before_bytes": 11438,
+      "after_bytes": 12156
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "operation": "modified",
+      "before_sha256": "d2aec3521f957916d3e229a380fe46c3ad21a3d03faee87495e4dcad87496d9c",
+      "after_sha256": "f1a10f5f47b668a4f02f59b9024b84abb178a4977b8e2444d65a1cfd658a09b8",
+      "before_bytes": 42310,
+      "after_bytes": 43000
+    },
+    {
+      "path": "src/wowbot/context_contracts.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "c723455c395a66892e6462aba97c318d3a9fcfcfa1af50e41fc7fc83cfcf3f49",
+      "before_bytes": null,
+      "after_bytes": 4197
+    },
+    {
+      "path": "src/wowbot/packetio/context.py",
+      "operation": "modified",
+      "before_sha256": "1de533976b0e480c1bc4da9786bf0881ee6def98ffa38e2ca91c86ddbd92c920",
+      "after_sha256": "43c378f6f84a652e85b2559bc74c1044d706abdbd4489a4f37179fad394ec74a",
+      "before_bytes": 3020,
+      "after_bytes": 5288
+    },
+    {
+      "path": "tests/test_context_contracts_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "43d961f3ad65c3ea2257f4d498a299df707ff946b6b253c6b5d8a843200b8e2c",
+      "before_bytes": null,
+      "after_bytes": 9360
+    },
+    {
+      "path": "tests/test_cosmetic_map_entities_20261027.py",
+      "operation": "modified",
+      "before_sha256": "875b00c5c5698304a7449aa6deec5f83c38933b9bdd5b4d4eeae52d3a610c588",
+      "after_sha256": "04e814650a64a2b7fe6344f610a21bcc12c92faf9c5b01de766070a5c9123720",
+      "before_bytes": 3708,
+      "after_bytes": 3871
+    },
+    {
+      "path": "tests/test_gui_packet_status.py",
+      "operation": "modified",
+      "before_sha256": "1a0ae00353539ba526da41188497b97c76dd36ad08c28fecf0681636b2bed0b2",
+      "after_sha256": "bfecd601a1a9f6615e6519290ca30f285dcf7e6623081240a81bc1a4043f472d",
+      "before_bytes": 3191,
+      "after_bytes": 3324
+    },
+    {
+      "path": "tests/test_session_context_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "4644ff262d6bbc4e4d7314ce262f1a6b9f0466604eb24990f8a36d355244c994",
+      "before_bytes": null,
+      "after_bytes": 3526
+    }
+  ],
+  "numbered_coverage_rows_preserved": 203,
+  "line_endings": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "before_crlf": 1292,
+      "before_lf": 1292,
+      "after_crlf": 1311,
+      "after_lf": 1311
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "before_crlf": 13470,
+      "before_lf": 13470,
+      "after_crlf": 13510,
+      "after_lf": 13510
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "before_crlf": 0,
+      "before_lf": 142,
+      "after_crlf": 0,
+      "after_lf": 143
+    },
+    {
+      "path": "src/wowbot/agent/gui_packet_status.py",
+      "before_crlf": 0,
+      "before_lf": 45,
+      "after_crlf": 0,
+      "after_lf": 49
+    },
+    {
+      "path": "src/wowbot/agent/runtime_packet_source.py",
+      "before_crlf": 0,
+      "before_lf": 241,
+      "after_crlf": 0,
+      "after_lf": 253
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "before_crlf": 740,
+      "before_lf": 740,
+      "after_crlf": 760,
+      "after_lf": 760
+    },
+    {
+      "path": "src/wowbot/packetio/context.py",
+      "before_crlf": 0,
+      "before_lf": 78,
+      "after_crlf": 0,
+      "after_lf": 123
+    },
+    {
+      "path": "tests/test_cosmetic_map_entities_20261027.py",
+      "before_crlf": 0,
+      "before_lf": 71,
+      "after_crlf": 0,
+      "after_lf": 73
+    },
+    {
+      "path": "tests/test_gui_packet_status.py",
+      "before_crlf": 0,
+      "before_lf": 66,
+      "after_crlf": 0,
+      "after_lf": 68
+    }
+  ],
+  "artifact_files_are_separate_from_change_inventory": true
+}

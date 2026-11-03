@@ -40,6 +40,8 @@ class ReferenceExperience:
         # TDB) next to the profile's entity memory (user 2026-10-11).
         self.learned = LearnedWorld(learned_path_for(entities), on_change=self._learned_changed,
                                     legacy_entities=entities)
+        from .learned_world import PacketSpawnLearner
+        self.packet_spawns = PacketSpawnLearner(self.learned)
         with entities._connect() as db:
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS reference_experience (
@@ -161,6 +163,7 @@ class ReferenceExperience:
             if str(outcome) in {"SUCCESS", "FAILURE"}:
                 self.record("hint:"+attempt.action_id, "HINT_OUTCOME", state,
                     {"hint_id": params["reference_hint_id"], "outcome": str(outcome), "reason": reason,
+                     "skill": attempt.proposal.skill,
                      "source": "VERIFIED_ATTEMPT_RESULT"}, quest_id=qid)
         if (str(outcome) == "SUCCESS" and qid is not None and attempt.proposal.skill in
                 {"OBJECT_USE", "USE", "USE_ON_TARGET", "COMBAT", "INTERACT", "TALK"}):

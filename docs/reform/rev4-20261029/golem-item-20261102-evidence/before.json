@@ -1,0 +1,30 @@
+[
+  {
+    "path": "src/wowbot/quests/client_supplement.py",
+    "sha256": "6e9d6aafe1ac649f08c9efc91363b69870c23038117dbbf630b380c57496176f"
+  },
+  {
+    "path": "src/wowbot/agent/tdb_knowledge.py",
+    "sha256": "1a903d1755525254d7487957799fe3834833bfef5bb1c50edb029f755add3eec"
+  },
+  {
+    "path": "src/wowbot/agent/reference_knowledge.py",
+    "sha256": "a965526eafcf98c179de50f9ea9adcf8c2e8559583c61b8cc7c0faed18ac9500"
+  },
+  {
+    "path": "src/wowbot/agent/quest_item_knowledge.py",
+    "sha256": "568d41b136fc15d8f70bc09332c8b7bf2bb328e06c3ef893173cf6ada5d5b3c6"
+  },
+  {
+    "path": "src/wowbot/agent/quest_objective_planning.py",
+    "sha256": "14f1c5886ecf869b8f5f4a228d4629eb65518e70ff42ee0e337b1889375833ca"
+  },
+  {
+    "path": "src/wowbot/agent/packet_entity_facts.py",
+    "sha256": "cbbf26d1a7913f93a2db335f90a2dcfc9d0561a1b1005dfb38e54cb9e3a2799a"
+  },
+  {
+    "path": "docs/LIVE_VALIDATION.md",
+    "sha256": "18b0691a70c0c7d1d263f4a9cf3c3a8611121472b526190603349d4faacc2481"
+  }
+]

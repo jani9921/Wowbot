@@ -36,11 +36,12 @@ def test_the_cocoon_objective_names_its_object():
     assert name_matches(subjects, "Thick Cocoon") and not name_matches(subjects, "Barrow Spider")
 
 
-def test_fast_structured_name_is_enough_when_the_quest_hover_is_current():
+def test_fast_structured_name_is_search_only_without_public_identity():
     identity = ObjectInteractionFlow.expected_identity(_objective())
     mouse = {"name": "Thick Cocoon", "quest_related": True, "quest_id": 55639}
     assert effective_mouseover({"mouseover": mouse}) == mouse
-    assert ObjectInteractionFlow.mouseover_matches(identity, mouse)
+    assert ObjectInteractionFlow.mouseover_search_hint(identity, mouse)
+    assert not ObjectInteractionFlow.mouseover_matches(identity, mouse)
     assert not ObjectInteractionFlow.mouseover_matches(identity,
         {"name": "Thick Cocoon", "quest_related": False})
     assert not ObjectInteractionFlow.mouseover_matches(identity,
@@ -66,7 +67,7 @@ def test_a_seen_cocoon_box_is_approached_and_hovered():
 def _live_hovered_cocoon(height=.106):
     return {"monotonic_time": 100., "mouseover_sample_time": 99.95,
             "cursor_sample_time": 99.95,
-            "mouseover": {"name": "Thick Cocoon", "quest_related": True,
+            "mouseover": {"name": "Thick Cocoon", "object_id": 341534, "quest_related": True,
                           "quest_id": 55639},
             "cursor_position": {"nx": .6, "ny": .55},
             "visual_candidates": [{**BOX, "observed_at": 99.9,
@@ -123,23 +124,27 @@ def test_object_range_errors_use_npc_style_five_three_two_forward_pulses():
     seen["cursor_position"] = {"nx": .5, "ny": .55}
     seen["visual_candidates"][0]["x"] = .5
     for attempt, required in enumerate((5, 3, 2), start=1):
+        started = 100. + (attempt-1)*.3
+        seen.update(monotonic_time=started, mouseover_sample_time=started,
+                    cursor_sample_time=started)
+        seen["visual_candidates"][0]["observed_at"] = started
         flow.note_result({"action_id": f"range-{attempt}", "skill": "OBJECT_USE",
                           "outcome": "FAILURE", "reason": "out_of_range"}, seen)
         approach = flow.propose_object_steps(_objective(), None, seen)[0]
         assert approach.skill == "VISUAL_APPROACH"
         assert approach.parameters["range_failures"] == attempt
         servo = VisualApproachController()
-        assert not servo.start(approach.parameters, seen, f"start-{attempt}", 100.).terminal
+        assert not servo.start(approach.parameters, seen, f"start-{attempt}", started).terminal
         servo.forward_commands_total = required-1
-        seen.update(monotonic_time=100.1, mouseover_sample_time=100.1,
-                    cursor_sample_time=100.1)
-        seen["visual_candidates"][0]["observed_at"] = 100.1
-        assert not servo.observe(seen, f"before-{attempt}", 100.1).terminal
+        seen.update(monotonic_time=started+.1, mouseover_sample_time=started+.1,
+                    cursor_sample_time=started+.1)
+        seen["visual_candidates"][0]["observed_at"] = started+.1
+        assert not servo.observe(seen, f"before-{attempt}", started+.1).terminal
         servo.forward_commands_total = required
-        seen.update(monotonic_time=100.2, mouseover_sample_time=100.2,
-                    cursor_sample_time=100.2)
-        seen["visual_candidates"][0]["observed_at"] = 100.2
-        ready = servo.observe(seen, f"after-{attempt}", 100.2)
+        seen.update(monotonic_time=started+.2, mouseover_sample_time=started+.2,
+                    cursor_sample_time=started+.2)
+        seen["visual_candidates"][0]["observed_at"] = started+.2
+        ready = servo.observe(seen, f"after-{attempt}", started+.2)
         assert ready.terminal and ready.success
         flow.note_result({"action_id": f"approach-{attempt}",
                           "skill": "VISUAL_APPROACH", "outcome": "SUCCESS"}, seen)
@@ -328,8 +333,8 @@ def test_the_soft_interact_cocoon_is_used_with_the_interact_key():
     assert (use.skill, use.parameters["activation_source"]) == ("OBJECT_USE", "INTERACT_KEY")
     assert use.priority > steps[0].priority
     skill = ObjectUseSkill()
-    state = SimpleNamespace(intent=SimpleNamespace(parameters=use.parameters, objective_ref="55639:0"),
-                            skill_context={}, phase=None)
+    state = SimpleNamespace(intent=SimpleNamespace(parameters=use.parameters, target_ref=None, objective_ref="55639:0"),
+                            skill_type="OBJECT_USE", skill_context={}, phase=None, started_at=1.)
     begun = skill.begin(state, {"soft_targets": [SOFT]})
     assert begun.commands[0].binding == "INTERACTTARGET"
     gone = skill.begin(state, {"soft_targets": []})
@@ -365,7 +370,7 @@ def test_planner_uses_fast_named_cocoon_without_waiting_for_paged_event():
     from wowbot.agent.planner import Planner
     from wowbot.agent.skills import SkillRegistry
     state = world(active_quests=[QUEST], visual_candidates=[BOX],
-                  mouseover={"name": "Thick Cocoon", "quest_related": True,
+                  mouseover={"name": "Thick Cocoon", "object_id": 341534, "quest_related": True,
                              "quest_id": 55639},
                   cursor_position={"nx": .57909, "ny": .519})
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1), state, 1)

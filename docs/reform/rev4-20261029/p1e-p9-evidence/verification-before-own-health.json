@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-30",
+  "project": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight claude\\ai_visual_bot_midnight 1.2\\projekt",
+  "status": "OFFLINE_TESTED",
+  "full_rev4_acceptance": "PARTIAL",
+  "selected_regression": {
+    "exit_code": 0,
+    "elapsed_seconds": 179.09850519988686,
+    "modules": 302,
+    "log": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-p1e-p9-20261029\\combined-4.log",
+    "passed": 3669,
+    "skipped": 2,
+    "deselected": 10,
+    "pytest_seconds": 176.24
+  },
+  "new_test_modules": [
+    "tests/test_collection_coverage_20261030.py",
+    "tests/test_combat_arbitration_20261030.py",
+    "tests/test_field_sources_20261029.py",
+    "tests/test_geometry_query_contracts_20261029.py",
+    "tests/test_llm_plan_20261030.py",
+    "tests/test_mechanic_graph_20261030.py",
+    "tests/test_packet_combat_20261030.py",
+    "tests/test_route_score_20261030.py",
+    "tests/test_server_composition_20261030.py",
+    "tests/test_session_bootstrap_20261029.py",
+    "tests/test_trip_lifecycle_20261030.py",
+    "tests/test_verified_episode_20261030.py"
+  ],
+  "source_python": 521,
+  "test_python": 611,
+  "ast_errors": [],
+  "addon_pairs": [
+    {
+      "name": "AIPlayerControllerExport.lua",
+      "sha256": "1cb60de1b3759302097ce2caee32042ac6ecce3f8364628e4b664d523517667b"
+    },
+    {
+      "name": "AIPlayerControllerExport.toc",
+      "sha256": "6de647c8d18f961ddb57e6ffc33c241d0d8174d6051437d0df7bcd3b722f632e"
+    },
+    {
+      "name": "Bindings.lua",
+      "sha256": "3bc1a7f120be164fb4c805512acd68d0cf58489c15ef72b3512df1dd206c0c29"
+    },
+    {
+      "name": "Transport.lua",
+      "sha256": "6ad81233da6b53cc9a15206af76e7633f4ea28fab071ea3b808e9249623dc2eb"
+    }
+  ],
+  "addon_version": "0.9.80-12.1.0",
+  "lua_compilers": [
+    "lua51",
+    "luajit21",
+    "lua54"
+  ],
+  "full_toc_load": "FAKE_API_LUA51_PASS",
+  "coverage_rows": 203,
+  "numbered_rows_unchanged": true,
+  "coverage_rows_sha256": "ec8dd1086833533d912acc4c3d2874b99c7bff7cf2508daf71f528b0426754bd",
+  "baseline_filter_unchanged": true,
+  "optional_fixture_skips": [
+    {
+      "classname": "tests.test_minimap_quest_dot_20261004",
+      "name": "test_detector_on_the_live_garrick_capture",
+      "reason": "live capture not present"
+    },
+    {
+      "classname": "tests.test_world_map_raster",
+      "name": "test_exile_reach_fixture_scans_fast_and_returns_candidates",
+      "reason": "optional Exile's Reach screenshot fixture is not included in this source archive"
+    }
+  ],
+  "changed_files": 96,
+  "unchanged_pinned_ymir_sha256": "77cc8a63b94ee52c47090290a69f3d6fa3db3995ded3c7534c886c85dcbec6b9",
+  "assistant_game_or_capture_started": false,
+  "assistant_client_input_sent": false,
+  "addon_installed": true,
+  "user_reload_live_validation": "PENDING",
+  "current_zip_sha256": "290505893ac16c4600e11b443f3bcdee6cd78928e8b0f9480d69af48a74d7cdf",
+  "baseline_zip_sha256": "e42b65903b3676032ac37bb452b9e5326bce3bbb5ed526e47dfc191e960d47bc"
+}

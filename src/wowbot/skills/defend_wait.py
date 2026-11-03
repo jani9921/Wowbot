@@ -48,7 +48,8 @@ class DefendWaitSkill:
                 and not target.get("dead", target.get("is_dead"))):
             state.phase = DefendWaitPhase.COMBAT_IF_REQUIRED.value
             return SkillResult(
-                SkillStatus.FAILURE, FailureReason.INTERRUPTED,
+                (SkillStatus.CANCELLED if state.intent.parameters.get("objective_kind") == "ESCORT"
+                 else SkillStatus.FAILURE), FailureReason.INTERRUPTED,
                 retryable=True, replan_required=True,
                 evidence=("combat_interrupt_requires_defend",),
                 metadata={"reason": "combat_required_during_wait"})
@@ -59,6 +60,23 @@ class DefendWaitSkill:
             objective_ids=context.get("objective_ids") or ())
         if progress.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=progress.evidence)
+        if state.intent.parameters.get("objective_kind") == "NPC_SPEECH":
+            from wowbot.agent.objective_speech_planning import _open_objective
+            if _open_objective(world_state, str(state.intent.parameters.get("speaker_name") or "")) is None:
+                return SkillResult(SkillStatus.CANCELLED, FailureReason.INTERRUPTED,
+                                   replan_required=True, evidence=("speech_objective_no_longer_pending",))
+        if state.intent.parameters.get("objective_kind") == "ESCORT":
+            # Holding beside what we escort: re-plan as soon as it moves on
+            # or leaves our view, and re-check now and then (no timeout).
+            from wowbot.agent.escort_planning import escort_subject_left
+            parameters = state.intent.parameters
+            if escort_subject_left(world_state, str(parameters.get("server_entity_guid") or ""),
+                                   float(parameters.get("escort_follow_yards") or 12.)):
+                return SkillResult(SkillStatus.CANCELLED, FailureReason.INTERRUPTED,
+                                   replan_required=True, evidence=("escort_subject_moved_on",))
+            if now-float(context.get("started_at", now)) >= float(parameters.get("wait_seconds") or 8.):
+                return SkillResult(SkillStatus.CANCELLED, FailureReason.INTERRUPTED,
+                                   replan_required=True, evidence=("escort_hold_recheck",))
         if now >= state.attempt.deadline:
             state.phase = DefendWaitPhase.TIMEOUT_REEVALUATE.value
             return SkillResult(

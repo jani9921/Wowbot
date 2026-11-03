@@ -1,6 +1,1268 @@
 # Current-source coverage ledger
 
+2026-10-30 REV4 P5/P7 canonical entity approaches — **OFFLINE_TESTED / full
+migration PARTIAL**. M0 combat/interaction/loot and final LOS now enter typed
+shared navigation; server routes require geometry, FAST defers queries to the
+same medium owner without another retry/action. Original deadline/goal/GUID
+survives; moving entity goals replan without rewriting corridor anchors.
+Physical release precedes arrival interaction; explicit handoff preserves only
+its owned request. Bounded nested navigation failure details persist. FAST and
+medium share one scoped own-Z projection, continuity GAP clears inherited Z;
+corpse pose does not imply loot entitlement. Selected regression **4083 passed, 2 skipped, 10 unchanged deselections, 326 modules, exit 0**,
+211.81 s pytest; 560 source + 635 tests parse, 203 rows unchanged. Main-query
+blocking, dispatch-time source freshness, full provider/domain migration and
+live acceptance remain open. Addon/Ymir unchanged, no assistant client input/
+capture/live DB writes. [Details](reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md).
+
+2026-10-30 REV4 P5 own-position acquisition before grounded 3D routing —
+**OFFLINE_TESTED / full migration PARTIAL**. A live packet-assisted MMAP
+request with unknown own height first proposes the existing bound 0.06 s
+turn and awaits real own movement feedback. No route query, forward command
+or arrival before that fix; FAST yields planning to the same medium owner.
+Original trip/goal/deadline survives; pending budget <=3 s, scope/identity/
+input transitions stop it, cancel cannot silently rearm. Bounded proposal/
+acquisition/failure details survive controller reset and enter terminal logs.
+Selected regression **4057 passed, 2 skipped, 10 unchanged deselections, 325 modules, exit 0**, 176.38 s pytest; 558 source + 634 tests
+parse, all 203 rows preserved. Targeted 112 pass and flight/travel 71 pass
+overlap. Addon/Ymir unchanged, no assistant client input/capture/live DB writes
+or new live acceptance. Direct M0 entity typed routing and full provider/
+domain migration remain open. [Details](reform/rev4-20261029/P5_POSITION_BEFORE_ROUTE.md).
+
+2026-10-30 REV4 exact server-pose priority — **OFFLINE_TESTED / full
+ownership migration PARTIAL**. Exact scoped server actor XYZ wins over nonempty
+addon UnitPosition; numeric Retail addon unit Z remains UNKNOWN. No fabricated
+zero layer, selected-target/F7/spell authority unchanged; moving recipient
+updates the same reach. Existing own stationary height/probe is preserved,
+but pre-route acquisition and M0 typed-route handoff remain separate gaps.
+Selected regression: **4029 passed, 2 skipped, 10 unchanged deselections, 324 modules, exit 0**. 203 numbered rows unchanged, addon/Ymir
+unchanged, no assistant live input/capture/database writes or live acceptance.
+See [pose fix/checkpoint](reform/rev4-20261029/P5_ENTITY_POSE_PRECEDENCE.md).
+
+2026-10-30 REV4 P5/P7 range/facing follow-up — **OFFLINE_TESTED / full
+ownership migration PARTIAL**. Mobility opener range no longer becomes the
+sustained rotation's approach radius; ranged envelopes remain distinct from
+melee defaults and do not permit spells. Three existing entity-pose helpers
+have one pure canonical implementation with exact old reexports. Final facing
+uses pure source/GUID/map assessment; missing identity/position cannot fall
+back to an old request point or silently re-arm a terminal attempt. Bounded
+terminal failure geometry/last-command diagnostics persist beyond image-ring
+limits. Existing screen-space FaceController is preserved byte-for-byte.
+Selected regression: **4015 passed, 2 skipped, 10 unchanged deselections, 324
+modules, exit 0**, 163.87 s pytest; 557 source + 633 test Python files parse,
+203 rows unchanged. Eleven recorded live facing failures are not all declared
+fixed. No assistant live input/capture/database writes, addon/Ymir unchanged.
+See [follow-up and checkpoint](reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md).
+
+2026-10-30 REV4 P7 combat range handoff — **OFFLINE_TESTED / remaining combat
+and facing gaps PARTIAL**. User trace shows OUT_OF_RANGE only 0.14 s after
+combat start while a successful Charge was still moving; fresh melee range
+followed ~0.2 s later. A bounded original-cast-time mobility settle prevents
+that premature verdict and yields immediately to actual non-movement range.
+Selected-position absence now uses the existing exact server actor helper
+before the shared NavigationService approach. Identity/map/removal/freshness
+gates remain; no retreat to force Charge and no guessed melee range. Selected
+regression: **3999 passed, 2 skipped, 10 unchanged deselections, 323 modules,
+exit 0**, 229.76 s pytest; 553 source + 632 test Python files parse, 203 numbered
+rows unchanged. User's previous run provides live map-0 navmesh and native
+session/gap recovery evidence, not post-range-fix quest acceptance. Eleven
+facing failures and other recorded errors remain under investigation. Only
+read-only SQL was used; no assistant game/capture/input/live DB mutation.
+See [range handoff](reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md).
+
+2026-10-30 REV4 live-log regression fixes — **OFFLINE_TESTED / full migration
+PARTIAL**. User-operated morning/afternoon runs exposed a valid signed Trinity
+maxPolys capacity rejected by the new format gate and realm/instance login
+connections split across indices. The exact reviewed capacity is accepted
+without relaxing other format checks. Different-connection session binding
+requires exact pending login GUID, world/map/order and public ThisIsYou
+ActivePlayer CREATE; no guessed connection or private-player probe. Relogin
+rotates epoch and drops replay/ownership/progress caches even within one file.
+Recorded user capture replay reaches READY and reviewed own fields. Actual
+saved-pose native routing on map 0 is READY; the map 2444 start remains outside
+the ground mesh with unknown Z. Neither is a completed live quest. Selected
+regression: **3984 passed, 2 skipped, 10 unchanged deselections, 322 modules,
+exit 0**, 296.70 s pytest; 552 source + 631 test Python files parse, 203 numbered
+rows unchanged. No assistant client/capture/FULL_AI/input/live DB actions;
+addon/Ymir unchanged. Retained state, full provider parity, large Combat/Travel/
+Quest ownership migration and new live acceptance remain open.
+See [log fixes and checkpoint](reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md).
+
+2026-10-30 REV4 P2/P3 applied decoder progress — **OFFLINE_TESTED / retained
+state parity PARTIAL**. A strict authenticated local control message reports
+actual records on the verified own world connection, preserving capture time.
+WorldModel checks that preceding own collection events really passed their
+reducers and that the control/application chain matches the active generation.
+Out-of-order/skipped reduction is UNAPPLIED, source age expires, and unknown
+outer UPDATE_OBJECT decode invalidates native fields without forwarding bytes.
+Capture header rotation resets the decoder/epoch and replay caches. Controls
+are ephemeral, never gameplay evidence, UI freshness or input authority; no
+field TTL is extended. Selected regression: **3956 passed, 2 skipped, 10
+unchanged deselections, 321 modules, exit 0**, 169.76 s pytest. All 551 source
+and 630 test Python files parse; all 203 numbered rows unchanged. Per-field
+retained lifecycle/leases, warm collection baselines and consumer parity remain
+code gaps. No game/capture/input/live DB changes/new live acceptance; addon/
+Ymir unchanged. See [applied progress checkpoint](reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md).
+
+2026-10-30 REV4 migration supplement / P7 core extraction — **OFFLINE_TESTED /
+full responsibility migration PARTIAL**. The missing 747-line migration plan
+was received, hash-pinned and preserved separately from the original ZIP.
+Its M0-M8 phases are explicitly mapped to P0-P9; package creation alone is not
+completion. Target lifecycle/scoring, ability contracts/evaluation/catalog,
+character/cast contracts, arbitrator and pure facing now have canonical combat
+implementations. Legacy paths re-export identical objects; shared numeric/GUID
+primitives no longer require agent/runtime composition. Production consumers
+use canonical imports. Isolated subprocess evaluation succeeds with agent,
+skills, navigation, vision and input imports blocked; 27 moved declarations
+retain their original AST bodies. Selected regression: **3934 passed, 2 skipped,
+10 unchanged deselections, 320 modules, exit 0**, 184.66 s pytest. All 549 source
+and 629 test Python files parse; all 203 numbered rows unchanged. Full CombatSkill,
+Travel/Quest ownership splitting, retained-state/provider parity and role data
+remain implementation gaps. No game/capture/input/live DB changes/new live
+acceptance; addon/Ymir unchanged. See [extraction](reform/rev4-20261029/P7_COMBAT_EXTRACTION.md)
+and [supplement review](reform/rev4-20261029/MIGRATION_SUPPLEMENT_REVIEW.md).
+
+2026-10-30 REV4 P3 own collection invalidation — **OFFLINE_TESTED / native
+quest/inventory parity PARTIAL**. Unknown own PlayerData/fragment updates now
+emit a narrow, build-specific questlog invalidation. Proven unchanged masks
+do not read private fields, rejuvenate clocks or invalidate known membership.
+Questlog and inventory-root barriers preserve only newer concrete fields;
+one newer slot no longer keeps an entire older collection COMPLETE. Older or
+equal-time snapshots cannot revive invalidated fields; newer complete data can
+restore membership. UI progress and input authority are unchanged. Selected
+regression: **3916 passed, 2 skipped, 10 unchanged deselections, 319 modules,
+exit 0**, 141.02 s pytest. All 537 source and 628 test Python files parse;
+203 numbered rows unchanged. Outer-record decode loss, retained progress/
+applied-watermark and complete consumer parity remain code gaps. No game/
+capture/input/live DB changes/new live acceptance; addon/Ymir unchanged. See
+[collection invalidation checkpoint](reform/rev4-20261029/P3_QUEST_LOG_INVALIDATION.md).
+
+2026-10-30 REV4 P2/P3 authenticated delivery continuity — **OFFLINE_TESTED /
+retained-state parity PARTIAL**. V2 IPC signs the sender/context sequence;
+gaps, sender changes, mailbox loss and queued expiry invalidate continuity.
+Coalescing and duplicates do not invent loss. The common session provider
+requires a packet rebaseline; addon frames cannot repair it, and the existing
+input-freshness gate is revoked immediately. Old native query state cannot
+survive an identity-only replay. Legacy migration discards native fields but
+preserves positive current-entity recovery; V1 remains UNSEQUENCED. No source
+TTL was extended and no old sample was restamped. Selected regression:
+**3908 passed, 2 skipped, 10 unchanged deselections, 318 modules, exit 0**,
+173.00 s pytest. All 537 source and 627 test Python files parse; all 203
+numbered rows unchanged. Capture liveness/progress proof, applied watermarks,
+full unknown-layout handling and retained collection parity remain code gaps.
+No game/capture/input/live DB changes/new live acceptance; addon/Ymir unchanged.
+See [delivery checkpoint](reform/rev4-20261029/P2_PACKET_DELIVERY.md).
+
+2026-10-30 REV4 P9 persisted episode proof gate — **OFFLINE_TESTED / full
+historical lineage migration PARTIAL**. Pattern promotion now resolves actual
+saved manifests through the shared writer/read barrier, checks original
+times, session/character/build and linked before/after observations, and rejects
+unknown/uncertain origins. Durable per-pattern source-root dedup survives
+diagnostic-list compaction; rewrapped shared roots are not independent trials.
+Old records persist, but the old V1 policy is not reused; current environment
+version must match. Selected regression: **3894 passed, 2 skipped, 10 unchanged
+deselections, 317 modules, exit 0**, 156.13 s pytest. All 536 source and 626
+test Python files parse; 203 numbered rows unchanged. This does not reconstruct
+missing historical TDB/import/replay provenance or complete every provider.
+No live DB modification/game/capture/input/new live acceptance; addon/Ymir
+unchanged. See [proof gate checkpoint](reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md).
+
+2026-10-30 REV4 P3 own inventory root VALUES — **OFFLINE_TESTED / full
+inventory parity PARTIAL**. Reviewed ActivePlayerData InvSlots masks now
+reach the shared decoder/IPC/WorldModel query. Sparse updates merge by slot,
+preserving every original source clock and evidence; older whole snapshots
+or invalidations cannot erase newer deltas. Unknown prefixes/tails invalidate,
+contradictory duplicate item identities suppress usable membership, and a
+delta without baseline supplies only positive partial evidence. UI bag-slot,
+carried state and input authority remain unchanged. Selected regression:
+**3878 passed, 2 skipped, 10 unchanged deselections, 316 modules, exit 0**,
+147.57 s pytest. All 536 source and 625 test Python files parse; all 203
+numbered rows unchanged. Mixed ActivePlayerData, retained collections,
+warm-replay and full consumer parity remain code gaps. No game/capture/input
+or new live acceptance; addon/Ymir unchanged. See
+[root VALUES checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_ROOTS.md).
+
+2026-10-30 REV4 P3 owned item/container VALUES — **OFFLINE_TESTED / full
+inventory parity PARTIAL**. Reviewed V2 delta masks now update quantity,
+containment, durability/capacity and changed container GUID slots. Every value
+retains its own source clock; unrelated fields cannot rejuvenate it, reordered
+different-field updates can apply independently, and older removals cannot
+erase newer state. Unknown dynamic/fragment layouts also drop capture ownership
+until CREATE. Transient contradictory slot identities are UNKNOWN. Identity
+binding and counter evidence/time stay separate; UI bag/action authority is
+unchanged. Selected regression: **3866 passed, 2 skipped, 10 unchanged
+deselections, 315 modules, exit 0**, 164.24 s pytest. All 536 source and
+624 test Python files parse; 203 numbered rows unchanged. Active root VALUES,
+carried/client-slot and complete retained-state/consumer parity remain open.
+No game/capture/input/new live acceptance; addon/Ymir unchanged. See
+[item delta checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md).
+
+2026-10-30 REV4 P3 native inventory CREATE — **OFFLINE_TESTED / inventory
+parity PARTIAL**. Selected-own PlayerData remainder → ActivePlayerData root
+GUIDs, owner-verified ItemData count/durability and ContainerData slots now
+reach the canonical WorldModel/query. Private/foreign fields are skipped,
+unknown deltas invalidate old native samples, reordered CREATE cannot undo a
+newer invalidation, and gap/identity scope cannot be reused. A read-only
+advisor receives bounded ownership lower bounds and original evidence;
+carried location remains UNKNOWN, UI bag/coordinates stay client-owned.
+No absence, quest credit or item-use authority is inferred. Selected regression:
+**3857 passed, 2 skipped, 10 unchanged deselections, 314 modules, exit 0**,
+175.75 s pytest. All 535 source and 623 test Python files parse. All 203
+numbered rows unchanged. Addon/Ymir unchanged; no game/capture/input/new live
+acceptance. VALUES, carried/client-slot matching, native retained state and
+complete consumer parity remain code gaps. See
+[native inventory/checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY.md).
+
+2026-10-30 REV4 P3 own CREATE quest membership — **OFFLINE_TESTED / full
+quest-progress and inventory parity PARTIAL**. Reviewed UnitData remainder and
+PlayerData prefix now supply the selected own character's initial 175 QuestLog
+slots to the existing canonical owner. Conditional Owner/Empath/UnitAll fields
+are consumed by exact layout, account/name data skipped, wrong actors ignored.
+V2/sample_kind=CREATE requires all complete slots; V1/partial data cannot claim
+a create baseline. Fresh membership can establish absence, never quest success;
+two-second sample freshness and continuity gates remain. Selected regression:
+**3838 passed, 2 skipped, 10 unchanged deselections, 313 modules, exit 0**,
+172.52 s pytest. All 533 source and 622 test Python files parse; all 203
+numbered rows remain unchanged. Addon/Ymir unchanged, no client/capture/input,
+no new live acceptance. Remaining PlayerData/ActivePlayerData, persistent native
+state and progress/inventory parity are not declared complete. See
+[own CREATE checkpoint](reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md).
+
+2026-10-30 REV4 P1-E binary format follow-up — **OFFLINE_TESTED**.
+Python and native MMAP loaders share checked Trinity v16 / Detour v7 map/tile
+headers, distinct version fields, bounded parameters and section sizes.
+Malformed/truncated/CRC data produces ERROR, unsupported versions produce
+VERSION_MISMATCH, missing files remain MISSING_DATA; walking-excluded water is
+NO_ROUTE. Cached failures retain their cause, native rejects unknown formats
+before DLL loading, and typed WorldGeometry queries retain the status.
+Final selected regression: **3815 passed, 2 skipped, 10 unchanged deselections,
+312 modules, exit 0**, pytest 135.62 s. All 532 source and 621 test Python files
+parse. All 203 numbered rows remain unchanged. This is not full geometry
+semantic validation, live route acceptance, or full REV4 completion.
+See [format checkpoint and limits](reform/rev4-20261029/P1E_MMAP_FORMATS.md).
+
+2026-10-30 REV4 P3 native quest definitions and P2 epoch lanes —
+**OFFLINE_TESTED / full baseline and consumer parity PARTIAL**. The reviewed
+whole-record quest query exposes global objective IDs and signed storage fields.
+QuestModel owns scoped, bounded observed definitions; exact ID or unique text
+binds visible objectives without inferred row order. QuestRuntime and the real
+location policy share the read-only objective POI query, selecting exact IDs
+before UI ordinals. A storage query joins exact IDs to fresh own slots without
+asserting objective completion; technical credit IDs are not physical actors.
+Current native objective relations supersede conflicting static credit IDs.
+Fast movement peek and medium ingestion share capture-epoch rejection;
+coalescing/barriers are epoch-scoped, while replayed common records share one
+evidence root. Final selected regression: **3798 passed, 2 skipped,
+10 unchanged deselections, 311 modules, exit 0**, 145.91 s pytest time.
+All 531 source and 620 test Python files parse; all 203 numbered rows below
+are unchanged. No assistant game/capture/input, no new live acceptance.
+Addon 0.9.80 and pinned Ymir are unchanged. Full own CREATE-chain, quest progress
+parity, inventory/container and other documented gates remain open. See
+[definitions and checkpoint](reform/rev4-20261029/P3_SERVER_QUEST_DEFINITIONS.md).
+
+2026-10-30 REV4 P2/P3 native quest slots and continuity — **OFFLINE_TESTED /
+complete quest/inventory parity PARTIAL**. Reviewed own PlayerData VALUES masks
+now expose 175 quest slots and 24 storage counters through the canonical packet
+reducer and read-only WorldQuery. Complete fresh slot membership can prove
+absence; partial/stale data cannot. Replacing a slot's QuestID drops the old
+counters, field ages remain distinct, UI objective order is not inferred.
+Definitions and objective alignment stay UNKNOWN; QuestModel/active objectives
+are not overwritten by raw slot indices. Own full CREATE-chain coverage is open.
+A reproduced same-epoch GAP/identity-rebaseline bug now invalidates native
+baseline/cache/evidence through a separate continuity generation. Immutable trace
+and replay deduplication remain. Confirmed events must match the active capture
+epoch; a stale worker gets a specific restart status and GUI message, opaque
+traffic cannot clear it. Selected regression: **3765 passed, 2 skipped,
+10 unchanged deselections, 308 modules, exit 0**, 143.93 s. All 529 source and
+617 test Python files parse. No assistant game/capture/input operation, no new
+live acceptance. All 203 numbered rows and prior checkpoints are preserved.
+See [native questlog and continuity](reform/rev4-20261029/P2_P3_NATIVE_QUESTLOG.md).
+
+2026-10-30 REV4 P3/P4 provider closure — **OFFLINE_TESTED / full parity PARTIAL**.
+Own HP CREATE baseline now accompanies VALUES deltas. Selected-own power packets
+use a verified 21-row DB2 DisplayModifier reference and resource-type scoped
+amount/max evidence. A type change cannot reuse another resource's amount or
+maximum. The reviewed own profile prefix supplies numeric race/class/player-class,
+level and DisplayPower to the same resolver and CharacterProfile; unknown
+specialization/talents/role are not invented. Other player create/values profiles
+are not read. State coalescing preserves CREATE and discrete events, and separates
+partial field sets. Real PixelSensor/grid/reassembly/buffer/runtime ingestion of
+synthetic BGRA STATE/FAST works with detector/tracker imports forbidden; only the
+OS pixel source is replaced. This is not live GDI/DXGI or quest acceptance.
+Selected regression: **3736 passed, 2 skipped, 10 unchanged deselections,
+306 modules, exit 0**; focused overlapping group 92 passed. All 526 source and
+615 test Python files parse. The small reference is included by both current
+export modes. Addon remains 0.9.80, Ymir hash is unchanged. No assistant game,
+capture or input operation. Earlier approximate percentages are superseded by
+explicit closed/open gates; all 203 numbered rows below remain unchanged.
+See [P3/P4 provider checkpoint](reform/rev4-20261029/P3_PROVIDER_CLOSURE.md).
+
+2026-10-30 REV4 P3 follow-up — selected own-player HP deltas and sample age:
+**OFFLINE_TESTED / full field migration PARTIAL**. The existing reviewed
+12.1.5 UnitData reader now emits only HP/max-HP for the correlated own login
+after server world verification and with known fragment layout. Other players
+are not forwarded. Exact PID/session/build/own GUID/map and liveness gates remain.
+Fresh packet and addon values share the per-field resolver; newer FAST wins
+in the same tick, delayed STATE preserves its health origin, and a field-time
+override cannot rejuvenate or repair invalid origin evidence. Complete own
+player/questlog/inventory baseline remains UNKNOWN/PARTIAL. Final selected
+regression: **3682 passed, 2 skipped, 10 unchanged deselections, 303 modules,
+exit 0**. All 522 source and 612 test Python files parse; all 13 new test
+modules are included. The optional-latest projection compatibility failure
+from the first wider HP run is fixed and included. No assistant client input.
+The 203 numbered rows and prior live evidence remain unchanged. See
+[P3 own HP and clock boundaries](reform/rev4-20261029/P3_OWN_HEALTH.md).
+
+2026-10-30 REV4 follow-up — Lua 5.1 addon load and packet NPC cast facts:
+**OFFLINE_TESTED / full migration PARTIAL; estimated coding progress about 70%**.
+The user reported addon 0.9.79 did not load. The snapshot exceeded Lua 5.1's
+60-upvalue limit; newer Lua compile tests had missed it. Version 0.9.80 uses
+the existing namespace reference, compiles in Lua 5.1/LuaJIT/Lua 5.4, and the
+whole TOC load registers /aipc in an input-free Lua 5.1 harness. Four installed
+addon files were backed up and replaced; hashes match. User /reload/live proof
+is pending. Five reviewed NPC spell opcodes now reach the canonical WorldModel;
+exact cast identity/lifecycle is separate from unknown interruptibility and
+hazards. Interrupt-log records lacking CastID cannot prove exact-cast success.
+Final selected regression: **3669 passed, 2 skipped, 10 unchanged deselections,
+302 modules, exit 0**. All 521 source and 611 test Python files parse; all 12
+new test modules are included. No assistant game/capture/input operation.
+All 203 numbered/historical rows remain unchanged. See
+[P7 packet casts and addon failure/fix](reform/rev4-20261029/P7_PACKET_CASTS.md).
+
+2026-10-30 REV4 P1-E–P9 integration: **OFFLINE_TESTED / wider acceptance PARTIAL**.
+Typed geometry, independent identity/session baseline, field policies and collection
+coverage, a structural SERVER runtime, original-goal Travel lifecycle, estimated
+route scores, character/combat arbitration, quest mechanic/target-role contracts,
+and scoped async LLM/verified-episode handling are wired into the existing owners.
+Final selected regression: **3637 passed, 2 optional-fixture skips, 10 unchanged
+deselections, 301 modules, exit 0**. All 519 source and 610 test Python files parse;
+both addon packages compile and now carry version 0.9.79-12.1.0 / Interface 120100.
+The addon has not been installed into the game. No new live input or acceptance.
+Full packet questlog/inventory/own-state parity, enemy cast/hazard/talent providers,
+all class/spec/role coverage, historical import lineage and measured calibration
+remain explicitly incomplete. Addon fields and legacy detectors were retained.
+All 203 numbered/historical coverage rows below are preserved byte-for-byte.
+Details and user-live sequence: [P1-E–P9 implementation](reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md).
+
+2026-10-29 REV4 P1-D — shared Evidence and source lineage:
+**PARTIAL / OFFLINE_TESTED** for wider P1. Common immutable evidence values
+are used by the existing WorldModel, reducer, belief, snapshot and read-only
+query paths; legacy Evidence imports/constructor positions remain compatible.
+Observed and received times are distinct when a real monotonic sample is
+available. Future/invalid records do not become current facts; known-origin
+copies do not restart the source lifetime. Packet direction/build/layout and
+logical/transport context metadata remain evidence, not input authority.
+Shared/overlapping ancestry and same-frame local/cross views count once;
+unknown/truncated ancestry cannot manufacture independent support. Completeness
+defaults to UNKNOWN; source priority is unchanged. Detailed ancestry stays in
+immutable query records with a bounded winner summary in diagnostics.
+Forty-nine new cases pass. Final regression: 3543 passed, 2 optional-fixture
+skips, 10 unchanged deselections, 290 modules, exit 0. All 502 source and 599
+test Python files parse; eight addon files and IPC/parser/navigation owners are
+unchanged. Synthetic benchmark adds about 0.43 ms median on the measured small
+ingest path; this is not a live FPS claim. No new live input/acceptance.
+Persistent/imported lineage, coverage/completeness consumers, per-field source
+authority, typed geometry and independent bootstrap remain open. All numbered
+and historical coverage below is retained.
+Details: docs/reform/rev4-20261029/P1D_EVIDENCE_LINEAGE.md and LIVE_VALIDATION.md.
+
+2026-10-29 REV4 P1-C — navigation query DI and collect-source identity:
+**PARTIAL / OFFLINE_TESTED** for wider P1. Six navigation callbacks are no
+longer attached to WorldModel. Immutable per-owner query ports serve quest
+floor/sweep planning, resurrection and the walk to a flight departure;
+Planner/session reset retains its provider. Existing navigation/input owners
+remain. The shared collect-source resolver now rejects partial blank-row
+ordinal guesses, includes completed counters when checking list alignment,
+and preserves exact IDs, unique text and complete multi-item workflows.
+Legacy parent-only item identity is explicitly marked as a weaker hint and
+cannot authorize SPELLCLICK. The previously open quest-drop ambiguity test
+now passes. Thirty new cases pass across two modules. Final regression:
+3366 passed, 1 skipped, 10 unchanged deselections, 267 modules, exit 0.
+All 500 source and 597 test Python files parse; eight addon files are unchanged.
+No new live input/acceptance. Shared Evidence and typed geometry-result
+semantics, independent session bootstrap and field authority remain open.
+All 203 numbered/historical coverage rows below are preserved.
+Details: docs/reform/rev4-20261029/P1C_NAVIGATION_QUERIES.md and LIVE_VALIDATION.md.
+
+2026-10-29 REV4 P1-B — shared logical session/world context:
+**PARTIAL / OFFLINE_TESTED** for wider P1. Immutable SessionIdentity,
+WorldContext and SessionContext values now connect the existing packet source,
+addon-context facade and WorldModel reducer. Pending facts cannot be rebound
+across session/phase changes; entity/credit/POI/scene scopes include phase.
+UI-map-only changes retain same-world entities. Server map hints are checked
+against current context even with no entities or temporarily missing world
+fields. Logical validity does not replace IPC nonce, freshness or authority.
+The two new modules have 55 passing tests. Final combined regression:
+3292 passed, 1 pre-existing failed, 1 skipped, 10 unchanged deselections,
+260 modules; 500 source and 595 test Python files parse. The remaining quest
+drop ambiguity also fails on the pre-change backup. Localhost UDP passes
+outside the sandbox and in the final run; sandbox UDP timeouts were separately
+reproduced with the baseline and a minimal socket control. All eight addon
+files are unchanged. No new live input/acceptance. Independent session
+bootstrap, process/capture/world generations, other query/evidence ports and
+field authority remain open. All numbered/historical coverage below is retained.
+Details: docs/reform/rev4-20261029/P1B_SESSION_CONTEXT.md and LIVE_VALIDATION.md.
+
+2026-10-29 REV4 P1-A — per-agent TravelCostPort:
+**PARTIAL / OFFLINE_TESTED** for the broader P1; the scoped global-oracle
+removal is implemented. The composition root injects its own navigation cost
+query through quest location/runtime, turn-in/pickup, agenda, vehicle recovery
+and contextual NPC/dialog/handoff consumers. Session resets retain the owner;
+the query is not serialized into world state. Pure/legacy helpers without a
+provider retain their geometric fallback and cannot borrow another agent.
+Eleven new isolation tests pass. Final combined regression: 3162 passed,
+1 pre-existing failed, 1 skipped, 10 unchanged baseline deselections across
+250 modules. The ambiguous blank quest-drop reference test also fails on the
+pre-change source backup; it remains open and was not added to exclusions.
+All 499 source and 593 test Python files parse. No new live input/validation.
+Session/bootstrap, other geometry ports, source authority and P2–P9 remain
+unimplemented by this change. Numbered historical coverage is unchanged.
+Details: docs/reform/rev4-20261029/P1A_QUERY_ISOLATION.md and LIVE_VALIDATION.md.
+
+2026-10-29 generic flight integration (V4-024/025/026/027; DESIGN-026/027/029/031)
+and exact TALK_CREDIT recipients (V4-014/015/017/022/033):
+**PARTIAL / OFFLINE_TESTED**. GlobalNavigator now consumes the older lateral
+A* / open-sky trip planners through the current geometry and FlightPlan
+contracts. NavigationService owns verified departure walking, existing flight
+control and final ground approach with one original goal/correlation; a flight
+horizon or departure endpoint cannot prove final arrival. Both flight styles,
+off-mesh touchdown, cancellation and missing/clipped geometry are covered by
+integration tests. The user-run 72429 WAIT exposed a missing numeric talk-credit
+kind; exact type-3 NPC relations now enter the shared server-NPC interaction.
+Native geometry and saved-state replays are offline evidence. Complete flight
+trips, live Maruukai credit and separate Nokhud approach churn remain live-open.
+Final combined regression: 2908 passed, 1 skipped, 10 prior baseline exclusions
+across 220 modules. All 498 source modules and two new test modules parse.
+Detailed results and artifacts are in LIVE_VALIDATION.md. All numbered source
+requirements and acceptance-gate statuses below are preserved.
+
+2026-10-29 item-source SPELLCLICK collection (V4-014/015/017/022/033;
+DESIGN-037): **PARTIAL / OFFLINE_TESTED**. Exact open item/source relations
+plus the live per-GUID server click flag feed the common server-NPC approach,
+facing and soft-recipient interaction. Normal drop sources retain kill/loot;
+the new item interaction verifies its own objective counter and retires only
+verified consumed GUIDs. Completed visible item rows no longer become hidden
+object searches for other pending objectives; genuinely hidden sources remain.
+The saved post-reed run now proposes the feather creature, plans a native MMAP
+route, and passes a simulated arrival/F7/scoped-credit sequence. Live feather
+collection is pending. Final regression: 2883 passed, 1 skipped, 10 prior
+baseline exclusions across 218 modules; 497 source modules and the new test
+module parse. See LIVE_VALIDATION.md and the retained task artifacts. Numbered
+requirements and acceptance-gate statuses below are preserved.
+
+2026-10-29 ghost/turn-in/mount retry handoff (V4-017/022/023/025/068;
+DESIGN-069/075): **PARTIAL / OFFLINE_TESTED**, plus the recorded 16:21
+API-POI -> server Tomul -> interaction -> turn-in/next acceptance handoff.
+The earlier direct ghost fallback is superseded by common MMAP or current-mount
+Steady Flight. Current completed-quest packet/API pins outrank alternative
+historical ender spawns; an agreeing floor keeps separate static provenance.
+Flight MOVE requires a mounted player, and mounting/capability changes release
+obsolete decision evidence. User-directed temporary retry/task bans are capped
+at 20 s, missing-mount backoff at 0.5 s. Final combined regression: 2840 passed,
+1 skipped, 10 baseline exclusions across 217 modules; 163 focused tests and 76
+mount/retry cases passed with overlap. Evidence is recorded in LIVE_VALIDATION.md
+and the task artifacts. Ghost resurrection and complete escort support remain
+unvalidated/partial. No acceptance gate is promoted.
+
+2026-10-28 ghost corpse-run handoff (V4-068; DESIGN-069):
+**PARTIAL / OFFLINE_TESTED**. The existing death policy receives WorldModel
+navigation/hostile oracles through WorldSnapshot, recognizes the existing
+mounted-ghost airborne state, and retains its explicit same-instance fallback
+only to the real known corpse. Living/arbitrary movement still requires MMAP.
+Near-corpse XY arrival without known Z/reclaim popup can use bounded descent;
+reclaim delay and actual button verification remain authoritative. Active
+corpse movement/descent stops when ghost state ends. 2790 broad tests passed
+(1 skipped, 10 documented baseline exclusions), followed by 58 final focused
+tests with overlap. Retained-state RecordingExecutor replay now starts the
+corpse MOVE; live travel and resurrection remain pending. See LIVE_VALIDATION.md.
+No M0/M1 gate or unrelated requirement is promoted.
+
+2026-10-28 Vineyard directed quest item: **PARTIAL / OFFLINE_TESTED**.
+The shared quest reference handoff now joins local DB2 item/periodic/cone
+geometry with exact conditional TDB spell-hit credit. QuestDomain requests
+normal NavigationService approach/facing and canonical UseItemSkill activation;
+the addon supplies public self-item readiness with no selected unit. Exact
+item/objective/pose/button checks and scoped credit verification remain the
+input and success boundaries. The supported periodic-emitter family has
+bounded retries/waits; other families remain explicitly unresolved. 55 focused
+offline cases and a native recorded-position route replay passed; broader
+regressions are recorded in VINEYARD_DIRECTED_ITEM_FIX_20261028.md. The fixed
+Vineyard quest still requires a user-run live test. All numbered rows and gate
+statuses below are preserved.
+
+2026-10-28 general local quest-NPC chat trial (V4-014–017/022/033/056;
+Design-037/038/046/048): **PARTIAL / OFFLINE_TESTED**. A current specific
+arrival/unresolved objective point plus its known giver and live talkable
+server actor may propose the existing interaction without a required prose
+phrase or NPC-name overlap. Current objective/world/floor and explicit
+identity gates remain. Search polygons, unaccepted tasks and known combat,
+collect, item/object or scripted-event mechanics do not authorize this new
+fallback. Existing gossip trials, paid-row guards, cooldowns and credit
+verification remain; this is not a general new recovery controller or
+pre-confirmed credit. 553 related tests across 34 modules and 134 final
+focused tests passed (overlap); retained-state replay also works after
+removing the quest description. Live validation is pending. See
+LIVE_VALIDATION.md; no acceptance gate is promoted.
+
+2026-10-28 22:00 meeting-place / quest-speaker relation (V4-014–017/022/033/056,
+Design-037/038/046/048): **PARTIAL / OFFLINE_TESTED**. Same-quest first-person
+instructions naming the current meeting place now resolve through the shared
+conversation actor policy. The speaker template is candidate evidence; current
+server GUID/position, explicit objective identity, facing, exact soft recipient,
+mount state and normal quest-credit verification retain authority. This fixes
+the diagnosed Toward the City WAIT in front of Tomul without a per-quest script
+or a second action owner. 521 related tests across 33 modules and 19 final
+focused tests passed (overlapping); saved-state replay replaces WAIT with
+DISMOUNT/INTERACT. The subsequent caravan stages still need a user-run live
+test. No acceptance gate is promoted; see LIVE_VALIDATION.md.
+
+2026-10-28 gossip alternatives, completed-campaign priority and mount-to-flight
+handoff (V4-025–027/033/056 and shared action/quest verification;
+Design-025–027/046/048): **PARTIAL / OFFLINE_TESTED**. Exact quest actors
+can select a unique own-name introduction, or a sole row of a catalogue-bound
+"Speak with me" quest speaker, despite a technical credit caption. The user's
+newer direction allows bounded ordinary-chat trials when the exact actor is
+known: the existing shared attempt memory tracks no-credit choices and prevents
+menu-reopen loops; only normal quest-state evidence verifies progress. Failed
+preflight and cancellation do not condemn an option. Full current row data is
+rechecked at dispatch. This is not a complete server gossip-menu decoder.
+An unreturned campaign still suppresses far side detours. Late can_glide facts
+can cancel/replan an active ground MOVE as flight through the same owner;
+cancellation is not arrival. Broad regression 2722 passed / 1 skipped /
+10 known baseline deselections; final targeted checks 175 passed. Three actual
+gossip snapshots and four saved travel/policy cases replayed without input.
+Live completion is pending; no acceptance gate is promoted. See LIVE_VALIDATION.md.
+
+2026-10-28 collection-source combat handoff (V4-008/010/014–016/034,
+shared quest/evidence, target identity and verification requirements):
+**PARTIAL / OFFLINE_TESTED**. Discovery and combat now share the existing
+objective-item-creature relations. A selected live source of an unfinished
+COLLECT objective reaches COMBAT with its quest/objective ids, without
+matching the mob's name to the item's name or narrowing all sources to one
+target_entity. Multi-source/multi-quest and primary-objective cases are
+preserved. Conflicting GUID/entry/item evidence and completed/fulfilled
+counters do not authorize hunting. Existing skill/input/credit gates remain.
+633 related tests passed across 52 modules in the actual project; 491 source
+files parse. Twelve recorded frames replayed without input or progress
+mutation. This is not post-fix live validation or a new completed quest.
+The separate Vineyard item-use gap remains unresolved. No gate is promoted;
+see LIVE_VALIDATION.md.
+
+
+2026-10-28 object post-use movement and cross-zone campaign routing (V4-033
+interaction / quest verification, V4-025–027 navigation context and arrival):
+**PARTIAL / OFFLINE_TESTED**. The reviewed plant-pulling family is resolved
+from objective text + exact TDB goober + client spell name, and executed inside
+the existing ObjectUseSkill with pinned GUID, bounded safe backward steps and
+objective-scoped credit. Own current channel identity crosses the addon/FAST
+boundary and permits only that mechanic to move during its channel. Other
+scripted movement families remain absent. Same-world server quest POIs in a
+neighboring UI zone remain usable; different physical instances still need a
+separate transition mechanism. Real saved-state geometry replay plans the
+campaign destination; it is not a live completion. 2576 related tests passed
+(1 skipped / 10 documented baseline cases deselected); final focused checks
+131 passed. No gate is promoted; see LIVE_VALIDATION.md and task artifacts.
+
+2026-10-28 escort / turn-in follow-up (V4 sections 25–28 and 58; shared
+evidence, ownership, cancellation and verification invariants): **PARTIAL /
+OFFLINE_TESTED**. Natural escort rechecks/combat yields are cancellation,
+not learned failure; engaged escorts retain travel ownership. Current server
+quest-POI XYZ is decoded for the explicitly reviewed 70575 family, delivered
+across receiver startup with its original age, and resolved ahead of TDB.
+Exact live NPC evidence still leads. Canonical turn-in proposals own the route;
+mount/flight-capability and planning failures do not invalidate the known floor;
+supported-stuck and target rejection retain context-scoped suppression.
+Saved-state replay with real geometry now plans the upper landing. This is
+not a completed live flight/hand-in or an M0/M1 gate promotion. Indoor egress,
+escort restart/failure/attacker handling and the unreproduced MOVE `x` exception
+remain unresolved as detailed in LIVE_VALIDATION.md.
+Final related regression: 2479 passed, 1 skipped, 10 documented pre-existing
+failures deselected; input-free geometry replay is distinct from live success.
+
+2026-10-28 name-term and role-based TALK discovery (shared reference,
+candidate identity, quest-context and interaction verification requirements):
+short names can discover unlisted prefixes; definite roles can match an
+NPC's own base TDB subtitle. Distinct matching names remain unresolved
+candidates until the common server/quest-context resolver narrows them.
+An arbitrary nearest actor, a literal generic-role name, a truncated query
+or a conflicting current NPC-ID/GUID does not gain interaction permission.
+Latest NPC record revisions win before name/title matching. Existing strict
+fallbacks and execution identity/recipient checks remain in place.
+**OFFLINE_TESTED / PARTIAL:** 1737 related tests passed, 1 skipped, 9 documented
+pre-existing failures deselected; real-catalogue saved-state replay preserved
+Edress/Left row selection and Right/Bazentus/Kavia server approach. No new
+live interaction/credit is validated. Translated-title lookup is not added.
+See LIVE_VALIDATION.md for evidence, query bounds and timing scope. No gate
+is promoted.
+
+2026-10-28 unmarked conversation topics and actor identity follow-up
+(shared TALK/quest-dialog, target selection and verification requirements):
+exact current actors can resolve from coordinated names and recognized titles;
+their TDB relation also binds the common playbook. A unique unfinished quest
+topic can select an actual unmarked chat row using its explicit role/context.
+Known nonattackable elites skip only the combat veto; hostile/unknown elite
+protection and numeric identity checks remain. Quest-counter progress releases
+the same-NPC handled delay while preserving the short interaction throttle.
+**OFFLINE_TESTED / PARTIAL:** 113 focused tests passed; final related regression
+1705 passed / 1 skipped / 9 documented pre-existing failures deselected.
+Saved-state replay
+reproduces the earlier failures and selects the new Edress/Left rows and
+Right/Bazentus server approach. User clicks supplied the observed Edress
+credits. Kavia's reviewed MANUAL frame already proposed MOVE before this
+change; her autonomous contact issue remains unvalidated. There is no generic
+incoming gossip-menu-to-credit packet mapping. See LIVE_VALIDATION.md for
+the final regression and remaining live validation. No gate is promoted.
+
+2026-10-28 existing quest-playbook/skill binding (V4-040/050/051/060/070;
+Design-050/075/076): typed playbook steps project existing mechanism knowledge
+into plan horizons and bounded candidate-score guidance. Only unique active
+objectives qualify; hidden static rows match by ID/text, never visible array
+order. Existing QuestAttemptMemory now owns the bounded trial journal, linking
+failures to later verified action results while distinguishing own objective
+credit. Stable options exclude sampling churn and group equivalent F7 aliases.
+Location commitment can yield to a same-objective ready action after verified
+approach or a failed option. Target commitment preserves its GUID while
+honoring grounded alternative scores. Existing input authority, availability,
+cooldowns, proposal keys and failure budgets remain decisive.
+**OFFLINE_TESTED / PARTIAL**: 1471 related tests passed, 1 skipped,
+9 documented pre-existing failures deselected (27 new scenario cases).
+Missing ESCORT/EMOTE/container/script-source
+handlers and alternate landing selection remain absent; no live quest coverage
+or acceptance gate is promoted. See LIVE_VALIDATION.md for checks/exclusions.
+
+2026-10-27 coal/NPC facing and Wrathion boarding follow-up
+(V4-027/028/029/032/033; Design-025/037/038/075/076): the user-run test
+exposed three MANUAL transitions from an invalid precision movement duration,
+repeated fixed-time facing failures, and a speech hold applied to an unfinished
+travel-with objective. Forward pulses now have legal duration and an explicit
+translation expiry; improving final turns continue within a hard total budget.
+Current server vehicle candidates can resolve via bounded cached exact-entry
+catalogue lookups, retaining live GUID/recipient checks and VEHICLE_ENTERED
+verification. ARRIVE does not arm speech credit; obsolete speech waits replan.
+Recorded-state replay selects the current Wrathion vehicle without hover.
+**OFFLINE_TESTED:** 1062 related tests passed (19 new cases; two documented
+pre-existing failures deselected); live follow-up remains unvalidated.
+At that revision, general alternative landing search and a cross-skill
+recovery-outcome journal were UNIMPLEMENTED; the 2026-10-28 entry above records
+the subsequent partial journal/playbook binding, with landing search still absent.
+`docs/RECOVERY_OPTIONS_PLAN.md` records their scope and existing partial
+recovery mechanisms. No gate is promoted.
+
+2026-10-27 forge live follow-up (V4-027/032/033/038/040;
+Design-025/037/038/055): the first patch's use-capable server ID selection
+was exercised in user tests; autonomous use/credit was not validated. The
+next failures were an inferred lower floor vetoing an exact fresh F7
+recipient, and a latched ambiguous-floor result typed as INTERNAL_ERROR
+despite a new measured own Z. Shared interaction readiness now distinguishes
+measured from inferred height. Navigation replans a still-owned, unexpired
+request from newer observed own position; typed finite position recovery
+replaces permanent software-error suppression. A fresh interrupted use cast
+does not blacklist the contact as missing quest credit.
+**OFFLINE_TESTED:** 928 related tests passed (15 new; two documented
+pre-existing failures deselected), including real MMAP replay of the recorded
+latched-error/new-position boundary. Post-fix live route, cast and objective
+credit remain unvalidated; no gate is promoted.
+
+2026-10-27 forge/fragment interaction follow-up (V4-027/031/032/033;
+Design-023/025/037/038/055): shared server-object selection and dispatch
+distinguish a use candidate from passive quest scenery even when both share
+an objective and Activate. Failed contacts lead to finite canonical navmesh
+approach probes, not the same learned edge/F7 loop. Current exact recipient
+identity, map, facing, stop state and actual quest-credit verification remain
+required. Final interaction forward leases account for speed/pose age;
+in-place facing takes priority over an unnecessary height-probe jump.
+Old moving-follower coordinates cannot force an incorrect turn.
+**OFFLINE_TESTED:** 834 related tests passed, including 25 new regressions;
+recorded-state and real MMAP replay
+select the usable forge and a reachable side-probe on the measured own floor.
+Live use/credit, all mounted overshoots and the separate unknown-floor WAIT
+remain unvalidated. Two pre-existing test failures are documented with a
+pre-change-source reproduction in LIVE_VALIDATION.md. No gate is promoted.
+
+2026-10-27 Oathstone conversation follow-up: shared objective subject parsing
+separates the NPC name from a trailing location; cached TDB role projections
+include the exact entry's template name. This fixes an observed M1 WAIT at
+a current server/soft-interact Wrathion omitted from the six-entry historical
+name preview. Existing server GUID/recipient checks remain decisive for input.
+**OFFLINE_TESTED:** 164 related tests passed (15 new); recorded-state replay
+now proposes TALK via INTERACT to entry 187045. Live objective credit and
+the conversation's later steps are unvalidated; no numbered gate is promoted.
+
+2026-10-27 short vertical flight follow-up (V4-025/026/027; Design-025/026):
+global route construction now retains requested flights across an observed
+height difference even below the ordinary 40 yd horizontal flight minimum.
+Missing required flight geometry, a ground path on the wrong known level,
+and XY-only arrival shortcuts cannot silently replace the upper landing.
+The existing canonical MOVE/Skyriding controller and bounded landing recovery
+remain the owners. **OFFLINE_TESTED:** 164 related tests passed, including
+16 new regressions; real MMAP/VMAP read-only replay plans a z 247.05 landing
+and takeoff from the recorded z 199.90 state. Post-fix live flight and quest
+credit are unvalidated; no numbered requirement or gate is promoted.
+
+2026-10-27 accept-to-talk follow-up: corrected an observed WAIT_EVENT ->
+generic WAIT path in the shared M1 conversation/locator chain. Offer greetings
+do not arm objective speech; explicit live talk objectives can resolve the
+current server actor beyond a truncated static named-creature preview. Both
+approach and gossip selection consume the same grounded candidates, retaining
+GUID checks and context-scoped interaction throttling. 103 targeted tests
+passed; a recorded stuck state now proposes INTERACT offline. Real assault
+start/credit after the fix remains unvalidated; no numbered gate is promoted.
+
+2026-10-27 large linked quest object follow-up: shared object approach / arrival /
+facing / interaction branches corrected OFFLINE_TESTED. The server policy now
+consumes the same learned edge as the running MOVE and accepts the current
+exact gameobject soft recipient, with dispatch-time pose/identity checks.
+81 targeted regressions passed; one independent UDP snapshot replay failure
+remains documented. Recorded Siege Arbalest state now admits OBJECT_USE;
+actual use/credit after this change remains unvalidated. Talon Strike's
+ground-target Extra Action is an additional explicit gap, not completed here.
+No numbered acceptance gate is promoted by the offline replay.
+
+2026-10-27 single-duel and post-turn-in transition follow-up: V4-057 / V4-063
+received a bounded input-free planner handoff for an observed scripted duel
+and delayed local quest offer, including absent target / NPC phase replacement.
+125 targeted tests passed and the user-recorded transitions were replayed
+without client input. Combat/death retain priority; no spawn identity is rebound.
+The user's manual return to Wrathion is excluded from autonomous evidence.
+These branches are OFFLINE_TESTED; live acceptance and all existing numbered
+coverage rows retain their prior status. See LIVE_VALIDATION.md.
+
+2026-10-27 ItemEffect follow-up: targeted OFFLINE_TESTED work for the shared
+M1 objective classifier, locator/item skill and credit verification requirements.
+Real local ItemEffect/ItemXItemEffect/ItemSparse and spell/shape/conversation
+records were decoded into a separate verified supplement. Quest-scoped unit/self
+use references feed ReferenceKnowledge -> QuestModel -> existing item skills.
+Ground/object/mixed/unknown execution, AreaTrigger ARRIVE and conversation WITNESS
+completion remain partial/absent as described in CLIENT_DB2_ITEM_EFFECT.md.
+This does not promote any complete numbered requirement or live acceptance gate.
+
+2026-10-26 vehicle aim follow-up: targeted OFFLINE_TESTED corrections for
+V4-055 / DESIGN-059 and the shared planning/navigation path. A selected
+vehicle target's in-place pitch MOVE was discarded by XY arrival filtering,
+combat admission and target commitment selection. The corrected path retains
+air XYZ and aim Z, rejects empty/speed-buff attack candidates and exposes
+named cooldown waits. Nine new regressions, related suite 210 passed with
+two previously documented visual-aim failures excluded; six recorded states
+replayed without client input. Post-fix live damage/quest completion remains
+unvalidated; speed-buff travel policy and nonlethal damage-based learning
+remain outside this correction. All numbered rows and acceptance statuses
+below are preserved; no whole requirement is promoted. See LIVE_VALIDATION.md.
+
+2026-10-25 quest-scene resolution follow-up: OFFLINE_TESTED generic explicit
+source-spell/aura/SmartAI/condition links and condition-keyed literal path
+tables, with cycle/ambiguity/target/phase guards. Existing TDB is read in place;
+original DB2, cache, addon/capture and movement authority are unchanged.
+36 decoded tables; 332 candidates / 241 quests, 214 single-package references,
+27 ambiguous and 179 keyed path bindings. Automatic lookup of race 72089
+selects condition 103255 -> package 3562 -> Path 43699, seven complete XYZ
+nodes, and exposes it through the existing shared reference projection.
+No fifth hand-written mapping. Reference resolution is not live quest or
+race completion. Four reviewed exceptions persist; live scene/condition
+authority, Skytop race-progress adapter, general script interpretation and
+all quest mechanics remain partial/unimplemented. Actual-project checks:
+529 passed / 43 modules, 467 source parses. No game input/capture/FULL_AI
+launch, no whole requirement/gate promoted; numbered rows stay unchanged.
+See LIVE_VALIDATION.md and CLIENT_DB2_CATALOG.md.
+
+2026-10-25 generic flight/client-data follow-up: OFFLINE_TESTED quest-domain
+scene adapter with declarative FlightPath; the shared NavigationService /
+ReachMovementController owns flight and verified ground approach for both
+Skyriding and Steady Flight. No per-quest movement branch or separate brain.
+Canonical selected-context server counters retain original times and do not
+refresh addon authority. Real arrival credit and selected-cache gates remain.
+
+Existing TDB remains in place, byte-for-byte unchanged and configured as
+before. Supplementary local DB2 SQLite inventories 1125 files and decodes 35
+tables (1090 inventory only): 66589 quest IDs, 3530 scene packages, 40431 texts,
+17511 paths, 72381 POI blobs / 170335 points. The common reference provider
+exposes generic client quest data; scene/path/raw queries work independently
+of the four reviewed quest-path relations. Quest 77345 has eight local rings
+plus landing. Unknown quest-scene relations stay UNRESOLVED; general script
+interpretation/all mechanics and all live quest completion are not claimed.
+
+Actual-project checks: 502 passed / 42 modules, 466 source parses. Native
+Detour replay from recorded touchdown finds ground approach with the same
+owner; walking after alignment uses explicitly synthetic heading feedback.
+No live input/capture/FULL_AI launch. Post-refactor landing, walking, hand-in
+and Higher Velocities completion remain NOT_LIVE_VALIDATED. All numbered
+rows are unchanged, no whole requirement/gate is promoted. See
+LIVE_VALIDATION.md and CLIENT_DB2_CATALOG.md.
+
+2026-10-25 landing/turn-in follow-up: LIVE user-run PID 13840 confirms
+5/5 rings, 1/1 target area and quest 65118 complete, still awaiting turn-in.
+Delayed credit caused a relaunch and an unreachable overshoot. OFFLINE_TESTED
+repair suppresses the last-ring relaunch/boost and transfers the same owned
+MOVE to ordinary verified MMAP walking after touchdown; mounted capability
+alone does not select flight. Native geometry replays find paths from the
+recorded touchdown/target to the server-confirmed ender and reproduce the
+overshoot failure. Actual-project checks: 430 passed across 23 modules,
+including 15 new regressions; 462 source Python parses. Existing numbered
+rows are unchanged; no whole requirement/gate is promoted. Post-fix landing,
+mounted approach and actual hand-in remain NOT_LIVE_VALIDATED. See
+LIVE_VALIDATION.md.
+
+2026-10-25 Skyriding live follow-up: the user-run 27160/26524 recordings
+confirm active SKYRIDING actionbar projection and ready relevant bindings,
+but flight feedback was absent from canonical/control state and the course
+was not completed autonomously. OFFLINE_TESTED repair projects confirmed
+own-player XYZ/facing/pitch/speed into both canonical and fast views without
+restamping; only an already owned mounted flight receives a takeoff/glide
+fall exception. Missing or stale feedback waits without blind input.
+Actual-project checks: 396 passed across 19 modules, including 18 new
+regressions; 462 Python source parses. Numbered rows remain unchanged and
+no whole requirement/gate is promoted. Post-fix flight remains
+NOT_LIVE_VALIDATED. See LIVE_VALIDATION.md.
+
+2026-10-25 follow-up: OFFLINE_TESTED active Skyriding main-bar projection,
+page/revision-coherent FAST feedback and invalidation, context-aware selected
+cache preflight, explicit pitch-binding evidence and receive-time transitions.
+The final 12-module suite in the actual projekt folder passed 253 tests,
+including 24 focused regressions; all 462 source Python files parse. Both
+addon copies are byte-identical. Existing numbered rows
+remain byte-for-byte unchanged; no whole requirement or acceptance gate is
+promoted. V4/Design action-context and binding-inventory implementation is
+partial; user-run course/landing/combat resumption remain NOT_LIVE_VALIDATED.
+See LIVE_VALIDATION.md. Addon 0.9.77-12.1.0 requires installation and /reload.
+
+2026-10-22 22:25:06 follow-up: LIVE evidence confirms three specific heals
+(3/4) through the previous item chain. The fourth-subject continuation is
+now OFFLINE_TESTED: bounded last-seen locations and objective TDB points
+reuse canonical search coverage, with fresh server-identity handoff and
+credited-site exclusion. 132 modules: 1269 passed / 1 skipped / 3 previously
+control-reproduced discrepancies deselected; 454 source parses. Native
+MMAP/replay checks are offline only. Fourth heal and turn-in remain
+NOT_LIVE_VALIDATED. All 372 numbered rows remain unchanged; no full
+requirement/gate is promoted. See LIVE_TEST_FIXES_20261022_222506.md.
+
+2026-10-22 21:55:13 follow-up: OFFLINE_TESTED exact API quest-tool + literal
+heal semantics, hidden-TDB-row-safe objective matching, server-GUID healer
+acquisition through shared MOVE/TARGET/UseItemSkill, bounded per-GUID credit
+memory and exclusion of healing objectives from ordinary kill acquisition.
+128 modules: 1235 passed / 1 skipped / 3 explicitly deselected older
+control-reproduced discrepancies. All 452 source Python files parse; the
+372 numbered rows below are unchanged. Actual healing, 4/4 and turn-in are
+NOT_LIVE_VALIDATED. The separate live fall/layer ambiguity remains open.
+No input owner, binding, addon or capture dependency was changed; no full
+requirement/gate is promoted. See LIVE_TEST_FIXES_20261022_215513.md.
+
+2026-10-22 21:37:57 follow-up: OFFLINE_TESTED quest-level, live-pin-matched
+TDB search-area containment and campaign-priority-aware turn-in batching.
+The earlier route failure is distinct from the subsequent pixelstrip safety
+wait. Actual native map probes retain the 44-degree walking policy and find
+the hand-in route; no live slope or safety gate was relaxed. 101 scoped
+modules: 868 passed / 1 skipped; 451 source AST parses. All 372 numbered
+rows are unchanged. Post-fix stair traversal/hand-ins remain
+NOT_LIVE_VALIDATED; see LIVE_TEST_FIXES_20261022_213757.md and
+LIVE_VALIDATION.md. No full requirement or acceptance gate is promoted.
+
+2026-10-22 20:28:57 recording follow-up: OFFLINE_TESTED bounded entity
+coalescing/replay/backoff, server-selection vs. stream-health separation,
+honest GUI semantic freshness, exact-GUID corpse rejection, hover freshness
+and known-elite engagement gates. Direct edits in `projekt`, no second
+planner/input owner. The visual hover/click mismatch root cause and real
+elite recovery remain NOT_LIVE_VALIDATED. Four older test discrepancies
+are reproduced separately with the new rules disabled in memory, not
+silently counted as passing. All 372 numbered rows below are unchanged;
+no M0/M1 gate promoted. See LIVE_TEST_FIXES_20261022_202857.md and
+LIVE_VALIDATION.md for the final scoped regression results and limitations.
+Actual-project checks: 90 modules, 973 passed / four explicitly deselected
+control-reproduced older discrepancies; 451 source AST parses; numbered-row
+SHA-256 unchanged. These are offline checks, not a completed real quest.
+
+2026-10-22 19:49/19:52 follow-up: targeted OFFLINE_TESTED corrections join
+soft-recipient/server-XYZ range recovery to the canonical Interact FSM /
+NavigationService, prevent premature rescue handoff at known distant XY,
+remove the unrelated friend-hint radius from exact server approaches, and
+use finite navigation-owned TDB-hint coverage when no actor is observed.
+Identity, freshness, MMAP/facing/arrival, deadline and verification authority
+remain unchanged; no new brain or input owner exists. The 2/4 live counter
+is observed, but the user may have pressed F7 for the second airborne
+whelp, so it is not two autonomous successes. Airborne acquisition without
+a verified recipient remains NOT_LIVE_VALIDATED. All 372 numbered rows
+are unchanged and no whole requirement/M0/M1 gate is promoted. See
+LIVE_TEST_FIXES_20261022_194827.md and LIVE_VALIDATION.md.
+Actual-project post-publication checks: 810 passed / one known baseline
+explicitly deselected, plus 140 architecture/identity tests passed.
+
+2026-10-22 12:00 follow-up: narrow LIVE evidence now supports the previous
+65760 arrival/turn-in and post-combat loot -> remount path; it does not
+validate all navigation/mounting. New OFFLINE_TESTED corrections cover
+bounded fully routed alternatives to a rejected centered walking edge,
+stable MOVE failure identity/resume gates, and concrete non-proxy rescue
+credit actors missing from TDB's named list. Saved/rescued objectives do
+not become kill actions; a spellclick NPC keeps INTERACT, a holding object
+keeps OBJECT_USE, and quest progress remains separate verification.
+Real-MMAP saved-state queries and 84 focused passing tests are not live
+rescue credit or walking evidence. The moving-mount failure remains open.
+All 372 numbered ledger entries remain unchanged; no M0/M1 gate promoted.
+See LIVE_TEST_FIXES_20261022_120016.md and LIVE_VALIDATION.md.
+
+2026-10-22 11:31 follow-up: live MOVE arrival is disproved by its original
+quest POI distance (~307 yards). Partial floor-localization legs must not
+close a navigation/quest step. The shared service now retains/replans
+these legs with strict bounds and an original-endpoint arrival guard.
+Post-combat long-route mounting is observed/prepared through the existing
+travel policy, planner, supervisor and single skill/input owner. These
+corrections are OFFLINE_TESTED, including real-MMAP planning and a recording
+executor flow; actual walking/remounting/arrival remain NOT_LIVE_VALIDATED.
+All 372 numbered ledger entries remain unchanged, and no M0/M1 gate is
+promoted. See LIVE_TEST_FIXES_20261022_113117.md and LIVE_VALIDATION.md.
+
+2026-10-22 09:52 follow-up: addon 0.9.75 API quest marker, row click and
+optional Sendrax credit now have narrow LIVE evidence. The next walking
+failure exposes a retained airborne timer across recovery and inadequate
+native walking costs/returned-anchor grade checking. These incremental
+corrections are OFFLINE_TESTED with real-map route comparisons, not live
+arrival. Geometry-based gentler/clearer path preference is implemented;
+identification of the actual marked/textured road network remains ABSENT
+without verified road metadata or learned route evidence. All 372 numbered
+rows remain unchanged; no full quest, navigation or M0/M1 gate is promoted.
+See LIVE_TEST_FIXES_20261022_095258.md and LIVE_VALIDATION.md.
+
+2026-10-22 09:39 follow-up: the new 0.9.74 live test still loses the
+third row's rendered quest label. This invalidates any inference that the
+previous offline widget fixture proved live export. Targeted 0.9.75
+OFFLINE_TESTED coverage exports Retail's runtime-enum quest-label flag and
+uses it through the existing shared planner/pre-click proof. Narrow tests:
+191 passed; actual export/click/credit pending. All 372 numbered ledger
+rows are unchanged; no whole gossip/quest/M0/M1 gate is promoted. See
+LIVE_TEST_FIXES_20261022_093950.md and LIVE_VALIDATION.md.
+
+2026-10-22 09:19 follow-up: the prior server actor approach/F7 now has
+narrow live evidence. Rendered gossip marker export and shared
+planner/pre-click proof are targeted OFFLINE_TESTED corrections only.
+Screenshots confirm a visible quest prefix absent from the API-name
+telemetry. All 372 numbered rows and shared action authority remain
+unchanged; no whole gossip/quest/M0/M1 gate is promoted. Actual 0.9.74
+export/click/credit is pending. See LIVE_TEST_FIXES_20261022_091936.md.
+
+2026-10-22 09:01 follow-up: targeted OFFLINE_TESTED conversation-actor
+coverage resolves explicit Ask-about captions through exact TDB names, so
+an observed phased server actor outside the six-name preview remains
+eligible for the existing GUID/XYZ MOVE, facing and soft-interact flow.
+The shared architecture and all 372 numbered rows remain unchanged. This
+does not promote whole objective classification, escort/travel routing or
+M0/M1 acceptance. Live approach/gossip credit remains pending. See
+LIVE_TEST_FIXES_20261022_090125.md and LIVE_VALIDATION.md.
+
+2026-10-21 19:00 follow-up: the existing conversation branch now recognises
+an exact TDB-named receive-orders actor and gives a unique API `(Quest)`
+gossip row precedence over lore, not a fixed row index. This is targeted
+OFFLINE_TESTED coverage under the same WorldModel/Planner/skill/verifier.
+The earlier Sendrax signal-flare transition is observed in the new user
+test; Selistra's correction still needs a new live run. All 372 existing
+numbered rows are unchanged; no whole requirement or acceptance gate is
+promoted. See LIVE_TEST_FIXES_20261021_185729.md and LIVE_VALIDATION.md.
+
+2026-10-21 18:14/18:38 follow-up: precise final approach and grounded NPC
+conversation corrections are OFFLINE_TESTED. The planner honours the
+requested sub-four-yard stop; TDB conversation intent resolves the actual
+named actor rather than a technical credit ID; the existing UI skill can
+use a fresh exact NPC-window owner without a selected hard target. Unknown
+UI quest identity waits within the existing attempt instead of failing and
+reclicking. The shared Planner/NavigationService/skill/verification ownership
+is unchanged. All 372 existing numbered rows remain preserved and no whole
+requirement or M0/M1 acceptance gate is promoted. See
+LIVE_TEST_FIXES_20261021_181320.md and LIVE_VALIDATION.md.
+
+2026-10-21 17:14 follow-up: targeted OFFLINE_TESTED corrections cover
+startup packet-entity recovery, server-only MOVE/interaction handoff and
+explicit BUY seller localisation. The existing WorldModel/Planner/skill/
+verification ownership, selected-PID scope and freshness/identity guards
+remain authoritative. All numbered V4/Design rows below are preserved.
+No whole requirement or M0/M1/live acceptance gate is promoted by the
+synthetic regressions. See LIVE_TEST_FIXES_20261021_1712.md and LIVE_VALIDATION.md.
+Expanded check: 924 passed, 1 skipped, three baseline failures independently
+reproduced before publication; final targeted facing/packet tests 105 passed.
+All 372 existing V4/DESIGN/V5 rows, including 203 V4/DESIGN rows, are preserved.
+Final-facing timeout no longer counts as arrival; this remains offline evidence.
+
+2026-10-21 16:37–16:40 follow-up: V4-009/014/015/031/055/056/061/071/072
+receive targeted OFFLINE_TESTED corrections for response windows, utility
+vehicle objectives, gossip credit, server turn-in routing and UI retry
+bookkeeping. All numbered V4/Design rows below remain preserved; none is
+promoted to whole-requirement completion or M0/M1 acceptance. Four actual
+checkpoint replays pass; broad related tests: 1135 passed, two independently
+reproduced pre-existing visual vehicle-aim failures. Post-fix live validation
+is pending. See LIVE_TEST_FIXES_20261021_1640.md and LIVE_VALIDATION.md.
+
+2026-10-20 Exile's Reach regression follow-up: V4-007/009/014/015/031/034/
+035/061/068/069/071/072 and Design-004/019/020/023/025/039/042/048/049/061/
+069/070/075 receive targeted OFFLINE_TESTED corrections. Server identity
+and coordinates lead the affected targeting/loot/turn-in branches; UI and
+recipient evidence still gate input. All existing numbered rows below are
+preserved. This is not completion of those requirements or M0/M1 acceptance.
+See EXILES_REACH_FIXES_20261020.md and LIVE_VALIDATION.md. Post-fix live
+validation is pending. The legacy MASTER_AGENT_PROMPT.md and
+MASTER_ADDON_PROMPT.md referenced in the supplied outer AGENTS are absent
+from this checkout; they were not recreated or silently reinterpreted.
+
+2026-10-19 continuation/agenda follow-up: V4-045/046/061/063/064/065/071/072
+and Design-018/019/020/063/064 remain PARTIAL at end-to-end/live level. The
+existing Planner agenda now covers conditional offer/read/work/turn-in/next
+discovery, keeps a verified continuation after turn-in, and represents empty
+known-log discovery instead of an empty task list. Live offers/UI invalidate
+the idle refresh immediately; expectations and missing-evidence/failure
+branches remain plans, not quest truth. Available questgiver routes cannot
+lose attention to regenerated generic SEEK; absent usable local quest cues,
+map discovery precedes unrelated bodies. Addon 0.9.68 invalidates stale
+quest-line request throttles after meaningful quest changes without async
+request storms. These corrections are OFFLINE_TESTED, not live-validated.
+The PID-5292 recording confirms quest 55879 turn-in but exposes continuation
+failure in the pre-correction source. All 71 recorded post-pin snapshots now
+prefer the live API questgiver MOVE; this is not an executed acceptance test.
+Initial Giant Boar overrun, turn-in detours and the earlier cave probe defect
+remain explicitly open. Every numbered requirement below remains tracked.
+See LIVE_VALIDATION.md and QUEST_AGENDA_DESIGN.md for scope and evidence.
+Final related offline regression: 184 modules, 1818 passed, two optional-image
+skips and the one separately pre-existing cave short-probe failure. Python/Lua
+syntax and addon mirror equality pass; all 203 V4/Design IDs are preserved.
+The initial Windows-resource collection error was followed by a completed
+user-requested retry. These results do not promote any whole live M0/M1 gate.
+
+2026-10-19 quest-item / Giant Boar follow-up: V4-009/010/031/032/036/038/039/053
+and matching Design item/interaction/verification requirements remain PARTIAL.
+The shared read-only QuestToolResolver, addon 0.9.67 exact public item/target
+readiness, compact recipient evidence, local item ownership and current-cursor
+TARGET handoff are implemented and OFFLINE_TESTED. User-run telemetry observes
+Re-Sizer 0/3 -> 3/3, its turn-in and acceptance of 55879; this is not general
+item/quest or final-source live acceptance. The large Giant Boar exposed a
+separate no-motion/range-error replay loop. Its canonical recovery now requires
+actual forward steps, fences feedback per input and retains the original
+quest baseline, retry limits and authority. That final recovery is offline
+only until a new user test. No requirement rows or unresolved gates are removed.
+See LIVE_VALIDATION.md and the new dated item/telemetry/Giant regression files.
+Final related offline check: 1778 passed, two optional-image skips, the one
+separately pre-existing ambiguous-floor probe failure; 179 modules. Python/Lua
+syntax and package mirror equality passed. No full live acceptance follows.
+
+2026-10-18 NPC handoff correction: V4-006/007/009/010/031/038/039/061/071/072
+and the corresponding Design sensor/target/navigation/supervision requirements
+remain PARTIAL. Addon 0.9.66 raises pixel-frame draw levels without mouse input;
+canonical hover waits for its own feedback, bounded paged-STATE handling keeps
+original clocks, and TARGET uses current proof at begin. Same-route visual cue
+interrupts are bounded without suppressing fresh public NPC-ID evidence. A
+terminal loop signal is supervised before admitting the replacement skill.
+These corrections are OFFLINE_TESTED only. The user's second 2026-10-18 run
+contains verified quest-state transitions but exposed the pre-correction
+delays; it is not live acceptance of the changes. See LIVE_VALIDATION.md.
+Every numbered row and all previously unresolved requirements remain tracked.
+Expanded closure check: 1744 passed, two optional-image skips, one existing
+ambiguous-floor short-probe failure, reproduced separately with pre-patch
+sources loaded read-only. No navigation-layer implementation was changed.
+Python syntax, Lua compilation and addon mirror equality checks passed.
+
+2026-10-17 ID/GUID boundary follow-up: V4 identity, evidence, target,
+interaction, combat, loot, navigation and corresponding Design requirements
+remain PARTIAL. Shared pure comparison and per-attempt command checks,
+public object_id transport, GUID-less object-ID interaction, UI owner pinning,
+original sample clocks, selected-entity movement continuity and no-input
+post-despawn verification are implemented and OFFLINE_TESTED. They do not
+establish live public-ID availability, live quest completion, stable physical
+identity without a GUID, or completion of a whole M0/M1 gate. Missing GUID
+and object ID remain unknown; no hover XYZ or invented Z was added.
+See ENTITY_IDENTITY.md and LIVE_VALIDATION.md. Every numbered row below is
+preserved; no acceptance gate is promoted by adoption or synthetic tests.
+Closure review 2026-10-18: final related regression is 1679 passed, two missing
+optional-image skips and one explicitly excluded, separately OPEN probe-route
+test; 171 modules. Static checks cover 37 touched Python production modules,
+the new regression module, Lua compilation and primary/mirror byte equality.
+No new live validation or whole-quest acceptance follows from these results.
+
 This ledger tracks all three current user-supplied sources. Tracking is not implementation or live validation.
+
+2026-10-16 Murloc handoff correction: the user-operated 09:00 test accepted
+55122 but remained 0/6; it does not validate combat/loot or whole-quest M1.
+V4-007/009/010/014/015/017 and corresponding Design search, identity,
+navigation and verification requirements remain PARTIAL. Generic combat
+subject/tooltip movement handoff, full/FAST/parallel original-sample clock
+agreement, fast-to-medium yielding and COLLECT arrival/local-search continuity
+are now offline-tested; all three actual recorded murloc snapshots pass the
+SEEK -> TARGET handoff replay. These changes do not assert quest credit.
+The existing ambiguous-floor short-probe route test remains OPEN and was
+reproduced with pre-correction sources. See LIVE_VALIDATION for evidence,
+the explicit final-suite exclusion and live checks still required.
+Every numbered requirement below is preserved; no acceptance gate is closed.
+
+The user's evening moving-target follow-up exposed redundant TARGET
+re-hover and a feedback barrier continually advanced by pointer following.
+Exact fresh current-cursor proof is now reused at canonical TARGET begin;
+fallback tracking gives its own pointer move a bounded chance to receive
+post-move GUID feedback. Target identity verification and timeouts remain
+required. The 25 Hz / 60 ms synthetic case clicks at +120 ms, not a live
+latency guarantee. These corrections are OFFLINE_TESTED; live moving-target
+acceptance remains open. See LIVE_VALIDATION for the user logs and limits.
+Final related combined regression: 1343 passed, 2 skipped, one explicitly
+deselected pre-existing short-probe failure; a further canonical-launch test
+passed separately. All ten changed production modules parse successfully.
+
+2026-10-16 scoped WAIT correction supersedes the historical OPEN diagnoses
+immediately below, without promoting whole numbered requirements to complete.
+V4-009/014/015/016/049/056/074 and matching Design evidence, dialog, progress,
+SPEAK and concurrency requirements remain PARTIAL. STATE/vertical-FAST cache
+separation and recovery, exact fresh-button evidence, conservative short/full
+NPC association, deterministic Ask-to-SPEAK and canonical-semantics area search
+are now OFFLINE_VERIFIED. The 2026-10-15 23:54 selected-PID bounded live trial
+did interact with Meredy, obtain option 50819, transform the character, receive
+55981 objective credit 0/1 -> 1/1 and start the next objective's MOVE. Initial
+selection/position were pre-existing, not autonomous discovery; the whole
+quest was not completed. A live phasing GUID replacement caused a premature
+verification failure despite later credit. Its no-input, no-rebind bounded
+verification fix is OFFLINE_REPLAY_VERIFIED against the actual recording
+(credit at +9.383 s), not subsequently live-validated. Final STOPPED/disarmed/
+empty-keys/pump-stopped and GUI closure were verified. Prolonged live strip
+recovery, live stale-button exception, optimal movement and continuous
+all-skill cadence remain unaccepted. Full evidence is in LIVE_VALIDATION.
+Final related offline regression: 801 passed (exit 0); all 18 touched Python
+source modules parse successfully. Numbered requirements below are preserved.
+
+2026-10-15 23:30 assistant-operated baseline was explicitly authorized by
+the user and bounded to 30 seconds on verified PID 12512 / selected cache.
+It did not complete Meredy's 0/1 objective or open the dialog. The short/full
+name inconsistency also rejects the current friendly target in
+SpeakObjectiveFlow and the real visual-search identity gate; both are
+`OFFLINE_REPRODUCED / OPEN`. Failed SPEAK localization then led to a raw-KILL
+area-search fallback in the recorded run. Final status was verified STOPPED,
+disarmed, no held keys. No agent-code fix or general live acceptance follows
+from this baseline. See the corresponding LIVE_VALIDATION entry.
+
+2026-10-15 23:13 Meredy WAIT: quest dialog association is
+`OFFLINE_REPRODUCED / OPEN`. Fresh addon option 50819 is exported, but the
+dialog policy requires the full target name `Meredy Huntswell` inside an
+objective that says only `Ask Meredy ...`, so it returns no proposal and the
+planner waits about 40 seconds. Recorded UI detail age stays below 0.9 s;
+STATE refresh works in this run, distinct from the earlier decoder stall.
+Only a private diagnostic name substitution unblocks the real policy/registry;
+no agent code/live identity was changed. See the matching LIVE_VALIDATION
+entry. No autonomous-arrival or quest-completion acceptance is inferred.
+
+2026-10-15 read-only STATE-stall diagnosis: decoder can promote the vertical
+FAST geometry into the primary `_GRID_CACHE` during adaptive rediscovery,
+then repeatedly return FAST without recovering a visible STATE strip. This
+defect is `OFFLINE_REPRODUCED / OPEN`, not fixed: existing Lua drawing helpers
+at 1345×697 reproduce primary-cache replacement on covered frame 60 and
+FAST-only output after the original full image is restored. The live run's
+STATE loss begins in MANUAL before FULL_AI; its private decoder cache is not
+recorded, so the precise live initiating transition remains unproven. See
+the matching `docs/LIVE_VALIDATION.md` diagnosis. No agent code or numbered
+requirement acceptance was changed.
+
+2026-10-15 22:26 user-run follow-up: parallel pump startup/liveness is now
+`LIVE_OBSERVED / PARTIAL` through the actual SensorHub (61 FULL_AI status
+samples enabled/running, no pump error; healthy-sample median control 24.24 Hz).
+This does not accept all shared skills, continuous pointer cadence or a quest.
+The user explicitly confirmed they moved the character to the NPC: arrival
+is manually assisted, NOT validated autonomous navigation. Recorded approach
+states/commands must not be treated as proof of agent-caused displacement.
+The same run exposes a concrete availability blocker: fresh FAST CONTINUE /
+COMPLETE button facts are rejected using a 63–70 s old FULL_STATE age; source
+STATE page/full counters do not advance during the observed FULL_AI window.
+Restoring STATE refresh and scoped button freshness remain OPEN, along with
+repeated cue handoffs and full turn-in validation. No agent code was changed
+by this review and no numbered source row is promoted to full acceptance.
+See the 22:26 entry in `docs/LIVE_VALIDATION.md`.
+
+2026-10-15 evening parallel startup correction — the earlier scoped
+V4-002/003/006/008/009/031–037/074 and matching Design execution/concurrency
+requirements remain `OFFLINE_VERIFIED / PARTIAL`. Both evening live runs had
+the fast pump disabled: production SensorHub did not forward the buffered
+producer's non-consuming API. Primary-source delegation, original receipt /
+transition preservation, freshness/failure/close gates and explicit pump
+startup/liveness diagnostics are now tested through the actual wrapper,
+capture factory and MANUAL runtime lifecycle. Related offline suite:
+303 passed, exit 0. No new user live run, input or autonomous quest acceptance
+occurred. See `docs/PARALLEL_CONTROL_DESIGN.md`, `docs/LIVE_VALIDATION.md` and
+`tests/test_parallel_runtime_wiring.py`. Restarted-GUI live concurrency,
+real cadence and all-skill acceptance remain pending; numbered rows and
+unimplemented requirements below are preserved, not promoted to complete.
+
+2026-10-15 live rejection: the experimental local Ymir build-number change
+reached connection recognition, then failed at NtReadVirtualMemory with
+0xC0000005 and null arguments. No semantic game-event receipt was validated.
+The artifact is FAILED, not an approved live producer. Its exposed memory-read
+dependency conflicts with the current project source constraints; no repair of
+that path or key retrieval was attempted. Existing parser/IPC tests do not
+override this result. See the latest LIVE_VALIDATION entry.
+
+2026-10-15 scope clarification: agent-managed live capture and a working
+Retail network/session/decryption producer are `ABSENT`, not offline-verified
+or live-validated. The packet work below verifies only the scoped prototype
+parser/transport/inbox/evidence boundary. The user requested an integrated
+sniffer; manual PKT following is not acceptance of that request. Official
+Ymir availability for the observed 70391 build is unverified/blocked (published
+Retail asset is 69933). See the latest LIVE_VALIDATION/PACKET_TELEMETRY notes.
+
+2026-10-15 packet build/GUI follow-up — the same scoped V4/Design rows below
+remain `OFFLINE_VERIFIED / PARTIAL`. The user's live log identified 12.1.5 build
+70391, previously blocked. Explicit 70340/70391 opcode-family provenance and
+top-detector-line receiver/receipt status are now offline-tested; neither
+feature creates input authority or proves live packet receipt. Missing source,
+broad payload semantics and live validation stay open. No numbered row is
+removed or promoted to full acceptance. See the new LIVE_VALIDATION entry
+(211-test related regression plus a separate localhost round-trip).
+
+2026-10-15 packet sensor port — V4-001/002/008/009/010/073/074/079/085/086/096
+and Design 3/4/5/11/86/88/89: `OFFLINE_VERIFIED / PARTIAL`.
+Audited PID/context-scoped passive packet transport and reviewed 12.1 payload
+prefixes feed only canonical observations/evidence/reducers. Input authority
+still requires the selected client, exact bindings and fresh addon. Only
+fresh same-player outgoing movement may enrich XYZ/facing; addon instance/UI
+map and corpse/loot ownership remain distinct. No raw secret/chat payload
+forwarding, process-memory/injection path or additional execution authority.
+The library source defaults off; the three GUI BAT launchers explicitly enable
+its passive inbox per the user's later request, without arming or capture.
+UPDATE_OBJECT/HP/power, complete
+quest/combat/loot parsers and real Npcap/Ymir validation remain absent/open.
+See `docs/PACKET_TELEMETRY.md` and the matching `LIVE_VALIDATION.md` entry.
+No numbered requirement is removed or promoted to full M0/M1 acceptance.
+
+2026-10-15 scoped look-ahead update — V4-002/003/006/007/009/031/043–048/063
+and Design planner/verification/memory/advisory-LLM requirements:
+`OFFLINE_VERIFIED / PARTIAL`. Planner owns a conditional multi-quest agenda,
+same-area batching, ender/follow-up read-ahead through the existing TDB and
+learned SQLite provider, and a dependency-gated route preview. Only existing
+available proposals can be ranked; no extra active FSM or quest-state writer
+exists. Explicit primary/campaign policy and fresh interaction verification
+remain authoritative. Optional SemanticAdvisor ordering cannot manufacture
+steps or unblock prerequisites, and never stalls control. Fresh fast-frame
+motion fitting gives bounded screen-space pointer lead, not entity identity
+or long-offscreen ReID. See `docs/QUEST_AGENDA_DESIGN.md` and
+`tests/test_quest_agenda.py`, `tests/test_agenda_reference_prefetch.py`,
+`tests/test_target_motion_prediction.py`. Actual local-model answer quality,
+normal-FPS live multi-quest completion, globally optimal routing/pass-through
+and full M0/M1 live acceptance remain open. No numbered source row is removed
+or promoted to complete acceptance by this scoped change.
+Final related offline regression: 996 passed, 1 skipped (exit 0); see the
+matching `docs/LIVE_VALIDATION.md` entry. This is not live quest acceptance.
+
+2026-10-15 scoped parallel-execution update — V4-002/003/006/008/009,
+V4-031 through V4-037 and the matching Design execution/verification ownership:
+`OFFLINE_VERIFIED / PARTIAL`. A latest-only live pump advances the EXISTING
+active FSMs with compatible pointer/locomotion channels, resource leases,
+cast/channel holds and context/UI/input-safety gates. It neither creates a
+second ActiveSkillRuntime nor chooses a quest/target independently. Terminal
+bookkeeping stays in the medium engine; advisory visual recognition moves to
+a bounded background reader. Direct offline runtime stepping remains
+synchronous. See `tests/test_parallel_control.py`, `tests/test_live_debug_monitor.py`
+and `docs/PARALLEL_CONTROL_DESIGN.md`. The unplugged low-FPS run is expressly
+not representative validation. Full agenda/pass-through implementation,
+instant-on-the-move actions and new normal-FPS live acceptance remain open.
+This scoped entry does not remove, renumber or promote any requirement below.
+
+2026-10-15 scoped update — V4-031/032/033/035/036/037
+and the corresponding Design identity/interaction/verification requirements:
+active-skill-owned track-bound pointer following and rejected selected-target
+re-hover recovery are `OFFLINE_VERIFIED / PARTIAL`, not `LIVE_VALIDATED`.
+The shared pointer helpers produce commands only; ActiveSkillRuntime,
+NavigationService and CommandDispatcher retain their existing ownership.
+Freshness, same-GUID/cursor checks, UI safety and click verification remain;
+movement updates are not consumed by pointer following. The 0.9.64 thin STATE
+layout/decoder/mask path is offline-tested with unchanged packet capacity and
+legacy support. See `tests/test_active_pointer_tracking.py`,
+`tests/test_visual_approach_recovery.py`, `tests/test_two_lane_strip_20261007.py`
+and the matching entry in `docs/LIVE_VALIDATION.md`. Live cadence/quest
+completion, long-offscreen semantic ReID and the separate total-launch
+approach-budget policy remain open. No numbered requirement below is removed
+or promoted to full acceptance by this scoped update.
 
 | Requirement | Current source | Status |
 |---|---|---|
@@ -57,7 +1319,7 @@ This ledger tracks all three current user-supplied sources. Tracking is not impl
 | V4-050 | KILL OBJECTIVE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2069) | IMPLEMENTED_TESTED — `agent/combat_planning.py` gates COMBAT proposals on quest-relevance/credit and `QuestObjective.current_count` drives completion (`agent/quest_model.py:99,207`); tested in `tests/test_combat_planning_policy.py`. |
 | V4-051 | COLLECT OBJECTIVE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2093) | OFFLINE_VERIFIED — `CollectStrategyTracker` maintains per-objective GROUND_OBJECT/MOB_LOOT/DIRECT_INTERACT/QUEST_ITEM_MECHANIC/SCRIPTED/UNKNOWN belief. `QuestTerminalProcessor` strengthens/weakens it only from quest-credit outcomes, and the canonical Planner now consumes it before global ranking through `QuestDomain.apply_collect_strategy()`. Guidance only adds a bounded confidence-scaled bonus to already-existing proposals; UNKNOWN changes nothing and alternatives are never suppressed or fabricated. Tested in `test_collect_strategy.py` and `test_collect_strategy_wiring.py`. |
 | V4-052 | INTERACT OBJECT OBJECTIVE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2122) | IMPLEMENTED_TESTED — `skills/object_use.py::ObjectUseSkill`; tested in `tests/test_m1_object_use_skill.py`. |
-| V4-053 | QUEST ITEM / TOOL BUTTON OBJECTIVE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2138) | IMPLEMENTED_TESTED — `skills/quest_tool.py::QuestToolSkill` (VALIDATE_CONTEXT phase) and `skills/quest_item.py::QuestItemSkill` (cooldown gating at line 62-63); tested in `tests/test_m1_quest_item_skill.py`, `tests/test_agent_core.py`. |
+| V4-053 | QUEST ITEM / TOOL BUTTON OBJECTIVE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2138) | PARTIAL / OFFLINE_TESTED — `agent/quest_tool_resolver.py::QuestToolResolver` shares exact active-quest/item/selected-GUID public range/usability/cooldown evidence; canonical `skills/quest_item.py::UseItemSkill` rechecks it, supports verified item/actionbar/bag activation and quest-credit-only success. `skills/quest_tool.py::ExtraActionHandler` remains a separate resolver for explicitly identified Extra Action UI, not proof of universal quest-tracker tool-button discovery. New dated 20261018/20261019 tests cover unknown/stale/conflicting evidence, bounded FAST, local ownership, live-shaped Re-Sizer and Giant recovery; existing M1/core coverage remains. Real Re-Sizer state progress is observed in the user's 2026-10-19 run, but generic tracker discovery, final-source live API availability and broad M1 acceptance remain unresolved. |
 | V4-054 | EXTRA ACTION BUTTON (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2165) | IMPLEMENTED_TESTED — `agent/quest_planning.py:152-180` detects/gates extra_action against configured allow_extra_action/extra_action_type/extra_action_id; tested in `tests/test_m1_extra_action_skill.py`. |
 | V4-055 | VEHICLE / OVERRIDE BAR QUESTS (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2183) | IMPLEMENTED_TESTED — `skills/vehicle.py::VehicleSkill` added: detect VEHICLE_OVERRIDE -> issue configured vehicle-specific BIND actions -> verify quest progress -> on exit mid-attempt, fail without faking success (invalidates vehicle state rather than claiming completion); `rotation_allowed()`/`is_vehicle_override_active()` expose the literal "do not let normal rotation fire into a vehicle override state" guard as a reusable predicate. Complements existing `InvalidationEvent.VEHICLE` context-reset in `runtime/state_invalidation.py`. Tested in `tests/test_vehicle_skill.py`. Not yet wired into `runtime/m0_dispatch.py` or called from `CombatSkill`'s rotation. |
 | V4-056 | GOSSIP CHOICE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2205) | IMPLEMENTED_TESTED — `agent/quest_offer_selector.py::QuestOfferSelector.select` requires unambiguous/explicit selection else `quest_offer_selection_required`, used by `agent/quest_dialog_planning.py:70`; tested in `tests/test_m1_quest_offer_selector.py`. |
@@ -67,12 +1329,12 @@ This ledger tracks all three current user-supplied sources. Tracking is not impl
 | V4-060 | MULTI-STAGE QUESTS (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2290) | IMPLEMENTED_TESTED — `agent/quest_runtime.py:238-245` recomputes stage_signature/stage_revision on every credit change, invalidating stale objective beliefs; tested in `tests/test_m1_primary_quest_runtime.py`. |
 | V4-061 | TURN-IN (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2317) | IMPLEMENTED_TESTED — `agent/turnin_resolver.py::TurnInResolver` implements an evidence-ordered hierarchy (FIELD_UI→LOCAL_ENTITY→TURN_IN_LOCATION→QUEST_API_REGION→UNKNOWN); tested in `tests/test_m1_turnin_resolver.py`. |
 | V4-062 | REWARD SELECTION (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2343) | IMPLEMENTED_TESTED — `agent/quest_reward_selector.py::QuestRewardSelector` requires explicit policy or blocks with `reward_selection_policy_required`; tested in `tests/test_m1_quest_reward_selector.py`. |
-| V4-063 | NEXT QUEST / CHAIN CONTINUATION (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2360) | IMPLEMENTED_TESTED — `agent/next_quest_source_hierarchy.py` adds the missing general case: `NextQuestSource` ranked exactly per spec (resulting UI -> same NPC -> local markers -> tracker/log -> world map -> campaign classification) and `resolve_next_quest_source()`, which never assumes the same NPC produced a new quest absent actual evidence from that source; tested in `tests/test_next_quest_source_hierarchy.py`. Complements the existing narrow `agent/next_quest_resolver.py::NextQuestResolver` (MAIN_CAMPAIGN-only, tested in `tests/test_m1_next_quest_resolver.py`); Wired: `WorldQuery.next_quest_source(same_npc_entity_id=..., campaign_resolution=...)` (`agent/world_query.py`) assembles the real `available` mapping from stored state -- `ui_context()` for RESULTING_UI (GOSSIP/QUEST_OFFER panel), `entity_roles()` for SAME_NPC (only when the entity genuinely still holds a QUEST_GIVER role), `visual_tracks()` filtered on `candidate_labels` containing `quest_marker_like` for LOCAL_MARKERS, `get_current_quest_objectives()` for TRACKER_LOG, `map_markers("WORLD_MAP")` for WORLD_MAP -- and resolves via `resolve_next_quest_source()`. `same_npc_entity_id`/`campaign_resolution` are caller-supplied attempt-scoped facts this read-only projection does not itself track (simply absent when omitted, never guessed); `NextQuestResolver`'s own MAIN_CAMPAIGN result is the intended `campaign_resolution` input. Tested in `tests/test_world_query_next_quest_source_wiring.py`. |
+| V4-063 | NEXT QUEST / CHAIN CONTINUATION (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2360) | PARTIAL / OFFLINE_TESTED — `next_quest_source_hierarchy.py` and `WorldQuery.next_quest_source()` retain the ordered UI/same-NPC/local-marker/log/map/campaign projection without assuming same-NPC availability; the narrow `NextQuestResolver` still requires explicit campaign evidence. `QuestAgenda` now preserves verified turn-in continuation, supplies known-empty-log discovery, previews conditional offer/read/work/turn-in/discovery, and consumes existing Planner proposals. Addon 0.9.68 refreshes availability after quest changes; map discovery precedes unrelated bodies and API giver MOVE retains attention. Tested by source-hierarchy/world-query tests plus `test_agenda_continuation_20261019.py` and `test_quest_discovery_priority_20261019.py`. PID-5292 exposed the old live failure; correction is not yet live-validated. Static/remembered next IDs remain candidates, never acceptance authority. |
 | V4-064 | MAP / MINIMAP / 3D RELOCALIZATION LOOP (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2379) | IMPLEMENTED_TESTED — `agent/quest_location_planning.py::propose_objective` branches on LOCAL_MARKER/WORLD_MAP_LOCATION/KNOWN_LOCATION/SEARCH_AREA mirroring the spec loop; exercised via `tests/test_m1_objective_locator.py`, `tests/test_navigation_proposal_adapter.py`, `tests/test_search_region_engine_handoff.py`. |
 | V4-065 | SEARCH COVERAGE MEMORY (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2419) | IMPLEMENTED_TESTED — `navigation/search_coverage.py::SearchCoveragePlanner` tracks visited grid cells/visits, wired into `navigation/service.py`; tested in `tests/test_search_coverage.py`, `tests/test_search_region_engine_handoff.py` (no explicit tracking of failed entities/entrances as sub-fields). |
 | V4-066 | PHASING / LOADING / TELEPORT (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2443) | IMPLEMENTED_TESTED — `runtime/state_invalidation.py::StateInvalidationPolicy` detects LOADING/TELEPORT/MAP_CONTEXT/PHASE/FLOOR transitions and resets visual/navigation context while preserving quest state; tested in `tests/test_state_invalidation.py`. |
 | V4-067 | CINEMATIC HANDLING (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2469) | IMPLEMENTED_TESTED — `runtime/supervisor.py` gates `cinematic_playing` into the existing CRITICAL_RECOVERY state (blocks gameplay input, emits `CINEMATIC_STARTED` matching the pre-existing `events.py:38` priority entry, `FailureReason.CINEMATIC_PLAYING`); `runtime/state_invalidation.py::InvalidationEvent.CINEMATIC` fires on the falling edge (cinematic ending) and forces `invalidate_objective=True` alongside the standard context reset, refreshing WorldModel + quest state per spec; `runtime/cinematic_policy.py::CinematicSkipPolicy` is disabled by default and rate-limits/bounds skip attempts when opted in, so it can never spam skip input; tested in `tests/test_cinematic_handling.py`. Wired: `Supervisor.__init__(*, cinematic_skip_enabled=False)` now owns a live `cinematic_skip_policy` instance (still disabled by default, zero behavior change unless a caller opts in); `evaluate()`'s `cinematic_playing` branch calls `cinematic_skip_policy.reset()` exactly on the rising edge into CRITICAL_RECOVERY-via-cinematic (not on every tick while already inside it), and the new `Supervisor.cinematic_skip_decision(cinematic_playing=, now=)` exposes the bounded, rate-limited decision for a caller to act on -- the Supervisor itself still never presses input. Tested in `tests/test_cinematic_handling.py` (rising-edge reset, no reset mid-cinematic, disabled-by-default). |
-| V4-068 | PLAYER DEATH / RECOVERY (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2487) | IMPLEMENTED_TESTED — `runtime/supervisor.py::Supervisor.evaluate` (lines 185-188) blocks on is_dead/is_ghost, enters DEATH_RECOVERY state at highest priority; tested in `tests/test_supervisor.py`. |
+| V4-068 | PLAYER DEATH / RECOVERY (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2487) | PARTIAL / OFFLINE_TESTED — shared Supervisor blocks ordinary work on death; DeathRecoveryPolicy owns exported release/reclaim buttons and common corpse navigation. The 2026-10-28 mounted-ghost MMAP handoff, bounded descent and ghost-state cancellation fixes have regression and retained-state replay evidence; user-run corpse travel/resurrection are pending. See the dated ledger note and LIVE_VALIDATION.md. |
 | V4-069 | COMBAT INTERRUPTS QUEST INTERACTION (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2511) | IMPLEMENTED_TESTED — `runtime/supervisor.py:208-211` issues REPLAN/suspend_active with COMBAT_STARTED reason when unexpected combat begins during a non-combat active skill; tested in `tests/test_supervisor.py`. |
 | V4-070 | OBJECTIVE CREDIT FAILURE STRATEGY (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2535) | IMPLEMENTED_TESTED — `agent/credit_failure_escalation.py::CreditFailureEscalation` adds the tiered 1st (RECHECK) / 2nd (REDUCE_CONFIDENCE_CHANGE_CANDIDATE) / repeated (ESCALATE_TO_CLASSIFIER_OR_LOCATOR) / bounded (BLOCKED_UNSUPPORTED) ladder, maintaining the spec's named `failed_credit_candidates[]`/`failed_strategy_attempts[]` lists per (quest_id, objective_id); complements the existing single-target suppression in `agent/quest_planning.py::record_uncredited_target/credit_gate` and `agent/quest_failure_memory.py::QuestFailureMemory`; tested in `tests/test_credit_failure_escalation.py`. Not yet wired into `QuestDomain.propose()`. |
 | V4-071 | PLANNER ANTI-LOOP RULE (wow_agent_FINAL_M0_M1_master_prompt_v4.txt:2561) | IMPLEMENTED_TESTED — `runtime/loop_guard.py` (`LoopGuard`, signature-based repeat-failure detection) wired via self.loop_guard/last_plan_signature in `agent/engine.py:126,134,729-856`; covered by `tests/test_loop_guard.py`. |
@@ -173,7 +1435,7 @@ This ledger tracks all three current user-supplied sources. Tracking is not impl
 | DESIGN-066 | MULTI-STAGE OBJECTIVE (wow_agent_complete_functional_design_spec.txt:2246) | `OFFLINE_VERIFIED` — `src/wowbot/agent/quest_runtime.py` `_observe_stage()` computes a (state, objectives-signature) tuple per record; on change it increments `stage_revision`, records `last_stage_transition`, clears the selected objective_id/type/location_status (invalidating the old locator selection) and clears failure memory, forcing the next observe() to reclassify -- matches handle_stage_transition(old,new). Test: `tests/test_m1_primary_quest_runtime.py` asserts `stage_revision == 1` -- pass. |
 | DESIGN-067 | LOADING / PHASING / TELEPORT (wow_agent_complete_functional_design_spec.txt:2259) | `OFFLINE_VERIFIED` — reuses the same canonical `src/wowbot/runtime/state_invalidation.py` StateInvalidationPolicy verified under DESIGN-077: LOADING/TELEPORT/PHASE/FLOOR/MAP_CONTEXT all map to the shared context reset (clears visual tracks/navigation/camera/commitment/map-search) while leaving `invalidate_objective=False`, preserving quest goal/state exactly per "Megoriz: quest goal, quest state." Teleport is detected via a >=50-unit position jump (`_teleported()`). Test: `tests/test_state_invalidation.py` -- pass (same evidence base as the DESIGN-077 exemplar). |
 | DESIGN-068 | CINEMATIC (wow_agent_complete_functional_design_spec.txt:2278) | `OFFLINE_VERIFIED` — `src/wowbot/runtime/supervisor.py` enters CRITICAL_RECOVERY on `cinematic_playing` (blocking gameplay dispatch = suspend_gameplay_input), `src/wowbot/runtime/cinematic_policy.py` CinematicSkipPolicy is an explicitly opt-in, rate-limited skip gate (disabled by default = spec's default "wait," matching "Skip csak policy szerint"), and `state_invalidation.py`'s CINEMATIC event fires on the falling edge (wait_end) forcing a full context+objective refresh (refresh_context). Test: `tests/test_cinematic_handling.py` (15 tests) -- pass. |
-| DESIGN-069 | PLAYER DEATH (wow_agent_complete_functional_design_spec.txt:2294) | `OFFLINE_VERIFIED` — `SupervisorState.DEATH_RECOVERY` gated by `is_dead`/`is_ghost` in `src/wowbot/runtime/supervisor.py:36,67-89,195` (BLOCK directive, `FailureReason.PLAYER_DEAD`); `failures.py:81` maps PLAYER_DEAD->"DEATH_RECOVERY"; on death the engine cancels the active attempt, calls safe stop, drops to MANUAL and preserves the goal for later replan (no blind auto-revive, matching the spec's "no recovery -> BLOCKED"), per `tests/test_m0_interrupt_resume.py::test_death_safely_pauses_without_erasing_the_high_level_goal` and `tests/test_supervisor.py::test_supervisor_death_and_loading_are_blocking_before_planning`. Live corpse-run/release-spirit behavior itself remains unexercised outside this offline replay. |
+| DESIGN-069 | PLAYER DEATH (wow_agent_complete_functional_design_spec.txt:2294) | PARTIAL / OFFLINE_TESTED — Supervisor retains death priority and goal preservation; the existing shared death policy can use exported release/reclaim buttons and NavigationService for corpse recovery. The 2026-10-28 live failure established successful spirit release followed by blocked corpse travel; narrow ghost-only fallback/descent/cancellation fixes passed offline regression and retained-state replay. Real travel and resurrection with this fix remain unvalidated; see LIVE_VALIDATION.md. |
 | DESIGN-070 | ACTION TARGETING / SOFT TARGETING INTEGRÁCIÓ (wow_agent_complete_functional_design_spec.txt:2313) | `OFFLINE_VERIFIED` — both Retail addon packages read the bounded `softenemy`/`softfriend`/`softinteract` unit-token set into FULL and compact FAST telemetry. `agent/soft_targeting.py::observe_soft_targets()` normalizes those rows as transient `CANDIDATE_HINT` evidence and `use_as_candidate_hint()` can only score an already-existing candidate (GUID > NPC id > normalized name); all results remain `confirmed=False`, `semantic_type=UNKNOWN`. `WorldAddonReducer` preserves/evidences the field on both lanes and `WorldQuery.soft_target_hints()`/`soft_target_match()` expose it read-only. The helper imports no Proposal or input authority. Tests: `tests/test_soft_targeting.py` plus addon/transport regressions -- pass. Selected-PID availability of Retail soft-unit tokens remains live-open. |
 | DESIGN-071 | BINDING INVENTORY (wow_agent_complete_functional_design_spec.txt:2330) | `OFFLINE_VERIFIED` — `BindingInventory` (`src/wowbot/agent/binding_inventory.py:6-109`, `validate_actions`/`ingest`) plus `BindingsCache` (`src/wowbot/agent/bindings.py`: `reload()` L21, `resolve()` L37, `preflight()` L64, `required_actions()` L52) together cover the spec's function set; canonical actions never store raw keys (resolved through `.resolve(action)`). Tested in `tests/test_binding_inventory.py`, `tests/test_binding_completion.py`, `tests/test_agent_core.py` (`resolve`, `preflight`). Live client-binding export/PID correlation remains live-open. |
 | DESIGN-072 | EXECUTOR (wow_agent_complete_functional_design_spec.txt:2350) | `OFFLINE_VERIFIED` — `RecordingExecutor`/`InputExecutor` in `src/wowbot/agent/executor.py` implement execute/execute_movement/stop/stop_movement/diagnostics with an F12 emergency check (`_check`, L112-114) and full key release on any exit path (`_release`); no quest-aware logic present, matching "Nem quest-aware." Command taxonomy differs from the spec's PRESS/HOLD/CLICK/WHEEL/enqueue-dispatch naming (actual kinds are BIND/CLICK/HOVER/MAP_ZOOM_IN/CAMERA_PAN with synchronous execute rather than a queue), so it is a real but differently-shaped design. Tested across `tests/test_m0_safe_stop.py`, `tests/test_input_scheduler.py`, `tests/test_agent_core.py`. |
@@ -376,6 +1638,54 @@ This ledger tracks all three current user-supplied sources. Tracking is not impl
 | V5-166 | M6.18 DUPLICATION AUDIT (wow_v4_to_v5_m1_m6_implementation_spec_v3_10of10_obstacle_upgrade.txt:4048) | `OFFLINE_VERIFIED` — one NavigationService, ActiveSkillRuntime, WorldModel and interaction/combat domain authority are enforced by architecture-boundary tests; adapters do not own control. |
 | V5-167 | M6.19 TEST REPORT MATRIX (wow_v4_to_v5_m1_m6_implementation_spec_v3_10of10_obstacle_upgrade.txt:4066) | `OFFLINE_VERIFIED` — `docs/OFFLINE_ACCEPTANCE_MATRIX.md` and `docs/M6_INDUCED_FAILURE_MATRIX.md` list scenario/status/evidence/recovery/remaining live proof; `LIVE_VALIDATION.md` remains separate. |
 | V5-168 | M6.20 RELEASE GATE (wow_v4_to_v5_m1_m6_implementation_spec_v3_10of10_obstacle_upgrade.txt:4081) | `OFFLINE_PARTIAL` — offline architecture, bounded recovery and adaptive questline gates are green. Release remains explicitly blocked on selected-PID autonomous questline, live F01–F15 and long-run performance evidence. |
+
+2026-10-15 DESIGN-007 tracker note: the detector-rate WorldCandidateTracker
+bridge now carries tentative fallback detections into the same public ID used
+after native confirmation, and has a bounded, conservative appearance ReID
+gallery. Focused tests are offline evidence only; camera-turn ID continuity
+and false-merge rate remain **live-open**, not live-validated. No semantic
+NPC/GUID identity authority was added to the visual tracker. The context key
+now ignores subpixel minimap measurement noise but retains true scene/frame
+size invalidations. The 2026-10-15 user run showed long-turn continuity still
+fails; Live Vision now exposes both presentation and V3 IDs plus bounded
+transition diagnostics (`OFFLINE_VERIFIED` for observability only). Long-gap
+ReID remains `PARTIAL`/live-open, not completed by this instrumentation.
+The subsequent PID 10668 user run revealed a separate 35–70 ms `V3:437`/`V3:445`
+same-box alternation, rather than a mid-run reset. Immediate-frame alias
+reconciliation is `OFFLINE_VERIFIED` (87 related tests) and live-open; it does
+not resolve the long-gap ReID requirement or establish semantic NPC identity.
+The next PID 16548 run did not exercise that bridge (`exact_box_rebindings=0`):
+three subject boxes passed the positional own-avatar anchor gate and four rapid
+side-NPC ID switches occurred outside native BoT-SORT. A one-anchor-only
+selection is now `OFFLINE_VERIFIED` (88 related tests), but still live-open.
+The longer PID 10348 run showed this cardinality fix alone was insufficient:
+249 of 254 rapid same-box subject ID switches involved anchor selection. A
+lower-box/temporal-continuity anchor refinement is `OFFLINE_VERIFIED` (89
+related tests; geometric replay 369→30 large anchor jumps) and remains
+live-open. Downstream object rebinds and long-gap ReID are still `PARTIAL`.
+The following PID 1296 pre-boar user run showed ~27.3 feed FPS and only two
+rapid same-box feed-ID switches, both from the own-avatar anchor crossing a
+one-pixel bottom gate. A narrow continuation gate is `OFFLINE_VERIFIED` by a
+geometry replay and related tests, not live-validated. The same upstream V3
+ID still acquired multiple displayed WORLD3D IDs; a canonical detector-kind
+flip between obstacle and semantic subject caused at least part of the stable
+layer split. V3-backed semantic-subject family normalization is
+`OFFLINE_VERIFIED` by regression, while concurrent duplicates and long-gap
+named-NPC ReID remain `PARTIAL` / live-open.
+The following long PID 20864 run provided 34,576 feed frames at ~27.8 Hz and
+stable V3 IDs for several minutes, but final diagnostics still showed 908 raw
+upstream rebindings. A V3-backed semantic subject's obstacle/subject detector
+label flip split source-local tracks despite stable upstream identity. Narrow
+raw-family normalization is `OFFLINE_VERIFIED` (137 related tests passed, one
+skipped); its effect on the live rebind count and long-offscreen ReID remain
+`PARTIAL` / live-open pending a restarted user-run GUI.
+The 14:21 PID 20864 run reduced raw rebindings from 26.26 to 1.48 per 1,000
+detector frames (~94% lower across different user scenes), supporting the
+family-continuity correction. A simultaneous V3:830/V3:923 alias conflict still
+transferred a displayed ID. Earliest remembered visible upstream reservation
+and existing-live-raw-owner priority are `OFFLINE_VERIFIED` (138 tests passed,
+one skipped), with new live validation pending. Own-avatar feed handoffs and
+long-offscreen semantic NPC continuity remain `PARTIAL` / live-open.
 
 ## Source hashes
 

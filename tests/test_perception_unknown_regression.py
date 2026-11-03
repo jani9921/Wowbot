@@ -159,6 +159,24 @@ def test_npc_dialog_does_not_reset_perception_context_but_world_map_does():
         worker.close()
 
 
+def test_subpixel_minimap_geometry_noise_does_not_reset_visual_track_ids():
+    worker = PerceptionWorker()
+    try:
+        context = ("session", "character", 1409, 0)
+        dimensions = (1177, 662)
+        base = {"visible": True, "center_x": .93958096720578,
+                "center_y": .13964837789536, "radius_fraction": .096679627895355}
+        noisy = {**base, "center_x": .93953151012122,
+                 "center_y": .13964854006189, "radius_fraction": .096679713227783}
+        key = worker._stable_context_key(context, dimensions, True, base)
+        assert key == worker._stable_context_key(context, dimensions, True, noisy)
+        assert key != worker._stable_context_key(context, dimensions, True,
+                                                  {**base, "center_x": .93})
+        assert key != worker._stable_context_key(context, (922, 519), True, base)
+    finally:
+        worker.close()
+
+
 def test_stable_isolated_symbol_creates_subject_probe_not_symbol_hover():
     tracks = VisualTrackManager()
     symbol = {"kind": "unknown_symbol_candidate", "x": .5, "y": .8, "confidence": .8,

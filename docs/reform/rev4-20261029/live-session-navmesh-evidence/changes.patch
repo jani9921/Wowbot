@@ -1,0 +1,2126 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,22 @@
+ # Current-source coverage ledger
+
++
+
++2026-10-30 REV4 live-log regression fixes — **OFFLINE_TESTED / full migration
+
++PARTIAL**. User-operated morning/afternoon runs exposed a valid signed Trinity
+
++maxPolys capacity rejected by the new format gate and realm/instance login
+
++connections split across indices. The exact reviewed capacity is accepted
+
++without relaxing other format checks. Different-connection session binding
+
++requires exact pending login GUID, world/map/order and public ThisIsYou
+
++ActivePlayer CREATE; no guessed connection or private-player probe. Relogin
+
++rotates epoch and drops replay/ownership/progress caches even within one file.
+
++Recorded user capture replay reaches READY and reviewed own fields. Actual
+
++saved-pose native routing on map 0 is READY; the map 2444 start remains outside
+
++the ground mesh with unknown Z. Neither is a completed live quest. Selected
+
++regression: **3984 passed, 2 skipped, 10 unchanged deselections, 322 modules,
+
++exit 0**, 296.70 s pytest; 552 source + 631 test Python files parse, 203 numbered
+
++rows unchanged. No assistant client/capture/FULL_AI/input/live DB actions;
+
++addon/Ymir unchanged. Retained state, full provider parity, large Combat/Travel/
+
++Quest ownership migration and new live acceptance remain open.
+
++See [log fixes and checkpoint](reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md).
+
+ 
+
+ 2026-10-30 REV4 P2/P3 applied decoder progress — **OFFLINE_TESTED / retained
+
+ state parity PARTIAL**. A strict authenticated local control message reports
+
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,29 @@
+ # Live validation evidence and unresolved issues
+
++
+
++## 2026-10-30 — user-run logs inspected; navmesh/session fixes offline-tested
+
++
+
++Morning statuses showed working map 0 Detour routing; afternoon statuses
+
++showed map_parameters_invalid after the new map header validation. The exact
+
++reviewed Trinity signed capacity was incorrectly rejected; corrected with
+
++all other format checks retained. A saved-pose real ZIP/native DLL query now
+
++returns READY for the corpse approach. Map 2444 loads but its unknown-Z start
+
++is not on the ground mesh; that travel case is not declared solved.
+
++
+
++The captured realm login and instance-world verification use different
+
++connections. Correlation now also requires the exact login GUID's public
+
++ThisIsYou ActivePlayer create on the verified world connection/map, with
+
++bounded time/order and no private-player probing. Same-file relogin rotates
+
++epoch and clears ownership/fragments/replay/progress. A user capture decoded
+
++offline reaches provider READY with own questlog/inventory/profile/health;
+
++it is not a post-fix live FULL_AI acceptance. Session recovery does not revive
+
++old collection fields or grant input/UI freshness.
+
++
+
++Selected regression: **3984 passed, 2 skipped, 10 unchanged deselections**,
+
++322 modules, 296.70 s pytest / 301.02 s runner, exit 0; 552 source + 631 test
+
++Python files parse, all 203 numbered rows persist. No assistant game/capture/
+
++FULL_AI/input/live memory DB changes. User owns live tests; older running
+
++GUI/bridge processes may still contain pre-fix code. Addon/Ymir unchanged.
+
++[Details and bounded evidence](reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md).
+
+ 
+
+ ## 2026-10-30 — applied decoder-progress control (offline only)
+
+ 
+
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -1,194 +1,194 @@
+-# REV4 átvétel és végrehajtható átállási terv
+-
+-Dátum: 2026-10-29, Europe/Budapest.
+-Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+-Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+-
+-Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3956 passed, 2 skipped, 10 változatlan deselection, 321 modul, exit 0.
+-Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+-cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+-teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+-a javított 0.9.80 telepítve, user-reload és sikeres betöltés visszaigazolása még nyitott.
+-Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
+-A korábban hiányzó `SRC_MIGRACIOS_TERV_20261029_HU.md` most megérkezett;
+-[byte-pontos átvétel és a fázisok összevetése](MIGRATION_SUPPLEMENT_REVIEW.md).
+-Az eredeti ZIP hiánylistája az akkori állapotot őrzi. A közös szerződések
+-bekötése nem a teljes felelősségbontás készsége; az első canonical
+-[combat Target/Ability/Facing extraction](P7_COMBAT_EXTRACTION.md) elkészült.
+-Saját CREATE kezdeti questslotok [bekötve](P3_OWN_CREATE_QUESTLOG.md); inventory,
+-tartós natív állapot és teljes objective-progress továbbra is külön nyitott kapu.
+-Inventory CREATE saját item/count/container/root adatút és read-only fogyasztó
+-[elkészült](P3_NATIVE_INVENTORY.md); a teljes inventory VALUES-/UI-slot-paritás még nem.
+-A [gyakori item-/container-delták](P3_NATIVE_INVENTORY_DELTAS.md) elkészültek;
+-friss darabszám, durability és táskaslot külön órával, ismeretlen maszkra érvénytelenítés.
+-A [saját Active root-slot delták](P3_NATIVE_INVENTORY_ROOTS.md) is elkészültek;
+-a vegyes prefixek, retained collections és teljes carried/UI-slot paritás még nem.
+-A [P9 epizód-proof kapu](P9_PERSISTED_EPISODE_PROOFS.md) tényleges tartós
+-bizonyítékot és eredeti forrásgyökeret követel meg; a teljes történeti lineage
+-migráció ettől még nyitott.
+-A [helyi IPC-kézbesítés folytonossága](P2_PACKET_DELIVERY.md) is ellenőrzött:
+-sorszámrés és valódi mailbox-kiesés natív field-invalidálást/rebaseline-t okoz;
+-retained-state életjel és teljes parity még nem készült el.
+-A [questlog- és root-collection invalidálása](P3_QUEST_LOG_INVALIDATION.md)
+-mezőnként megőrzi az újabb bizonyítékot, az ismeretlenné vált régi tagokat
+-eldobja. A teljes progress/retained-state/consumer paritás még nem kész.
+-A [valódi decoder-progress alkalmazási kapuja](P2_APPLIED_PACKET_PROGRESS.md)
+-is bekötött; megérkezett kontroll nem jelent feldolgozott collection-deltát,
+-nem hosszabbít sample-TTL-t. A retained lifecycle és warm-baseline még nyitott.
+-Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+-[P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+-A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+-SERVER pixeltransport-próba elkészült: [P3/P4 provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
+-Saját questlog slotok és a reprodukált folytonossági cache-hiba javítása:
+-[P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A teljes questdefiníció-/objective-
+-és inventory-paritás továbbra sem teljes.
+-Natív questdefiníció, exact objective–POI kötés és a gyors/közepes packet-lane
+-korszakvédelme: [P3 server quest definitions](P3_SERVER_QUEST_DEFINITIONS.md).
+-Rejtett UI-soroknál nincs ordinalból kitalált storage-/POI-kapcsolat; a
+-technikai credit ID nem válik fizikai célazonossággá. Az addon még nem karcsúsítható
+-teljesen, a saját CREATE-chain/progress/inventory paritás nyitott.
+-Új P7 packet-cast adatút és részletes határai:
+-[P7 casts / addon fix](P7_PACKET_CASTS.md).
+-P3 kiegészítésként a [saját HP-delta és field sample-time](P3_OWN_HEALTH.md) is bekötve;
+-a teljes own-player/questlog/inventory baseline nincs teljesnek jelölve.
+-
+-Történeti utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
+-Elkészült a közös session/world értékszerződés és a packet-hatókörök javítása is: [P1-B eredmény és még hiányzó session-provider](P1B_SESSION_CONTEXT.md). Az addonfüggetlen bootstrap ettől még nem készült el.
+-Az explicit navigációs query-portok is be vannak kötve; a korábban nyitott quest-drop referenciahiba offline javítva: [P1-C eredmény és hátralévő Evidence/geometry kapuk](P1C_NAVIGATION_QUERIES.md).
+-A közös in-memory evidence/idő/forráslánc szerződés is be van kötve: [P1-D eredmény, mért költség és nyitott lineage/authority kapuk](P1D_EVIDENCE_LINEAGE.md). A teljes SQLite/import eredetlánc és a typed geometry-válaszok továbbra is hátravannak.
+-Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+-
+-## 1. Az átvétel eredménye
+-
+-A REV4 alkalmas irány a meglévő agent fokozatos rendezéséhez. A közös világállapot, tervezés, végrehajtás és visszaellenőrzés megmarad; a Travel, Combat és questmechanikák felelőssége szétválik. A meglévő MMAP/Detour, repülésvezérlők, DB2-katalógus, questgráf és ability evaluator felhasználható.
+-
+-A mostani körben a dokumentumokat vizsgáltam, az agent Python/Lua kódját és konfigurációját nem alakítottam át. A csomagban idézett korábbi felhasználói döntéseket és felszólításokat a dokumentum történeti tartalmaként kezeltem; ezekből nem indítottam automatikusan új agentet, addontelepítést vagy funkciótörlést. A közvetlen kérés most az átvétel és a jelenlegi kóddal való összevetés volt.
+-
+-A no-vision cél és a TDB opcionális háttértudásként kezelése a REV4 javasolt célállapota. Ez eltér a munkamappa és a projekt jelenlegi, régebbi specifikációkra hivatkozó AGENTS.md-jétől. Megvalósítás előtt egy rövid, egységes működési specifikációban kell rögzíteni az új termékcélt és a megtartott invariánsokat. A történeti coverage-sorok ettől nem válnak teljesítetté, és a capture/input jogosultságok nem bővülnek.
+-
+-## 2. Függetlenül ellenőrzött alapállapot
+-
+-| Ellenőrzés | Most kapott eredmény | Mit igazol? |
+-|---|---|---|
+-| Átadott ZIP | 4 Markdown + 1 CSV; SHA-256 az input-manifest.json-ban | A vizsgált dokumentumcsomag azonosítható |
+-| Jelenlegi src | 498 Python-fájl, 104 128 sor | Egyezik a leltár darabszámával és sorszámaival |
+-| AST-parse | 498/498, 0 szintaktikai hiba | Szintaxis; nem minden függvény helyessége |
+-| Helyi src (2).zip | SHA-256: a224a6d781fb5529bd5c62785cb3233a0ab29725488b59f5b54eda2c1d33f9af | Egyezik az audit által megnevezett forrásarchívummal |
+-| Aktuális src vs. forrásarchívum | 498/498 byte-ra egyezik; 0 új/hiányzó/eltérő modul | A csomag konkrét forráshivatkozásai ugyanarra a verzióra vonatkoznak |
+-| Addon snapshotmezők | 84; név szerint 0 eltérés a melléklethez képest | A vizsgált snapshot-konstruktor leltára helyes |
+-| FAST producermezők | 42; név szerint 0 eltérés | A readFastState producer leltára helyes; a transport teljességét nem bizonyítja |
+-| Packet allowlist | 22 eseménytípus | A normalizált felület mérete; nem 22 teljesen kész képesség |
+-| Elérhető tesztmodulok | 591 test_*.py a tests gyökerében | A helyi projektben rendelkezésre állnak a ZIP-auditból hiányzó tesztek |
+-| Most futtatott célzott kör | **138 passed, 10.84 s, exit 0**, 10 modul | A felsorolt meglévő offline szerződések jelenlegi alapállapota |
+-| Kliensinput | 0 parancscsoport a külön határpróbákban | A próbák nem vezérelték a WoW-ot |
+-
+-A pytest után a helyi pyreadline3 lezárója Windows handle-hibát írt ki; a pytest eredménye 138 passed, a folyamat exit-kódja 0 volt. A teljes kimenetrészlet a targeted-tests.json-ban megmaradt.
+-
+-A korábbi 2908 passed / 1 skipped / 10 baseline-kizárás eredmény a projekt ledgerében korábbi munkaként szerepel. Ezt ebben a körben nem futtattam újra, és nem adom hozzá a 138-hoz. Most nem történt új élő quest-, repülés-, harc- vagy talentvalidáció.
+-
+-Az importgráf 196 bejövő agent.models-hivatkozásáról és a 32 modulos SCC-ről szóló számok az átadott audit állításai; ezeket külön importgráf-algoritmussal most nem számoltam újra. A teljes forrásazonosságot viszont ellenőriztem. Nem történt a 498 modul minden függvényének kézi soronkénti auditja.
+-
+-## 3. A fő állítások összevetése a kóddal
+-
+-| Megállapítás | Kód és ellenőrzés | Következmény |
+-|---|---|---|
+-| A navigációs költség-oracle globális | agent/engine.py:84 állítja a tdb_locations.route_cost_oracle változót; tdb_locations.py:207 ezt olvassa. Két valódi AutonomousAgent-konstruktorral, input nélküli végrehajtóval reprodukálva: a második példány felülírja az első kötését. | P1: explicit példányhoz kötött TravelCostPort. A bizonyított hatókör egy Python-folyamat két példánya; ez nem bizonyít külön OS-folyamatok közötti globális szivárgást. |
+-| A packet bootstrap addonfüggő | packetio/context.py:16–38; runtime_packet_source.py:70–78; world.py:360–428. Hiányzó kontextusra a tiszta függvény waiting_for_addon_context eredményt ad. | A bootstrapmezők törlése előtt független session- és world-kontextus kell. |
+-| A statikus objective-régió előre kerülhet | objective_locator.py:29–40: objective_region a target_location előtt. Két rendelkezésre álló jelölt mellett offline próbában TDB_SPAWN lett az eredmény. | A mezőnkénti forrásfeloldás valós viselkedést változtat; nem puszta átnevezés. Ez nem önmagában egy adott élő félrenavigálás bizonyítása. |
+-| Az objective-POI teljesebb a belső tárolóban, mint a publikált nézet | world_packet_reducer.py:705–713 csak objective_index=-1 / objective_id=0 blobokat vetít ki. | Objective-szintű query API kell; nem szükséges minden poligont minden tickben a statusba másolni. |
+-| A danger provenance elveszhet | danger.py:50–65 fix ADDON_TELEMETRY címkét ír. A PACKET_ENTITY eredettel beadott szintetikus hostile-ból is ez lett. | Forráslánc megőrzése a riskmodell előtt. A jelenlegi DangerMap tovább használható. |
+-| A repülési integráció már létezik | global_planner.py → flight_travel.py → flight_trip.py; 18 meglévő integrációs teszteset a mostani zöld körben. | Ezt kell általános leg-életciklus köré rendezni; nem újra bekötni. A zöld offline teszt nem teljes élő utazás. |
+-| A no-vision végállapot még nem szerkezeti tulajdonság | runtime.py:362 hívja a perception phase-t; engine.py vizuális végrehajtókat konstruál; target_manager.py és skills/combat.py vizuális fogyasztókat tartalmaz. | A server-mode inputszűrés és a teljes runtime-függetlenség külön feladat. A phase üresen visszatérhet, ha nincs perception/frame; a hívás léte nem bizonyít minden live futásban aktív YOLO-terhelést. |
+-| Questgráf és mechanikaosztályozó már van | quest_graph.py objective/quest függőségeket és readiness-t számol; quests/objective_mechanics.py már TDB/DB2-osztályozó, amelyet a tdb_knowledge fogyaszt. | A belső mechanikalépések gráfjával kell kiegészíteni, a questláncot megőrizve. |
+-| A harci magok részben készen vannak | TargetManager, AbilityRuleEngine, CombatSkill és CombatVerifier létezik; a kis combat_ability_catalog három Warrior-defaultot tartalmaz. | Ebből nem következik teljes class/spec-, interrupt-, tank-, healer- vagy PvP-támogatás. |
+-| Már létezik input-dispatcher és erőforrásbérlet | execution/command_dispatch.py, resource_arbiter.py, agent/parallel_control.py. A dispatcher LOCAL_ACK eredménye kifejezetten nem világállapot-siker. | Az új modulok ezt az útvonalat használják; ne keletkezzen párhuzamos input authority. |
+-
+-A boundary-probe-results.json és a baseline_probes.py megőrzi a négy szűk határpróba eredményét és reprodukcióját. A próba azt ellenőrzi, hogy a felsorolt jelenlegi viselkedések reprodukálhatók; nem azt, hogy a hibák már javítva vannak.
+-
+-## 4. A REV4 pontosítandó részei
+-
+-1. **Hiányzó mellékletek.** Az architektúraterv utolsó sora a SRC_MIGRACIOS_TERV_20261029_HU.md fájlra hivatkozik, de az nincs a ZIP-ben. A mezőmellékletben említett plan-evidence.json sincs a csomagban. A mély audit migrációs táblája és a tényleges forrás alapján a kezdő munkacsomag ettől még meghatározható.
+-2. **Egyetlen ütemezés.** A dokumentumok T0–T8, packet P0–P6, combat C0–C6 és későbbi migrációs P0–P9 jelöléseket is használnak. Az alábbi tervben kizárólag a mély audit P0–P9 migrációs sorát használjuk.
+-3. **Állapottulajdon, nem általános forrásranglista.** A PACKET=world truth rövidítés mellett kötelező megőrizni a CMSG/SMSG irányt és a szerverkorrekciót. A megfigyelt kliensmozgás nem automatikus szerver-ACK; a GOSSIP_SELECTED nem quest-credit; a QUEST_COMPLETED nem bizonyított leadás.
+-4. **Session és térképkontextus.** A kiválasztott folyamat/karakter/capture-korszak identitását és a változó map/instance/phase kontextust külön kell modellezni. Ismeretlen phase nem helyettesíthető kitalált alapértékkel.
+-5. **Párhuzamosság.** Egy aktív feladat-/skill-owner mellett kompatibilis mozgási és akciócsatornák átfedhetnek. A REV4 CombatArbitrator ne vezessen új inputvégrehajtót a meglévő dispatcher mellé. A preemption, bérlet-visszavonás és folytatás legyen tesztelhető.
+-6. **Költségek mértékegysége.** A DangerMap geometria+veszély pontja nem másodperc. ETA, várható harcidő, átmenet és bizonytalansági büntetés csak deklarált átváltással legyen összehasonlítható. Az első súlyok heurisztikák, nem mérések.
+-7. **WAIT és retry külön fogalom.** A hibás próbák ideiglenes kizárása legfeljebb 20 s. Igazolt cooldown, hosszabb valódi esemény vagy tartós forráshiány más szemantika. Ismeretlen input/célazonosságot egy lejáró timer nem javít meg. Minden várakozáshoz kell ok, várt bizonyíték és újraértékelési feltétel.
+-8. **Fokozatos combat-lefedettség.** Első körben a ténylegesen használt karakterprofil és solo questharc legyen teljesebb. A tank/healer/dungeon/raid/arena/BG felelősségek külön képességkapuk; nem érdemes minden tervezett osztályt üres vázként előre létrehozni.
+-9. **A migráció visszaállíthatósága.** A jelenlegi projekt gyökerében nincs .git bejegyzés. A meglévő src (2).zip csak a Python-forrást védi, nem teljes addon/config/native/binding állapotot. A kódmódosítás előtt teljes szükséges alapállapot-manifest és visszaállítható patch/snapshot kell; az export repositoryt és a munka-projektet nem lehet automatikusan azonosnak tekinteni.
+-
+-## 5. Egységes végrehajtási sorrend
+-
+-| Fázis | Konkrét kimenet és tulajdonos | Következő kapu | Mostani állapot |
+-|---|---|---|---|
+-| **P0 – baseline** | Composition root, aktuális forrás/config/provider-képességek, teszt- és trace-jegyzék | Reprodukálható állapot, védett források, ismert hibák elkülönítve | **RÉSZBEN**: forrásazonosság, mezőleltár, 138 célzott teszt és határpróbák megvannak; teljes konfigurációs/élő trace-kapu nincs meg |
+-| **P1 – szerződések és függőségek** | Közös session/evidence/geometry/cost típusok; példányhoz kötött query portok | Két agent nem oszt meg mutable oracle-t; régi API-k kompatibilisek | TERV |
+-| **P2 – session/bootstrap** | Egy SessionContextProvider, packet és addon közös ellenőrzött kontextusfogyasztással | Meleg/hideg indulás, reconnect, rossz PID/build/map, streamrés; hiányból nem lesz authority | TERV |
+-| **P3 – mezőnkénti forrásfeloldás** | Evidence/query réteg és kategóriánkénti teljesség; átmeneti kettős forrás ellenőrzése | Live/reference ellentmondások, FAST/STATE elkülönítés, minden consumer áttér, csak utána addonmező-törlés | TERV |
+-| **P4 – vizuális runtime-függések kivezetése** | Composition root és GUID-alapú cél-/recovery-fogyasztók; tiszta közös koordinátatípusok | Detektor/tracker/VLM nélkül indul és tesztelhető a teljes támogatott lánc; pixeltransport külön protokolldekóderként működik | TERV |
+-| **P5 – egységes Travel** | Meglévő navigáció fölött cél- és arrival-szerződés, leg-alapú TripPlan, TransitionSystem | Ground/ride/steady/skyriding/mixed út; ugyanaz az eredeti request; végső floor és érkezés igazolt | TERV; meglévő részfunkciók megőrzendők |
+-| **P6 – idő és kockázat** | DangerMapre épülő RouteScore és ground/flight/mixed jelölt-összehasonlítás | Verziózott geometria és friss hostile/floor/adatbizalom; költségkomponensek magyarázhatók | TERV |
+-| **P7 – rendezett Combat** | Meglévő ability/target/FSM adapterek; karakterprofil, arbitrator, cast/hazard provider, fokozatos role-lefedettség | Exact target/cast, hatótáv/facing/bar/binding, megfelelő megszakítási eredmény; class/spec szerint külön próba | TERV |
+-| **P8 – questmechanikák** | Meglévő classifier + QuestGraph mellé MechanicContract, QuestTargetContext, belső execution graph | Talk→duel, item→hatás→credit, vehicle, escort, scene és több objective saját bizonyítékkal | TERV |
+-| **P9 – tanulás, LLM, takarítás** | Feltételesen újrafelhasználható epizódok, olvasó eszközök, sémás LLM-terv, maradó legacy kivezetése | Hibás/lejárt LLM-terv nem fut; ismert mechanika LLM nélkül is működik; hosszú user-live összehasonlítás | TERV |
+-
+-A fázisok részfeladatai előkészíthetők, de a forráskiváltás és a végrehajtás csak a saját kapujuk után kapcsolható át. A P7 nem minden class, szerep és játékmód egyetlen óriási átírása. A P8 sem függ attól, hogy az összes raid/PvP-role elkészüljön.
+-
+-## 6. Az első kódos munkacsomag: P1-A
+-
+-**Cél:** megszüntetni a példányok közötti globális navigációs költségfüggést, a mai quest- és mozgási viselkedés megőrzésével.
+-
+-- A composition root állítsa össze az egy agenthez tartozó navigációs query-portokat.
+-- A TDB-helyválasztó és a rá épülő fogyasztók explicit, példányhoz kötött cost/query függést kapjanak.
+-- Callable ne kerüljön szerializálható WorldModel-state-be, journalba vagy SQLite-ba.
+-- A már WorldModelhez dinamikusan csatolt oracle-ok átmeneti compatibility facade mögött maradhatnak, később egyenként kiválthatók.
+-- A meglévő legközelebbi/járható spawnválasztás, TDB nélküli UNKNOWN és MMAP nélküli viselkedés ne változzon meg véletlenül.
+-- A regresszióban két agent eltérő költségfüggvényt és külön kontextust kapjon; a második létrehozása, resetje és bezárása ne módosítsa az első lekérdezését.
+-- Az első patch ne mozgasson át teljes package-eket, ne vezessen be második navigátort és ne kapcsoljon új inpututat.
+-
+-**Érintett jelenlegi határ:** engine.py → tdb_locations.py → objective/spawn/location fogyasztók. A végleges fájllistát a hívók teljes keresése rögzíti a patch előtt.
+-
+-**Elfogadás:** az izolációs regresszió és a meglévő helyválasztó/navigációs/quest-tesztek zöldek; nincs modulglobális példánymetódus; a korábbi trace ugyanazt a támogatott célválasztást adja. P1-A önmagában nem készíti el az addonfüggetlen bootstrappet.
+-
+-## 7. A tizenkét migrációs regressziós kapu
+-
+-| Kapu | Meglévő támpont | További bizonyíték |
+-|---|---|---|
+-| Session/PID/context | test_packet_agent_bridge.py most futtatva | Addon nélküli cold/warm bootstrap és több capture-korszak |
+-| Input/STOP/MANUAL | test_parallel_control.py most futtatva | Az új adapterek és transitionök megszakítása, lease-feloldás |
+-| WorldModel frissesség | test_fast_lane_freshness_20261004.py most futtatva | Teljességi és forrásválasztási új mezőtesztek |
+-| Célazonosság | test_target_manager.py most futtatva | Teljes GUID-alapú életciklus vision nélkül; candidate ≠ selected |
+-| Ground/floor | test_navigation_contracts.py és danger/reachability most futtatva | Barlang/híd/spirál/esés felhasználói trace és live |
+-| Flight | test_flight_travel_integration_20261029.py most futtatva | Teljes user-live takeoff→cruise→landing→interact |
+-| Mixed Trip | Ugyanazon meglévő integrációs modul most futtatva | Általános leg-állapot és preemption/recovery szerződés |
+-| Route risk | test_navigation_danger_reachability.py most futtatva | ETA/combat/transition közös skála, 3D floor és hibás/stale threat |
+-| Combat alap | A projektben több meglévő combat-teszt van | Új class/spec/profile/arbitrator külön köre; ezek ebben a 138-as körben nem teljesen futottak |
+-| Cast/hazard | A mai 22-es allowlistből a teljes új adatút hiányzik | Parser→schema→reducer→consumer→konkrét cast eredmény; ez nem zöld kapu |
+-| Questmechanika | sparring_gossip és quest_transition_hold most futtatva | 20–30 reprezentatív összetett trace; a kézi siker elkülönítése |
+-| Több agent izolációja | Mostani szűk konstruktorpróba reprodukálja a globális felülírást | P1 javítása után ténylegesen izolált query/state/lease regresszió |
+-
+-Az Unwelcome Outsider a questmechanika-baseline egyik ismert nyitott példája: az automatikus „Let's spar.” kattintás és az utána hiányzó visszaigazolás külön eseménysor; a felhasználó későbbi MANUAL próbája nem autonóm siker. A pontos live okot a jelen átvételi kör nem állítja megoldottnak.
+-
+-## 8. Célkontraktusok minimális tartalma
+-
+-- **SessionIdentity / WorldContext:** kiválasztott PID és folyamatpéldány, saját karakter, capture/session-korszak, build/layout; map/instance/phase és revision külön, unknown állapottal.
+-- **Evidence:** alany és mező, forrás/esemény/leszármazási lánc, irány, megfigyelési és beérkezési idő, teljesség, kontextus, validity/invalidation.
+-- **TravelRequest:** célreferencia/régió, koordinátatér, eredeti goal/correlation, engedélyezett képességek és célfüggő arrival.
+-- **TripLeg / Transition:** precondition → action request → expected evidence → verify → timeout/recovery; köztes pont nem végső érkezés.
+-- **CombatCandidate:** pontos GUID/cast/spell/bar-revision, alkalmasság, határidő, ütköző erőforrás, költség, várható visszaigazolás.
+-- **QuestTargetContext:** nav/entity/interaction/spell/credit/search szerepek külön; a fizikai NPC és a technikai credit entry ne mosódjon össze.
+-- **MechanicContract:** előfeltétel, engedélyezett meglévő capability, sikerjel, hibahatókör, korlátos helyreállítás és alternatíva.
+-- **LLMPlan:** csak megadott actor/objective/item/evidence referenciák; ellenőrizhető lépések és függőségek; aszinkron és újraellenőrzött, közvetlen input nélkül.
+-
+-Ezek a szerződések a meglévő képességek közé kerülnek. Késznek az a határ számít, amelynek az éles bekötése és az eredményellenőrzése is igazolt; az osztályváz vagy a sikeres input-ACK nem elég.
+-
+-## 9. A jelen csomag mellékletei
+-
+-- input/: az eredeti öt dokumentum változatlan másolata.
+-- input-manifest.json: eredeti ZIP és dokumentumhashek.
+-- current-source-baseline.json: a teljes 498 modulos aktuális hashleltár és összevetés.
+-- field-and-package-comparison.json: 84/42 mező- és 22 esemény-ellenőrzés, csomaghivatkozások.
+-- targeted-tests.json: a mostani célzott tesztparancs, eredmény és kimenetrészlet.
+-- baseline_probes.py, boundary-probe-results.json: a jelenlegi négy szűk határviselkedés input nélküli reprodukciója.
+-- gate-test-map.json: kiválasztott meglévő regressziós támpontok; a jelenlét nem teljes kapulefedettség.
++# REV4 átvétel és végrehajtható átállási terv
+
++
+
++Dátum: 2026-10-29, Europe/Budapest.
+
++Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+
++Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+
++
+
++Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+
++Végső kijelölt regresszió: 3984 passed, 2 skipped, 10 változatlan deselection, 322 modul, exit 0.
+
++Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+
++cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+
++teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+
++a javított 0.9.80 telepítve, user-reload és sikeres betöltés visszaigazolása még nyitott.
+
++Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
+
++A korábban hiányzó `SRC_MIGRACIOS_TERV_20261029_HU.md` most megérkezett;
+
++[byte-pontos átvétel és a fázisok összevetése](MIGRATION_SUPPLEMENT_REVIEW.md).
+
++Az eredeti ZIP hiánylistája az akkori állapotot őrzi. A közös szerződések
+
++bekötése nem a teljes felelősségbontás készsége; az első canonical
+
++[combat Target/Ability/Facing extraction](P7_COMBAT_EXTRACTION.md) elkészült.
+
++Saját CREATE kezdeti questslotok [bekötve](P3_OWN_CREATE_QUESTLOG.md); inventory,
+
++tartós natív állapot és teljes objective-progress továbbra is külön nyitott kapu.
+
++Inventory CREATE saját item/count/container/root adatút és read-only fogyasztó
+
++[elkészült](P3_NATIVE_INVENTORY.md); a teljes inventory VALUES-/UI-slot-paritás még nem.
+
++A [gyakori item-/container-delták](P3_NATIVE_INVENTORY_DELTAS.md) elkészültek;
+
++friss darabszám, durability és táskaslot külön órával, ismeretlen maszkra érvénytelenítés.
+
++A [saját Active root-slot delták](P3_NATIVE_INVENTORY_ROOTS.md) is elkészültek;
+
++a vegyes prefixek, retained collections és teljes carried/UI-slot paritás még nem.
+
++A [P9 epizód-proof kapu](P9_PERSISTED_EPISODE_PROOFS.md) tényleges tartós
+
++bizonyítékot és eredeti forrásgyökeret követel meg; a teljes történeti lineage
+
++migráció ettől még nyitott.
+
++A [helyi IPC-kézbesítés folytonossága](P2_PACKET_DELIVERY.md) is ellenőrzött:
+
++sorszámrés és valódi mailbox-kiesés natív field-invalidálást/rebaseline-t okoz;
+
++retained-state életjel és teljes parity még nem készült el.
+
++A [questlog- és root-collection invalidálása](P3_QUEST_LOG_INVALIDATION.md)
+
++mezőnként megőrzi az újabb bizonyítékot, az ismeretlenné vált régi tagokat
+
++eldobja. A teljes progress/retained-state/consumer paritás még nem kész.
+
++A [valódi decoder-progress alkalmazási kapuja](P2_APPLIED_PACKET_PROGRESS.md)
+
++is bekötött; megérkezett kontroll nem jelent feldolgozott collection-deltát,
+
++nem hosszabbít sample-TTL-t. A retained lifecycle és warm-baseline még nyitott.
+
++Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+
++[P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+
++A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+
++SERVER pixeltransport-próba elkészült: [P3/P4 provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
+
++Saját questlog slotok és a reprodukált folytonossági cache-hiba javítása:
+
++[P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A teljes questdefiníció-/objective-
+
++és inventory-paritás továbbra sem teljes.
+
++Natív questdefiníció, exact objective–POI kötés és a gyors/közepes packet-lane
+
++korszakvédelme: [P3 server quest definitions](P3_SERVER_QUEST_DEFINITIONS.md).
+
++Rejtett UI-soroknál nincs ordinalból kitalált storage-/POI-kapcsolat; a
+
++technikai credit ID nem válik fizikai célazonossággá. Az addon még nem karcsúsítható
+
++teljesen, a saját CREATE-chain/progress/inventory paritás nyitott.
+
++Új P7 packet-cast adatút és részletes határai:
+
++[P7 casts / addon fix](P7_PACKET_CASTS.md).
+
++P3 kiegészítésként a [saját HP-delta és field sample-time](P3_OWN_HEALTH.md) is bekötve;
+
++a teljes own-player/questlog/inventory baseline nincs teljesnek jelölve.
+
++
+
++Történeti utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
+
++Elkészült a közös session/world értékszerződés és a packet-hatókörök javítása is: [P1-B eredmény és még hiányzó session-provider](P1B_SESSION_CONTEXT.md). Az addonfüggetlen bootstrap ettől még nem készült el.
+
++Az explicit navigációs query-portok is be vannak kötve; a korábban nyitott quest-drop referenciahiba offline javítva: [P1-C eredmény és hátralévő Evidence/geometry kapuk](P1C_NAVIGATION_QUERIES.md).
+
++A közös in-memory evidence/idő/forráslánc szerződés is be van kötve: [P1-D eredmény, mért költség és nyitott lineage/authority kapuk](P1D_EVIDENCE_LINEAGE.md). A teljes SQLite/import eredetlánc és a typed geometry-válaszok továbbra is hátravannak.
+
++Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+
++
+
++## 1. Az átvétel eredménye
+
++
+
++A REV4 alkalmas irány a meglévő agent fokozatos rendezéséhez. A közös világállapot, tervezés, végrehajtás és visszaellenőrzés megmarad; a Travel, Combat és questmechanikák felelőssége szétválik. A meglévő MMAP/Detour, repülésvezérlők, DB2-katalógus, questgráf és ability evaluator felhasználható.
+
++
+
++A mostani körben a dokumentumokat vizsgáltam, az agent Python/Lua kódját és konfigurációját nem alakítottam át. A csomagban idézett korábbi felhasználói döntéseket és felszólításokat a dokumentum történeti tartalmaként kezeltem; ezekből nem indítottam automatikusan új agentet, addontelepítést vagy funkciótörlést. A közvetlen kérés most az átvétel és a jelenlegi kóddal való összevetés volt.
+
++
+
++A no-vision cél és a TDB opcionális háttértudásként kezelése a REV4 javasolt célállapota. Ez eltér a munkamappa és a projekt jelenlegi, régebbi specifikációkra hivatkozó AGENTS.md-jétől. Megvalósítás előtt egy rövid, egységes működési specifikációban kell rögzíteni az új termékcélt és a megtartott invariánsokat. A történeti coverage-sorok ettől nem válnak teljesítetté, és a capture/input jogosultságok nem bővülnek.
+
++
+
++## 2. Függetlenül ellenőrzött alapállapot
+
++
+
++| Ellenőrzés | Most kapott eredmény | Mit igazol? |
+
++|---|---|---|
+
++| Átadott ZIP | 4 Markdown + 1 CSV; SHA-256 az input-manifest.json-ban | A vizsgált dokumentumcsomag azonosítható |
+
++| Jelenlegi src | 498 Python-fájl, 104 128 sor | Egyezik a leltár darabszámával és sorszámaival |
+
++| AST-parse | 498/498, 0 szintaktikai hiba | Szintaxis; nem minden függvény helyessége |
+
++| Helyi src (2).zip | SHA-256: a224a6d781fb5529bd5c62785cb3233a0ab29725488b59f5b54eda2c1d33f9af | Egyezik az audit által megnevezett forrásarchívummal |
+
++| Aktuális src vs. forrásarchívum | 498/498 byte-ra egyezik; 0 új/hiányzó/eltérő modul | A csomag konkrét forráshivatkozásai ugyanarra a verzióra vonatkoznak |
+
++| Addon snapshotmezők | 84; név szerint 0 eltérés a melléklethez képest | A vizsgált snapshot-konstruktor leltára helyes |
+
++| FAST producermezők | 42; név szerint 0 eltérés | A readFastState producer leltára helyes; a transport teljességét nem bizonyítja |
+
++| Packet allowlist | 22 eseménytípus | A normalizált felület mérete; nem 22 teljesen kész képesség |
+
++| Elérhető tesztmodulok | 591 test_*.py a tests gyökerében | A helyi projektben rendelkezésre állnak a ZIP-auditból hiányzó tesztek |
+
++| Most futtatott célzott kör | **138 passed, 10.84 s, exit 0**, 10 modul | A felsorolt meglévő offline szerződések jelenlegi alapállapota |
+
++| Kliensinput | 0 parancscsoport a külön határpróbákban | A próbák nem vezérelték a WoW-ot |
+
++
+
++A pytest után a helyi pyreadline3 lezárója Windows handle-hibát írt ki; a pytest eredménye 138 passed, a folyamat exit-kódja 0 volt. A teljes kimenetrészlet a targeted-tests.json-ban megmaradt.
+
++
+
++A korábbi 2908 passed / 1 skipped / 10 baseline-kizárás eredmény a projekt ledgerében korábbi munkaként szerepel. Ezt ebben a körben nem futtattam újra, és nem adom hozzá a 138-hoz. Most nem történt új élő quest-, repülés-, harc- vagy talentvalidáció.
+
++
+
++Az importgráf 196 bejövő agent.models-hivatkozásáról és a 32 modulos SCC-ről szóló számok az átadott audit állításai; ezeket külön importgráf-algoritmussal most nem számoltam újra. A teljes forrásazonosságot viszont ellenőriztem. Nem történt a 498 modul minden függvényének kézi soronkénti auditja.
+
++
+
++## 3. A fő állítások összevetése a kóddal
+
++
+
++| Megállapítás | Kód és ellenőrzés | Következmény |
+
++|---|---|---|
+
++| A navigációs költség-oracle globális | agent/engine.py:84 állítja a tdb_locations.route_cost_oracle változót; tdb_locations.py:207 ezt olvassa. Két valódi AutonomousAgent-konstruktorral, input nélküli végrehajtóval reprodukálva: a második példány felülírja az első kötését. | P1: explicit példányhoz kötött TravelCostPort. A bizonyított hatókör egy Python-folyamat két példánya; ez nem bizonyít külön OS-folyamatok közötti globális szivárgást. |
+
++| A packet bootstrap addonfüggő | packetio/context.py:16–38; runtime_packet_source.py:70–78; world.py:360–428. Hiányzó kontextusra a tiszta függvény waiting_for_addon_context eredményt ad. | A bootstrapmezők törlése előtt független session- és world-kontextus kell. |
+
++| A statikus objective-régió előre kerülhet | objective_locator.py:29–40: objective_region a target_location előtt. Két rendelkezésre álló jelölt mellett offline próbában TDB_SPAWN lett az eredmény. | A mezőnkénti forrásfeloldás valós viselkedést változtat; nem puszta átnevezés. Ez nem önmagában egy adott élő félrenavigálás bizonyítása. |
+
++| Az objective-POI teljesebb a belső tárolóban, mint a publikált nézet | world_packet_reducer.py:705–713 csak objective_index=-1 / objective_id=0 blobokat vetít ki. | Objective-szintű query API kell; nem szükséges minden poligont minden tickben a statusba másolni. |
+
++| A danger provenance elveszhet | danger.py:50–65 fix ADDON_TELEMETRY címkét ír. A PACKET_ENTITY eredettel beadott szintetikus hostile-ból is ez lett. | Forráslánc megőrzése a riskmodell előtt. A jelenlegi DangerMap tovább használható. |
+
++| A repülési integráció már létezik | global_planner.py → flight_travel.py → flight_trip.py; 18 meglévő integrációs teszteset a mostani zöld körben. | Ezt kell általános leg-életciklus köré rendezni; nem újra bekötni. A zöld offline teszt nem teljes élő utazás. |
+
++| A no-vision végállapot még nem szerkezeti tulajdonság | runtime.py:362 hívja a perception phase-t; engine.py vizuális végrehajtókat konstruál; target_manager.py és skills/combat.py vizuális fogyasztókat tartalmaz. | A server-mode inputszűrés és a teljes runtime-függetlenség külön feladat. A phase üresen visszatérhet, ha nincs perception/frame; a hívás léte nem bizonyít minden live futásban aktív YOLO-terhelést. |
+
++| Questgráf és mechanikaosztályozó már van | quest_graph.py objective/quest függőségeket és readiness-t számol; quests/objective_mechanics.py már TDB/DB2-osztályozó, amelyet a tdb_knowledge fogyaszt. | A belső mechanikalépések gráfjával kell kiegészíteni, a questláncot megőrizve. |
+
++| A harci magok részben készen vannak | TargetManager, AbilityRuleEngine, CombatSkill és CombatVerifier létezik; a kis combat_ability_catalog három Warrior-defaultot tartalmaz. | Ebből nem következik teljes class/spec-, interrupt-, tank-, healer- vagy PvP-támogatás. |
+
++| Már létezik input-dispatcher és erőforrásbérlet | execution/command_dispatch.py, resource_arbiter.py, agent/parallel_control.py. A dispatcher LOCAL_ACK eredménye kifejezetten nem világállapot-siker. | Az új modulok ezt az útvonalat használják; ne keletkezzen párhuzamos input authority. |
+
++
+
++A boundary-probe-results.json és a baseline_probes.py megőrzi a négy szűk határpróba eredményét és reprodukcióját. A próba azt ellenőrzi, hogy a felsorolt jelenlegi viselkedések reprodukálhatók; nem azt, hogy a hibák már javítva vannak.
+
++
+
++## 4. A REV4 pontosítandó részei
+
++
+
++1. **Hiányzó mellékletek.** Az architektúraterv utolsó sora a SRC_MIGRACIOS_TERV_20261029_HU.md fájlra hivatkozik, de az nincs a ZIP-ben. A mezőmellékletben említett plan-evidence.json sincs a csomagban. A mély audit migrációs táblája és a tényleges forrás alapján a kezdő munkacsomag ettől még meghatározható.
+
++2. **Egyetlen ütemezés.** A dokumentumok T0–T8, packet P0–P6, combat C0–C6 és későbbi migrációs P0–P9 jelöléseket is használnak. Az alábbi tervben kizárólag a mély audit P0–P9 migrációs sorát használjuk.
+
++3. **Állapottulajdon, nem általános forrásranglista.** A PACKET=world truth rövidítés mellett kötelező megőrizni a CMSG/SMSG irányt és a szerverkorrekciót. A megfigyelt kliensmozgás nem automatikus szerver-ACK; a GOSSIP_SELECTED nem quest-credit; a QUEST_COMPLETED nem bizonyított leadás.
+
++4. **Session és térképkontextus.** A kiválasztott folyamat/karakter/capture-korszak identitását és a változó map/instance/phase kontextust külön kell modellezni. Ismeretlen phase nem helyettesíthető kitalált alapértékkel.
+
++5. **Párhuzamosság.** Egy aktív feladat-/skill-owner mellett kompatibilis mozgási és akciócsatornák átfedhetnek. A REV4 CombatArbitrator ne vezessen új inputvégrehajtót a meglévő dispatcher mellé. A preemption, bérlet-visszavonás és folytatás legyen tesztelhető.
+
++6. **Költségek mértékegysége.** A DangerMap geometria+veszély pontja nem másodperc. ETA, várható harcidő, átmenet és bizonytalansági büntetés csak deklarált átváltással legyen összehasonlítható. Az első súlyok heurisztikák, nem mérések.
+
++7. **WAIT és retry külön fogalom.** A hibás próbák ideiglenes kizárása legfeljebb 20 s. Igazolt cooldown, hosszabb valódi esemény vagy tartós forráshiány más szemantika. Ismeretlen input/célazonosságot egy lejáró timer nem javít meg. Minden várakozáshoz kell ok, várt bizonyíték és újraértékelési feltétel.
+
++8. **Fokozatos combat-lefedettség.** Első körben a ténylegesen használt karakterprofil és solo questharc legyen teljesebb. A tank/healer/dungeon/raid/arena/BG felelősségek külön képességkapuk; nem érdemes minden tervezett osztályt üres vázként előre létrehozni.
+
++9. **A migráció visszaállíthatósága.** A jelenlegi projekt gyökerében nincs .git bejegyzés. A meglévő src (2).zip csak a Python-forrást védi, nem teljes addon/config/native/binding állapotot. A kódmódosítás előtt teljes szükséges alapállapot-manifest és visszaállítható patch/snapshot kell; az export repositoryt és a munka-projektet nem lehet automatikusan azonosnak tekinteni.
+
++
+
++## 5. Egységes végrehajtási sorrend
+
++
+
++| Fázis | Konkrét kimenet és tulajdonos | Következő kapu | Mostani állapot |
+
++|---|---|---|---|
+
++| **P0 – baseline** | Composition root, aktuális forrás/config/provider-képességek, teszt- és trace-jegyzék | Reprodukálható állapot, védett források, ismert hibák elkülönítve | **RÉSZBEN**: forrásazonosság, mezőleltár, 138 célzott teszt és határpróbák megvannak; teljes konfigurációs/élő trace-kapu nincs meg |
+
++| **P1 – szerződések és függőségek** | Közös session/evidence/geometry/cost típusok; példányhoz kötött query portok | Két agent nem oszt meg mutable oracle-t; régi API-k kompatibilisek | TERV |
+
++| **P2 – session/bootstrap** | Egy SessionContextProvider, packet és addon közös ellenőrzött kontextusfogyasztással | Meleg/hideg indulás, reconnect, rossz PID/build/map, streamrés; hiányból nem lesz authority | TERV |
+
++| **P3 – mezőnkénti forrásfeloldás** | Evidence/query réteg és kategóriánkénti teljesség; átmeneti kettős forrás ellenőrzése | Live/reference ellentmondások, FAST/STATE elkülönítés, minden consumer áttér, csak utána addonmező-törlés | TERV |
+
++| **P4 – vizuális runtime-függések kivezetése** | Composition root és GUID-alapú cél-/recovery-fogyasztók; tiszta közös koordinátatípusok | Detektor/tracker/VLM nélkül indul és tesztelhető a teljes támogatott lánc; pixeltransport külön protokolldekóderként működik | TERV |
+
++| **P5 – egységes Travel** | Meglévő navigáció fölött cél- és arrival-szerződés, leg-alapú TripPlan, TransitionSystem | Ground/ride/steady/skyriding/mixed út; ugyanaz az eredeti request; végső floor és érkezés igazolt | TERV; meglévő részfunkciók megőrzendők |
+
++| **P6 – idő és kockázat** | DangerMapre épülő RouteScore és ground/flight/mixed jelölt-összehasonlítás | Verziózott geometria és friss hostile/floor/adatbizalom; költségkomponensek magyarázhatók | TERV |
+
++| **P7 – rendezett Combat** | Meglévő ability/target/FSM adapterek; karakterprofil, arbitrator, cast/hazard provider, fokozatos role-lefedettség | Exact target/cast, hatótáv/facing/bar/binding, megfelelő megszakítási eredmény; class/spec szerint külön próba | TERV |
+
++| **P8 – questmechanikák** | Meglévő classifier + QuestGraph mellé MechanicContract, QuestTargetContext, belső execution graph | Talk→duel, item→hatás→credit, vehicle, escort, scene és több objective saját bizonyítékkal | TERV |
+
++| **P9 – tanulás, LLM, takarítás** | Feltételesen újrafelhasználható epizódok, olvasó eszközök, sémás LLM-terv, maradó legacy kivezetése | Hibás/lejárt LLM-terv nem fut; ismert mechanika LLM nélkül is működik; hosszú user-live összehasonlítás | TERV |
+
++
+
++A fázisok részfeladatai előkészíthetők, de a forráskiváltás és a végrehajtás csak a saját kapujuk után kapcsolható át. A P7 nem minden class, szerep és játékmód egyetlen óriási átírása. A P8 sem függ attól, hogy az összes raid/PvP-role elkészüljön.
+
++
+
++## 6. Az első kódos munkacsomag: P1-A
+
++
+
++**Cél:** megszüntetni a példányok közötti globális navigációs költségfüggést, a mai quest- és mozgási viselkedés megőrzésével.
+
++
+
++- A composition root állítsa össze az egy agenthez tartozó navigációs query-portokat.
+
++- A TDB-helyválasztó és a rá épülő fogyasztók explicit, példányhoz kötött cost/query függést kapjanak.
+
++- Callable ne kerüljön szerializálható WorldModel-state-be, journalba vagy SQLite-ba.
+
++- A már WorldModelhez dinamikusan csatolt oracle-ok átmeneti compatibility facade mögött maradhatnak, később egyenként kiválthatók.
+
++- A meglévő legközelebbi/járható spawnválasztás, TDB nélküli UNKNOWN és MMAP nélküli viselkedés ne változzon meg véletlenül.
+
++- A regresszióban két agent eltérő költségfüggvényt és külön kontextust kapjon; a második létrehozása, resetje és bezárása ne módosítsa az első lekérdezését.
+
++- Az első patch ne mozgasson át teljes package-eket, ne vezessen be második navigátort és ne kapcsoljon új inpututat.
+
++
+
++**Érintett jelenlegi határ:** engine.py → tdb_locations.py → objective/spawn/location fogyasztók. A végleges fájllistát a hívók teljes keresése rögzíti a patch előtt.
+
++
+
++**Elfogadás:** az izolációs regresszió és a meglévő helyválasztó/navigációs/quest-tesztek zöldek; nincs modulglobális példánymetódus; a korábbi trace ugyanazt a támogatott célválasztást adja. P1-A önmagában nem készíti el az addonfüggetlen bootstrappet.
+
++
+
++## 7. A tizenkét migrációs regressziós kapu
+
++
+
++| Kapu | Meglévő támpont | További bizonyíték |
+
++|---|---|---|
+
++| Session/PID/context | test_packet_agent_bridge.py most futtatva | Addon nélküli cold/warm bootstrap és több capture-korszak |
+
++| Input/STOP/MANUAL | test_parallel_control.py most futtatva | Az új adapterek és transitionök megszakítása, lease-feloldás |
+
++| WorldModel frissesség | test_fast_lane_freshness_20261004.py most futtatva | Teljességi és forrásválasztási új mezőtesztek |
+
++| Célazonosság | test_target_manager.py most futtatva | Teljes GUID-alapú életciklus vision nélkül; candidate ≠ selected |
+
++| Ground/floor | test_navigation_contracts.py és danger/reachability most futtatva | Barlang/híd/spirál/esés felhasználói trace és live |
+
++| Flight | test_flight_travel_integration_20261029.py most futtatva | Teljes user-live takeoff→cruise→landing→interact |
+
++| Mixed Trip | Ugyanazon meglévő integrációs modul most futtatva | Általános leg-állapot és preemption/recovery szerződés |
+
++| Route risk | test_navigation_danger_reachability.py most futtatva | ETA/combat/transition közös skála, 3D floor és hibás/stale threat |
+
++| Combat alap | A projektben több meglévő combat-teszt van | Új class/spec/profile/arbitrator külön köre; ezek ebben a 138-as körben nem teljesen futottak |
+
++| Cast/hazard | A mai 22-es allowlistből a teljes új adatút hiányzik | Parser→schema→reducer→consumer→konkrét cast eredmény; ez nem zöld kapu |
+
++| Questmechanika | sparring_gossip és quest_transition_hold most futtatva | 20–30 reprezentatív összetett trace; a kézi siker elkülönítése |
+
++| Több agent izolációja | Mostani szűk konstruktorpróba reprodukálja a globális felülírást | P1 javítása után ténylegesen izolált query/state/lease regresszió |
+
++
+
++Az Unwelcome Outsider a questmechanika-baseline egyik ismert nyitott példája: az automatikus „Let's spar.” kattintás és az utána hiányzó visszaigazolás külön eseménysor; a felhasználó későbbi MANUAL próbája nem autonóm siker. A pontos live okot a jelen átvételi kör nem állítja megoldottnak.
+
++
+
++## 8. Célkontraktusok minimális tartalma
+
++
+
++- **SessionIdentity / WorldContext:** kiválasztott PID és folyamatpéldány, saját karakter, capture/session-korszak, build/layout; map/instance/phase és revision külön, unknown állapottal.
+
++- **Evidence:** alany és mező, forrás/esemény/leszármazási lánc, irány, megfigyelési és beérkezési idő, teljesség, kontextus, validity/invalidation.
+
++- **TravelRequest:** célreferencia/régió, koordinátatér, eredeti goal/correlation, engedélyezett képességek és célfüggő arrival.
+
++- **TripLeg / Transition:** precondition → action request → expected evidence → verify → timeout/recovery; köztes pont nem végső érkezés.
+
++- **CombatCandidate:** pontos GUID/cast/spell/bar-revision, alkalmasság, határidő, ütköző erőforrás, költség, várható visszaigazolás.
+
++- **QuestTargetContext:** nav/entity/interaction/spell/credit/search szerepek külön; a fizikai NPC és a technikai credit entry ne mosódjon össze.
+
++- **MechanicContract:** előfeltétel, engedélyezett meglévő capability, sikerjel, hibahatókör, korlátos helyreállítás és alternatíva.
+
++- **LLMPlan:** csak megadott actor/objective/item/evidence referenciák; ellenőrizhető lépések és függőségek; aszinkron és újraellenőrzött, közvetlen input nélkül.
+
++
+
++Ezek a szerződések a meglévő képességek közé kerülnek. Késznek az a határ számít, amelynek az éles bekötése és az eredményellenőrzése is igazolt; az osztályváz vagy a sikeres input-ACK nem elég.
+
++
+
++## 9. A jelen csomag mellékletei
+
++
+
++- input/: az eredeti öt dokumentum változatlan másolata.
+
++- input-manifest.json: eredeti ZIP és dokumentumhashek.
+
++- current-source-baseline.json: a teljes 498 modulos aktuális hashleltár és összevetés.
+
++- field-and-package-comparison.json: 84/42 mező- és 22 esemény-ellenőrzés, csomaghivatkozások.
+
++- targeted-tests.json: a mostani célzott tesztparancs, eredmény és kimenetrészlet.
+
++- baseline_probes.py, boundary-probe-results.json: a jelenlegi négy szűk határviselkedés input nélküli reprodukciója.
+
++- gate-test-map.json: kiválasztott meglévő regressziós támpontok; a jelenlét nem teljes kapulefedettség.
+
+--- before/docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md
++++ after/docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md
+@@ -1,73 +1,75 @@
+-# REV4 P1-E — MMAP/Detour formátum és hibadiagnózis
+-
+-2026-10-30. A kijelölt `projekt`, **OFFLINE_TESTED**. Nem új router:
+-a meglévő Python és natív Detour loader kapott közös statikus formátumellenőrzést.
+-Új élő útvonal-, recovery- vagy érkezésigazolás nincs.
+-
+-## Feltárt ok és változás
+-
+-A Python tile parser az egyik wrapper-verziót nem ellenőrizte, és a hibás
+-fejlécet/csonka tile-t üres poligonlistaként adta vissza. Ebből gyakran
+-`no_route_tiles` lett, tehát hibás geometriai adat és hiányzó út nem vált külön.
+-A natív loader is ellenőrizetlenül továbbadta a verziómezőket, a root mmap
+-paramétereit pedig csak részben olvasta. Egy korábbi komment a dtVersion és
+-mmapVersion jelentését is felcserélte.
+-
+-A közös `mmap_format` olvasó a már támogatott Trinity **MMAP v16 / Detour v7**
+-fájlt ellenőrzi. Ez fájlformátum, nem WoW kliensbuild vagy a dataset tartalmi
+-revíziója. Másik verzió nincs automatikusan kompatibilisnek nyilvánítva.
+-
+-- Root map: magic, verzió, minimális hossz, véges origin és pozitív/bounded
+-  paraméterek; korábbi 36-byte paraméterprefix és a 40-byte, offmesh-listás
+-  v16 fejléc méretei. Ismeretlen/csonka kiegészítés nem lesz útalap.
+-- Tile: wrapper magic, **külön dtVersion és mmapVersion**, adathossz, belső
+-  Detour magic/verzió, számlálók, véges headerértékek és szekcióméretek.
+-  A natív ABI előtti minimumlink/detail/offmesh-konzisztencia külön ellenőrzött.
+-- Python oldalon a beolvasott vertexek végesek. A natív DLL előtt a méret- és
+-  szekciókapu fut; ismeretlen verzióhoz nem hívunk DLL tile-betöltést.
+-- Csonka/rossz adatok és ZIP member CRC/read hibák ERROR, eltérő verzió
+-  VERSION_MISMATCH, hiányzó adat MISSING_DATA. Létező, de járási flaggel kizárt
+-  víz nem hiányzó adat: NO_ROUTE. Egy bizonyított teljes folyosó továbbra is READY.
+-- Részben betöltött, hibás tile-ok melletti sikertelen natív/Python keresés
+-  nem igazolja a földrajzi elérhetetlenséget. A hiba bounded diagnózisként
+-  megmarad a warm/cached lekérdezésben is. A sikeres teljes út feltételei,
+-  walking policy, arrival verifier és input-owner nem változtak.
+-- A WorldGeometry/GeometryResult adapter átveszi a kifejezett formátumstátuszt,
+-  nem alakítja NO_ROUTE-vá. Magasabb réteg így a tényleges okot kapja a recoveryhez.
+-
+-## Elsődleges formátumforrás
+-
+-A [TrinityCore MMapDefines.h konkrét commitja](https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/common/mmaps_common/MMapDefines.h)
+-rögzíti a wrapper mezősorrendet, v16 értéket és root/offmesh struktúrákat.
+-A [projektben vendorizált Detour](../../../native/recastnavigation/Detour/Include/DetourNavMesh.h)
+-és a hozzá tartozó `DetourNavMesh.cpp` adja a v7/64-bit polyref méreteket.
+-A primary forrás és a vendorizált fájlok SHA-256 manifestje a checkpoint része.
+-A loader nem frissít kódot vagy formátumot hálózatról.
+-
+-## Ellenőrzés
+-
+-A célzott geometriai kör 53 pass; az utána hozzáadott ZIP CRC eset is benne van
+-a végső széles körben. A minimális route-fixture korábban szöveget írt a map
+-fejléc helyére; most valódi szintetikus v16 root headerrel dolgozik.
+-
+-Végső kijelölt regresszió: **3815 passed, 2 skipped, 10 változatlan deselection,
+-312 modul, exit 0**, pytest 135.62 s / runner 138.49 s. Az összes 532 source és
+-621 test Python-fájl AST-je érvényes; a teljes teszttár 620 testmodulja közül a
+-kijelölt 312 futott. Az új modul benne van, új kizárás nincs.
+-
+-Rögzített esetek: rossz root/tile magic, eltérő wrapper vagy mesh verzió,
+-csonka fejléc/szekció, NaN, hibás offmesh hossz, CRC hiba, hiányzó tile,
+-víz/walking filter, normál route, cached diagnózis, natív DLL előtti elutasítás.
+-
+-[Checkpoint, forrás-ZIP, diff és ellenőrzési manifest](mmap-format-evidence/verification.json).
+-A 203 számozott coverage-sor és az előző checkpointok megmaradtak.
+-Az addon 0.9.80 és a pinned Ymir hash változatlan. Nem indult kliens/capture/
+-FULL_AI, nem ment játékinput, nem történt új live validáció.
+-
+-## Határok
+-
+-Ez nem minden bináris fájl szemantikai épségének vagy minden geometriai adat
+-aktuális játékbeli helyességének bizonyítása. MAPS/VMAPS parser, teljes offmesh
+-útvonalvégrehajtás, horizontális LOS és ismeretlen dataset revision ettől nem
+-kapott új képességet. A már jelzett saját quest/progress/inventory-, combat-
+-provider-, történeti lineage- és élő kalibrációs kapuk továbbra is nyitottak.
++# REV4 P1-E — MMAP/Detour formátum és hibadiagnózis
+
++
+
++Későbbi mai korrekció: [élő logból javított MMAP/session regressziók](P2_LIVE_SESSION_NAVMESH_FIXES.md). A lentebbi mérés az akkori történeti checkpoint eredménye.
+
++
+
++2026-10-30. A kijelölt `projekt`, **OFFLINE_TESTED**. Nem új router:
+
++a meglévő Python és natív Detour loader kapott közös statikus formátumellenőrzést.
+
++Új élő útvonal-, recovery- vagy érkezésigazolás nincs.
+
++
+
++## Feltárt ok és változás
+
++
+
++A Python tile parser az egyik wrapper-verziót nem ellenőrizte, és a hibás
+
++fejlécet/csonka tile-t üres poligonlistaként adta vissza. Ebből gyakran
+
++`no_route_tiles` lett, tehát hibás geometriai adat és hiányzó út nem vált külön.
+
++A natív loader is ellenőrizetlenül továbbadta a verziómezőket, a root mmap
+
++paramétereit pedig csak részben olvasta. Egy korábbi komment a dtVersion és
+
++mmapVersion jelentését is felcserélte.
+
++
+
++A közös `mmap_format` olvasó a már támogatott Trinity **MMAP v16 / Detour v7**
+
++fájlt ellenőrzi. Ez fájlformátum, nem WoW kliensbuild vagy a dataset tartalmi
+
++revíziója. Másik verzió nincs automatikusan kompatibilisnek nyilvánítva.
+
++
+
++- Root map: magic, verzió, minimális hossz, véges origin és pozitív/bounded
+
++  paraméterek; korábbi 36-byte paraméterprefix és a 40-byte, offmesh-listás
+
++  v16 fejléc méretei. Ismeretlen/csonka kiegészítés nem lesz útalap.
+
++- Tile: wrapper magic, **külön dtVersion és mmapVersion**, adathossz, belső
+
++  Detour magic/verzió, számlálók, véges headerértékek és szekcióméretek.
+
++  A natív ABI előtti minimumlink/detail/offmesh-konzisztencia külön ellenőrzött.
+
++- Python oldalon a beolvasott vertexek végesek. A natív DLL előtt a méret- és
+
++  szekciókapu fut; ismeretlen verzióhoz nem hívunk DLL tile-betöltést.
+
++- Csonka/rossz adatok és ZIP member CRC/read hibák ERROR, eltérő verzió
+
++  VERSION_MISMATCH, hiányzó adat MISSING_DATA. Létező, de járási flaggel kizárt
+
++  víz nem hiányzó adat: NO_ROUTE. Egy bizonyított teljes folyosó továbbra is READY.
+
++- Részben betöltött, hibás tile-ok melletti sikertelen natív/Python keresés
+
++  nem igazolja a földrajzi elérhetetlenséget. A hiba bounded diagnózisként
+
++  megmarad a warm/cached lekérdezésben is. A sikeres teljes út feltételei,
+
++  walking policy, arrival verifier és input-owner nem változtak.
+
++- A WorldGeometry/GeometryResult adapter átveszi a kifejezett formátumstátuszt,
+
++  nem alakítja NO_ROUTE-vá. Magasabb réteg így a tényleges okot kapja a recoveryhez.
+
++
+
++## Elsődleges formátumforrás
+
++
+
++A [TrinityCore MMapDefines.h konkrét commitja](https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/common/mmaps_common/MMapDefines.h)
+
++rögzíti a wrapper mezősorrendet, v16 értéket és root/offmesh struktúrákat.
+
++A [projektben vendorizált Detour](../../../native/recastnavigation/Detour/Include/DetourNavMesh.h)
+
++és a hozzá tartozó `DetourNavMesh.cpp` adja a v7/64-bit polyref méreteket.
+
++A primary forrás és a vendorizált fájlok SHA-256 manifestje a checkpoint része.
+
++A loader nem frissít kódot vagy formátumot hálózatról.
+
++
+
++## Ellenőrzés
+
++
+
++A célzott geometriai kör 53 pass; az utána hozzáadott ZIP CRC eset is benne van
+
++a végső széles körben. A minimális route-fixture korábban szöveget írt a map
+
++fejléc helyére; most valódi szintetikus v16 root headerrel dolgozik.
+
++
+
++Végső kijelölt regresszió: **3815 passed, 2 skipped, 10 változatlan deselection,
+
++312 modul, exit 0**, pytest 135.62 s / runner 138.49 s. Az összes 532 source és
+
++621 test Python-fájl AST-je érvényes; a teljes teszttár 620 testmodulja közül a
+
++kijelölt 312 futott. Az új modul benne van, új kizárás nincs.
+
++
+
++Rögzített esetek: rossz root/tile magic, eltérő wrapper vagy mesh verzió,
+
++csonka fejléc/szekció, NaN, hibás offmesh hossz, CRC hiba, hiányzó tile,
+
++víz/walking filter, normál route, cached diagnózis, natív DLL előtti elutasítás.
+
++
+
++[Checkpoint, forrás-ZIP, diff és ellenőrzési manifest](mmap-format-evidence/verification.json).
+
++A 203 számozott coverage-sor és az előző checkpointok megmaradtak.
+
++Az addon 0.9.80 és a pinned Ymir hash változatlan. Nem indult kliens/capture/
+
++FULL_AI, nem ment játékinput, nem történt új live validáció.
+
++
+
++## Határok
+
++
+
++Ez nem minden bináris fájl szemantikai épségének vagy minden geometriai adat
+
++aktuális játékbeli helyességének bizonyítása. MAPS/VMAPS parser, teljes offmesh
+
++útvonalvégrehajtás, horizontális LOS és ismeretlen dataset revision ettől nem
+
++kapott új képességet. A már jelzett saját quest/progress/inventory-, combat-
+
++provider-, történeti lineage- és élő kalibrációs kapuk továbbra is nyitottak.
+
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -55,6 +55,11 @@
+ a kontroll csak a ténylegesen redukált saját collection-eseményeket igazolja.
+
+ Nem frissít UI-t, nem ad inputjogot és nem hosszabbít mező-TTL-t. A per-field
+
+ retained lifecycle és warm collection baseline továbbra is külön kódos kapu.
+
++A felhasználói mai logokból két regressziót is javítottunk:
+
++[szabályos signed MMAP-kapacitás és realm→instance login](P2_LIVE_SESSION_NAVMESH_FIXES.md).
+
++A korábban kizárólag same-connection szabályt explicit saját ActivePlayer-
+
++bizonyíték egészíti ki; az új session nem örököl régi cache-t. A rögzített
+
++capture visszaolvasása sikeres, új élő FULL_AI-elfogadás továbbra sincs.
+
+ 
+
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+
+@@ -79,7 +84,7 @@
+ 
+
+ ## 2. Fontos részletek és regressziójavítások
+
+ 
+
+-- Saját GUID csak azonos kapcsolaton korrelált CMSG_PLAYER_LOGIN és SMSG_LOGIN_VERIFY_WORLD alapján keletkezik. Build/opcode/layout allowlist, selected PID, OS-élettartam és lokális IPC-hitelesítés külön ellenőrzés. Nem került be játékállapot-memóriaolvasó, injektálás vagy kulcskinyerés. A rögzített Ymir EXE nem változott.
+
++- Saját GUID korrelált CMSG_PLAYER_LOGIN és SMSG_LOGIN_VERIFY_WORLD alapján keletkezik. Külön instance-kapcsolatnál ezen felül pontos GUID/map/sorrend szerinti ThisIsYou ActivePlayer CREATE szükséges. Build/opcode/layout allowlist, selected PID, OS-élettartam és lokális IPC-hitelesítés külön ellenőrzés. Nem került be játékállapot-memóriaolvasó, injektálás vagy kulcskinyerés. A rögzített Ymir EXE nem változott.
+
+ - Meleg replay saját identitást és aktuális mapot ad; nem fiatalít meg régi mozgást, HP-t, inventoryt vagy quest-creditet. Verified cosmetic-map kapcsolat megtartja az addon navigációs instance-át. Valódi mapváltás után packet receipt nem frissíti az addon UI-t.
+
+ - Objective-POI aktuális objective/world szerint szűrt. Többpontos alakzat keresési terület, poligoncsúcs nem bizonyított objektum. Z=0 nem automatikusan valós padló. A status nem másol minden tickben teljes poligonokat.
+
+ - Részleges questlista pozitív tagjai frissülhetnek; kimaradók nem lesznek ABSENT és nem kapnak új sample-időt. Hibás listaalakra egy külön COMPLETE címke sem elég. Hiányos/elöregedett inventory nem jogosít bag-coordinate itemhasználatra; hiányos lista vendor iteminputra sem.
+
+@@ -97,14 +102,14 @@
+ 
+
+ | Ellenőrzés | Eredmény |
+
+ |---|---|
+
+-| Végső kijelölt regresszió | **3956 passed, 2 skipped, 10 deselected; 321 modul; 169.76 s; exit 0** |
+
++| Végső kijelölt regresszió | **3984 passed, 2 skipped, 10 deselected; 322 modul; 296.70 s; exit 0** |
+
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+
+-| Teljes Python AST | 551 source + 630 tests Python-fájl; 629 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+
++| Teljes Python AST | 552 source + 631 tests Python-fájl; 630 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+
+ 
+
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 629 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 630 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+
+ 
+
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+
+ 
+
+--- before/docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md
++++ after/docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md
+@@ -1,90 +1,92 @@
+-# REV4 P2/P3 — valódi decoder-progress és alkalmazási watermark
+-
+-2026-10-30. Offline tesztelt bekötés a kijelölt `projekt` mappában.
+-Ez a [kézbesítési sorszám](P2_PACKET_DELIVERY.md) folytatása: különbséget
+-tesz a megérkezett és a saját collection-reduceren ténylegesen átment adat között.
+-Nem teljes retained-state/warm-replay vagy quest/inventory consumer parity.
+-
+-## Forrás és hitelesített helyi üzenet
+-
+-A Ymir bridge meglévő Python PKT-follower/dekóder útja minden valódi rekord
+-feldolgozása után tud progress-jelölést adni. Csak ugyanannak a dekódernek
+-korrelált, igazolt saját world connectionje számít. Más connection, BN-forgalom
+-vagy puszta timer nem állít új progresszt. A jel legfeljebb félmásodpercenként
+-megy; az eredeti record timestampet viszi tovább, nem az aktuális faliórát.
+-Régi PKT-backlog ettől nem lesz friss élő forrás.
+-
+-Az `aipc.packet-progress.v1` szűk helyi controlséma: selected PID, process
+-generation, exact build, capture epoch, record number, eredeti timestamp és
+-dekódolási hibaszámláló. Nincs nyers packet/payload, GUID-lista, auth-/session
+-anyag vagy személyes szöveg. A meglévő sorszámozott V2 envelope HMAC-ján megy,
+-a gameplay-allowlist és a packet JSONL recorder felületét nem bővíti.
+-Bootstrap context nem használhatja gameplay-baseline helyett.
+-
+-Az inbox csak a legutóbbi kumulatív kontrollt tartja, de az érkezési sorrend
+-alapján a korábbi szemantikus delták mögött adja át. A controlsor összevonása
+-nem dobja el a collection-deltákat. V1/unsigned controlséma nem elfogadott.
+-
+-## Alkalmazási kapu a közös WorldModelben
+-
+-A RuntimePacketSource felsorolja a két kontroll között átadott saját questlog/
+-inventory eseményazonosítókat, és az előző átadott progress sorszámát. A közös
+-reducer csak build/GUID/world ellenőrzés után és a tényleges collection-
+-redukció határán jelöli alkalmazottnak ezeket. A PACKET_PROGRESS megfigyelés
+-csak akkor APPLIED, ha mindegyik ellenőrzött, a lánc folytonos és a kiválasztott
+-session/PID/process/build/epoch/generation egyezik.
+-
+-Ha a hívó a progresszt egy korábbi delta előtt vagy annak kihagyásával adja
+-be, UNAPPLIED lesz. Késői alkalmazás és új életjel ezt nem írja utólag át
+-bizonyított folytonossággá. A szokásos defer-rebuild batch helyes sorrendben
+-alkalmazott delta → kontroll útja működik. Egy GAP előtti, félretett kontroll
+-nem építheti fel újra az új generation állapotát.
+-
+-A `WorldQuery.packet_stream_progress(now)` bounded másolatot ad; nincs
+-planner-, skill-, input- vagy aktuális world-authorityja. A kontroll nem lesz
+-`latest` addon observation, nem írja át `last_received`-et, nem ad quest/loot
+-creditet, és az ObservationIngestion nem írja minden alkalommal SQLite-ba.
+-Két másodperces forráskorhatár után EXPIRED. Érvénytelen query-idő vagy
+-eltávolított session-provider esetén UNKNOWN.
+-
+-## Dekódolási hiba és fájlrotáció
+-
+-Egy teljesen olvashatatlan UPDATE_OBJECT rekord növeli a dekóder hibaszámlálóját,
+-és megszünteti a korábban megtanult private-item ownership/fragment kontextust.
+-A következő igazolt progress a modellben is érvényteleníti a korábbi natív
+-mezőket: nem marad teljes quest/inventory lista egy esetleg kihagyott változás
+-után. Sikertelen packet bytejai nem kerülnek a progressba. A számláló nem
+-csökkenhet ugyanabban a forrásláncban.
+-
+-A bridge immár a follower tényleges új headerére is új dekódert és capture
+-epochot hoz létre, és eldobja a régi entity/POI/session replay-cache-t.
+-Az új fájl továbbra is PID/build/process-élettartam ellenőrzést és saját
+-login-baseline-t igényel. Ez a Python-follower javítása; a Ymir EXE nem változott.
+-
+-## Ellenőrzés és hátralévő kapu
+-
+-A célzott kör **168 pass**: valódi kontrollnormalizálás/HMAC/forwarder/inbox/
+-adapter/WorldModel, normál és fordított feldolgozási sorrend, kumulatív kontroll,
+-defer-rebuild, rossz scope/epoch/process/build, elöregedés, dekódolási hibák és
+-fake followerrel futtatott valódi bridge/dekóder-lánc, fájlrotációval. Egy korai
+-fake followerből hiányzó snapshot metódus fixture-hibája javítva.
+-
+-A végső kijelölt regresszió **3956 passed, 2 skipped, 10 változatlan deselection,
+-321 modul, exit 0**, pytest 169.76 s / runner 172.69 s. Mind az 551 source és
+-630 test Python-fájl AST-je érvényes; a teljes 629 testmodulból a kijelölt 321
+-futott. Ez nem teljes repository-tesztfuttatási állítás.
+-A végső kör az eltávolított provider és hibás query-idő próbáját is tartalmazza.
+-
+-[Forrás/diff/parancs/JUnit checkpoint](applied-progress-evidence/verification.json).
+-Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
+-
+-Az APPLIED a helyi, ellenőrzött collection-események alkalmazását jelenti,
+-nem minden szerveradat megismerését vagy hálózati/capture-veszteségmentességet.
+-A hiányzó natív baseline-t nem állítja elő, és **egyetlen mező TTL-jét sem
+-hosszabbítja meg**. A retained collection per-field lifecycle/lease szabálya,
+-warm snapshotok és teljes canonical questprogress/consumer parity a következő
+-megvalósítási kapu. A geometria/combat/UI freshness nem kap ebből kivételt.
+-
+-Nem indult WoW, Ymir, capture vagy FULL_AI; a bridge tesztje fake process-
+-metadata/follower/UDP függőségeket kapott. Nincs kliensinput, éles memory DB
+-módosítás vagy új LIVE_VALIDATED állítás. Az addon és a pinned Ymir változatlan.
++# REV4 P2/P3 — valódi decoder-progress és alkalmazási watermark
+
++
+
++Későbbi mai korrekció: [élő logból javított MMAP/session regressziók](P2_LIVE_SESSION_NAVMESH_FIXES.md). A lentebbi mérés az akkori történeti checkpoint eredménye.
+
++
+
++2026-10-30. Offline tesztelt bekötés a kijelölt `projekt` mappában.
+
++Ez a [kézbesítési sorszám](P2_PACKET_DELIVERY.md) folytatása: különbséget
+
++tesz a megérkezett és a saját collection-reduceren ténylegesen átment adat között.
+
++Nem teljes retained-state/warm-replay vagy quest/inventory consumer parity.
+
++
+
++## Forrás és hitelesített helyi üzenet
+
++
+
++A Ymir bridge meglévő Python PKT-follower/dekóder útja minden valódi rekord
+
++feldolgozása után tud progress-jelölést adni. Csak ugyanannak a dekódernek
+
++korrelált, igazolt saját world connectionje számít. Más connection, BN-forgalom
+
++vagy puszta timer nem állít új progresszt. A jel legfeljebb félmásodpercenként
+
++megy; az eredeti record timestampet viszi tovább, nem az aktuális faliórát.
+
++Régi PKT-backlog ettől nem lesz friss élő forrás.
+
++
+
++Az `aipc.packet-progress.v1` szűk helyi controlséma: selected PID, process
+
++generation, exact build, capture epoch, record number, eredeti timestamp és
+
++dekódolási hibaszámláló. Nincs nyers packet/payload, GUID-lista, auth-/session
+
++anyag vagy személyes szöveg. A meglévő sorszámozott V2 envelope HMAC-ján megy,
+
++a gameplay-allowlist és a packet JSONL recorder felületét nem bővíti.
+
++Bootstrap context nem használhatja gameplay-baseline helyett.
+
++
+
++Az inbox csak a legutóbbi kumulatív kontrollt tartja, de az érkezési sorrend
+
++alapján a korábbi szemantikus delták mögött adja át. A controlsor összevonása
+
++nem dobja el a collection-deltákat. V1/unsigned controlséma nem elfogadott.
+
++
+
++## Alkalmazási kapu a közös WorldModelben
+
++
+
++A RuntimePacketSource felsorolja a két kontroll között átadott saját questlog/
+
++inventory eseményazonosítókat, és az előző átadott progress sorszámát. A közös
+
++reducer csak build/GUID/world ellenőrzés után és a tényleges collection-
+
++redukció határán jelöli alkalmazottnak ezeket. A PACKET_PROGRESS megfigyelés
+
++csak akkor APPLIED, ha mindegyik ellenőrzött, a lánc folytonos és a kiválasztott
+
++session/PID/process/build/epoch/generation egyezik.
+
++
+
++Ha a hívó a progresszt egy korábbi delta előtt vagy annak kihagyásával adja
+
++be, UNAPPLIED lesz. Késői alkalmazás és új életjel ezt nem írja utólag át
+
++bizonyított folytonossággá. A szokásos defer-rebuild batch helyes sorrendben
+
++alkalmazott delta → kontroll útja működik. Egy GAP előtti, félretett kontroll
+
++nem építheti fel újra az új generation állapotát.
+
++
+
++A `WorldQuery.packet_stream_progress(now)` bounded másolatot ad; nincs
+
++planner-, skill-, input- vagy aktuális world-authorityja. A kontroll nem lesz
+
++`latest` addon observation, nem írja át `last_received`-et, nem ad quest/loot
+
++creditet, és az ObservationIngestion nem írja minden alkalommal SQLite-ba.
+
++Két másodperces forráskorhatár után EXPIRED. Érvénytelen query-idő vagy
+
++eltávolított session-provider esetén UNKNOWN.
+
++
+
++## Dekódolási hiba és fájlrotáció
+
++
+
++Egy teljesen olvashatatlan UPDATE_OBJECT rekord növeli a dekóder hibaszámlálóját,
+
++és megszünteti a korábban megtanult private-item ownership/fragment kontextust.
+
++A következő igazolt progress a modellben is érvényteleníti a korábbi natív
+
++mezőket: nem marad teljes quest/inventory lista egy esetleg kihagyott változás
+
++után. Sikertelen packet bytejai nem kerülnek a progressba. A számláló nem
+
++csökkenhet ugyanabban a forrásláncban.
+
++
+
++A bridge immár a follower tényleges új headerére is új dekódert és capture
+
++epochot hoz létre, és eldobja a régi entity/POI/session replay-cache-t.
+
++Az új fájl továbbra is PID/build/process-élettartam ellenőrzést és saját
+
++login-baseline-t igényel. Ez a Python-follower javítása; a Ymir EXE nem változott.
+
++
+
++## Ellenőrzés és hátralévő kapu
+
++
+
++A célzott kör **168 pass**: valódi kontrollnormalizálás/HMAC/forwarder/inbox/
+
++adapter/WorldModel, normál és fordított feldolgozási sorrend, kumulatív kontroll,
+
++defer-rebuild, rossz scope/epoch/process/build, elöregedés, dekódolási hibák és
+
++fake followerrel futtatott valódi bridge/dekóder-lánc, fájlrotációval. Egy korai
+
++fake followerből hiányzó snapshot metódus fixture-hibája javítva.
+
++
+
++A végső kijelölt regresszió **3956 passed, 2 skipped, 10 változatlan deselection,
+
++321 modul, exit 0**, pytest 169.76 s / runner 172.69 s. Mind az 551 source és
+
++630 test Python-fájl AST-je érvényes; a teljes 629 testmodulból a kijelölt 321
+
++futott. Ez nem teljes repository-tesztfuttatási állítás.
+
++A végső kör az eltávolított provider és hibás query-idő próbáját is tartalmazza.
+
++
+
++[Forrás/diff/parancs/JUnit checkpoint](applied-progress-evidence/verification.json).
+
++Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
+
++
+
++Az APPLIED a helyi, ellenőrzött collection-események alkalmazását jelenti,
+
++nem minden szerveradat megismerését vagy hálózati/capture-veszteségmentességet.
+
++A hiányzó natív baseline-t nem állítja elő, és **egyetlen mező TTL-jét sem
+
++hosszabbítja meg**. A retained collection per-field lifecycle/lease szabálya,
+
++warm snapshotok és teljes canonical questprogress/consumer parity a következő
+
++megvalósítási kapu. A geometria/combat/UI freshness nem kap ebből kivételt.
+
++
+
++Nem indult WoW, Ymir, capture vagy FULL_AI; a bridge tesztje fake process-
+
++metadata/follower/UDP függőségeket kapott. Nincs kliensinput, éles memory DB
+
++módosítás vagy új LIVE_VALIDATED állítás. Az addon és a pinned Ymir változatlan.
+
+--- before/docs/reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md
++++ after/docs/reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md
+@@ -0,0 +1,112 @@
++# REV4 — a mai élő próbákból azonosított két regresszió
+
++
+
++2026-10-30, Europe/Budapest. A felhasználó üzemeltette a klienst és az élő
+
++próbákat. Az asszisztens csak olvasott, offline javított és tesztelt; nem
+
++indított klienst, capture-t vagy FULL_AI-t, nem küldött inputot.
+
++
+
++## 1. A szabályos MMAP-kapacitás téves elutasítása
+
++
+
++A 08:46 és 10:35 körüli mentett statusban a 0-s világ navmesh-e még elérhető
+
++volt, natív Detour útvonalakkal. A 15:54-es és 16:39-es status már
+
++`map_parameters_invalid` hibát mutatott. Ezért a quest-NPC-hez, lootolható
+
++holttesthez és questzónába indított MOVE az útvonal elkészítése előtt elbukott.
+
++A záró WAIT/pixelstrip/foreground állapot egy része a felhasználói leállítás
+
++következménye is lehet; önmagában nem mind külön plannerhiba.
+
++
+
++Az új `mmap_format.map_parameters` túl szigorú pozitív kapacitásellenőrzése
+
++volt a regresszió. A tényleges `mmaps.zip` 0000, 2175 és 2444 fejlécében a
+
++signed `maxPolys` érték `-2147483648`. A generátor ugyanitt `1 << DT_POLY_BITS`
+
++értéket tárol; a vizsgált Trinity forrásban `DT_POLY_BITS=31`. Ez kapacitás-
+
++metaadat, nem ennyi poligon lefoglalása. A meglévő DT_POLYREF64 Detour init
+
++ezt nem használja dinamikus referenceszélesség vagy tömbméret számítására.
+
++
+
++A közös Python/natív olvasó most ezt az **egyetlen, pontosan azonosított**
+
++kapacitásértéket is elfogadja, és változatlanul adja tovább. Más negatív/0/
+
++túl nagy ismeretlen érték nem válik elfogadottá. Magic/verzió/hossz/NaN/tile-
+
++szekció/CRC ellenőrzések megmaradnak; a hibát nem közvetlen egyenes MOVE-dal
+
++vagy minden formátumhiba elnyelésével kerüljük meg.
+
++
+
++Elsődleges forrás, ugyanaz a rögzített Trinity commit:
+
++
+
++- [MapBuilder.cpp](https://github.com/TrinityCore/TrinityCore/blob/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/tools/mmaps_generator/MapBuilder.cpp): `buildNavMesh`, kapacitás számítása és fájlba írása.
+
++- [Trinity DetourNavMesh.h](https://github.com/TrinityCore/TrinityCore/blob/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/dep/recastnavigation/Detour/Include/DetourNavMesh.h): a 31 bites kapacitás és signed paramétermező.
+
++- A projekt meglévő `native/recastnavigation/Detour/Source/DetourNavMesh.cpp`
+
++  `DT_POLYREF64` init ága; a DLL és az ABI nem módosult.
+
++
+
++A checkpoint megőrzi a primary fájlok hashét és a három 40-byte fejlécet.
+
++Nem másolja a teljes felhasználói navmesh-archívumot vagy játékadatot.
+
++
+
++Mentett koordinátákon, valódi ZIP-pel és natív DLL-lel, inputmentesen:
+
++
+
++- A 15:54-es, 0-s világon a holttesthez vezető út **READY / route_found**:
+
++  844 tile betöltve, 3 poligon, 4 anchor. Ez offline útvonal, nem új élő loot.
+
++- A 2444-es világ geometriája már betölthető: 547 tile. A mentett, ismeretlen
+
++  Z-jű indulópont nem esett a földi mesh-re, ezért `NO_ROUTE /
+
++  endpoint_not_on_mesh` maradt. Ez külön légimozgási/indulási probléma;
+
++  ennek vagy a korábbi `flight_plan_no_landing_spot` megoldását nem állítjuk.
+
++
+
++## 2. Realm és instance kapcsolat téves azonosítása
+
++
+
++A 16:37-es JSONL-ben a `CMSG_PLAYER_LOGIN` connection 0-n, a
+
++`SMSG_LOGIN_VERIFY_WORLD` connection 1-en jött. A korábbi dekóder kizárólag
+
++azonos connection indexet fogadott. Így nem keletkezett natív session-baseline.
+
++Az addon-migrációs identitás működött, de egy későbbi `queued_sample_expired`
+
++kézbesítési rés után a provider GAP állapotát semmi nem állította helyre.
+
++A 16:39-es status 10 ilyen veszteséget és hiányzó capture epochot mutatott.
+
++
+
++A 16:57-es capture publikus saját create-prefixének vizsgálata igazolta:
+
++connection 1-en `ActivePlayer` (7), `ThisIsYou=true`, a pending login pontos
+
++GUID-ja és a verify-world mapja együtt jelen van. Nem olvastunk autentikációs
+
++csomagot/kulcsot, és ehhez a probe-hoz saját private mezőt sem kértünk.
+
++
+
++Az új `SessionHandshake` egyetlen pending login szűk, 60 másodperces korrelációs
+
++ablakát és legfeljebb négy world-verification jelöltet tart. Azonos kapcsolaton
+
++a meglévő exact login/verify út megmarad. Másik kapcsolaton csak a teljesen
+
++beolvasott UPDATE_OBJECT explicit saját ActivePlayer create-je bizonyít:
+
++pontos GUID, `ThisIsYou`, map, kapcsolat, rekord- és időbeli sorrend együtt.
+
++Nem elegendő az egyetlen talált login, a legközelebbi GUID vagy a connection 1.
+
++Hiányzó/rossz/dupla saját jelölés, lejárt vagy fordított sorrend nem baseline.
+
++
+
++A V2 layout (`WPP_12_1_SESSION_REVIEWED_V2`) csak a vizsgált 70340 opcode-
+
++család UPDATE_OBJECT útjának allowlistjén használható. A közös
+
++SessionContextProvider, RuntimePacketSource és WorldModel kapui maradnak az
+
++authorityk; a handshake nem indít skillt/inputot. A publikus bizonyítás előtt
+
++nem olvasunk másik játékos private profile/quest/inventory prefixet.
+
++
+
++Egy új belépési kísérlet ugyanabban a PKT-fájlban is új capture epochot nyit,
+
++eldobja a régi own kapcsolatot, ownership-/fragment-cache-t és pending
+
++korrelációt. A bridge az epochváltást is figyeli és törli a replay/progress
+
++cache-t, nem csak új fájlfejlécnél. A progress első rekordja ilyenkor nem
+
++szükségképpen 0; ettől nem gyártunk hamis rekordkiesést. Dupla verify egy már
+
++elfogyasztott loginból nem hoz létre új sessiont.
+
++
+
++## 3. Tényleges bizonyíték és hátralévő kapuk
+
++
+
++A 17:04:33-as felhasználói capture új dekóderrel végzett offline visszaolvasása:
+
++9308-as rekord, world connection 1, map 0; V2 baseline `verified_semantics=true`,
+
++a valódi provider elfogadta és READY lett. Saját inventory-root, questlog,
+
++profile, unit és 11 item update is dekódolódott. A visszaolvasás végén külső
+
++UPDATE_OBJECT decode-hiba és csonka record nem volt. Az ismeretlen saját
+
++prefixek továbbra is explicit quest/inventory invalidationt adnak; ettől nem
+
++lett teljes native collection parity. Nyers recordot nem exportáltunk.
+
++
+
++A geometriai célzott kör **69 pass**, a session/progress/identity/native
+
++collection célzott kör **134 pass**. Ezek részben átfednek a széles körrel.
+
++
+
++A végső kijelölt regresszió **3984 passed, 2 skipped, 10 változatlan
+
++deselection, 322 modul, exit 0**, pytest 296.70 s / runner 301.02 s.
+
++Mind az 552 source és 631 test Python-fájl AST-je érvényes; a teljes 630
+
++testmodulból a kijelölt 322 futott. A számozott 203 coverage-sor megmaradt.
+
++
+
++[Forrás/diff/parancs/JUnit/fejléc/capture-probe checkpoint](live-session-navmesh-evidence/verification.json).
+
++A korábbi három checkpoint összes artifact- és forrás-ZIP-hashe is ellenőrizve.
+
++
+
++Nem történt éles javítás utáni FULL_AI validáció. Az új Python-forrás egy
+
++korábban elindított GUI/bridge folyamatba nem töltődik be automatikusan. Az
+
++új élő próba előtt a felhasználónak újra kell indítania a GUI/bridge-et; ezt
+
++az asszisztens nem tette meg. A Ymir EXE és az addon változatlan.
+
++
+
++Retained mező-lifecycle/lease, warm collection baseline, hiányzó native
+
++prefixek, consumer parity és a teljes Combat/Travel/Quest felelősségbontás
+
++továbbra is nyitott. A valódi MMAP-hiba javítása és a felismert saját session
+
++nem jelenti a teljes REV4 vagy bármely quest élő elfogadását.
+
+--- before/src/wowbot/navigation/mmap_format.py
++++ after/src/wowbot/navigation/mmap_format.py
+@@ -10,6 +10,10 @@
+ DETOUR_MAGIC = 0x444E4156
+ MMAP_VERSION = 16
+ DETOUR_VERSION = 7
++# Trinity's reviewed generator stores `1 << DT_POLY_BITS` (31) in the signed
++# dtNavMeshParams.maxPolys slot. The resulting 0x80000000 is capacity metadata,
++# not a polygon count/allocation. DT_POLYREF64 init uses fixed reference bits.
++TRINITY_POLY_CAPACITY = -(1 << 31)
+ 
+ 
+ class MMapFormatError(ValueError):
+@@ -34,7 +38,8 @@
+     width,height = struct.unpack_from('<2f',data,20)
+     tiles,polys = struct.unpack_from('<2i',data,28)
+     if (not all(math.isfinite(v) for v in (*origin,width,height)) or width <= 0 or height <= 0
+-            or not 0 < tiles <= 2**20 or not 0 < polys <= 2**24):
++            or not 0 < tiles <= 2**20
++            or not (0 < polys <= 2**24 or polys == TRINITY_POLY_CAPACITY)):
+         raise MMapFormatError('map_parameters_invalid')
+     # Both the prior 36-byte parameter-only header and the v16 extension
+     # carrying OffMeshData[44 bytes] have the same reviewed parameter prefix.
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -249,7 +249,8 @@
+         import secrets
+
+         self.capture_epoch = secrets.token_hex(16)
+
+         self.process_generation = process_generation
+
+-        self._login_guids = {}
+
++        from .session_bootstrap import SessionHandshake
+
++        self._handshake = SessionHandshake()
+
+         self._verified_player_guids = {}
+
+         self._owned_items = {}
+
+         self.collection_decode_failures = 0
+
+@@ -302,6 +303,7 @@
+         if (not self.manifest or not self.manifest.verified_source
+
+                 or family is None or self.manifest.game_build != family.defining_build):
+
+             return []
+
++        prefix = []
+
+         try:
+
+             if name in {"CMSG_PLAYER_LOGIN", "SMSG_LOGIN_VERIFY_WORLD"}:
+
+                 return self._session_events(record, name, family)
+
+@@ -323,6 +325,15 @@
+                 return [self._semantic_event(record, name, family, kind, body) for kind, body in decoded]
+
+             if record.direction == FlowDirection.SERVER_TO_CLIENT.value and name == "SMSG_UPDATE_OBJECT":
+
+                 own = self._verified_player_guids.get(record.connection_index) if family.defining_build == 70340 else None
+
++                if own is None and family.defining_build == 70340 and self._handshake.needs_create(record):
+
++                    # First read public identity/movement flags only. A private
+
++                    # own prefix is allowed only after exact login GUID proof.
+
++                    rows = decode_update_object(record.payload,{})
+
++                    binding = self._handshake.identify_create(rows,record)
+
++                    if binding is not None and self.process_generation is not None:
+
++                        prefix.append(self._session_baseline(record,name,family,binding,
+
++                                      'WPP_12_1_SESSION_REVIEWED_V2'))
+
++                        own = binding.character_guid
+
+                 owned = self._owned_items.setdefault(record.connection_index,{}) if own is not None else None
+
+                 decoded = _decode_update_object(record.payload, self.entity_fragments,
+
+                                                own_character_guid=own, owned_items=owned)
+
+@@ -338,31 +349,37 @@
+                 self.collection_decode_failures += 1
+
+                 self._owned_items.clear()
+
+                 self.entity_fragments.clear()
+
+-            return []
+
+-        return [self._semantic_event(record, name, family, event_type, payload)
+
+-                for event_type, payload in decoded]
+
++            return prefix  # an independently proved identity survives a failed private prefix
+
++        return [*prefix, *[self._semantic_event(record, name, family, event_type, payload)
+
++                for event_type, payload in decoded]]
+
+ 
+
+     def _session_events(self, record, name, family):
+
+         """WPP CharacterHandler V11.2.7 + MovementHandler login-verify.
+
+ 
+
+-        Login intent alone cannot establish a world. Correlate only the same
+
+-        connection's server verification; late captures stay NO_BASELINE.
+
++        Login intent alone cannot establish a world. A different instance
+
++        connection also needs its exact ThisIsYou ActivePlayer CREATE proof.
+
+         This layout has offline tests, not new live validation.
+
+         """
+
+         cursor = _Cursor(record.payload)
+
+         if name == "CMSG_PLAYER_LOGIN" and record.direction == FlowDirection.CLIENT_TO_SERVER.value:
+
+-            self._login_guids.pop(record.connection_index, None)
+
+-            self._verified_player_guids.pop(record.connection_index, None)
+
+-            self._owned_items.pop(record.connection_index, None)
+
++            from .session_bootstrap import SessionHandshake
+
++            import secrets
+
++            # A new attempt is a lifecycle boundary, even for the same GUID.
+
++            # No old connection, item owner, fragments or replay may survive.
+
++            self._handshake = SessionHandshake()
+
++            self.capture_epoch = secrets.token_hex(16)
+
++            self._verified_player_guids.clear()
+
++            self._owned_items.clear()
+
++            self.entity_fragments.clear()
+
++            self.collection_decode_failures = 0
+
+             guid = cursor.packed_guid128()
+
+             cursor.f32()  # FarClip is not exported
+
+             bits = cursor.u8()
+
+             _exact_end(cursor)
+
+             high, low = int(guid[:16], 16), int(guid[16:], 16)
+
+             if high >> 58 != 2 or low == 0 or bits & 0x7f:
+
+-                self._login_guids.pop(record.connection_index, None)
+
+                 return []
+
+-            self._login_guids[record.connection_index] = f"Player-{(high >> 42) & 0x1FFF}-{low:08X}"
+
++            self._handshake.begin(f"Player-{(high >> 42) & 0x1FFF}-{low:08X}",record)
+
+             return []
+
+         if name != "SMSG_LOGIN_VERIFY_WORLD" or record.direction != FlowDirection.SERVER_TO_CLIENT.value:
+
+             return []
+
+@@ -370,18 +387,21 @@
+         position = tuple(cursor.f32() for _ in range(4))
+
+         cursor.u32()  # reason is not identity
+
+         _exact_end(cursor)
+
+-        guid = self._login_guids.get(record.connection_index)
+
+-        if (guid is None or self.process_generation is None or not 0 <= map_id < 2**16
+
++        if (self.process_generation is None or not 0 <= map_id < 2**16
+
+                 or not _valid_position(*position)):
+
+             return []
+
++        binding = self._handshake.verify_world(map_id,record)
+
++        return ([self._session_baseline(record,name,family,binding,'WPP_12_1_SESSION_REVIEWED_V1')]
+
++                if binding is not None else [])
+
++
+
++    def _session_baseline(self, record, name, family, binding, layout):
+
+         event = self._semantic_event(record, name, family, "SESSION_BASELINE", {
+
+-            "character_guid": guid, "capture_epoch": self.capture_epoch,
+
+-            "sequence": record.record_number, "world_map_id": map_id,
+
++            "character_guid": binding.character_guid, "capture_epoch": self.capture_epoch,
+
++            "sequence": record.record_number, "world_map_id": binding.world_map_id,
+
+             "process_generation": self.process_generation})
+
+-        self._verified_player_guids[record.connection_index] = guid
+
++        self._verified_player_guids = {binding.connection_index:binding.character_guid}
+
+         from dataclasses import replace
+
+-        return [replace(event, provenance={**event.provenance,
+
+-                         "payload_layout": "WPP_12_1_SESSION_REVIEWED_V1"})]
+
++        return replace(event, provenance={**event.provenance,"payload_layout":layout})
+
+ 
+
+     def _semantic_event(self, record, name, family, event_type, payload) -> AgentPacketEvent:
+
+         return AgentPacketEvent.create(
+
+--- before/src/wowbot/packetio/session_bootstrap.py
++++ after/src/wowbot/packetio/session_bootstrap.py
+@@ -0,0 +1,64 @@
++"""Correlate a selected capture's login, world verification and own create.
++
++Realm and instance connections need not have the same sniffer index. A
++different connection is accepted only with a complete reviewed own-player
++create naming the exact pending login GUID. No auth or private fields here.
++"""
++from dataclasses import dataclass
++
++from .context import same_player
++
++
++@dataclass(frozen=True, slots=True)
++class WorldBinding:
++    character_guid: str
++    world_map_id: int
++    connection_index: int
++
++
++class SessionHandshake:
++    MAX_AGE = 60.
++    MAX_WORLDS = 4
++
++    def __init__(self):
++        self.intent = None
++        self.worlds = {}
++
++    def begin(self, guid, record):
++        self.intent = (guid,record.connection_index,record.record_number,record.timestamp)
++        self.worlds.clear()
++
++    def _current(self, record):
++        return (self.intent is not None and record.record_number>self.intent[2]
++                and 0<=record.timestamp-self.intent[3]<=self.MAX_AGE)
++
++    def verify_world(self, map_id, record):
++        if not self._current(record):
++            return None
++        if record.connection_index==self.intent[1]:
++            return self._finish(map_id,record)
++        if len(self.worlds)<self.MAX_WORLDS or record.connection_index in self.worlds:
++            self.worlds[record.connection_index]=(map_id,record.record_number,record.timestamp)
++        return None
++
++    def needs_create(self, record):
++        world=self.worlds.get(record.connection_index)
++        return bool(self._current(record) and world is not None
++                    and record.record_number>world[1] and record.timestamp>=world[2])
++
++    def identify_create(self, rows, record):
++        if not self.needs_create(record):
++            return None
++        world=self.worlds[record.connection_index]
++        claims=[r for r in rows if r.get('kind')=='CREATED' and r.get('this_is_you') is True]
++        if (len(claims)!=1 or claims[0].get('object_type')!=7
++                or claims[0].get('map_id')!=world[0]
++                or not same_player(claims[0]['guid'],self.intent[0])):
++            return None
++        return self._finish(world[0],record)
++
++    def _finish(self, map_id, record):
++        result=WorldBinding(self.intent[0],map_id,record.connection_index)
++        self.intent=None
++        self.worlds.clear()
++        return result
+--- before/src/wowbot/packetio/stream_progress.py
++++ after/src/wowbot/packetio/stream_progress.py
+@@ -45,12 +45,12 @@
+     """
+     def __init__(self, *, clock=time.monotonic, interval=.5):
+         self.clock,self.interval=clock,interval
+-        self.last_record=-1
++        self.last_record=None
+         self.record_gaps=0
+         self.next_send=0.
+ 
+     def note(self, record, decoder):
+-        if record.record_number != self.last_record+1:
++        if self.last_record is not None and record.record_number != self.last_record+1:
+             self.record_gaps+=1
+         self.last_record=record.record_number
+         if (decoder.process_generation is None
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -72,6 +72,7 @@
+     INVENTORY_LAYOUT: INVENTORY_EVENTS,
+
+     'WPP_12_1_OWN_INVENTORY_REVIEWED_V2': INVENTORY_EVENTS,
+
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+
++    "WPP_12_1_SESSION_REVIEWED_V2": frozenset({"SESSION_BASELINE"}),
+
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
+
+     "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
+
+     'WPP_12_1_POWER_REVIEWED_V1': frozenset({'OWN_POWER_UPDATE'}),
+
+@@ -198,6 +199,12 @@
+         if (set(safe_body) != _FIELDS[kind] or type(safe_body.get("sequence")) is not int
+
+                 or safe_body["sequence"] < 0 or event["direction"] != "SERVER_TO_CLIENT"):
+
+             raise ValueError("incomplete session baseline")
+
++        if safe_provenance.get('payload_layout')=='WPP_12_1_SESSION_REVIEWED_V2':
+
++            from .builds import opcode_family
+
++            family=opcode_family(safe_provenance.get('game_build'))
+
++            if (family is None or family.defining_build!=70340
+
++                    or safe_provenance.get('opcode_name')!='SMSG_UPDATE_OBJECT'):
+
++                raise ValueError('own-create baseline requires reviewed instance connection proof')
+
+     if kind == 'OWN_UNIT_UPDATE':
+
+         guid = safe_body.get('mover_guid')
+
+         for key in ('health', 'max_health'):
+
+--- before/src/wowbot/packetio/ymir_bridge.py
++++ after/src/wowbot/packetio/ymir_bridge.py
+@@ -206,7 +206,11 @@
+                                               process_generation=process_identity.generation)
+
+                     header_seen=header
+
+                     self._set(state="STREAMING", game_build=header.game_build)
+
++                epoch = decoder.capture_epoch
+
+                 events = decoder.decode_all(record)
+
++                if decoder.capture_epoch != epoch:
+
++                    replay.reset_capture()
+
++                    progress=CaptureProgress()
+
+                 with self._lock:
+
+                     self._state["records"] = int(self._state["records"])+1
+
+                 for event in events:
+
+--- before/tests/test_instance_session_bootstrap_20261030.py
++++ after/tests/test_instance_session_bootstrap_20261030.py
+@@ -0,0 +1,181 @@
++"""Realm/instance login proof and relogin lifecycle; no client or auth access."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.packetio.opcodes_12_1 import FAMILY_OPCODES
++from wowbot.packetio.pkt import PktV31StreamParser
++from wowbot.packetio.validation import normalize_event,verified_semantics
++from wowbot.session_context import ProcessIdentity,SessionContextProvider
++from test_packet_codecs import packed_guid,pkt_bytes
++from test_session_bootstrap_20261029 import session_events
++from test_own_create_quest_log_20261030 import create_payload
++from test_unit_fields_20261027 import bits
++from test_packet_delivery_20261030 import native
++
++
++def public_create(*,you=True,low=0x1234,object_type=7,map_id=2175,duplicates=False):
++    movement=bits([(int(i==4 and you),1) for i in range(21)])+struct.pack('<I',0)
++    fields=b'\0\xff'  # no private field fragment requested or needed for identity
++    block=bytes((2,))+packed_guid(low=low)+bytes((object_type,))+movement+struct.pack('<I',len(fields))+fields
++    if duplicates:block*=2
++    return struct.pack('<HI',map_id,2 if duplicates else 1)+b'\0'+struct.pack('<I',len(block))+block
++
++
++def cross_connection(*,body=None,at=1000.1,connection=2,record_number=2):
++    decoder,verify=session_events(build=70575,connection=2)
++    assert len(decoder.decode_all(verify))==1  # another connection alone is not own identity
++    create=replace(verify,opcode=FAMILY_OPCODES[70340]['SMSG_UPDATE_OBJECT'],
++                   payload=public_create() if body is None else body,
++                   record_number=record_number,timestamp=at,connection_index=connection)
++    return decoder,verify,create
++
++
++def test_instance_connection_requires_matching_login_world_and_public_own_active_create():
++    decoder,verify,create=cross_connection(body=create_payload())
++    events=decoder.decode_all(create)
++    baseline=next(e for e in events if e.event_type=='SESSION_BASELINE')
++    assert events[1] is baseline  # precedes every native own field in this record
++    assert baseline.payload['character_guid']=='Player-1602-00001234'
++    assert baseline.payload['sequence']==2 and baseline.timestamp==1000.1
++    assert baseline.provenance['payload_layout']=='WPP_12_1_SESSION_REVIEWED_V2'
++    assert baseline.provenance['opcode_name']=='SMSG_UPDATE_OBJECT'
++    assert verified_semantics(normalize_event(baseline.to_dict()))
++    assert decoder._verified_player_guids=={2:'Player-1602-00001234'}
++    assert any(e.event_type=='OWN_QUEST_LOG_UPDATE' for e in events)
++    assert 'PRIVATE_NAME_SENTINEL' not in str([e.to_dict() for e in events])
++    provider=SessionContextProvider(ProcessIdentity(77,'0000000000000001',70575))
++    assert provider.accept_baseline(baseline.to_dict())
++    assert provider.expected(77)['instance_id']==2175
++
++
++@pytest.mark.parametrize('body',[
++    public_create(you=False),public_create(low=0x9999),public_create(object_type=6),
++    public_create(map_id=99),public_create(duplicates=True),public_create()[:-1],
++])
++def test_unproven_or_ambiguous_public_creates_cannot_bind_an_instance_connection(body,monkeypatch):
++    from wowbot.packetio import own_create_quest_log
++    monkeypatch.setattr(own_create_quest_log,'read_create_slots',lambda *a,**k:pytest.fail('unproved private prefix read'))
++    decoder,verify,create=cross_connection(body=body)
++    events=decoder.decode_all(create)
++    assert not any(e.event_type.startswith('OWN_') or e.event_type=='SESSION_BASELINE' for e in events)
++    assert decoder._verified_player_guids=={}
++
++
++@pytest.mark.parametrize('changes',[{'at':1061.},{'at':999.},{'connection':3},{'record_number':1}])
++def test_old_wrong_connection_or_reordered_identity_proof_is_rejected(changes):
++    decoder,verify,create=cross_connection(**changes)
++    assert not any(e.event_type=='SESSION_BASELINE' for e in decoder.decode_all(create))
++    assert decoder._verified_player_guids=={}
++
++
++def test_own_active_create_without_a_login_or_world_verification_cannot_guess_a_baseline():
++    decoder,verify=session_events(build=70575,connection=2)
++    create=replace(verify,opcode=FAMILY_OPCODES[70340]['SMSG_UPDATE_OBJECT'],payload=public_create(),record_number=2)
++    assert not any(e.event_type=='SESSION_BASELINE' for e in decoder.decode_all(create))
++    decoder._handshake.intent=None
++    decoder.decode_all(verify)
++    assert not any(e.event_type=='SESSION_BASELINE' for e in decoder.decode_all(create))
++
++
++def test_duplicate_world_verification_after_a_binding_does_not_manufacture_another_session():
++    decoder,verify,create=cross_connection()
++    assert any(e.event_type=='SESSION_BASELINE' for e in decoder.decode_all(create))
++    assert not any(e.event_type=='SESSION_BASELINE' for e in decoder.decode_all(replace(verify,record_number=3)))
++
++
++@pytest.mark.parametrize('low',[0x1234,0x9999])
++def test_relogin_rotates_epoch_and_discards_previous_connection_ownership_fragments_and_faults(low):
++    decoder,verify=session_events(build=70575)
++    baseline=decoder.decode_all(verify)[-1]
++    old_epoch=decoder.capture_epoch
++    decoder._owned_items[1]={'old-item':'old-owner'}
++    decoder.entity_fragments['old-entity']=(3,)
++    decoder.collection_decode_failures=3
++    login=PktV31StreamParser().feed(pkt_bytes('CMSG_PLAYER_LOGIN',
++        packed_guid(low=low)+struct.pack('<fB',500.,0),build=70575))[0]
++    login=replace(login,record_number=100,timestamp=1001.)
++    assert len(decoder.decode_all(login))==1
++    assert decoder.capture_epoch!=old_epoch and decoder._verified_player_guids=={}
++    assert decoder._owned_items=={} and decoder.entity_fragments=={}
++    assert decoder.collection_decode_failures==0
++    newer=decoder.decode_all(replace(verify,record_number=101,timestamp=1001.1))[-1]
++    assert newer.event_type=='SESSION_BASELINE'
++    assert newer.payload['character_guid']==f'Player-1602-{low:08X}'
++    provider=SessionContextProvider(ProcessIdentity(77,'0000000000000001',70575))
++    assert provider.accept_baseline(baseline.to_dict())
++    before=provider.continuity_generation
++    assert provider.accept_baseline(newer.to_dict())
++    assert provider.continuity_generation>before
++    assert not provider.accept_baseline(baseline.to_dict())
++
++
++def test_instance_layout_cannot_be_claimed_by_an_unreviewed_family_or_wrong_opcode():
++    decoder,verify,create=cross_connection()
++    event=next(e for e in decoder.decode_all(create) if e.event_type=='SESSION_BASELINE').to_dict()
++    for changes in ({'game_build':69587},{'opcode_name':'SMSG_LOGIN_VERIFY_WORLD'}):
++        with pytest.raises(ValueError):
++            normalize_event({**event,'provenance':{**event['provenance'],**changes}})
++
++
++def test_correlated_instance_baseline_repairs_identity_after_loss_but_not_old_collection_data(native):
++    native.provider.require_packet_baseline('test_delivery_gap')
++    native.adapter.observations(None,native.world,10.)
++    assert native.provider.expected(77) is None
++    decoder,verify,create=cross_connection(at=1000.)
++    baseline=next(e for e in decoder.decode_all(create) if e.event_type=='SESSION_BASELINE')
++    native.feed(baseline)
++    assert native.provider.expected(77) is not None
++    assert native.provider.capture_epoch==decoder.capture_epoch
++    assert native.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    assert native.world.query.quest_presence(55639,10.)['state']=='UNKNOWN'
++
++
++def test_bridge_relogin_resets_replay_and_progress_even_without_rotating_the_file(tmp_path,monkeypatch):
++    from wowbot.packetio import ymir_bridge as module,process_identity,stream_progress
++    from wowbot.packetio.forwarder import SnapshotReplayForwarder
++    from test_packet_entities import records,monster_move
++    decoder,verify=session_events(build=70575)
++    login=PktV31StreamParser().feed(pkt_bytes('CMSG_PLAYER_LOGIN',
++        packed_guid()+struct.pack('<fB',500.,0),build=70575))[0]
++    entity=replace(records('SMSG_ON_MONSTER_MOVE',monster_move(),build=70575)[1],record_number=2)
++    class Follower:
++        def __init__(self,path):self.parser=type('Parser',(),{'header':decoder.header})()
++        def snapshot(self):return {'fixture':True}
++        def records(self,stop):
++            yield login
++            yield verify
++            yield entity
++            yield replace(login,record_number=3,timestamp=1001.)
++            yield replace(verify,record_number=4,timestamp=1001.)
++    class UDP:
++        def __init__(self):self.sent=0;self.events=[];self.progress=[]
++        def context_id(self):return None
++        def emit(self,event):self.events.append(event);self.sent+=1;return True
++        def emit_progress(self,value):self.progress.append(value);self.sent+=1;return True
++        def close(self):pass
++    class Replay(SnapshotReplayForwarder):
++        resets=0
++        def reset_capture(self):
++            self.resets+=1
++            super().reset_capture()
++    udp=UDP();replay=Replay(udp)
++    monkeypatch.setattr(module,'UdpJsonForwarder',lambda **kwargs:udp)
++    monkeypatch.setattr(module,'SnapshotReplayForwarder',lambda value:replay)
++    monkeypatch.setattr(module,'PktFileFollower',Follower)
++    monkeypatch.setattr(process_identity,'selected_process_identity',lambda pid:
++        ProcessIdentity(77,'0000000000000001',70575))
++    real=stream_progress.CaptureProgress
++    monkeypatch.setattr(stream_progress,'CaptureProgress',lambda:real(interval=0.))
++    path=tmp_path/'capture.pkt';path.write_bytes(b'fixture')
++    bridge=module.YmirAgentBridge(executable=tmp_path/'not-started.exe',output=tmp_path,
++                                  selected_pid=77,endpoint_path=tmp_path/'endpoint.json')
++    bridge._stream(path)
++    assert bridge.process is None and bridge.snapshot()['error'] is None
++    baselines=[e for e in udp.events if e.event_type=='SESSION_BASELINE']
++    assert len(baselines)==2 and baselines[0].payload['capture_epoch']!=baselines[1].payload['capture_epoch']
++    assert replay.resets==2 and replay.snapshot.entities=={} and replay.quest_pois.events=={}
++    assert replay.session_baseline==baselines[-1]
++    assert [p['record_number'] for p in udp.progress]==[1,2,4]
++    assert all(p['decode_failures']==0 for p in udp.progress)
+--- before/tests/test_mmap_format_20261030.py
++++ after/tests/test_mmap_format_20261030.py
+@@ -83,6 +83,46 @@
+     with pytest.raises(MMapFormatError):tile_mesh(changed(_tile(),4,16))
+ 
+ 
++@pytest.mark.parametrize('header',[
++    '50414d4d10000000ffff60c600008000ffff79c65555054455550544980400000000008000000000',
++    '50414d4d100000005555e9c500008000545569c65555054455550544b20400000000008000000000',
++    '50414d4d10000000ffff15c600008000ffff15c65555054455550544620600000000008000000000',
++])
++def test_actual_trinity_headers_preserve_signed_31_bit_capacity(header):
++    # The user's reviewed 0000/2175/2444 headers, not invented positive limits.
++    values=map_parameters(bytes.fromhex(header))
++    assert values[-1]==-(1<<31) and values[-2]>0
++
++
++@pytest.mark.parametrize('capacity',[-1,-2,-2147483647,0,2**24+1])
++def test_accepting_exact_trinity_capacity_does_not_accept_other_invalid_limits(capacity):
++    with pytest.raises(MMapFormatError,match='map_parameters_invalid'):
++        map_parameters(changed(_map_header(),32,capacity,'i'))
++
++
++def test_real_capacity_allows_the_checked_python_route_without_disabling_validation(tmp_path):
++    owner=mesh(tmp_path,header=changed(_map_header(),32,-(1<<31),'i'),tile=_tile())
++    try:
++        assert query_path(owner,2175,START,END).status is GeometryStatus.READY
++    finally:
++        owner.close()
++
++
++def test_native_loader_preserves_capacity_without_treating_it_as_an_allocation(tmp_path):
++    mesh(tmp_path,header=changed(_map_header(),32,-(1<<31),'i')).close()
++    class Library:
++        parameters=None
++        def aipc_nav_create(self,*args):self.parameters=args;return 1
++        def aipc_nav_destroy(self,*args):pass
++    source=MMapDataSource(tmp_path)
++    lib=Library()
++    native=NativeDetourMap(lib,source,2175)
++    try:
++        assert lib.parameters[3:5]==(4096,-(1<<31))
++    finally:
++        native.close();source.close()
++
++
+ def test_native_loader_rejects_unknown_version_before_calling_dll(tmp_path):
+     mesh(tmp_path,tile=changed(_tile(),8,17)).close()
+     class Library:

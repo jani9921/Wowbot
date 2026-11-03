@@ -4,6 +4,8 @@ Offline tests prove state transitions only.  They are not live quest credit.
 """
 from types import SimpleNamespace
 
+from wowbot.query_ports import NavigationQueryPorts
+
 from wowbot.agent.quest_dot_focus import QuestDotFocus
 from wowbot.agent.quest_location_planning import QuestLocationPlanningPolicy
 from wowbot.navigation.service import NavigationService
@@ -350,7 +352,8 @@ def test_up_down_arrow_needs_two_fresh_samples_and_never_becomes_xy_only(monkeyp
 
 
 def test_unconfirmed_floor_arrow_does_not_start_a_blind_downward_sweep():
-    policy = QuestLocationPlanningPolicy()
+    policy = QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
+        zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.}))
     state = _state(1.)
     state["visual_candidates"] = [{"kind": "minimap_floor_markers", "source": "MINIMAP_CV",
                                    "candidate_labels": ["objective_above_like"],
@@ -358,16 +361,15 @@ def test_unconfirmed_floor_arrow_does_not_start_a_blind_downward_sweep():
     location = {"quest_id": 55639, "x": .5, "y": .5}
     destination = {"x": 0., "y": 0., "instance_id": 2175, "coordinate_space": "WORLD_YARDS"}
     world = _world(state)
-    world._model = SimpleNamespace(zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.})
     assert policy._lower_layer_move(world, location, destination, 55639) is None
 
 
 def test_expired_same_space_dot_does_not_block_a_later_layer_sweep():
-    policy = QuestLocationPlanningPolicy()
+    policy = QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
+        zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.}))
     policy.dot_focus.select(_state(1.), [(25., 0., "55639")], x=0., y=0., now=1.)
     state = _state(25.)
     world = _world(state)
-    world._model = SimpleNamespace(zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.})
     location = {"quest_id": 55639, "x": .5, "y": .5}
     destination = {"x": 0., "y": 0., "instance_id": 2175,
                    "coordinate_space": "WORLD_YARDS"}

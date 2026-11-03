@@ -1,0 +1,923 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,20 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P2/P3 applied decoder progress — **OFFLINE_TESTED / retained
++state parity PARTIAL**. A strict authenticated local control message reports
++actual records on the verified own world connection, preserving capture time.
++WorldModel checks that preceding own collection events really passed their
++reducers and that the control/application chain matches the active generation.
++Out-of-order/skipped reduction is UNAPPLIED, source age expires, and unknown
++outer UPDATE_OBJECT decode invalidates native fields without forwarding bytes.
++Capture header rotation resets the decoder/epoch and replay caches. Controls
++are ephemeral, never gameplay evidence, UI freshness or input authority; no
++field TTL is extended. Selected regression: **3956 passed, 2 skipped, 10
++unchanged deselections, 321 modules, exit 0**, 169.76 s pytest. All 551 source
++and 630 test Python files parse; all 203 numbered rows unchanged. Per-field
++retained lifecycle/leases, warm collection baselines and consumer parity remain
++code gaps. No game/capture/input/live DB changes/new live acceptance; addon/
++Ymir unchanged. See [applied progress checkpoint](reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md).
+ 
+ 2026-10-30 REV4 migration supplement / P7 core extraction — **OFFLINE_TESTED /
+ full responsibility migration PARTIAL**. The missing 747-line migration plan
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,21 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — applied decoder-progress control (offline only)
++
++Authenticated sequenced progress reports actual verified-own-connection record
++time. The shared model verifies preceding own collection reductions and the
++control/application chain; dropped or reordered application stays UNAPPLIED.
++Wrong scope/generation, expired controls and receding counters cannot claim
++current progress. Unknown outer object-update decoding clears native fields;
++rotated capture headers reset decoder/epoch and replay caches. No field TTL,
++UI freshness, gameplay evidence or input authority is granted by the control.
++
++Final selected regression: **3956 passed, 2 skipped, 10 unchanged deselections**,
++321 modules, 169.76 s pytest / 172.69 s runner, exit 0. All 551 source and 630
++test Python files parse. All 203 numbered rows persist. Retained field leases,
++warm collection state and consumer parity remain incomplete. No game/capture/
++FULL_AI/input/live DB modification/new live acceptance; addon/Ymir unchanged.
++[Details/checkpoint](reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md).
+ 
+ ## 2026-10-30 — migration supplement and canonical combat extraction (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3934 passed, 2 skipped, 10 változatlan deselection, 320 modul, exit 0.
++Végső kijelölt regresszió: 3956 passed, 2 skipped, 10 változatlan deselection, 321 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -33,6 +33,9 @@
+ A [questlog- és root-collection invalidálása](P3_QUEST_LOG_INVALIDATION.md)
+ mezőnként megőrzi az újabb bizonyítékot, az ismeretlenné vált régi tagokat
+ eldobja. A teljes progress/retained-state/consumer paritás még nem kész.
++A [valódi decoder-progress alkalmazási kapuja](P2_APPLIED_PACKET_PROGRESS.md)
++is bekötött; megérkezett kontroll nem jelent feldolgozott collection-deltát,
++nem hosszabbít sample-TTL-t. A retained lifecycle és warm-baseline még nyitott.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -51,6 +51,10 @@
+ egy canonical combat implementáció, azonos régi reexportok, tiltott agent/core
+ függőség tesztelve. A teljes nagy CombatSkill/Travel/Quest felelősségbontást
+ az eddigi szerződésbekötések nem helyettesítik; ez külön nyitott kódmunka.
++Bekötött [valódi decoder-progress és alkalmazási watermark](P2_APPLIED_PACKET_PROGRESS.md):
++a kontroll csak a ténylegesen redukált saját collection-eseményeket igazolja.
++Nem frissít UI-t, nem ad inputjogot és nem hosszabbít mező-TTL-t. A per-field
++retained lifecycle és warm collection baseline továbbra is külön kódos kapu.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -93,14 +97,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3934 passed, 2 skipped, 10 deselected; 320 modul; 184.66 s; exit 0** |
++| Végső kijelölt regresszió | **3956 passed, 2 skipped, 10 deselected; 321 modul; 169.76 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 549 source + 629 tests Python-fájl; 628 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 551 source + 630 tests Python-fájl; 629 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **320 kijelölt modul eredménye**, nem a teljes 628 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 629 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md
++++ after/docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md
+@@ -0,0 +1,90 @@
++# REV4 P2/P3 — valódi decoder-progress és alkalmazási watermark
++
++2026-10-30. Offline tesztelt bekötés a kijelölt `projekt` mappában.
++Ez a [kézbesítési sorszám](P2_PACKET_DELIVERY.md) folytatása: különbséget
++tesz a megérkezett és a saját collection-reduceren ténylegesen átment adat között.
++Nem teljes retained-state/warm-replay vagy quest/inventory consumer parity.
++
++## Forrás és hitelesített helyi üzenet
++
++A Ymir bridge meglévő Python PKT-follower/dekóder útja minden valódi rekord
++feldolgozása után tud progress-jelölést adni. Csak ugyanannak a dekódernek
++korrelált, igazolt saját world connectionje számít. Más connection, BN-forgalom
++vagy puszta timer nem állít új progresszt. A jel legfeljebb félmásodpercenként
++megy; az eredeti record timestampet viszi tovább, nem az aktuális faliórát.
++Régi PKT-backlog ettől nem lesz friss élő forrás.
++
++Az `aipc.packet-progress.v1` szűk helyi controlséma: selected PID, process
++generation, exact build, capture epoch, record number, eredeti timestamp és
++dekódolási hibaszámláló. Nincs nyers packet/payload, GUID-lista, auth-/session
++anyag vagy személyes szöveg. A meglévő sorszámozott V2 envelope HMAC-ján megy,
++a gameplay-allowlist és a packet JSONL recorder felületét nem bővíti.
++Bootstrap context nem használhatja gameplay-baseline helyett.
++
++Az inbox csak a legutóbbi kumulatív kontrollt tartja, de az érkezési sorrend
++alapján a korábbi szemantikus delták mögött adja át. A controlsor összevonása
++nem dobja el a collection-deltákat. V1/unsigned controlséma nem elfogadott.
++
++## Alkalmazási kapu a közös WorldModelben
++
++A RuntimePacketSource felsorolja a két kontroll között átadott saját questlog/
++inventory eseményazonosítókat, és az előző átadott progress sorszámát. A közös
++reducer csak build/GUID/world ellenőrzés után és a tényleges collection-
++redukció határán jelöli alkalmazottnak ezeket. A PACKET_PROGRESS megfigyelés
++csak akkor APPLIED, ha mindegyik ellenőrzött, a lánc folytonos és a kiválasztott
++session/PID/process/build/epoch/generation egyezik.
++
++Ha a hívó a progresszt egy korábbi delta előtt vagy annak kihagyásával adja
++be, UNAPPLIED lesz. Késői alkalmazás és új életjel ezt nem írja utólag át
++bizonyított folytonossággá. A szokásos defer-rebuild batch helyes sorrendben
++alkalmazott delta → kontroll útja működik. Egy GAP előtti, félretett kontroll
++nem építheti fel újra az új generation állapotát.
++
++A `WorldQuery.packet_stream_progress(now)` bounded másolatot ad; nincs
++planner-, skill-, input- vagy aktuális world-authorityja. A kontroll nem lesz
++`latest` addon observation, nem írja át `last_received`-et, nem ad quest/loot
++creditet, és az ObservationIngestion nem írja minden alkalommal SQLite-ba.
++Két másodperces forráskorhatár után EXPIRED. Érvénytelen query-idő vagy
++eltávolított session-provider esetén UNKNOWN.
++
++## Dekódolási hiba és fájlrotáció
++
++Egy teljesen olvashatatlan UPDATE_OBJECT rekord növeli a dekóder hibaszámlálóját,
++és megszünteti a korábban megtanult private-item ownership/fragment kontextust.
++A következő igazolt progress a modellben is érvényteleníti a korábbi natív
++mezőket: nem marad teljes quest/inventory lista egy esetleg kihagyott változás
++után. Sikertelen packet bytejai nem kerülnek a progressba. A számláló nem
++csökkenhet ugyanabban a forrásláncban.
++
++A bridge immár a follower tényleges új headerére is új dekódert és capture
++epochot hoz létre, és eldobja a régi entity/POI/session replay-cache-t.
++Az új fájl továbbra is PID/build/process-élettartam ellenőrzést és saját
++login-baseline-t igényel. Ez a Python-follower javítása; a Ymir EXE nem változott.
++
++## Ellenőrzés és hátralévő kapu
++
++A célzott kör **168 pass**: valódi kontrollnormalizálás/HMAC/forwarder/inbox/
++adapter/WorldModel, normál és fordított feldolgozási sorrend, kumulatív kontroll,
++defer-rebuild, rossz scope/epoch/process/build, elöregedés, dekódolási hibák és
++fake followerrel futtatott valódi bridge/dekóder-lánc, fájlrotációval. Egy korai
++fake followerből hiányzó snapshot metódus fixture-hibája javítva.
++
++A végső kijelölt regresszió **3956 passed, 2 skipped, 10 változatlan deselection,
++321 modul, exit 0**, pytest 169.76 s / runner 172.69 s. Mind az 551 source és
++630 test Python-fájl AST-je érvényes; a teljes 629 testmodulból a kijelölt 321
++futott. Ez nem teljes repository-tesztfuttatási állítás.
++A végső kör az eltávolított provider és hibás query-idő próbáját is tartalmazza.
++
++[Forrás/diff/parancs/JUnit checkpoint](applied-progress-evidence/verification.json).
++Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
++
++Az APPLIED a helyi, ellenőrzött collection-események alkalmazását jelenti,
++nem minden szerveradat megismerését vagy hálózati/capture-veszteségmentességet.
++A hiányzó natív baseline-t nem állítja elő, és **egyetlen mező TTL-jét sem
++hosszabbítja meg**. A retained collection per-field lifecycle/lease szabálya,
++warm snapshotok és teljes canonical questprogress/consumer parity a következő
++megvalósítási kapu. A geometria/combat/UI freshness nem kap ebből kivételt.
++
++Nem indult WoW, Ymir, capture vagy FULL_AI; a bridge tesztje fake process-
++metadata/follower/UDP függőségeket kapott. Nincs kliensinput, éles memory DB
++módosítás vagy új LIVE_VALIDATED állítás. Az addon és a pinned Ymir változatlan.
+--- before/src/wowbot/agent/observation_ingestion.py
++++ after/src/wowbot/agent/observation_ingestion.py
+@@ -13,7 +13,7 @@
+ # SQLite for more than half of all profiler samples.
+ EPHEMERAL_OBSERVATION_SOURCES = frozenset({
+     "WORLD3D", "WORLD3D_LOCAL_VIEW", "UI_CV", "MINIMAP_CV", "WORLD_MAP_CV",
+-    "CROSS_VIEW", "CAMERA_CONTROL", "PACKET_TELEMETRY",
++    "CROSS_VIEW", "CAMERA_CONTROL", "PACKET_TELEMETRY", 'PACKET_PROGRESS',
+     # Immutable reference data and learned identities already live in their
+     # own databases. Never serialize their joined projection on every tick.
+     "REFERENCE_MEMORY",
+--- before/src/wowbot/agent/runtime_packet_progress.py
++++ after/src/wowbot/agent/runtime_packet_progress.py
+@@ -0,0 +1,101 @@
++"""Applied local progress witness. This is not a game-state provider."""
++from collections import deque
++import math
++
++from wowbot.context_contracts import context_matches
++from wowbot.packetio.delivery import stamp
++from wowbot.packetio.stream_progress import normalize
++from .models import Observation, json_copy
++
++
++def token(provider):
++    return (provider.process.generation,provider.capture_epoch,provider.continuity_generation)
++
++
++def observation(event,context,provider,expected,previous):
++    return Observation.create({'session_id':context['session_id'],'timestamp':event['timestamp'],
++        'frame_id':'progress:'+event['event_id'],'packet_context':context,'progress_control':event,
++        'expected_collection_events':list(expected),'previous_progress_sequence':previous,
++        'provider_token':list(token(provider)),
++        'provenance':{'producer':'RuntimePacketSource','selected_pid':context['selected_pid']}},
++        event['received_at_monotonic'],'PACKET_PROGRESS')
++
++
++def note_collection(model, safe, obs):
++    """Called only after own GUID/world/build verification and actual reduction."""
++    event=obs.payload.get('packet_event') or {}
++    if event.get('delivery_state')=='CONTIGUOUS' and event.get('delivery_stream'):
++        model.__dict__.setdefault('_packet_collection_applied',deque(maxlen=2048)).append(safe['event_id'])
++
++
++def apply(model,obs,*,defer_rebuild=False):
++    provider=getattr(model,'session_context_provider',None)
++    if provider is None:return False
++    from .world_packet_reducer import _context
++    from .packet_continuity import refresh
++    try:
++        event=obs.payload['progress_control']
++        value=normalize(event['payload'])
++        expected=_context(model,model.addon_state,value['selected_pid'])
++        context=obs.payload['packet_context']
++        delivery=stamp(event['delivery_stream'])
++        sampled=event['sampled_at_monotonic']
++        provenance=obs.payload.get('provenance') or {}
++        required=obs.payload['expected_collection_events']
++        if (expected is None or not context_matches(expected,context) or event.get('ipc_context')!=context
++                or not context.get('context_id') or obs.session_id!=expected['session_id']
++                or provenance.get('producer')!='RuntimePacketSource'
++                or provenance.get('selected_pid')!=value['selected_pid']
++                or obs.payload['provider_token']!=list(token(provider))
++                or value['capture_epoch']!=provider.capture_epoch or value['game_build']!=expected['game_build']
++                or value['process_generation']!=provider.process.generation
++                or event.get('delivery_state')!='CONTIGUOUS'
++                or type(sampled) not in {int,float} or not math.isfinite(sampled)
++                or not 0<=obs.received_at-sampled<=2.
++                or not isinstance(required,list) or len(required)>1024
++                or any(not isinstance(i,str) for i in required)):
++            return False
++    except (KeyError,ValueError,TypeError,OverflowError):
++        return False
++    refresh(model,model.state)
++    previous=model.__dict__.get('_packet_stream_progress')
++    same=bool(previous and previous['context_id']==context['context_id']
++              and previous['sender_id']==delivery['sender_id'])
++    previous_sequence=previous['delivery_sequence'] if same else 0
++    applied=set(model.__dict__.get('_packet_collection_applied',()))
++    reason=('progress_chain_unapplied' if obs.payload.get('previous_progress_sequence')!=previous_sequence
++            or same and previous['status'] not in {'APPLIED','DECODE_GAP'} else
++            'collection_events_unapplied' if not set(required)<=applied else
++            'progress_record_regressed' if same and (value['record_number']<=previous['record_number']
++                or value['decode_failures']<previous['decode_failures']
++                or sampled<previous['sample_time']) else
++            'decode_gap' if value['decode_failures'] else 'applied')
++    if same and delivery['sequence']<=previous_sequence:
++        return False
++    # An unread whole UPDATE_OBJECT may hide any own collection change. Keep
++    # the fault counter, invalidate current fields, never forward failed bytes.
++    if value['decode_failures']>(previous['decode_failures'] if same else 0):
++        from .packet_continuity import discard_fields
++        discard_fields(model,model.state)
++    model.__dict__['_packet_stream_progress']={
++        'status':'APPLIED' if reason=='applied' else 'DECODE_GAP' if reason=='decode_gap' else 'UNAPPLIED',
++        'reason':reason,'context_id':context['context_id'],'sender_id':delivery['sender_id'],
++        'delivery_sequence':delivery['sequence'],'record_number':value['record_number'],
++        'decode_failures':value['decode_failures'],'sample_time':sampled,'received_at':obs.received_at,
++        'token':token(provider),'collection_events_checked':len(required)}
++    if defer_rebuild:model._state_dirty=True
++    else:model._rebuild_state()
++    return True
++
++
++def view(model,now):
++    from .packet_continuity import current
++    row=model.__dict__.get('_packet_stream_progress')
++    provider=getattr(model,'session_context_provider',None)
++    if (row is None or provider is None or row['token']!=token(provider) or not current(model)
++            or type(now) not in {int,float} or not math.isfinite(now)):
++        return {'status':'UNKNOWN'}
++    value=json_copy({key:row[key] for key in ('status','reason','record_number','decode_failures',
++                    'sample_time','received_at','collection_events_checked')})
++    if not 0<=now-row['sample_time']<=2.:value['status']='EXPIRED'
++    return value
+--- before/src/wowbot/agent/runtime_packet_source.py
++++ after/src/wowbot/agent/runtime_packet_source.py
+@@ -54,6 +54,8 @@
+         self.delivery_losses = 0
+         self.delivery_loss_reason = None
+         self._delivery_loss_generation = 0
++        self._collection_delivery_ids = []
++        self._progress_sequence = 0
+         self.enabled = source is not None or os.environ.get("AIPC_PACKET_TELEMETRY", "0").lower() in {"1", "true", "yes", "on"}
+ 
+     def start(self):
+@@ -151,6 +153,8 @@
+             self._snapshot_healthy_since = None
+             self.last_accepted_at = None
+             self.entity_snapshot_request_error = None
++            self._collection_delivery_ids = []
++            self._progress_sequence = 0
+             try:
+                 write_json_replace(self.path, descriptor if self.context else {
+                     "schema": "aipc.packet-endpoint.v1", "status": "inactive", "context": None})
+@@ -192,6 +196,14 @@
+                 continue
+             if self.context.get("bootstrap") is True:
+                 continue
++            if event.get('event_type')=='SOURCE_PROGRESS':
++                if self.session_provider is not None and event.get('delivery_state')=='CONTIGUOUS':
++                    from .runtime_packet_progress import observation as progress_observation
++                    observations.append(progress_observation(event,self.context,self.session_provider,
++                        self._collection_delivery_ids,self._progress_sequence))
++                    self._collection_delivery_ids=[]
++                    self._progress_sequence=event['delivery_stream']['sequence']
++                continue
+             if (self.session_provider is not None and self.session_provider.capture_epoch is not None
+                     and event.get('semantic_status') == 'CONFIRMED'
+                     and (event.get('provenance') or {}).get('capture_epoch') != self.session_provider.capture_epoch):
+@@ -201,6 +213,12 @@
+                                             else 'capture_epoch_mismatch')
+                 continue
+             observations.append(self._observation(event))
++            from wowbot.packetio.stream_progress import COLLECTION_EVENTS
++            if event.get('event_type') in COLLECTION_EVENTS:
++                if len(self._collection_delivery_ids)<1024:
++                    self._collection_delivery_ids.append(event['event_id'])
++                else:
++                    self._collection_delivery_ids=['collection_proof_budget_exceeded']
+             if event.get("semantic_status") == "CONFIRMED":
+                 self.capture_epoch_error = None
+                 self.last_accepted_at = sampled
+--- before/src/wowbot/agent/world.py
++++ after/src/wowbot/agent/world.py
+@@ -382,6 +382,9 @@
+             if obs.source == "PACKET_TELEMETRY":
+                 from .world_packet_reducer import WorldPacketReducer
+                 return WorldPacketReducer.apply(self, obs, defer_rebuild=defer_rebuild)
++            if obs.source == 'PACKET_PROGRESS':
++                from .runtime_packet_progress import apply
++                return apply(self,obs,defer_rebuild=defer_rebuild)
+             if obs.source == "AGENT_TRACE":
+                 self.history.append(obs)
+                 self._ingest_execution_trace(obs)
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -547,6 +547,8 @@
+                     and same_world_map(body['world_map_id'],expected['instance_id'])):
+                 from .packet_inventory import remember as remember_inventory
+                 remember_inventory(model,kind,body,obs,sampled,expected)
++                from .runtime_packet_progress import note_collection
++                note_collection(model,safe,obs)
+             from wowbot.packetio.quest_definition import EVENTS as DEFINITION_EVENTS
+             if kind in DEFINITION_EVENTS:
+                 from .server_quest_definitions import remember as remember_definition, scope as definition_scope
+@@ -562,6 +564,8 @@
+                     invalidate_quest_log(model,obs,sampled,expected)
+                 else:
+                     remember_quest_log(model,body,obs,sampled,expected)
++                from .runtime_packet_progress import note_collection
++                note_collection(model,safe,obs)
+             if (kind == 'OWN_PROFILE_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
+                     and same_world_map(body['world_map_id'], expected['instance_id'])):
+                 from .packet_own_profile import remember as remember_profile
+--- before/src/wowbot/agent/world_query.py
++++ after/src/wowbot/agent/world_query.py
+@@ -141,6 +141,11 @@
+         from .world_packet_reducer import _context
+         return view(self.model,self.model.state,now,lambda pid:_context(self.model,self.model.state,pid),
+                     item_id=item_id)
++
++    def packet_stream_progress(self,now: float) -> dict:
++        """Applied local control watermark; neither input nor world freshness."""
++        from .runtime_packet_progress import view
++        return view(self.model,now)
+ 
+     def owned_item_count(self, item_id: int, now: float) -> dict:
+         """A sampled lower bound of known owned stacks; carried state unknown."""
+--- before/src/wowbot/packetio/forwarder.py
++++ after/src/wowbot/packetio/forwarder.py
+@@ -96,16 +96,39 @@
+                     and descriptor["context"].get("game_build") != event.provenance.get("game_build")):
+                 self.dropped += 1
+                 return False
+-            context_id = descriptor['context'].get('context_id')
+-            if context_id != self._delivery_context:
+-                self._delivery_context, self._delivery_sequence = context_id, 0
+-            self._delivery_sequence += 1
+-            encoded = canonical(envelope(value, descriptor, stream={
+-                'sender_id':self._sender_id, 'sequence':self._delivery_sequence}))
+-            address = descriptor["host"], descriptor["port"]
+         except (OSError, ValueError, TypeError, KeyError):
+             self.dropped += 1
+             return False
++        return self._send_value(value,descriptor)
++
++    def emit_progress(self, value):
++        """Authenticated local control message, excluded from gameplay/JSONL."""
++        from .stream_progress import normalize
++        with self._send_lock:
++            try:
++                value=normalize(value)
++                descriptor=self._current_descriptor()
++                context=descriptor['context']
++                if (context.get('bootstrap') or context.get('selected_pid')!=value['selected_pid']
++                        or context.get('game_build')!=value['game_build']
++                        or context.get('process_generation')!=value['process_generation']
++                        or self.process_generation!=value['process_generation']
++                        or value['timestamp']<context['started_wall']):
++                    raise ValueError('out of scope decoder progress')
++            except (OSError,ValueError,TypeError,KeyError):
++                self.dropped+=1
++                return False
++            return self._send_value(value,descriptor)
++
++    def _send_value(self, value, descriptor):
++        from .ipc import canonical, envelope
++        context_id = descriptor['context'].get('context_id')
++        if context_id != self._delivery_context:
++            self._delivery_context, self._delivery_sequence = context_id, 0
++        self._delivery_sequence += 1
++        encoded = canonical(envelope(value, descriptor, stream={
++            'sender_id':self._sender_id, 'sequence':self._delivery_sequence}))
++        address = descriptor['host'],descriptor['port']
+         if len(encoded) > 60_000:
+             self.dropped += 1
+             return False
+@@ -278,6 +301,16 @@
+                 self.replayed += int(sent)
+         return sent
+ 
++    def reset_capture(self):
++        """A rotated capture cannot replay the previous decoder's objects."""
++        from .quest_poi_snapshot import QuestPoiSnapshot
++        self.snapshot=EntitySnapshot()
++        self.quest_pois=QuestPoiSnapshot()
++        self.session_baseline=None
++        self._pending_replay.clear()
++        self._context_id=None
++        self._next_replay_at=0.
++
+     def _prepare_replay(self):
+         context_id = self.forwarder.context_id()
+         request = getattr(self.forwarder, "entity_snapshot_request", lambda: 0)()
+--- before/src/wowbot/packetio/inbox.py
++++ after/src/wowbot/packetio/inbox.py
+@@ -37,6 +37,7 @@
+         self._movement = {}
+         self._states = {}
+         self._entities = {}
++        self._progress = {}
+         self._stale_counts = [0, 0]
+         self._lock = threading.Lock()
+         self._seen = deque(maxlen=max_queue*2)
+@@ -59,6 +60,7 @@
+                 self._movement.clear()
+                 self._states.clear()
+                 self._entities.clear()
++                self._progress.clear()
+                 self._stale_counts[:] = [0, 0]
+                 self._seen.clear()
+                 self._seen_set.clear()
+@@ -88,7 +90,12 @@
+                 context = self._descriptor["context"]
+                 if not context:
+                     raise ValueError("waiting_for_addon_context")
+-                event = normalize_event(verify(value, self._descriptor))
++                verified=verify(value,self._descriptor)
++                from .stream_progress import SCHEMA as PROGRESS_SCHEMA, inbox_record
++                control=isinstance(verified,dict) and verified.get('schema')==PROGRESS_SCHEMA
++                if control and value.get('schema')!='aipc.packet-envelope.v2':
++                    raise ValueError('progress requires sequenced IPC')
++                event=inbox_record(verified) if control else normalize_event(verified)
+                 if event["selected_pid"] != self.selected_pid:
+                     raise ValueError("different_selected_pid")
+                 wall, now = self._wall_clock(), self._clock()
+@@ -108,10 +115,14 @@
+                 self._seen_set.add(event["event_id"])
+                 self._sequence += 1
+                 event = {**event, "ipc_context": dict(context), "received_at_monotonic": now,
+-                         "sampled_at_monotonic": now-max(0., age), "receive_sequence": self._sequence}
++                         "sampled_at_monotonic": now-max(0., age), "receive_sequence": self._sequence,
++                         'delivery_stream':dict(stream) if stream else None,
++                         'delivery_state':self._delivery.state}
+                 movement = event["event_type"] == "MOVEMENT_UPDATE" and not event["payload"].get("teleport")
+                 from .validation import ENTITY_EVENTS
+-                if event["event_type"] in ENTITY_EVENTS:
++                if control:
++                    self._progress={'latest':event}  # cumulative watermark, no semantic delta is lost
++                elif event["event_type"] in ENTITY_EVENTS:
+                     self._queue_entity(event)
+                 elif (event['event_type'] == 'OWN_POWER_UPDATE' or event['event_type'] in {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE'}
+                       and event['payload'].get('sample_kind') != 'CREATE'):
+@@ -211,7 +222,8 @@
+             self._movement = {k: e for k, e in self._movement.items() if fresh(e)}
+             self._states = {k: e for k, e in self._states.items() if fresh(e)}
+             self._entities = {k: e for k, e in self._entities.items() if fresh(e)}
+-            events = sorted([*self.queue, *self._movement.values(), *self._entities.values(), *self._states.values()],
++            self._progress = {k:e for k,e in self._progress.items() if fresh(e)}
++            events = sorted([*self.queue, *self._movement.values(), *self._entities.values(), *self._states.values(), *self._progress.values()],
+                             key=lambda e: e["receive_sequence"])
+             output = events[:limit]
+             consumed = {event["event_id"] for event in output}
+@@ -219,6 +231,7 @@
+             self._movement = {k: e for k, e in self._movement.items() if e["event_id"] not in consumed}
+             self._states = {k: e for k, e in self._states.items() if e['event_id'] not in consumed}
+             self._entities = {k: e for k, e in self._entities.items() if e["event_id"] not in consumed}
++            self._progress = {k:e for k,e in self._progress.items() if e['event_id'] not in consumed}
+             return output
+ 
+     def peek_movement(self, direction="CLIENT_TO_SERVER"):
+@@ -243,7 +256,8 @@
+             return {"status": "listening" if self._descriptor["context"] else "waiting_for_addon_context",
+                 "selected_pid": self.selected_pid, "received": self.received, "rejected": self.rejected,
+                 "duplicates": self.duplicates, "dropped": self.dropped, "coalesced": self.coalesced,
+-                "queued": len(self.queue)+len(self._movement)+len(self._entities)+len(self._states),
++                "queued": len(self.queue)+len(self._movement)+len(self._entities)+len(self._states)+len(self._progress),
++                'queued_progress':len(self._progress),
+                 'queued_states': len(self._states),
+                 "queued_entities": len(self._entities), "last_received_at": self.last_received_at,
+                 "last_error": self.last_error, 'delivery':self._delivery.snapshot()}
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -252,6 +252,7 @@
+         self._login_guids = {}
+         self._verified_player_guids = {}
+         self._owned_items = {}
++        self.collection_decode_failures = 0
+         if self.selected_pid <= 0:
+             raise PktFormatError("positive selected PID required")
+         if manifest is not None and not compatible_opcode_build(manifest.game_build, header.game_build):
+@@ -333,6 +334,10 @@
+             else:
+                 decoded = _decode_verified_payloads(name, record.direction, record.payload)
+         except (ValueError, UpdateLayoutError, struct.error, OverflowError):
++            if name == 'SMSG_UPDATE_OBJECT':
++                self.collection_decode_failures += 1
++                self._owned_items.clear()
++                self.entity_fragments.clear()
+             return []
+         return [self._semantic_event(record, name, family, event_type, payload)
+                 for event_type, payload in decoded]
+--- before/src/wowbot/packetio/stream_progress.py
++++ after/src/wowbot/packetio/stream_progress.py
+@@ -0,0 +1,66 @@
++"""Allowlisted local decoder progress; never a server/gameplay observation."""
++import hashlib
++import json
++import math
++import re
++import time
++
++SCHEMA = 'aipc.packet-progress.v1'
++COLLECTION_EVENTS = frozenset({'OWN_QUEST_LOG_UPDATE','OWN_QUEST_LOG_INVALIDATED',
++    'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'})
++
++
++def normalize(value):
++    keys = {'schema','selected_pid','timestamp','capture_epoch','process_generation',
++            'game_build','record_number','decode_failures'}
++    if not isinstance(value,dict) or set(value)!=keys or value.get('schema')!=SCHEMA:
++        raise ValueError('invalid decoder progress shape')
++    from .builds import opcode_family
++    for key,minimum in (('selected_pid',1),('game_build',1),('record_number',0),('decode_failures',0)):
++        if type(value.get(key)) is not int or not minimum <= value[key] < 2**63:
++            raise ValueError('invalid decoder progress integer')
++    if opcode_family(value['game_build']) is None:
++        raise ValueError('unreviewed progress build')
++    if (not isinstance(value['capture_epoch'],str) or re.fullmatch('[a-f0-9]{32}',value['capture_epoch']) is None
++            or not isinstance(value['process_generation'],str)
++            or re.fullmatch('[a-fA-F0-9]{1,32}',value['process_generation']) is None
++            or type(value['timestamp']) not in {int,float} or not math.isfinite(value['timestamp'])
++            or value['timestamp'] <= 0):
++        raise ValueError('invalid decoder progress scope/time')
++    return dict(value)
++
++
++def inbox_record(value):
++    value=normalize(value)
++    identity=hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:24]
++    return {'schema':SCHEMA,'event_id':identity,'event_type':'SOURCE_PROGRESS','semantic_status':'CONTROL',
++            'timestamp':value['timestamp'],'selected_pid':value['selected_pid'],'payload':value}
++
++
++class CaptureProgress:
++    """Progress only after actual records on a verified own world connection.
++
++    Calling a timer with no record cannot advance this witness. Record time is
++    preserved even while following a backlog; no current wall-time restamp.
++    """
++    def __init__(self, *, clock=time.monotonic, interval=.5):
++        self.clock,self.interval=clock,interval
++        self.last_record=-1
++        self.record_gaps=0
++        self.next_send=0.
++
++    def note(self, record, decoder):
++        if record.record_number != self.last_record+1:
++            self.record_gaps+=1
++        self.last_record=record.record_number
++        if (decoder.process_generation is None
++                or record.connection_index not in decoder._verified_player_guids
++                or record.direction not in {'SERVER_TO_CLIENT','CLIENT_TO_SERVER'}):
++            return None
++        now=self.clock()
++        if now < self.next_send:return None
++        self.next_send=now+self.interval
++        return normalize({'schema':SCHEMA,'selected_pid':decoder.selected_pid,'timestamp':record.timestamp,
++            'capture_epoch':decoder.capture_epoch,'process_generation':decoder.process_generation,
++            'game_build':decoder.header.game_build,'record_number':record.record_number,
++            'decode_failures':decoder.collection_decode_failures+self.record_gaps})
+--- before/src/wowbot/packetio/ymir_bridge.py
++++ after/src/wowbot/packetio/ymir_bridge.py
+@@ -174,9 +174,12 @@
+         recorder = JsonlEventRecorder(self.events_path, policy=EventPolicy(allow_unknown=True))
+         # Login creates arrive before the runtime's packet context exists;
+         # each new context first receives the current entity snapshot.
+-        sink = CompositeSink(SnapshotReplayForwarder(udp), recorder)
++        replay = SnapshotReplayForwarder(udp)
++        sink = CompositeSink(replay, recorder)
+         self.follower = PktFileFollower(path)
+-        decoder = None
++        decoder = header_seen = None
++        from .stream_progress import CaptureProgress
++        progress = CaptureProgress()
+         try:
+             self._set(state="WAITING_FOR_PKT_FILE")
+             while not self.stop.is_set() and not Path(path).is_file():
+@@ -185,8 +188,11 @@
+                 return
+             self._set(state="WAITING_FOR_PKT_DATA")
+             for record in self.follower.records(self.stop):
+-                if decoder is None:
++                if decoder is None or self.follower.parser.header is not header_seen:
+                     header = self.follower.parser.header
++                    if decoder is not None:
++                        replay.reset_capture()
++                        progress=CaptureProgress()
+                     if header.game_build != EXPECTED_BUILD:
+                         raise PktFormatError(
+                             f"PKT build {header.game_build} does not match {EXPECTED_BUILD}")
+@@ -198,6 +204,7 @@
+                     decoder = PktEventDecoder(selected_pid=self.selected_pid, header=header,
+                                               manifest=OpcodeManifest.reviewed(header.game_build),
+                                               process_generation=process_identity.generation)
++                    header_seen=header
+                     self._set(state="STREAMING", game_build=header.game_build)
+                 events = decoder.decode_all(record)
+                 with self._lock:
+@@ -214,6 +221,9 @@
+                                 self._state["forwarded_events"])+(udp.sent-before)
+                 before = udp.sent
+                 sink.flush()  # paced snapshot also advances on records with no semantic event
++                witness=progress.note(record,decoder)
++                if witness is not None:
++                    udp.emit_progress(witness)
+                 with self._lock:
+                     self._state["forwarded_events"] = int(self._state["forwarded_events"])+(udp.sent-before)
+         except Exception as error:
+--- before/tests/test_applied_packet_progress_20261030.py
++++ after/tests/test_applied_packet_progress_20261030.py
+@@ -0,0 +1,238 @@
++"""Received progress is not applied game state, freshness or input authority."""
++from dataclasses import replace
++import json
++import struct
++
++import pytest
++
++from wowbot.agent.observation_ingestion import ObservationIngestion
++from wowbot.packetio.ipc import canonical,envelope
++from wowbot.packetio.stream_progress import SCHEMA,CaptureProgress,normalize
++from test_packet_delivery_20261030 import native,SENDER
++from test_native_inventory_20261030 import events
++from test_native_inventory_delta_20261030 import delta_payload
++from test_session_bootstrap_20261029 import session_events
++
++
++def value(native, *, record=100, at=10., **changes):
++    return {'schema':SCHEMA,'selected_pid':77,'game_build':70575,
++        'process_generation':native.provider.process.generation,
++        'capture_epoch':native.decoder.capture_epoch,'timestamp':1000.+at-10.,
++        'record_number':record,'decode_failures':0,**changes}
++
++
++def control(native, *, record=100, at=10., poll=True, ingest=True, **changes):
++    native.inbox._clock=lambda:at
++    native.inbox._wall_clock=lambda:1000.+at-10.
++    descriptor=json.loads(native.adapter.path.read_text())
++    if native.context_id!=descriptor['context']['context_id']:
++        native.context_id,native.sequence=descriptor['context']['context_id'],0
++    native.sequence+=1
++    raw=envelope(value(native,record=record,at=at,**changes),descriptor,
++                 stream={'sender_id':SENDER,'sequence':native.sequence})
++    assert native.inbox.ingest_datagram(canonical(raw))
++    if not poll:return ()
++    observations=native.adapter.observations(None,native.world,at)
++    if ingest:
++        for obs in observations:native.world.ingest(obs)
++    return observations
++
++
++def test_progress_requires_actual_world_records_and_preserves_original_capture_time():
++    decoder,record=session_events(build=70575)
++    witness=CaptureProgress(clock=lambda:2000.,interval=0.)
++    assert witness.note(replace(record,record_number=0,connection_index=999),decoder) is None
++    assert witness.note(record,decoder) is None  # login intent has not been verified
++    decoder.decode_all(record)
++    result=witness.note(replace(record,record_number=2),decoder)
++    assert result['timestamp']==record.timestamp==1000. and result['record_number']==2
++    assert result['decode_failures']==0
++    assert set(result)=={'schema','selected_pid','timestamp','capture_epoch','process_generation',
++                         'game_build','record_number','decode_failures'}
++    assert witness.note(replace(record,record_number=3,connection_index=999),decoder) is None
++
++
++@pytest.mark.parametrize('changes',[{'raw_payload':'private'},{'record_number':True},
++    {'game_build':1},{'capture_epoch':'invalid'},{'timestamp':float('nan')},
++    {'process_generation':'not-a-process-lifetime'},{'decode_failures':-1}])
++def test_progress_rejects_unknown_private_or_unreviewed_fields(native,changes):
++    with pytest.raises(ValueError):normalize(value(native,**changes))
++
++
++def test_authenticated_progress_is_only_applied_after_the_model_consumes_its_observation(native):
++    before=native.world.last_received
++    latest=native.world.latest
++    observations=control(native,ingest=False)
++    assert len(observations)==1 and observations[0].source=='PACKET_PROGRESS'
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNKNOWN'
++    result=ObservationIngestion.ingest(native.world,None,observations)
++    assert result.durable==()
++    state=native.world.query.packet_stream_progress(10.)
++    assert state['status']=='APPLIED' and state['collection_events_checked']>=3
++    assert state['record_number']==100 and state['sample_time']==10.
++    state['record_number']=999
++    assert native.world.query.packet_stream_progress(10.)['record_number']==100
++    assert native.world.last_received==before and native.world.latest is latest
++    assert not any(e.event_type in {'QUEST_ACCEPTED','QUEST_COMPLETED','LOOT_RECEIVED'}
++                   for e in native.world.event_records)
++
++
++def test_reordered_application_cannot_claim_that_missing_collection_delta_was_processed(native):
++    changed=events(delta_payload(quantity=11),native.decoder)[1][-1]
++    native.feed(changed,poll=False)
++    observations=control(native,ingest=False)
++    assert [o.source for o in observations]==['PACKET_TELEMETRY','PACKET_PROGRESS']
++    assert native.world.ingest(observations[1])
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNAPPLIED'
++    assert native.world.ingest(observations[0])
++    assert native.world.query.owned_item_count(12345,10.)['count']==11
++    control(native,record=101)
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNAPPLIED'
++
++
++def test_ordered_deferred_batch_accepts_delta_before_its_watermark(native):
++    changed=events(delta_payload(quantity=11),native.decoder)[1][-1]
++    native.feed(changed,poll=False)
++    observations=control(native,ingest=False)
++    assert ObservationIngestion.ingest(native.world,None,observations).durable==()
++    assert native.world.query.packet_stream_progress(10.)['status']=='APPLIED'
++    assert native.world.query.owned_item_count(12345,10.)['count']==11
++
++
++def test_controls_coalesce_without_overtaking_unconsumed_semantic_deltas(native):
++    control(native,record=100,poll=False)
++    changed=events(delta_payload(quantity=11),native.decoder)[1][-1]
++    native.feed(changed,poll=False)
++    control(native,record=101,poll=False)
++    assert native.inbox.diagnostics()['queued_progress']==1
++    observations=native.adapter.observations(None,native.world,10.)
++    assert [o.source for o in observations]==['PACKET_TELEMETRY','PACKET_PROGRESS']
++    ObservationIngestion.ingest(native.world,None,observations)
++    assert native.world.query.packet_stream_progress(10.)['status']=='APPLIED'
++    assert native.world.query.packet_stream_progress(10.)['record_number']==101
++
++
++@pytest.mark.parametrize('changes',[{'capture_epoch':'b'*32},{'game_build':70448},
++    {'process_generation':'0000000000000002'}])
++def test_wrong_capture_build_or_process_progress_does_not_establish_a_watermark(native,changes):
++    control(native,**changes)
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNKNOWN'
++
++
++def test_deferred_pre_gap_progress_cannot_reestablish_the_new_generation(native):
++    observations=control(native,ingest=False)
++    native.provider.invalidate('stream_gap')
++    assert native.provider.accept_baseline(native.baseline.to_dict())
++    assert native.world.ingest(observations[0]) is False
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNKNOWN'
++
++
++def test_decoder_failure_drops_native_baselines_without_exporting_the_failed_bytes(native):
++    record=session_events(build=70575)[1]
++    from wowbot.packetio.opcodes_12_1 import FAMILY_OPCODES
++    broken=replace(record,opcode=FAMILY_OPCODES[70340]['SMSG_UPDATE_OBJECT'],payload=b'PRIVATE_INVALID')
++    records=native.decoder.decode_all(broken)
++    assert len(records)==1 and records[0].event_type=='PACKET_OPCODE_OBSERVED'
++    assert native.decoder.collection_decode_failures==1
++    assert native.decoder._owned_items=={} and native.decoder.entity_fragments=={}
++    assert 'PRIVATE_INVALID' not in str(records[0].to_dict())
++    control(native,decode_failures=1)
++    assert native.world.query.packet_stream_progress(10.)['status']=='DECODE_GAP'
++    assert native.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    assert native.world.query.quest_presence(123456,10.)['state']=='UNKNOWN'
++    assert native.world.last_received==9.1
++
++
++def test_progress_expires_and_does_not_extend_native_field_or_ui_freshness(native):
++    control(native)
++    assert native.world.query.packet_stream_progress(12.1)['status']=='EXPIRED'
++    control(native,record=101,at=12.1)
++    assert native.world.query.packet_stream_progress(12.1)['status']=='APPLIED'
++    assert native.world.query.owned_item_count(12345,12.1)['status']=='UNKNOWN'
++    assert native.world.query.quest_presence(55639,12.1)['state']=='UNKNOWN'
++    assert native.world.last_received==9.1
++
++
++def test_receding_record_or_codec_counter_never_becomes_newer_applied_progress(native):
++    control(native)
++    control(native,record=99)
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNAPPLIED'
++
++
++def test_removed_provider_or_invalid_query_clock_cannot_preserve_a_progress_witness(native):
++    control(native)
++    for now in (True,float('nan'),None):
++        assert native.world.query.packet_stream_progress(now)['status']=='UNKNOWN'
++    native.world.session_context_provider=None
++    assert native.world.query.packet_stream_progress(10.)['status']=='UNKNOWN'
++
++
++def test_bridge_follows_real_decoder_progress_and_resets_on_rotated_header(tmp_path,monkeypatch):
++    from wowbot.packetio import ymir_bridge as module, process_identity, stream_progress
++    from wowbot.packetio.pkt import PktV31StreamParser
++    from wowbot.session_context import ProcessIdentity
++    from test_packet_codecs import pkt_bytes,packed_guid
++    decoder,verification=session_events(build=70575)
++    login=PktV31StreamParser().feed(pkt_bytes('CMSG_PLAYER_LOGIN',
++        packed_guid()+struct.pack('<fB',500.,0),build=70575))[0]
++    from test_native_inventory_20261030 import item_payload
++    from wowbot.packetio.opcodes_12_1 import FAMILY_OPCODES
++    item=replace(verification,record_number=2,opcode=FAMILY_OPCODES[70340]['SMSG_UPDATE_OBJECT'],payload=item_payload())
++    class Follower:
++        def __init__(self,path):self.parser=type('Parser',(),{'header':decoder.header})()
++        def snapshot(self):return {'fixture':True}
++        def records(self,stop):
++            yield login
++            yield verification
++            yield item
++            self.parser.header=replace(decoder.header)
++            yield login
++            yield verification
++    class UDP:
++        def __init__(self,**kwargs):self.sent=0;self.progress=[]
++        def context_id(self):return None
++        def emit(self,event):self.sent+=1;return True
++        def emit_progress(self,value):self.progress.append(value);self.sent+=1;return True
++        def close(self):pass
++    udp=UDP()
++    monkeypatch.setattr(module,'UdpJsonForwarder',lambda **kwargs:udp)
++    monkeypatch.setattr(module,'PktFileFollower',Follower)
++    monkeypatch.setattr(process_identity,'selected_process_identity',lambda pid:
++        ProcessIdentity(77,'0000000000000001',70575))
++    real=stream_progress.CaptureProgress
++    monkeypatch.setattr(stream_progress,'CaptureProgress',lambda:real(interval=0.))
++    path=tmp_path/'capture.pkt';path.write_bytes(b'fixture')
++    bridge=module.YmirAgentBridge(executable=tmp_path/'not-started.exe',output=tmp_path,
++                                  selected_pid=77,endpoint_path=tmp_path/'endpoint.json')
++    bridge._stream(path)
++    assert bridge.process is None and bridge.snapshot()['error'] is None
++    assert [p['record_number'] for p in udp.progress]==[1,2,1]
++    assert len({p['capture_epoch'] for p in udp.progress})==2
++    assert all(p['timestamp']==1000. for p in udp.progress)
++
++
++def test_real_forwarder_signs_progress_in_the_same_sequence_and_rejects_wrong_scope(native):
++    from wowbot.packetio.forwarder import UdpJsonForwarder
++    from wowbot.packetio.ipc import verify
++    descriptor=json.loads(native.adapter.path.read_text())
++    class Socket:
++        def __init__(self):self.sent=[]
++        def sendto(self,data,address):self.sent.append(json.loads(data))
++        def close(self):pass
++    forwarder=UdpJsonForwarder(descriptor_path=native.adapter.path,
++                              process_generation=native.provider.process.generation)
++    forwarder.socket.close()
++    forwarder.socket=Socket()
++    forwarder._current_descriptor=lambda:descriptor
++    try:
++        assert forwarder.emit_progress(value(native))
++        sent=forwarder.socket.sent[0]
++        assert sent['stream']['sequence']==1 and verify(sent,descriptor)['schema']==SCHEMA
++        for changes in ({'selected_pid':88},{'game_build':70448},
++                        {'process_generation':'2'},{'timestamp':1.},{'raw_secret':'blocked'}):
++            assert not forwarder.emit_progress(value(native,**changes))
++        assert len(forwarder.socket.sent)==1
++        descriptor['context']={**descriptor['context'],'bootstrap':True}
++        assert not forwarder.emit_progress(value(native))
++    finally:
++        forwarder.close()

@@ -1,0 +1,24 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-live-regression-20261030\\live-session-test-2-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-live-regression-20261030\\live-session-test-2-junit.xml",
+    "tests/test_instance_session_bootstrap_20261030.py",
+    "tests/test_session_bootstrap_20261029.py",
+    "tests/test_applied_packet_progress_20261030.py",
+    "tests/test_packet_delivery_20261030.py",
+    "tests/test_own_create_quest_log_20261030.py",
+    "tests/test_native_inventory_20261030.py",
+    "tests/test_native_inventory_delta_20261030.py",
+    "tests/test_packet_continuity_20261030.py",
+    "tests/test_packet_epoch_lanes_20261030.py"
+  ]
+}

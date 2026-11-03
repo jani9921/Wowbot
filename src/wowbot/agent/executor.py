@@ -185,15 +185,25 @@ class InputExecutor:
         command = commands[0]
         movement_actions = {"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT",
                             "STRAFELEFT", "STRAFERIGHT"}
+        # User 2026-10-25 (flying, Skyriding lessons): climb (Jump), descend
+        # (Sit/Move Down) and pitch (Pitch Up/Down) are transient steering
+        # keys of the flight loops, bounded by the same lease deadline.
+        flight_actions = {"JUMP", "SITORSTAND", "PITCHUP", "PITCHDOWN"}
         # User 2026-10-02: jump while running into a small obstacle.  JUMP
         # may ride along a forward lease only, as a transient key released
         # with the steering deadline (a held Space would keep re-jumping).
         jump_ok = command.binding == "MOVEFORWARD"
-        if (command.kind != "BIND" or command.binding not in movement_actions
-                or any(action not in movement_actions and not (action == "JUMP" and jump_ok)
+        flight = command.binding in flight_actions or bool(set(command.simultaneous) & (flight_actions - {"JUMP"}))
+        allowed = movement_actions | (flight_actions if flight else set())
+        if (command.kind != "BIND" or command.binding not in allowed
+                or any(action not in allowed and not (action == "JUMP" and jump_ok)
                        for action in command.simultaneous)
                 or not .04 <= command.duration <= .35):
             raise ExecutionError("Érvénytelen movement lease")
+        if command.forward_duration is not None and (
+                command.binding not in {"MOVEFORWARD", "MOVEBACKWARD", "STRAFELEFT", "STRAFERIGHT"}
+                or not .04 <= command.forward_duration <= .35):
+            raise ExecutionError("Érvénytelen forward lease")
         if not self.bindings.unchanged():
             self.stop()
             raise ExecutionError("A kiválasztott bindings-cache megváltozott; töltsd be újra")
@@ -205,12 +215,13 @@ class InputExecutor:
         forward = {key for action, key in resolved.items()
                    if action in {"MOVEFORWARD", "MOVEBACKWARD", "STRAFELEFT", "STRAFERIGHT"}}
         steering = {key for action, key in resolved.items()
-                    if action in {"TURNLEFT", "TURNRIGHT", "JUMP"}}
+                    if action in {"TURNLEFT", "TURNRIGHT", "JUMP", "SITORSTAND", "PITCHUP", "PITCHDOWN"}}
         keys = tuple(resolved[action] for action in actions)
         try:
             self.scheduler.execute_movement(
                 keys=keys, forward=forward, steering=steering,
-                steering_duration=command.duration, check=self._check)
+                steering_duration=command.duration, check=self._check,
+                forward_duration=command.forward_duration)
         except ExecutionError:
             raise
         except Exception as error:

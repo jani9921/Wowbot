@@ -101,5 +101,9 @@ class ActionLaunchCoordinator:
                         for command in commands)):
             return DispatchLane.DISCRETE
         if proposal.skill in cls._MOVEMENT | cls._PERSISTENT_INPUT:
-            return DispatchLane.MOVEMENT
+            # Live 2026-10-25 21:10:14: a restarted Skyriding MOVE began with a
+            # Surge Forward tap; sent as a movement lease it was rejected
+            # ("Érvénytelen movement lease") and the agent fell to MANUAL.
+            from wowbot.execution.command_dispatch import flight_ability_tap
+            return DispatchLane.DISCRETE if flight_ability_tap(commands) else DispatchLane.MOVEMENT
         return DispatchLane.DISCRETE

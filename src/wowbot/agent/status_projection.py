@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .engine_runtime_projection import active_skill_snapshot, combat_runtime_snapshot
 from .map_poi_planning import MapPoiPlanningPolicy
+from .models import Mode
 
 from dataclasses import asdict
 import time
@@ -43,11 +44,23 @@ class AgentStatusProjection:
         agent._flush_autonomy_events()
         if agent.memory and now-agent._sensor_health_cache[0] >= 2.:
             agent._sensor_health_cache = (now, agent.memory.sensor_health(agent.world.state))
-        if agent.memory and now-agent._memory_metrics_cache[0] >= 120.:
+        # Diagnostics only.  Live 2026-10-25 17:28:54-17:29:00 this refresh
+        # held the engine lock ~6 s in SQLite and the Skyriding loop flew
+        # unsteered; like consolidation it waits until FULL_AI is disarmed.
+        if (agent.memory and agent.mode != Mode.FULL_AI
+                and now-agent._memory_metrics_cache[0] >= 120.):
             agent._memory_metrics_cache = (now, agent.memory.metrics())
+        # The skill fields must be repeated here: this per-tick refresh
+        # replaced them with None, so between planning passes the world (and
+        # quest-progress learning, which runs on ingest) never knew which
+        # skill was running or had just finished -- every quest_progress row
+        # had skill=NULL (found 2026-10-12).
+        from .engine_runtime_projection import active_skill_snapshot
         agent.world.set_runtime_context(
             goal=agent.goal, subgoal=agent.current_plan,
             commitment=agent.autonomy.commitment,
+            active_skill=active_skill_snapshot(agent.active_skill),
+            last_result=agent.last_result,
             sensor_health=agent._sensor_health_cache[1] if agent.memory else [],
             primary_quest=agent.quest_runtime.snapshot(now),
             quest_failure_memory=agent.quest_runtime.failure_memory.snapshot(now),
@@ -91,6 +104,13 @@ class AgentStatusProjection:
             "supervisor": agent.supervisor.snapshot(), "event_bus": agent.events.diagnostics(),
             "structured_log": agent.structured_logger.snapshot(),
             "command_acknowledgements": agent.command_dispatcher.diagnostics(),
+            "parallel_control": agent.parallel_control.snapshot(now),
+            "quest_agenda": agent.planner.agenda.snapshot(),
+            "objective_probes": (agent.planner.objective_probes.snapshot()
+                                 if hasattr(agent.planner, "objective_probes") else None),
+            "needs_user": (agent.planner.needs_user.snapshot()
+                           if hasattr(agent.planner, "needs_user") else []),
+            "quest_playbook_trials": agent.quest_attempt_memory.playbook_snapshot(limit=20),
             "runtime_health": asdict(agent.health_monitor.observe(
                 now=now, last_received=(agent.world.last_received if agent.world.latest else None),
                 event_bus=agent.events.diagnostics(),
@@ -100,8 +120,8 @@ class AgentStatusProjection:
             )),
             "route": agent.navigation.last_route, "navigation": agent.navigation.snapshot(now),
             "movement_controller": agent.navigation.movement_snapshot(),
-            "visual_approach": agent.visual_approach.snapshot(),
-            "vision_seek": agent.search_skill.snapshot(agent.active_skill.state),
+            "visual_approach": agent.visual_approach.snapshot() if agent.visual_approach is not None else {'status': 'disabled'},
+            "vision_seek": agent.search_skill.snapshot(agent.active_skill.state) if agent.search_skill is not None else {'status': 'disabled'},
             "camera_controller": agent.camera.snapshot(),
             "combat_runtime": combat_runtime_snapshot(agent.active_skill),
             "skill_lifecycle": active_skill_snapshot(agent.active_skill),
@@ -110,6 +130,8 @@ class AgentStatusProjection:
             "autonomous_loop": agent.autonomy.snapshot(), "episode_id": agent.episode_id,
             "goal_manager": agent.goals.snapshot(now),
             "task_pattern_analysis": agent.planner.pattern_analysis,
+            "travel_mode": agent.planner.travel_mode.snapshot(),
+            "server_mode": agent.world.state.get("server_mode"),
             "map_inspection": agent.planner.map_inspection_status(),
             "map_pois": MapPoiPlanningPolicy.status(agent.world.state),
             "sensor_health": agent._sensor_health_cache[1] if agent.memory else [],

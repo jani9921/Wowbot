@@ -1,0 +1,48 @@
+{
+  "snapshot": {
+    "doc_count": 84,
+    "source_count": 84,
+    "doc_only": [],
+    "source_only": []
+  },
+  "fast": {
+    "doc_count": 42,
+    "source_count": 42,
+    "doc_only": [],
+    "source_only": []
+  },
+  "packet_events": {
+    "count": 22,
+    "types": [
+      "ATTACK_STOPPED",
+      "COMBAT_STARTED",
+      "ENTITY_CREATED",
+      "ENTITY_FLAGS",
+      "ENTITY_POSITION",
+      "ENTITY_REMOVED",
+      "ENTITY_UNIT_UPDATE",
+      "GOSSIP_SELECTED",
+      "MAP_CHANGED",
+      "MOVEMENT_ROOT",
+      "MOVEMENT_UPDATE",
+      "NETWORK_STREAM_CHUNK",
+      "PACKET_OPCODE_OBSERVED",
+      "QUEST_COMPLETED",
+      "QUEST_CREDIT_ADDED",
+      "QUEST_GIVER_STATUS",
+      "QUEST_POI_UPDATE",
+      "QUEST_UPDATED",
+      "SCENE_ENDED",
+      "SCENE_EVENT",
+      "SCENE_STARTED",
+      "SPELL_CAST_FAILED"
+    ]
+  },
+  "missing_package_references": {
+    "SRC_MIGRACIOS_TERV_20261029_HU.md": [
+      "ARCHITEKTURA_TERV_20261029_HU_REV4_AUDITALT.md:965"
+    ]
+  },
+  "project_has_git_entry": false,
+  "test_files": 591
+}

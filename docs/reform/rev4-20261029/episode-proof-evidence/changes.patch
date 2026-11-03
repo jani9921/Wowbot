@@ -1,0 +1,607 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,18 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P9 persisted episode proof gate — **OFFLINE_TESTED / full
++historical lineage migration PARTIAL**. Pattern promotion now resolves actual
++saved manifests through the shared writer/read barrier, checks original
++times, session/character/build and linked before/after observations, and rejects
++unknown/uncertain origins. Durable per-pattern source-root dedup survives
++diagnostic-list compaction; rewrapped shared roots are not independent trials.
++Old records persist, but the old V1 policy is not reused; current environment
++version must match. Selected regression: **3894 passed, 2 skipped, 10 unchanged
++deselections, 317 modules, exit 0**, 156.13 s pytest. All 536 source and 626
++test Python files parse; 203 numbered rows unchanged. This does not reconstruct
++missing historical TDB/import/replay provenance or complete every provider.
++No live DB modification/game/capture/input/new live acceptance; addon/Ymir
++unchanged. See [proof gate checkpoint](reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md).
+ 
+ 2026-10-30 REV4 P3 own inventory root VALUES — **OFFLINE_TESTED / full
+ inventory parity PARTIAL**. Reviewed ActivePlayerData InvSlots masks now
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,19 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — persisted episode proofs (offline only)
++
++Pattern promotion now requires actual saved evidence manifests with linked
++before/after origins, original times and matching session/character/build.
++The shared writer/read barrier applies. Durable source-root dedup prevents
++rewrapped same-origin trials even after diagnostic lists are compacted.
++Legacy records persist; old proof policy and mismatching environment versions
++are not reuse candidates. Historical import/replay lineage remains incomplete.
++
++Final selected regression: **3894 passed, 2 skipped, 10 unchanged deselections**,
++317 modules, 156.13 s pytest / 158.95 s runner, exit 0. All 536 source and
++626 test Python files parse. All 203 numbered rows persist. No live memory DB
++modified, no game/capture/FULL_AI/input/new live acceptance; addon/Ymir unchanged.
++[Details/checkpoint](reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md).
+ 
+ ## 2026-10-30 — inventory root-slot deltas (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3878 passed, 2 skipped, 10 változatlan deselection, 316 modul, exit 0.
++Végső kijelölt regresszió: 3894 passed, 2 skipped, 10 változatlan deselection, 317 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -19,6 +19,9 @@
+ friss darabszám, durability és táskaslot külön órával, ismeretlen maszkra érvénytelenítés.
+ A [saját Active root-slot delták](P3_NATIVE_INVENTORY_ROOTS.md) is elkészültek;
+ a vegyes prefixek, retained collections és teljes carried/UI-slot paritás még nem.
++A [P9 epizód-proof kapu](P9_PERSISTED_EPISODE_PROOFS.md) tényleges tartós
++bizonyítékot és eredeti forrásgyökeret követel meg; a teljes történeti lineage
++migráció ettől még nyitott.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -34,6 +34,10 @@
+ érvénytelenít. Az [önálló Active root VALUES](P3_NATIVE_INVENTORY_ROOTS.md) is
+ olvasható, slotonkénti eredetidővel és invalidation barrierrel; vegyes prefix,
+ carried/UI-slot, retained collection és teljes paritás még nyitott.
++P9-ben a [tartós epizód-proof kapu](P9_PERSISTED_EPISODE_PROOFS.md) is szigorúbb:
++valóban mentett evidence, eredeti idő/scope és tartós forrásgyökér-dedup kell;
++a régi policy és eltérő környezeti verzió nem újrafelhasználható. Ez nem a teljes
++történeti import/retained-replay lineage migrációjának lezárása.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -76,14 +80,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3878 passed, 2 skipped, 10 deselected; 316 modul; 147.57 s; exit 0** |
++| Végső kijelölt regresszió | **3894 passed, 2 skipped, 10 deselected; 317 modul; 156.13 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 536 source + 625 tests Python-fájl; 624 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 536 source + 626 tests Python-fájl; 625 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **316 kijelölt modul eredménye**, nem a teljes 624 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **317 kijelölt modul eredménye**, nem a teljes 625 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md
++++ after/docs/reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md
+@@ -0,0 +1,71 @@
++# REV4 P9 — tartós bizonyítékhoz kötött epizód-promóció
++
++2026-10-30, kijelölt `projekt`. Offline tesztelt javítás a meglévő közös
++EpisodeMemory / AgentMemory / verifier láncban. Nem teljes történeti
++memory/TDB-lineage migráció és nem új élő elfogadás.
++
++## A ténylegesen javított rés
++
++A korábbi `EVIDENCE_LINKED_V1` kapu ellenőrizte a verifier-, action-, baseline-
++és observed-azonosítók jelenlétét, de ezekhez nem követelt meg ténylegesen
++elmentett bizonyítékot. Más observation ID-val újracsomagolt közös eredet is
++növelhette a sikerszámlálót. A hasonló minták keresése a tárolt környezeti
++verziót sem egyeztette következetesen az aktuálissal.
++
++Az új `EVIDENCE_MANIFEST_V2` promóció:
++
++- a már létező evidence_manifests táblából, egy bounded, paraméterezett
++  lekérdezéssel olvassa vissza a hivatkozott proofokat; az async writer sorát
++  az eddigi olvasási barrierrel megvárja;
++- mindkét tényleges observationhöz mentett, összekötött evidence kell;
++  tetszőleges ID-string, hiányzó rekord vagy sérült JSON nem elég;
++- az epizód sessionje, karaktere és buildje egyezik a bizonyíték kontextusával;
++  eredeti sample/receipt/expiry idő, epizód- és verifier-idő ellenőrzött;
++- bizonytalan/csonkolt/hiányzó forrásgyökér nem igazol újrafelhasználható próbát;
++  azonos gyökerű before/after wrapper nem igazol változást;
++- a kézi/session-megszakítás és a nem igazolt cél továbbra is kizáró ok.
++
++Az új task_pattern_source_roots tábla a minta és az eredeti forrásgyökér
++kapcsolatát ugyanabban a tranzakcióban rögzíti, mint a sikeres próbát.
++Ugyanaz a deklarált gyökér új observation ID-val sem számolható újra. Ez akkor
++is igaz, amikor a bounded diagnosztikai provenance-listák már elhagyták a régi
++azonosítót. Nem a nyers megfigyelési payload kerül az új táblába.
++
++A régi epizódok és minták megmaradnak, nem törlődnek és nem kapnak utólag
++kitalált proofot. Az újrahasználó query az új policyt és az aktuális
++game-build/addon/UI/dimenzió verziót követeli meg. Ettől egy referencia továbbra
++is tervjelölt, nem input-authority vagy friss világállapot.
++
++## Ellenőrzés
++
++A célzott kör **39 pass**: meglévő episode/memory/writer-szegmens regressziók,
++valóban mentett before/after megfigyelések, sync/async writer, hiányzó/rosszul
++kötött rekord, más session/karakter/build, hibás idő, sérült JSON, azonos
++eredet két wrapperben, újracímkézett trial, tartós dedup a diagnosztikai lista
++kompaktálása után, régi policy megőrzése és eltérő verzió elutasítása.
++
++A végső kijelölt regresszió **3894 passed, 2 skipped, 10 változatlan deselection,
++317 modul, exit 0**, pytest 156.13 s / runner 158.95 s. Mind az 536 source és
++626 test Python-fájl AST-je érvényes; a teljes 625 testmodulból a kijelölt 317
++futott, ez nem teljes repository-tesztfuttatási állítás.
++
++Az első célzott kör 35 pass volt. A következő parancs egy nem létező régi
++tesztfájl nevét is tartalmazta, ezért nem gyűjtött tesztet (exit 4); a javított
++parancs eredménye 39 pass. Ez parancslista-hiba volt, nem termékregresszió.
++Mindegyik kimenet a checkpointban megmarad.
++
++[Forrás/diff/parancs/JUnit checkpoint](episode-proof-evidence/verification.json).
++Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
++
++## Határok
++
++A kapu a rendelkezésre álló forrásláncot ellenőrzi; a korábbi, hiányos
++TDB/import/retained-replay lineage-t nem rekonstruálja találgatással.
++Hiányzó/sérült történeti bizonyíték esetén nincs automatikus promóció.
++Nem készült minden lehetséges verifierhez új proof-provider, és a teljes
++legacy-forráskivezetés még nincs lezárva.
++
++Nem nyúltunk éles memory-adatbázishoz. A séma bővítése a következő szabályos
++AgentMemory-megnyitáskor történik; meglévő tábla/rekord törlése nincs.
++Az addon és a pinned Ymir változatlan. Nem indult játék, capture vagy FULL_AI,
++nem ment kliensinput, új LIVE_VALIDATED állítás nincs.
+--- before/src/wowbot/agent/memory.py
++++ after/src/wowbot/agent/memory.py
+@@ -53,6 +53,9 @@
+                     evidence_id TEXT PRIMARY KEY, observation_id TEXT, field TEXT,
+                     source TEXT, observed_at REAL, received_at REAL, expires_at REAL,
+                     value_sha256 TEXT, context TEXT, lineage TEXT, completeness TEXT);
++                CREATE TABLE IF NOT EXISTS task_pattern_source_roots (
++                    pattern_id TEXT NOT NULL, root_id TEXT NOT NULL, episode_id TEXT NOT NULL,
++                    PRIMARY KEY(pattern_id,root_id));
+                 CREATE TABLE IF NOT EXISTS strategies (
+                     context TEXT, skill TEXT, successes INTEGER DEFAULT 0, failures INTEGER DEFAULT 0,
+                     PRIMARY KEY(context, skill));
+@@ -440,6 +443,26 @@
+         return [{name: json.loads(value) if name in {'context', 'lineage'} else value
+                  for name, value in zip(names, row)} for row in rows]
+ 
++    def evidence_manifests_by_id(self, evidence_ids):
++        """Bounded verification lookup on the existing store; never payloads."""
++        ids = tuple(dict.fromkeys(evidence_ids))
++        if not ids or len(ids) > 256:
++            return {}
++        self._drain_for_read('evidence_manifests')
++        columns = ('evidence_id','observation_id','field','source','observed_at','received_at',
++                   'expires_at','value_sha256','context','lineage','completeness')
++        with self._ro() as db:
++            rows = db.execute('SELECT '+','.join(columns)+' FROM evidence_manifests WHERE evidence_id IN ('+
++                              ','.join('?' for _ in ids)+')', ids).fetchall()
++        result = {}
++        for row in rows:
++            try:
++                result[row[0]] = {key:json.loads(value) if key in {'context','lineage'} else value
++                                  for key,value in zip(columns,row)}
++            except (ValueError, TypeError):
++                continue  # damaged/legacy metadata cannot manufacture a usable proof
++        return result
++
+     def observe_many(self, observations) -> None:
+         """Persist one sensor boundary in one ordered SQLite transaction.
+ 
+--- before/src/wowbot/agent/memory_patterns.py
++++ after/src/wowbot/agent/memory_patterns.py
+@@ -25,8 +25,9 @@
+ 
+     def _promote_episode_pattern(self, episode_id: str):
+         episode = self.episode(episode_id)
+-        from wowbot.verified_episode import reusable_episode
+-        if not reusable_episode(episode)[0]:
++        from wowbot.verified_episode import POLICY, manifest_ids, outcome_roots, reusable_episode
++        proofs = self.evidence_manifests_by_id(manifest_ids(episode))
++        if not reusable_episode(episode, manifests=proofs)[0]:
+             return
+         verified = [step["payload"] for step in episode["steps"]
+                     if step["kind"] == "VERIFICATION" and step["payload"].get("outcome") == "SUCCESS"]
+@@ -35,14 +36,19 @@
+             return
+         context = self.learning_context(episode["initial_state"], episode["domain"])
+         _, version = self._context_keys(context)
+-        signature = hashlib.sha256(canonical({'policy': 'EVIDENCE_LINKED_V1', 'skills': skills}).encode()).hexdigest()[:24]
++        signature = hashlib.sha256(canonical({'policy': POLICY, 'skills': skills}).encode()).hexdigest()[:24]
+         pattern_id = hashlib.sha256(f"{episode['domain']}:{version}:{signature}".encode()).hexdigest()[:24]
+         cost = max(0., (episode["ended_at"] or episode["started_at"])-episode["started_at"])
+         context_key = canonical(context)
+         provenance = {"episode_ids": [episode_id], "context_keys": [context_key],
+-                      'verification_policy': 'EVIDENCE_LINKED_V1',
++                      'verification_policy': POLICY,
+                       'verification_ids': [row['verification_id'] for row in verified][-32:]}
++        roots = outcome_roots(episode, proofs)
++        provenance['source_root_observation_ids'] = sorted(roots)
+         with self._tx() as db:
++            if db.execute('SELECT 1 FROM task_pattern_source_roots WHERE pattern_id=? AND root_id IN ('+
++                          ','.join('?' for _ in roots)+') LIMIT 1',(pattern_id,*sorted(roots))).fetchone():
++                return  # durable dedup survives truncation of the diagnostic provenance lists
+             existing = db.execute("SELECT successes,failures,mean_cost,provenance,first_seen FROM task_patterns "
+                                   "WHERE domain=? AND version=? AND signature=?",
+                                   (episode["domain"], version, signature)).fetchone()
+@@ -54,10 +60,14 @@
+                 observed_ids = {row['observed_observation_id'] for row in verified}
+                 if observed_ids & set(previous.get('source_observation_ids', ())):
+                     return  # replaying the same verification is not a new trial
++                if roots & set(previous.get('source_root_observation_ids', ())):
++                    return  # new wrappers over the same source are not independent trials
+                 provenance["episode_ids"] = (previous.get("episode_ids", [])+[episode_id])[-20:]
+                 provenance["context_keys"] = list(dict.fromkeys(previous.get("context_keys", [])+[context_key]))[-20:]
+                 provenance['source_observation_ids'] = list(dict.fromkeys(
+                     [*previous.get('source_observation_ids', ()), *sorted(observed_ids)]))[-256:]
++                provenance['source_root_observation_ids'] = list(dict.fromkeys(
++                    [*previous.get('source_root_observation_ids', ()), *sorted(roots)]))[-256:]
+             else:
+                 provenance['source_observation_ids'] = sorted({row['observed_observation_id'] for row in verified})
+             confidence = (successes+2)/(successes+failures+4)
+@@ -69,6 +79,8 @@
+                       mean_cost, successes, failures, confidence, stage, canonical(provenance),
+                       existing[4] if existing else episode["started_at"], episode["ended_at"])
+             db.execute("INSERT OR REPLACE INTO task_patterns VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
++            db.executemany('INSERT INTO task_pattern_source_roots VALUES (?,?,?)',
++                           [(pattern_id, root, episode_id) for root in sorted(roots)])
+ 
+     def task_patterns(self, domain: str | None = None) -> list[dict]:
+         query = "SELECT id,domain,version,signature,preconditions,steps,expected,success,failure,mean_cost,successes,failures,confidence,stage,provenance,first_seen,last_seen FROM task_patterns"
+@@ -87,9 +99,12 @@
+ 
+     def find_similar_task_patterns(self, domain: str, candidate_skills: list[str], state: dict,
+                                    limit: int = 5) -> dict:
++        from wowbot.verified_episode import POLICY
++        _, version = self._context_keys(self.learning_context(state, domain))
+         patterns = [item for item in self.task_patterns(domain)
+                     if item["stage"] in {"SUPPORTED", "GENERALIZED"}
+-                    and item['provenance'].get('verification_policy') == 'EVIDENCE_LINKED_V1']
++                    and item['version'] == version
++                    and item['provenance'].get('verification_policy') == POLICY]
+         wanted = [str(item) for item in candidate_skills]
+         wanted_set = set(wanted)
+         scored = []
+--- before/src/wowbot/verified_episode.py
++++ after/src/wowbot/verified_episode.py
+@@ -1,10 +1,59 @@
+ """Promotion gate: a success label/command ACK is not a reusable episode."""
++import math
++
++POLICY = 'EVIDENCE_MANIFEST_V2'
+ 
+ 
+-def reusable_episode(episode):
+-    if not episode or episode.get('status') != 'SUCCESS' or (episode.get('result') or {}).get('verified') is not True:
++def _id(value):
++    return isinstance(value, str) and bool(value.strip()) and len(value) <= 512
++
++
++def manifest_ids(episode):
++    steps = episode.get('steps', ()) if isinstance(episode, dict) else ()
++    if not isinstance(steps, (list, tuple)) or len(steps) > 4096:
++        return ()
++    ids = []
++    for step in steps:
++        if not isinstance(step, dict):
++            return ()
++        row = step.get('payload')
++        if step.get('kind') != 'VERIFICATION' or not isinstance(row, dict) or row.get('outcome') != 'SUCCESS':
++            continue
++        values = row.get('evidence_manifest_ids')
++        if not isinstance(values, (list, tuple)) or not values or len(values) > 64:
++            return ()
++        if any(not isinstance(v, str) or not v.strip() or len(v) > 512 for v in values):
++            return ()
++        ids.extend(values)
++    return tuple(dict.fromkeys(ids)) if len(ids) <= 256 else ()
++
++
++def _roots(manifest):
++    lineage = manifest.get('lineage')
++    if (not isinstance(lineage, dict) or lineage.get('correlation_uncertain') is not False
++            or lineage.get('lineage_truncated') is not False):
++        return set()
++    roots = lineage.get('root_observation_ids')
++    if (not isinstance(roots, list) or not 0 < len(roots) <= 64
++            or any(not isinstance(v, str) or not v.strip() or len(v) > 256 for v in roots)):
++        return set()
++    return set(roots)
++
++
++def outcome_roots(episode, manifests):
++    observed = {s['payload']['observed_observation_id'] for s in episode['steps']
++                if s['kind'] == 'VERIFICATION' and s['payload'].get('outcome') == 'SUCCESS'}
++    return set().union(*(_roots(m) for m in manifests.values() if m.get('observation_id') in observed))
++
++
++def reusable_episode(episode, *, manifests=None):
++    if (not isinstance(episode, dict) or episode.get('status') != 'SUCCESS'
++            or not isinstance(episode.get('result'), dict) or episode['result'].get('verified') is not True):
+         return False, 'goal_result_not_verified'
+     steps = episode.get('steps') or ()
++    if (not isinstance(steps, (list, tuple)) or len(steps) > 4096
++            or any(not isinstance(s, dict) or not isinstance(s.get('payload'), dict) for s in steps)):
++        return False, 'malformed_episode_steps'
+     if any(s.get('kind') in {'MANUAL_BOUNDARY', 'USER_OVERRIDE', 'SESSION_CHANGED'} for s in steps):
+         return False, 'episode_has_external_or_session_interruption'
+     verified = [s.get('payload') or {} for s in steps if s.get('kind') == 'VERIFICATION'
+@@ -12,8 +61,51 @@
+     if not verified:
+         return False, 'verified_action_evidence_missing'
+     for row in verified:
+-        if (not row.get('verification_id') or not row.get('action_id') or not row.get('baseline_observation_id')
+-                or not row.get('observed_observation_id') or not row.get('evidence')
++        if (any(not _id(row.get(key)) for key in ('verification_id','action_id',
++                                                 'baseline_observation_id','observed_observation_id'))
++                or not row.get('evidence')
++                or not isinstance(row['evidence'], (list, tuple))
++                or len(row['evidence']) > 64 or any(not _id(value) for value in row['evidence'])
+                 or row['baseline_observation_id'] == row['observed_observation_id']):
+             return False, 'unlinked_verification'
+-    return True, 'evidence_linked_episode'
++    ids = manifest_ids(episode)
++    if not ids or not isinstance(manifests, dict) or any(i not in manifests for i in ids):
++        return False, 'persisted_evidence_manifest_missing'
++    start, end = episode.get('started_at'), episode.get('ended_at')
++    if (any(type(t) not in {int, float} or not math.isfinite(t) for t in (start, end)) or start > end):
++        return False, 'episode_end_time_unknown'
++    initial = episode.get('initial_state') or {}
++    if not isinstance(initial, dict) or not _id(episode.get('session')):
++        return False, 'episode_identity_unknown'
++    for row in verified:
++        checked_at = row.get('observed_at')
++        if type(checked_at) not in {int, float} or not math.isfinite(checked_at) or not start <= checked_at <= end:
++            return False, 'verification_time_outside_episode'
++        linked = [manifests[i] for i in row['evidence_manifest_ids']]
++        valid = []
++        for proof in linked:
++            if not isinstance(proof, dict):
++                return False, 'evidence_origin_invalid'
++            context = proof.get('context') or {}
++            if not isinstance(context, dict) or context.get('session_id') != episode.get('session'):
++                return False, 'evidence_session_mismatch'
++            for key in ('character_guid', 'game_build'):
++                if not initial.get(key) or str(context.get(key)) != str(initial[key]):
++                    return False, 'evidence_identity_or_build_unknown'
++            times = [proof.get(k) for k in ('observed_at', 'received_at', 'expires_at')]
++            if (any(type(t) not in {int, float} or not math.isfinite(t) for t in times)
++                    or not times[0] <= times[1] <= min(times[2], checked_at) or not _roots(proof)):
++                return False, 'evidence_origin_invalid'
++            valid.append(proof)
++        before = [p for p in valid if p['observation_id'] == row['baseline_observation_id']]
++        after = [p for p in valid if p['observation_id'] == row['observed_observation_id']]
++        if (not before or not after or not {row['baseline_observation_id'], row['observed_observation_id']}
++                .issubset(row['evidence'])):
++            return False, 'verification_manifest_unlinked'
++        if not any(b['observed_at'] < a['observed_at'] and start <= a['received_at']
++                   and not _roots(b) & _roots(a)
++                   for b in before for a in after):
++            return False, 'verification_reuses_same_source_origin'
++    if len(outcome_roots(episode, manifests)) > 256:
++        return False, 'episode_origin_budget_exceeded'
++    return True, 'persisted_evidence_linked_episode'
+--- before/tests/test_episode_proof_gate_20261030.py
++++ after/tests/test_episode_proof_gate_20261030.py
+@@ -0,0 +1,144 @@
++"""Learned episodes need persisted origins, not just plausible ID strings."""
++import json
++from types import SimpleNamespace
++
++import pytest
++
++from wowbot.agent.memory import AgentMemory
++from wowbot.verified_episode import POLICY, manifest_ids, reusable_episode
++from test_verified_episode_20261030 import proof, STATE
++
++
++def episode(row, *, at=0.):
++    return {'status':'SUCCESS','result':{'verified':True},'session':'s',
++            'started_at':at,'ended_at':at+.2,'initial_state':STATE,
++            'steps':[{'kind':'VERIFICATION','payload':row}]}
++
++
++def finish(memory, row, *, at=0.):
++    goal = SimpleNamespace(goal_id=f'g{at}', domain='QUEST')
++    key = memory.start_episode(goal,'s',STATE,at)
++    memory.record_episode_step(key,at+.1,'VERIFICATION',row)
++    memory.finish_episode(key,STATE,at+.2,'SUCCESS',{'verified':True})
++
++
++@pytest.mark.parametrize('async_writes',[False, True])
++def test_manifest_query_waits_for_shared_writer_and_promotes_only_actual_saved_proof(tmp_path,async_writes):
++    memory = AgentMemory(tmp_path/'memory.sqlite3',async_writes=async_writes)
++    try:
++        row = proof(memory)
++        finish(memory,row)
++        result = memory.task_patterns('QUEST')
++        assert len(result)==1 and result[0]['provenance']['verification_policy']==POLICY
++        saved = memory.evidence_manifests_by_id(manifest_ids(episode(row)))
++        assert set(saved)==set(row['evidence_manifest_ids'])
++        assert all('value' not in m and len(m['value_sha256'])==64 for m in saved.values())
++    finally:
++        memory.close()
++
++
++def test_plausible_but_missing_or_unlinked_manifest_ids_cannot_promote(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        row = proof(memory)
++        row['evidence_manifest_ids'] = ['invented-manifest']
++        finish(memory,row)
++        assert memory.task_patterns('QUEST')==[]
++        valid = proof(memory,2,at=1.)
++        valid['observed_observation_id']='invented-observation'
++        valid['evidence'].append('invented-observation')
++        finish(memory,valid,at=1.)
++        assert memory.task_patterns('QUEST')==[]
++    finally:
++        memory.close()
++
++
++@pytest.mark.parametrize('change',[
++    ('context', {'session_id':'different','character_guid':STATE['character_guid'],'game_build':70575}),
++    ('context', {'session_id':'s','character_guid':'Player-1-99','game_build':70575}),
++    ('context', {'session_id':'s','character_guid':STATE['character_guid'],'game_build':70576}),
++    ('observed_at',999.),
++    ('received_at',999.),
++    ('expires_at',-.1),
++    ('lineage', {'root_observation_ids':['same'],'correlation_uncertain':True,'lineage_truncated':False}),
++    ('lineage', {'root_observation_ids':[],'correlation_uncertain':False,'lineage_truncated':False}),
++])
++def test_saved_metadata_with_unknown_origin_time_or_wrong_scope_is_not_reusable(tmp_path,change):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        row = proof(memory)
++        saved = memory.evidence_manifests_by_id(row['evidence_manifest_ids'])
++        after = next(m for m in saved.values() if m['observation_id']==row['observed_observation_id'])
++        after[change[0]]=change[1]
++        assert not reusable_episode(episode(row),manifests=saved)[0]
++    finally:
++        memory.close()
++
++
++def test_before_and_after_wrappers_over_the_same_source_do_not_verify_a_delta(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        row = proof(memory)
++        saved = memory.evidence_manifests_by_id(row['evidence_manifest_ids'])
++        before = next(m for m in saved.values() if m['observation_id']==row['baseline_observation_id'])
++        after = next(m for m in saved.values() if m['observation_id']==row['observed_observation_id'])
++        after['lineage']['root_observation_ids']=before['lineage']['root_observation_ids']
++        assert reusable_episode(episode(row),manifests=saved)==(False,'verification_reuses_same_source_origin')
++    finally:
++        memory.close()
++
++
++def test_new_wrapper_observation_ids_over_same_root_do_not_count_as_independent_trials(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        for i in range(3):
++            finish(memory,proof(memory,i,at=float(i),root='same-original-signal'),at=float(i))
++        result = memory.task_patterns('QUEST')
++        assert len(result)==1 and result[0]['successes']==1
++        assert 'same-original-signal' in result[0]['provenance']['source_root_observation_ids']
++    finally:
++        memory.close()
++
++
++def test_old_policy_is_preserved_but_not_reused_and_current_version_must_match(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        for i in range(3):
++            finish(memory,proof(memory,i,at=float(i)),at=float(i))
++        patterns = memory.task_patterns('QUEST')
++        assert patterns[0]['successes']==3 and patterns[0]['stage']=='SUPPORTED'
++        assert memory.find_similar_task_patterns('QUEST',['MOVE'],STATE)['mode']=='REUSE_CANDIDATE'
++        assert memory.find_similar_task_patterns('QUEST',['MOVE'],{**STATE,'game_build':70576})['mode']=='NO_REFERENCE'
++        provenance = {**patterns[0]['provenance'],'verification_policy':'EVIDENCE_LINKED_V1'}
++        with memory._tx() as db:
++            db.execute('UPDATE task_patterns SET provenance=?',(json.dumps(provenance),))
++        assert len(memory.task_patterns('QUEST'))==1
++        assert memory.find_similar_task_patterns('QUEST',['MOVE'],STATE)['mode']=='NO_REFERENCE'
++    finally:
++        memory.close()
++
++
++def test_source_dedup_survives_compaction_of_diagnostic_provenance_lists(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        finish(memory,proof(memory,1,root='old-root'))
++        pattern = memory.task_patterns('QUEST')[0]
++        trimmed = {**pattern['provenance'],'source_root_observation_ids':[], 'source_observation_ids':[]}
++        with memory._tx() as db:
++            db.execute('UPDATE task_patterns SET provenance=?',(json.dumps(trimmed),))
++        finish(memory,proof(memory,2,at=1.,root='old-root'),at=1.)
++        assert memory.task_patterns('QUEST')[0]['successes']==1
++    finally:
++        memory.close()
++
++
++def test_invalid_stored_json_is_not_a_usable_evidence_manifest(tmp_path):
++    memory = AgentMemory(tmp_path/'memory.sqlite3')
++    try:
++        row = proof(memory)
++        with memory._tx() as db:
++            db.execute('UPDATE evidence_manifests SET lineage=?',('{damaged',))
++        finish(memory,row)
++        assert memory.task_patterns('QUEST')==[]
++    finally:
++        memory.close()
+--- before/tests/test_verified_episode_20261030.py
++++ after/tests/test_verified_episode_20261030.py
+@@ -6,9 +6,22 @@
+ from wowbot.verified_episode import reusable_episode
+ 
+ 
+-def proof(index=1):
+-    return {'verification_id': f'v{index}', 'action_id': f'a{index}', 'skill': 'MOVE', 'outcome': 'SUCCESS',
+-            'baseline_observation_id': f'b{index}', 'observed_observation_id': f'o{index}', 'evidence': [f'b{index}', f'o{index}']}
++STATE = {'character_guid':'Player-1-1','game_build':70575,'map_id':1}
++
++
++def proof(memory, index=1, *, at=0., root=None):
++    world = WorldModel()
++    observations = []
++    for label, offset in (('b',.01),('o',.02)):
++        obs = Observation.create({**STATE,'session_id':'s','frame_id':f'{label}{index}',
++            'target':{'guid':'npc-1','health':100 if label=='b' else 50},
++            **({'provenance':{'root_observation_ids':[root]}} if label=='o' and root else {})},at+offset)
++        world.ingest(obs)
++        observations.append(obs.observation_id)
++    ids = memory.persist_evidence_manifests(world.query.evidence('target',at+.03,include_inactive=True))
++    return {'verification_id':f'v{index}','action_id':f'a{index}','skill':'MOVE','outcome':'SUCCESS',
++            'observed_at':at+.1,'baseline_observation_id':observations[0],
++            'observed_observation_id':observations[1],'evidence':observations,'evidence_manifest_ids':ids}
+ 
+ 
+ def test_success_label_ack_and_manual_intervention_cannot_promote_reusable_episode(tmp_path):
+@@ -16,11 +29,11 @@
+     try:
+         goal = SimpleNamespace(goal_id='g', domain='QUEST')
+         for index in range(3):
+-            episode = memory.start_episode(goal, 's', {}, float(index))
+-            memory.record_episode_step(episode, index+.1, 'VERIFICATION', proof())
++            episode = memory.start_episode(goal, 's', STATE, float(index))
++            memory.record_episode_step(episode, index+.1, 'VERIFICATION', proof(memory,index,at=float(index)))
+             if index == 1:
+                 memory.record_episode_step(episode, index+.15, 'MANUAL_BOUNDARY', {})
+-            memory.finish_episode(episode, {}, index+.2, 'SUCCESS', {'verified': index != 0})
++            memory.finish_episode(episode, STATE, index+.2, 'SUCCESS', {'verified': index != 0})
+         patterns = memory.task_patterns('QUEST')
+         assert len(patterns) == 1 and patterns[0]['successes'] == 1
+         assert patterns[0]['stage'] == 'EPISODIC'
+@@ -33,11 +46,12 @@
+ def test_replay_of_same_observation_does_not_count_as_repeated_verified_trial(tmp_path):
+     memory = AgentMemory(tmp_path/'memory.sqlite3')
+     try:
++        verified = proof(memory)
+         for index in range(3):
+             goal = SimpleNamespace(goal_id=str(index), domain='QUEST')
+-            episode = memory.start_episode(goal, 's', {}, float(index))
+-            memory.record_episode_step(episode, index+.1, 'VERIFICATION', proof())
+-            memory.finish_episode(episode, {}, index+.2, 'SUCCESS', {'verified': True})
++            episode = memory.start_episode(goal, 's', STATE, float(index))
++            memory.record_episode_step(episode, index+.1, 'VERIFICATION', verified)
++            memory.finish_episode(episode, STATE, index+.2, 'SUCCESS', {'verified': True})
+         assert memory.task_patterns('QUEST')[0]['successes'] == 1
+     finally:
+         memory.close()

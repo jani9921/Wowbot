@@ -53,6 +53,14 @@ class PerceptionBackgroundMixin:
             return []
         return list(self._background_result)
 
+    def peek_control(self, now: float) -> dict:
+        """Atomic latest-only control projection; no scheduling or recognition."""
+        with self._background_lock:
+            return {"items": self._fresh_background_result(now), "epoch": self.epoch,
+                    "revision": self.projection_revision, "at": self.projection_at,
+                    "camera_state": dict(getattr(getattr(self, "world3d_batch", None), "camera_state", None) or {}),
+                    "context": self.context[0] if self.context else None}
+
     def _background_loop(self) -> None:
         next_tick = time.monotonic()
         while not self._background_stop.is_set():

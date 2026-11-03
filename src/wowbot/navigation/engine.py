@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import time
 
-from wowbot.vision.models import NavigationVisionObservation, WorldPosition
+from wowbot.coordinates import WorldPosition
+from wowbot.vision.models import NavigationVisionObservation
 from .arrival import ArrivalVerifier
 from .graph import NavGraph
 from .local import LocalNavigator

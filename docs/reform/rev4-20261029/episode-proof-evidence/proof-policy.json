@@ -1,0 +1,11 @@
+{
+  "policy": "EVIDENCE_MANIFEST_V2",
+  "persisted_manifest_required": true,
+  "original_times_preserved": true,
+  "session_character_build_checked": true,
+  "durable_pattern_root_dedup": true,
+  "historical_records_preserved": true,
+  "full_historical_lineage_migration": false,
+  "new_live_acceptance": false,
+  "live_database_modified": false
+}

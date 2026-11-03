@@ -1,7 +1,10 @@
 """Canonical screen-space world-object use with quest-credit verification."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
+from dataclasses import replace
 
 from wowbot.agent.models import Command, number
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus
@@ -10,6 +13,7 @@ from wowbot.verification import QuestProgressVerifier
 
 class ObjectUsePhase(StrEnum):
     VALIDATE_MOUSEOVER = "VALIDATE_MOUSEOVER"
+    WAIT_STOP = "WAIT_STOP"
     SEND_USE = "SEND_USE"
     WAIT_QUEST_CREDIT = "WAIT_QUEST_CREDIT"
     VERIFY = "VERIFY"
@@ -51,6 +55,12 @@ class ObjectUseSkill:
         error_at = number(world_state.get("ui_error_at"))
         if used_at is None or error_at is None or error_at < used_at-.1:
             return None
+        if str(world_state.get("ui_error") or "").strip().casefold().rstrip(".! ") in {
+                "interrupted", "megszakítva"}:
+            # A real use cast was interrupted (user-run forge, 18:49:27).
+            # It is not evidence that the object's reachable surface failed;
+            # do not later blacklist this contact as "credit not received".
+            return FailureReason.CAST_INTERRUPTED
         from wowbot.verification.interaction import classify_ui_error
         classification = classify_ui_error(world_state.get("ui_error"),
                                            world_state.get("ui_error_code"))
@@ -58,8 +68,9 @@ class ObjectUseSkill:
                 "LINE_OF_SIGHT": FailureReason.LINE_OF_SIGHT,
                 "FACING": FailureReason.FACING_FAILED}.get(classification)
 
-    def __init__(self, verifier: QuestProgressVerifier | None = None):
+    def __init__(self, verifier: QuestProgressVerifier | None = None, *, bindings=None, step_guard=None):
         self.verifier = verifier or QuestProgressVerifier()
+        self.bindings, self.step_guard = bindings, step_guard
 
     def _credit_snapshot_pending(self, context: dict, world_state: dict, now: float,
                                  deadline: float) -> bool:
@@ -81,38 +92,43 @@ class ObjectUseSkill:
                 and now < deadline + self.CAST_GRACE_SECONDS)
 
     @staticmethod
-    def _identity_matches(params: dict, mouse: dict) -> bool:
-        object_id, item_id = params.get("object_id"), params.get("item_id")
-        if object_id is not None:
-            observed_id = mouse.get('object_id')
-            if observed_id not in (None, '', 0, '0'):
-                return str(observed_id) == str(object_id)
-            # A TDB credit GO may be known by ID while the Retail mouseover
-            # exports only its name/tooltip. Revalidate the exact template
-            # name on the fresh hover; never let a different reported ID pass.
-            tdb_name = str(params.get('tdb_object_name') or '')
-            if not tdb_name:
-                return False
+    def packet_object_usable(params: dict, world_state: dict) -> bool:
+        """The server still shows this object, usable for us, and nothing
+        (combat, a unit soft target) would take or break the Interact press."""
+        from wowbot.agent.packet_entity_facts import server_object_interactable
+        if params.get("server_interaction_range") is not None:
             from wowbot.agent.object_interaction_flow import ObjectInteractionFlow
-            matched = ObjectInteractionFlow.mouseover_matches(
-                {'object_id': object_id, 'tdb_object_name': tdb_name}, mouse)
-            same_quest = (mouse.get('quest_related') is True
-                and any(str(mouse.get('quest_id')) == str(qid)
-                        for qid in params.get('quest_ids') or ()))
-            same_tooltip = (bool(mouse.get('tooltip'))
-                and str(mouse.get('tooltip')) == str(params.get('mouseover_tooltip') or ''))
-            return matched and (same_quest or same_tooltip)
-        if item_id is not None:
-            return str(mouse.get("item_id")) == str(item_id)
-        expected = str(params.get("mouseover_tooltip") or "")
-        if not expected:
-            return False
-        if str(mouse.get("tooltip") or "") == expected:
-            return True
-        return (str(mouse.get("name") or "") == expected.split(" ~ ", 1)[0]
-                and mouse.get("quest_related") is True
-                and any(str(mouse.get("quest_id")) == str(qid)
-                        for qid in params.get("quest_ids") or ()))
+            from wowbot.agent.packet_entity_facts import best_position, entity
+            import math
+            value = entity(world_state, params.get("object_guid"))
+            point = best_position(value) if value else None
+            player = world_state.get("player_world_position") or {}
+            limit = number(params["server_interaction_range"])
+            px, py = number(player.get("x")), number(player.get("y"))
+            if (point is None or None in (limit, px, py) or not math.isfinite(limit) or limit <= 0
+                    or str(point.get("instance_id")) != str(player.get("instance_id"))):
+                return False
+            spot = {**point, "guid": params["object_guid"], "distance": math.hypot(point["x"]-px, point["y"]-py)}
+            if ObjectInteractionFlow().packet_interact_ready(
+                    world_state, spot, number(player.get("z")), reach=limit) != "READY":
+                return False
+        return (server_object_interactable(world_state, params.get("object_guid"),
+                                           params.get("server_use_basis"))
+                and not world_state.get("is_in_combat")
+                and not any(isinstance(target, dict)
+                            and str(target.get("source_unit") or "").casefold() == "softinteract"
+                            and target.get("unit_type") not in (None, "GAMEOBJECT")
+                            for target in world_state.get("soft_targets") or ()))
+
+    @staticmethod
+    def _identity_matches(params: dict, mouse: dict) -> bool:
+        from wowbot.runtime.entity_identity import check_entity_identity
+        from wowbot.runtime.skill_identity import (QUEST_OBJECT_TOOLTIP, expected_identity,
+                                                   quest_object_tooltip_matches)
+        if params.get("identity_certification") == QUEST_OBJECT_TOOLTIP:
+            return quest_object_tooltip_matches(params, mouse)
+        return bool(check_entity_identity(
+            expected_identity(params, include_item=True), mouse))
 
     def _reclick_after_auto_approach(self, state, context: dict, world_state: dict,
                                      now: float) -> SkillResult | None:
@@ -143,6 +159,7 @@ class ObjectUseSkill:
         state.phase = ObjectUsePhase.SEND_USE.value
         return SkillResult(SkillStatus.RUNNING, commands=(Command("CLICK", x=cx, y=cy, button="RIGHT"),))
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         params = state.intent.parameters
         quest_ids = tuple(params.get("quest_ids") or ())
@@ -154,7 +171,8 @@ class ObjectUseSkill:
             soft = next((target for target in world_state.get("soft_targets") or ()
                          if isinstance(target, dict) and target.get("unit_type") == "GAMEOBJECT"
                          and str(target.get("guid")) == str(params.get("object_guid"))), None)
-            if (not quest_ids and not objective_ids) or soft is None:
+            if ((not quest_ids and not objective_ids) or soft is None
+                    or not self._identity_matches(params, soft)):
                 return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
                                    retryable=True, replan_required=True)
             state.skill_context["object_use"] = {"quest_ids": quest_ids, "objective_ids": objective_ids,
@@ -162,6 +180,27 @@ class ObjectUseSkill:
             state.phase = ObjectUsePhase.SEND_USE.value
             return SkillResult(SkillStatus.RUNNING,
                                commands=(Command("BIND", str(params.get("binding") or "INTERACTTARGET")),))
+        if params.get("activation_source") == "INTERACT_KEY_PACKET":
+            # Ymir: the server reports this exact object as usable for us; the
+            # planner checked range, facing, no unit soft target and no nearer
+            # object.  Re-check what can change, then one Interact press.
+            if (not quest_ids and not objective_ids) or not self.packet_object_usable(params, world_state):
+                return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
+                                   retryable=True, replan_required=True)
+            state.skill_context["object_use"] = {"quest_ids": quest_ids, "objective_ids": objective_ids,
+                                                 "fallback_sent": True, "used_at": getattr(state, "started_at", None),
+                                                 "object_guid": params.get("object_guid")}
+            if (world_state.get("movement") or {}).get("moving") is True:
+                state.skill_context["object_use"].update(packet_use_pending=True, used_at=None)
+                state.phase = ObjectUsePhase.WAIT_STOP.value
+                return SkillResult(SkillStatus.RUNNING)
+            state.phase = ObjectUsePhase.SEND_USE.value
+            return SkillResult(SkillStatus.RUNNING,
+                               commands=(Command("BIND", str(params.get("binding") or "INTERACTTARGET")),))
+        if params.get("activation_source") == "INTERACT_KEY_AT_SPAWN":
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
+                               retryable=True, replan_required=True,
+                               metadata={"detail": "spawn/facing alone does not identify the F7 recipient"})
         x, y = number(params.get("x")), number(params.get("y"))
         # A world object's name may arrive only in the (late) mouseover
         # change event; effective_mouseover attributes it to a still cursor.
@@ -172,6 +211,17 @@ class ObjectUseSkill:
         if (not quest_ids and not objective_ids) or None in (x, y, cx, cy):
             return SkillResult(SkillStatus.BLOCKED, FailureReason.OBJECTIVE_UNKNOWN,
                                replan_required=True)
+        mouse_at = number(world_state.get("mouseover_sample_time"))
+        cursor_at = number(world_state.get("cursor_sample_time"))
+        if (not (abs(x - cx) <= .002 and abs(y - cy) <= .002) and 0 < cx < 1 and 0 < cy < 1
+                # The tooltip sample must be from the cursor's new point.
+                and mouse_at is not None and cursor_at is not None and mouse_at >= cursor_at-.05
+                and self._identity_matches(params, mouse)):
+            # Live 2026-10-14: the pointer lock had re-aimed the cursor on the
+            # same cocoon since planning; the tooltip still names it here.
+            # Use the cursor's point (a new hover + fresh tooltip still gates
+            # the right-click) instead of aborting as stale.
+            x, y = cx, cy
         if not (0 < x < 1 and 0 < y < 1 and abs(x - cx) <= .002 and abs(y - cy) <= .002):
             return SkillResult(SkillStatus.FAILURE, FailureReason.STALE_OBSERVATION,
                                retryable=True, replan_required=True)
@@ -188,12 +238,24 @@ class ObjectUseSkill:
             "hover_view": cursor_view(world_state), "click_sent_at": None,
             "fallback_sent": False,
         }
+        # Keep the already verified tooltip-to-box association while waiting
+        # for the post-hover sample. No nearest-box or name-only reassignment.
+        from wowbot.agent.object_interaction_flow import ObjectInteractionFlow, quest_object_candidates
+        bound = ObjectInteractionFlow._confirmed_hover_box(
+            params, quest_ids[0] if quest_ids else None, world_state, quest_object_candidates(world_state))
+        if bound is not None:
+            state.skill_context["object_use"]["track_id"] = bound.get("track_id")
         state.phase = ObjectUsePhase.VALIDATE_MOUSEOVER.value
         return SkillResult(SkillStatus.RUNNING,
                            commands=(Command("HOVER", x=x, y=y, duration=.05),))
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         context = state.skill_context.get("object_use") or {}
+        from .object_pull import pull_profile, step as pull_step, channel_movement_allowed
+        profile = pull_profile(state.intent.parameters,world_state)
+        if profile is not None:
+            context['objective_ids'] = (profile['objective_id'],)
         # Quest progress is the authoritative completion signal, including
         # when it arrives while a fresh post-hover sample is still pending.
         # This can happen when the player interacts manually during our wait.
@@ -201,13 +263,55 @@ class ObjectUseSkill:
                                         quest_ids=context.get("quest_ids", ()),
                                         objective_ids=context.get("objective_ids", ()))
         if result.success:
-            return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
+            return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence,
+                metadata={'post_use_motion':dict(context['pull'])} if context.get('pull') else {})
+        if context.get("packet_use_pending"):
+            # A MOVE-to-use handoff can precede the client's stop sample.
+            # Wait for a newer explicit stop; then recheck pose and GUID and
+            # send exactly one F7. Waiting never consumes the credit budget.
+            if now >= state.attempt.deadline:
+                return SkillResult(SkillStatus.FAILURE, FailureReason.TIMEOUT,
+                                   retryable=True, replan_required=True)
+            sample = number(world_state.get("fast_sample_time", world_state.get("monotonic_time")))
+            if ((world_state.get("movement") or {}).get("moving") is not False
+                    or sample is None or sample <= state.started_at
+                    or world_state.get("is_casting") or world_state.get("is_channeling")):
+                state.phase = ObjectUsePhase.WAIT_STOP.value
+                return SkillResult(SkillStatus.RUNNING)
+            if not self.packet_object_usable(state.intent.parameters, world_state):
+                return SkillResult(SkillStatus.FAILURE, FailureReason.NOT_INTERACTABLE,
+                                   retryable=True, replan_required=True)
+            context.update(packet_use_pending=False, used_at=now, click_sent_at=now)
+            state.phase = ObjectUsePhase.SEND_USE.value
+            return SkillResult(SkillStatus.RUNNING, commands=(
+                Command("BIND", str(state.intent.parameters.get("binding") or "INTERACTTARGET")),))
+        pulling_channel = channel_movement_allowed(state,world_state,now)
+        if pulling_channel:
+            context.setdefault('pull_cast_ended_at',now)
+        if (world_state.get("is_casting") or world_state.get("is_channeling")) and not pulling_channel:
+            if profile is not None:
+                context['pull_cast_seen'] = True
+                used = number(context.get('used_at'))
+                if used is not None and now-used > 16.:
+                    return SkillResult(SkillStatus.FAILURE,FailureReason.TIMEOUT,replan_required=True,
+                        metadata={'legacy_reason':'object_pull_grab_channel_unresolved'})
+            # Do not mark click/fallback sent while the control layer must
+            # withhold that input. Quest credit above is still authoritative.
+            state.phase = ObjectUsePhase.WAIT_QUEST_CREDIT.value
+            return SkillResult(SkillStatus.RUNNING)
         position_error = self._position_error(context, world_state)
+        if context.get('pull_cast_seen'):
+            context.setdefault('pull_cast_ended_at',now)
         if position_error is not None:
             # Report the client error precisely.  Only OUT_OF_RANGE permits
             # the confirmed-box forward approach; LOS needs a different route.
             return SkillResult(SkillStatus.FAILURE, position_error,
                                retryable=True, replan_required=True)
+        motion = pull_step(self,state,world_state,now)
+        if motion is not None:
+            return replace(motion,metadata={**motion.metadata,
+                'post_use_motion':dict(context.get('pull') or {}),
+                **({'legacy_reason':motion.metadata['reason']} if motion.metadata.get('reason') else {})})
         # engine.tick() marks all non-movement skills VERIFY before invoking
         # us, so the stage must live in our own context, not state.phase.
         if context.get("hover_point") and context.get("click_sent_at") is None:
@@ -241,6 +345,17 @@ class ObjectUseSkill:
                       and 0 <= now-mouse_sample <= 1.
                       and abs(mouse_sample-cursor_sample) <= .1)
                      or fresh_full)
+            if not (fresh and self._identity_matches(state.intent.parameters,
+                                                     effective_mouseover(world_state))
+                    and None not in (x, y, cx, cy) and abs(x-cx) <= .004 and abs(y-cy) <= .004):
+                from wowbot.agent.pointer_tracking import follow_pointer
+                command = (follow_pointer(context.setdefault("pointer_follow", {}), world_state,
+                                          context.get("track_id"), now)
+                           if now < state.attempt.deadline else None)
+                if command is not None:
+                    context.update(hover_point=(command.x, command.y), hover_sent_at=now,
+                                   hover_view=cursor_view(world_state))
+                    return SkillResult(SkillStatus.RUNNING, commands=(command,))
             # The optical-flow yaw estimate may be advanced repeatedly from
             # one old vision frame while the addon/character stays still
             # (live 19:17:41: -60 -> +12 in <.3 s).  It is not an authority

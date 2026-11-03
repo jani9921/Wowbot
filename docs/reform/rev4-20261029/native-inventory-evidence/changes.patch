@@ -1,0 +1,1079 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,20 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 native inventory CREATE — **OFFLINE_TESTED / inventory
++parity PARTIAL**. Selected-own PlayerData remainder → ActivePlayerData root
++GUIDs, owner-verified ItemData count/durability and ContainerData slots now
++reach the canonical WorldModel/query. Private/foreign fields are skipped,
++unknown deltas invalidate old native samples, reordered CREATE cannot undo a
++newer invalidation, and gap/identity scope cannot be reused. A read-only
++advisor receives bounded ownership lower bounds and original evidence;
++carried location remains UNKNOWN, UI bag/coordinates stay client-owned.
++No absence, quest credit or item-use authority is inferred. Selected regression:
++**3857 passed, 2 skipped, 10 unchanged deselections, 314 modules, exit 0**,
++175.75 s pytest. All 535 source and 623 test Python files parse. All 203
++numbered rows unchanged. Addon/Ymir unchanged; no game/capture/input/new live
++acceptance. VALUES, carried/client-slot matching, native retained state and
++complete consumer parity remain code gaps. See
++[native inventory/checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY.md).
+ 
+ 2026-10-30 REV4 P3 own CREATE quest membership — **OFFLINE_TESTED / full
+ quest-progress and inventory parity PARTIAL**. Reviewed UnitData remainder and
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,21 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — native owned inventory CREATE (offline only)
++
++Selected-own root/item/container CREATE prefixes reach the shared model/query
++and bounded read-only advisor. Native indices are not client bag coordinates;
++owned quantity is a sampled lower bound, carried state unknown and aggregate
++coverage PARTIAL. Unknown item/active inventory deltas invalidate old samples,
++old CREATE cannot revive newer invalidation, and original source time remains.
++
++Final selected regression: **3857 passed, 2 skipped, 10 unchanged deselections**,
++314 modules, 175.75 s pytest / 178.55 s runner, exit 0. All 535 source and
++623 test Python files parse. The first wide run's two profile fixtures now
++select the named profile event from the extended stream. No exclusions added.
++All 203 numbered rows persist. No assistant game/capture/FULL_AI/input; addon
++and Ymir unchanged, no new live acceptance. Full inventory VALUES/retained
++state/client-slot and consumer parity remain code gaps.
++[Evidence and limits](reform/rev4-20261029/P3_NATIVE_INVENTORY.md).
+ 
+ ## 2026-10-30 — selected own CREATE quest membership (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3838 passed, 2 skipped, 10 változatlan deselection, 313 modul, exit 0.
++Végső kijelölt regresszió: 3857 passed, 2 skipped, 10 változatlan deselection, 314 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -13,6 +13,8 @@
+ Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
+ Saját CREATE kezdeti questslotok [bekötve](P3_OWN_CREATE_QUESTLOG.md); inventory,
+ tartós natív állapot és teljes objective-progress továbbra is külön nyitott kapu.
++Inventory CREATE saját item/count/container/root adatút és read-only fogyasztó
++[elkészült](P3_NATIVE_INVENTORY.md); a teljes inventory VALUES-/UI-slot-paritás még nem.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -26,6 +26,9 @@
+ Saját CREATE → UnitData remainder → PlayerData QuestLog prefix is bekötve:
+ [kezdeti 175 questslot](P3_OWN_CREATE_QUESTLOG.md). A fennmaradó own-player/
+ inventory és tartós natív progress-paritás továbbra is nyitott.
++Saját inventory CREATE és bounded read-only fogyasztó:
++[P3 native inventory](P3_NATIVE_INVENTORY.md). Az ismeretlen VALUES minta
++érvénytelenít; carried/UI-slot, retained state és teljes paritás továbbra is nyitott.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -68,14 +71,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3838 passed, 2 skipped, 10 deselected; 313 modul; 172.52 s; exit 0** |
++| Végső kijelölt regresszió | **3857 passed, 2 skipped, 10 deselected; 314 modul; 175.75 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 533 source + 622 tests Python-fájl; 621 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 535 source + 623 tests Python-fájl; 622 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **313 kijelölt modul eredménye**, nem a teljes 621 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **314 kijelölt modul eredménye**, nem a teljes 622 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY.md
++++ after/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY.md
+@@ -0,0 +1,95 @@
++# REV4 P3 — kezdeti natív saját inventory-adatút
++
++2026-10-30. A kijelölt `projekt`; **offline tesztelt CREATE/részadatút**.
++A teljes inventory-/consumer-paritás még **PARTIAL**, nem készült el az addon
++inventory helyettesítése. A közös WorldModel/query és tanácsadói felület maradt
++a tulajdonos/fogyasztó; nincs külön inventoryvezérlő vagy inputút.
++
++## Beolvasott mezők
++
++A pinnelt WPP 70340-es `UpdateFieldsHandler1215`, `ItemHandler` és
++`MythicPlusHandler` mezősorrendjéből készült célzott prefixolvasó:
++
++1. A saját PlayerData CREATE QuestLog utáni fennmaradó részének pontos,
++   feltételes/tömbös bejárása, majd az ActivePlayerData **105 InvSlots** GUID-ja.
++   Realm/account/player/pet/declined/assist nevek/azonosítók, leaver- és kozmetikai
++   adatok nem kerülnek a normalizált eseménybe. A szövegbájtokat nem dekódoljuk.
++2. Kizárólag a szerverrel korrelált saját karakter tulajdonában lévő ItemData
++   CREATE: item GUID/entry ID, contained-in GUID, stack count, durability/max.
++   Más tulajdonosnál a private mezők olvasója nem fut tovább.
++3. Saját ContainerData CREATE: **98 slothely** és NumSlots; a tényleges kapacitáson
++   kívüli nemüres GUID, duplikált/rossz fajta GUID vagy csonka lista hibás adat.
++
++A slotazonosítók **szerveres tárolóhelyek**. Nem neveztük át őket kliensoldali
++bag/slot indexszé vagy kattintási koordinátává. A rootok bankot/equipmentet is
++érinthetnek; egy ismert tulajdonlásból nem következik hordott vagy használható tárgy.
++
++## Esemény, scope, tárolás
++
++A `WPP_12_1_OWN_INVENTORY_REVIEWED_V1` kizárólagos layout alatt új allowlist:
++`OWN_INVENTORY_ROOTS`, `OWN_INVENTORY_INVALIDATED`, `OWN_ITEM_UPDATE`,
++`OWN_ITEM_REMOVED`. Ez nem tetszőleges struktúra-/stringengedélyezés.
++PID/build/karakter/epoch/eredeti sample-idő és IPC-kapuk maradnak. A 70340-es
++explicit buildcsaládon kívül a provider nem állít inventory-tényt.
++
++A capture-dekóder kapcsolatonként követi a már igazolt saját item GUID-okat,
++új login esetén eldobja őket. Tárgyeltűnés, tulajdonosváltás vagy egy még
++nem dekódolt VALUES frissítés érvényteleníti a korábbi natív itemmintát.
++CREATE → VALUES ugyanazon rekordban is a wire-sorrend szerint működik.
++Aktív játékos még nem ismert inventory-deltája a rootmintát érvényteleníti;
++nem találgatjuk, melyik slot változhatott.
++
++A WorldModel legfeljebb 2048 saját mintát és bounded érvénytelenítési barriert
++tart. Régebbi, sorrenden kívüli CREATE nem támaszt fel frissebben érvénytelenített
++darabszámot. A query megőrzi a minták saját óráját és observation ID-ját;
++a hot státuszban csak darabszám/coverage van, nem teljes root-/itemtömb.
++
++`WorldQuery.native_inventory(now)` másolatot ad, `owned_item_count(item_id,now)`
++ismert stackekből származó **megfigyelt alsó korlátot**. Nincs teljes hiánybizonyíték,
++a `carried` UNKNOWN, a teljes inventory-coverage PARTIAL. A kétmásodperces
++sample-kapu és a folytonossági generáció megmaradt. Scope-/loading-/GAP-váltás
++előző mintáit még a következő projekció előtt sem adja vissza a query.
++
++A read-only tanácsadói eszköz a kliens inventory-adata mellett külön
++`native_ownership` mezőben kap bounded alsó korlátot és eredeti bizonyítékot.
++A hozzá tartozó valódi packet-evidence referenciák is olvashatók. Nem kap
++új író-/inputeszközt vagy használati jogosultságot. A UI-bag sor darabszámát és
++kattintható helyét ez nem írja át.
++
++## Ellenőrzési esetek
++
++Pontos, nemüres PlayerData dinamikus tömbök, item-modifier/bonus rekordsorok,
++declined name és opcionális szövegek; Item/Container CREATE; idegen tulajdonos;
++csonka payload; ismeretlen delta; azonos rekordon belüli CREATE → VALUES;
++tulajdonosváltás; régi, átrendezett minta; hiányzó item UNKNOWN; UI-adat megőrzése;
++read-only másolat; sample-expiry; karakter/phase/loading/GAP; tanácsadói lineage.
++
++A célzott körök átfednek: 40 prefixpróba, 104 IPC/own-state próba, 118
++inventory/LLM próba, majd 63 profil/inventory/adviser regresszió. Nem összeadandók.
++Az első széles kör két régi profiltesztje eseménysorszámot használt; az új
++inventory-invalidation eseményre választottak profil helyett. Az elvárt kibővült
++eseménysor és a név szerinti profilkiválasztás javítva; production kapu nem lazult.
++
++A végső eredményt és teljes parancsot a
++[checkpoint](native-inventory-evidence/verification.json) rögzíti. A korábbi
++hibás futás is megmarad; új exclusion nincs. A 203 számozott coverage-sor és
++minden korábbi checkpoint változatlanul megmarad.
++
++Végső kijelölt regresszió: **3857 passed, 2 skipped, 10 változatlan deselection,
++314 modul, exit 0**, pytest 175.75 s / runner 178.55 s. Az összes 535 source és
++623 test Python-fájl AST-je érvényes. A teljes 622 testmodul helyett a kijelölt
++314 futott. A végső körben a GAP/azonos baseline utáni cache-visszaöröklés
++elleni új inventory-próba is benne van.
++
++## Nyitott megvalósítási kapuk
++
++Item/Container/ActivePlayerData VALUES teljes értelmezése, bizonyított kliens
++bag-slot kapcsolat, carried/bank/equipment különbség, elveszett események és
++warm-replay/tartós natív baseline teljessége; utána a fogyasztók és az addon
++inventory karcsúsítása. Ezek **kódhiányok**, nem pusztán hiányzó élő tesztek.
++A mostani pozitív minták nem bizonyítanak quest-creditet, lootjogot vagy
++jutalomátvételt. Saját quest-progress, P7 cast/hazard/talent/role és történeti
++memória-lineage korábbi nyitott kapui sem váltak automatikusan teljesítetté.
++
++Nem indult játék, Ymir, capture vagy FULL_AI, nem ment kliensinput. Addon
++0.9.80 és a pinned Ymir byte-változatlan. Új LIVE_VALIDATED állítás nincs.
+--- before/src/wowbot/agent/advisory_tools.py
++++ after/src/wowbot/agent/advisory_tools.py
+@@ -30,6 +30,32 @@
+         for row in ((state.get('inventory') or {}).get('items') or ())[:32]:
+             if isinstance(row, dict) and type(row.get('item_id')) is int:
+                 self.data[('item', str(row['item_id']))] = {k: row[k] for k in ('item_id', 'count', 'is_quest_item') if k in row}
++        # Native ownership is separate from a client-visible carried stack.
++        # An advisor can inspect the lower bound, never use it as UI readiness
++        # or an absence proof. A single copied snapshot avoids per-item scans.
++        native_query = getattr(world.query,'native_inventory',None)
++        if callable(native_query):
++            native = native_query(now)
++            owned = {}
++            for row in native.get('items') or ():
++                item = str(row['item_id'])
++                if item not in owned and len(owned)>=32:continue
++                fact = owned.setdefault(item,{'count_lower_bound':0,'sample_times':[],
++                    'evidence':[],'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY'})
++                fact['count_lower_bound'] += row['stack_count']
++                if len(fact['evidence'])<4:
++                    fact['evidence'].append(row['observation_id']);fact['sample_times'].append(row['sample_time'])
++            for item,fact in owned.items():
++                row = self.data.setdefault(('item',item),{'item_id':int(item)})
++                row['native_ownership'] = fact
++            wanted = {ref for fact in owned.values() for ref in fact['evidence']}
++            for entry in world.query.evidence('packet_event:OWN_ITEM_UPDATE',now)[:32]:
++                if entry.observation_id in wanted:
++                    self.data[('evidence',entry.observation_id)] = {
++                        'field':'native_inventory_item','source':entry.source,
++                        'observed_at':entry.observed_at,'completeness':'PARTIAL',
++                        'confidence':entry.confidence,
++                        'lineage':entry.lineage.as_dict(limit=4) if entry.lineage else None}
+         for key in ('target', 'active_quests', 'inventory', 'player_world_position'):
+             for entry in world.query.evidence(key, now)[:4]:
+                 self.data[('evidence', entry.observation_id)] = {
+--- before/src/wowbot/agent/packet_inventory.py
++++ after/src/wowbot/agent/packet_inventory.py
+@@ -0,0 +1,79 @@
++"""Scoped native item evidence inside WorldModel, not an inventory UI owner.
++
++Partial native counts never replace a complete client bag/UI snapshot, never
++authorize clicking a button, and never prove a quest credit/reward receipt.
++"""
++from wowbot.context_contracts import SessionContext
++from .models import json_copy
++
++MAX_AGE = 2.
++MAX_ITEMS = 2048
++
++
++def remember(model, kind, body, observation, sampled, context):
++    scope = SessionContext.from_mapping(context).entity_scope()
++    record = model.__dict__.get('_packet_inventory')
++    if record is None or record['scope'] != scope:
++        record = {'scope':scope,'items':{},'invalidated':{},'roots':None,
++                  'roots_time':float('-inf'),'observed_at':sampled}
++        model.__dict__['_packet_inventory'] = record
++    def fact(value):
++        return {'value':json_copy(value),'observed_at':sampled,'observation_id':observation.observation_id}
++    if kind in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED'}:
++        if sampled >= record['roots_time']:
++            record['roots'] = fact(body['root_slots']) if kind == 'OWN_INVENTORY_ROOTS' else None
++            record['roots_time'] = sampled
++    else:
++        guid = body['item_guid']
++        previous = record['items'].get(guid)
++        barrier = record['invalidated'].get(guid,float('-inf'))
++        if sampled < max(barrier,(previous or {}).get('observed_at',float('-inf'))):
++            return
++        if kind == 'OWN_ITEM_REMOVED':
++            record['items'].pop(guid,None)
++            record['invalidated'][guid] = sampled
++            while len(record['invalidated']) > MAX_ITEMS:
++                record['invalidated'].pop(next(iter(record['invalidated'])))
++        else:
++            record['items'][guid] = fact({k:body[k] for k in ('item_guid','item_id','container_guid',
++                'stack_count','durability','max_durability','container_slots','num_slots') if k in body})
++            if len(record['items'])>MAX_ITEMS:
++                oldest=min(record['items'],key=lambda key:record['items'][key]['observed_at'])
++                del record['items'][oldest]
++    record['observed_at'] = max(record['observed_at'],sampled)
++    provider = getattr(model,'session_context_provider',None)
++    if provider is not None:
++        provider.observe_field_coverage('inventory','PARTIAL',sampled,context=context)
++
++
++def view(model, state, now, current_context, *, item_id=None, include_items=True):
++    from .packet_continuity import current
++    record = model.__dict__.get('_packet_inventory')
++    result = {'coverage':'UNKNOWN','root_membership':'UNKNOWN','root_sample_time':None,
++              'source':'PACKET_OWN_INVENTORY','known_items':0,'items':[]}
++    if not record or not current(model):return result
++    context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
++    if (context is None or context.entity_scope() != record['scope']
++            or state.get('loading') or state.get('player_present') is False):
++        return result
++    roots = record['roots']
++    if roots is not None and 0 <= now-roots['observed_at'] <= MAX_AGE:
++        result.update(coverage='PARTIAL',root_membership='COMPLETE',root_sample_time=roots['observed_at'])
++        if include_items:
++            result['root_slots'] = json_copy(roots['value'])
++            result['root_observation_id'] = roots['observation_id']
++    for row in record['items'].values():
++        if not 0 <= now-row['observed_at'] <= MAX_AGE:continue
++        result['coverage']='PARTIAL'
++        result['known_items']+=1
++        if include_items and (item_id is None or row['value']['item_id']==item_id):
++            result['items'].append({**json_copy(row['value']),'sample_time':row['observed_at'],
++                                    'observation_id':row['observation_id'],'carried':None})
++    return result
++
++
++def project(model, state, now, current_context):
++    state.pop('packet_inventory',None)
++    result = view(model,state,now,current_context,include_items=False)
++    if result['coverage']!='UNKNOWN':
++        state['packet_inventory'] = {k:v for k,v in result.items() if k!='items'}
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -542,6 +542,11 @@
+         model.__dict__["_packet_status"] = {"last_event": kind, "last_sampled_at": sampled,
+             "last_received_at": obs.received_at, "semantic_verified": verified, "source": "PACKET_TELEMETRY"}
+         if verified:
++            from wowbot.packetio.own_inventory_codec import EVENTS as INVENTORY_EVENTS
++            if (kind in INVENTORY_EVENTS and same_player(body.get('mover_guid'),expected['character_guid'])
++                    and same_world_map(body['world_map_id'],expected['instance_id'])):
++                from .packet_inventory import remember as remember_inventory
++                remember_inventory(model,kind,body,obs,sampled,expected)
+             from wowbot.packetio.quest_definition import EVENTS as DEFINITION_EVENTS
+             if kind in DEFINITION_EVENTS:
+                 from .server_quest_definitions import remember as remember_definition, scope as definition_scope
+@@ -792,6 +797,8 @@
+         project_power(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_quest_log import project as project_quest_log
+         project_quest_log(model, state, reference, lambda pid: _context(model, state, pid))
++        from .packet_inventory import project as project_inventory
++        project_inventory(model,state,reference,lambda pid:_context(model,state,pid))
+         from .server_quest_definitions import project as project_definitions
+         project_definitions(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_combat import project as project_combat
+--- before/src/wowbot/agent/world_query.py
++++ after/src/wowbot/agent/world_query.py
+@@ -134,6 +134,24 @@
+         state = ('PRESENT' if present else 'ABSENT' if result['membership'] == 'COMPLETE' else 'UNKNOWN')
+         return {'state':state, 'source':'PACKET_QUEST_LOG', 'membership':result['membership'],
+                 'baseline_observed_at':result['baseline_observed_at']}
++
++    def native_inventory(self, now: float, *, item_id=None) -> dict:
++        """Owned native items, not client bag indices or an absence proof."""
++        from .packet_inventory import view
++        from .world_packet_reducer import _context
++        return view(self.model,self.model.state,now,lambda pid:_context(self.model,self.model.state,pid),
++                    item_id=item_id)
++
++    def owned_item_count(self, item_id: int, now: float) -> dict:
++        """A sampled lower bound of known owned stacks; carried state unknown."""
++        if type(item_id) is not int or not 0 < item_id < 2**32:
++            raise ValueError('positive item ID required')
++        rows=self.native_inventory(now,item_id=item_id)['items']
++        return {'item_id':item_id,'status':'OBSERVED_LOWER_BOUND' if rows else 'UNKNOWN',
++                'count':sum(r['stack_count'] for r in rows) if rows else None,
++                'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY',
++                'evidence':[r['observation_id'] for r in rows],
++                'sample_times':[r['sample_time'] for r in rows]}
+ 
+     def quest_definition(self, quest_id, now: float | None = None) -> dict:
+         """Observed, scoped quest structure; not an active/reward/actor fact."""
+--- before/src/wowbot/packetio/own_create_quest_log.py
++++ after/src/wowbot/packetio/own_create_quest_log.py
+@@ -53,7 +53,7 @@
+         cursor.take(size)   # player name bytes are never decoded/exported
+ 
+ 
+-def read_create_slots(cursor, flags):
++def read_create_slots(cursor, flags, *, cosmetic_counts=None):
+     """Continue only a verified own UnitData prefix, never another player."""
+     if flags & ~0x0f or not flags & PARTY_MEMBER:
+         return None
+@@ -66,7 +66,9 @@
+     cursor.take(8)          # GuildClubMemberID
+     _skip_guid(cursor)      # LootTargetGUID
+     cursor.take(5*4)        # flags, flagsEx, guild rank/delete/level
+-    _count(cursor,256)      # Customizations count; body follows much later
+-    _count(cursor,256)      # RandomCustomizations count
++    customizations = _count(cursor,256)  # bodies follow after the quest prefix
++    random_customizations = _count(cursor,256)
++    if cosmetic_counts is not None:
++        cosmetic_counts.update(customizations=customizations,random_customizations=random_customizations)
+     cursor.take(6+2*4)      # party/sex/inebriation/title/faction, duel/guild time
+     return normalize_slots([_slot(cursor, index, True) for index in range(SLOT_COUNT)])
+--- before/src/wowbot/packetio/own_inventory_codec.py
++++ after/src/wowbot/packetio/own_inventory_codec.py
+@@ -0,0 +1,169 @@
++"""Selected-own inventory prefixes from WPP 70340, with numeric/GUID allowlists.
++
++Native indices describe server storage, never client bag button coordinates.
++Unrelated player/account/cosmetic text is skipped without decoding/exporting it.
++"""
++import re
++
++from .player_quest_log import _skip_guid
++
++LAYOUT = 'WPP_12_1_OWN_INVENTORY_REVIEWED_V1'
++EVENTS = frozenset({'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'})
++ZERO = '0'*32
++ROOT_COUNT, CONTAINER_COUNT = 105, 98
++
++
++def count(cursor, maximum=512):
++    value = cursor.u32()
++    if value > maximum: raise ValueError('inventory collection exceeds reviewed bound')
++    return value
++
++
++def _item_instance(cursor):
++    cursor.take(4)
++    cursor.reset()
++    cursor.take(cursor.bits(7)*5)
++    cursor.reset()
++    if cursor.bit():
++        cursor.take(1)
++        cursor.take(count(cursor)*4)
++
++
++def create_roots(cursor, *, customizations, random_customizations):
++    """PlayerData after QuestLog, then the ActivePlayerData InvSlots prefix."""
++    cursor.take(count(cursor,175)*8)    # QuestLogQuestIdToIndex
++    session_slots = count(cursor,175)
++    for _ in range(19):               # VisibleItem, incl. its final two bits
++        cursor.reset();cursor.take(22);cursor.reset();cursor.bits(2)
++    cursor.take(6*4+6*4+1+4+8)        # title/realm/spec/taxi, avg item lvls, pet/honor/logout
++    arena = count(cursor)
++    cursor.take(32*8+3*4)             # forced reactions, offered quests/pet species
++    pet_names = count(cursor)
++    ctr = count(cursor)
++    cursor.take(1+4+ctr*4)            # CTROptions
++    cursor.take(2*4+2*4)              # covenant/soulbind, dungeon score totals
++    runs = count(cursor)
++    for _ in range(runs):
++        cursor.take(17);cursor.reset();cursor.bit()
++    _skip_guid(cursor)                # LeaverInfo BnetAccountGUID
++    cursor.take(40);cursor.reset();cursor.bit()
++    _skip_guid(cursor)                # SpectateTarget
++    cursor.take(4)                    # WorldLootObjectInventorySwapSlot
++    for _ in range(16):_item_instance(cursor)
++    replacements = count(cursor)
++    cursor.take(19*4+5*4)             # Plunderstorm displays, tabard
++    cursor.reset();cursor.take(28);_skip_guid(cursor)  # NPCAsPlayerInfo
++    cursor.take((customizations+random_customizations)*8)
++    cursor.take(session_slots*70)
++    cursor.take(arena*25)
++    for _ in range(pet_names):
++        cursor.reset();cursor.take(4);cursor.take(cursor.bits(8))
++    cursor.take(replacements*4)
++    cursor.reset()
++    size = cursor.bits(6)
++    cursor.bit();cursor.bit()         # HasQuestSession, HasLevelLink
++    declined = cursor.bit()
++    cursor.take(size)                 # own name: skipped, never decoded
++    if declined:
++        cursor.reset()
++        sizes = [cursor.bits(10) for _ in range(5)]
++        cursor.take(sum(sizes))
++    cursor.reset()
++    return normalize_guid_slots([[i,cursor.guid()] for i in range(ROOT_COUNT)],ROOT_COUNT)
++
++
++def create_item(cursor, *, flags, own_guid):
++    """Read ItemData only after its owner is the verified selected player."""
++    from .context import same_player
++    cursor.reset()
++    owner = cursor.guid()
++    if not same_player(owner,own_guid):
++        return {'foreign_owner':True}  # no other player's private ItemData is read
++    if not flags & 1:
++        return None
++    parent = cursor.guid()
++    _skip_guid(cursor);_skip_guid(cursor)  # creator and gift creator, not exported
++    result = {'mover_guid':owner,'container_guid':parent,'stack_count':cursor.u32()}
++    cursor.take(4+5*4+4+13*12)           # expiration/charges/flags/enchantments
++    result.update(durability=cursor.u32(),max_durability=cursor.u32())
++    cursor.take(4+1+8+8+1)              # played/context/time/artifactXP/appearance
++    cursor.reset();cursor.take(cursor.bits(7)*5)  # item modifier list
++    artifact,gems = count(cursor),count(cursor,16)
++    cursor.take(4+4)                    # ZoneFlags, bonus-key ItemID
++    bonuses,modifiers = count(cursor),count(cursor)
++    cursor.take(bonuses*4+modifiers*5+2) # bonus key, DEBUGItemLevel
++    cursor.take(artifact*4+gems*37)
++    return result
++
++
++def create_container(cursor):
++    cursor.reset()
++    slots = normalize_guid_slots([[i,cursor.guid()] for i in range(CONTAINER_COUNT)],CONTAINER_COUNT)
++    size = cursor.u32()
++    if size > CONTAINER_COUNT or any(guid != ZERO for i,guid in slots if i >= size):
++        raise ValueError('invalid own container capacity')
++    return {'container_slots':slots,'num_slots':size}
++
++
++def normalize_guid_slots(rows, limit):
++    if not isinstance(rows,list) or len(rows) != limit:
++        raise ValueError('complete native slot list required')
++    result,seen = [],set()
++    for row in rows:
++        if not isinstance(row,list) or len(row)!=2:
++            raise ValueError('invalid native slot shape')
++        index,guid = row
++        if type(index) is not int or not 0 <= index < limit or index in seen:
++            raise ValueError('invalid or repeated native slot index')
++        _guid(guid,item=True,zero=True)
++        guid = guid.upper()
++        if guid != ZERO and any(guid == prior[1] for prior in result):
++            raise ValueError('duplicate item identity in a slot collection')
++        seen.add(index);result.append([index,guid.upper()])
++    return result
++
++
++def _guid(value, *, item=False, zero=False):
++    if not isinstance(value,str) or re.fullmatch('[a-fA-F0-9]{32}',value) is None:
++        raise ValueError('invalid inventory identity')
++    if int(value,16)==0:
++        if zero:return
++        raise ValueError('nonzero inventory identity required')
++    if int(value[:16],16)>>58 != (3 if item else 2) or int(value[16:],16)==0:
++        raise ValueError('wrong inventory identity kind')
++
++
++def normalize_body(kind, body):
++    _guid(body.get('mover_guid'))
++    world = body.get('world_map_id')
++    if type(world) is not int or not 0 <= world < 2**16:
++        raise ValueError('inventory world context required')
++    result = {'mover_guid':body['mover_guid'].upper(),'world_map_id':world}
++    if kind == 'OWN_INVENTORY_INVALIDATED':
++        return result
++    if kind == 'OWN_INVENTORY_ROOTS':
++        if body.get('sample_kind') != 'CREATE':raise ValueError('reviewed create required')
++        return {**result,'sample_kind':'CREATE','root_slots':normalize_guid_slots(body.get('root_slots'),ROOT_COUNT)}
++    _guid(body.get('item_guid'),item=True)
++    result['item_guid'] = body['item_guid'].upper()
++    if kind == 'OWN_ITEM_REMOVED':
++        if body.get('removal') not in {'DESTROYED','OUT_OF_RANGE','OWNER_CHANGED','UNREVIEWED_UPDATE'}:
++            raise ValueError('invalid item removal')
++        return {**result,'removal':body['removal']}
++    if body.get('sample_kind') != 'CREATE':raise ValueError('reviewed item create required')
++    for key in ('item_id','stack_count','durability','max_durability'):
++        value = body.get(key)
++        if type(value) is not int or not 0 <= value < 2**32 or key=='item_id' and not value:
++            raise ValueError('invalid own item number')
++        result[key] = value
++    parent = body.get('container_guid')
++    if not isinstance(parent,str) or parent.upper() != result['mover_guid']:
++        _guid(parent,item=True,zero=True)
++    result.update(container_guid=parent.upper(),sample_kind='CREATE')
++    if 'container_slots' in body or 'num_slots' in body:
++        slots=normalize_guid_slots(body.get('container_slots'),CONTAINER_COUNT)
++        size=body.get('num_slots')
++        if type(size) is not int or not 0 <= size <= CONTAINER_COUNT or any(g != ZERO for i,g in slots if i >= size):
++            raise ValueError('invalid own container size')
++        result.update(container_slots=slots,num_slots=size)
++    return result
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -251,6 +251,7 @@
+         self.process_generation = process_generation
+         self._login_guids = {}
+         self._verified_player_guids = {}
++        self._owned_items = {}
+         if self.selected_pid <= 0:
+             raise PktFormatError("positive selected PID required")
+         if manifest is not None and not compatible_opcode_build(manifest.game_build, header.game_build):
+@@ -321,7 +322,9 @@
+                 return [self._semantic_event(record, name, family, kind, body) for kind, body in decoded]
+             if record.direction == FlowDirection.SERVER_TO_CLIENT.value and name == "SMSG_UPDATE_OBJECT":
+                 own = self._verified_player_guids.get(record.connection_index) if family.defining_build == 70340 else None
+-                decoded = _decode_update_object(record.payload, self.entity_fragments, own_character_guid=own)
++                owned = self._owned_items.setdefault(record.connection_index,{}) if own is not None else None
++                decoded = _decode_update_object(record.payload, self.entity_fragments,
++                                               own_character_guid=own, owned_items=owned)
+             elif record.direction == FlowDirection.SERVER_TO_CLIENT.value and name == "SMSG_QUEST_POI_QUERY_RESPONSE":
+                 if family.defining_build != 70340:
+                     return []  # payload capture checked for the explicit 12.1.5 family only
+@@ -345,6 +348,7 @@
+         if name == "CMSG_PLAYER_LOGIN" and record.direction == FlowDirection.CLIENT_TO_SERVER.value:
+             self._login_guids.pop(record.connection_index, None)
+             self._verified_player_guids.pop(record.connection_index, None)
++            self._owned_items.pop(record.connection_index, None)
+             guid = cursor.packed_guid128()
+             cursor.f32()  # FarClip is not exported
+             bits = cursor.u8()
+@@ -394,6 +398,7 @@
+                 "opcode_source_revision": WPP_REVISION,
+                 'capture_epoch': self.capture_epoch,
+                 "payload_layout": ("WPP_12_1_QUEST_DEFINITION_REVIEWED_V1" if event_type in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'} else
++                                   "WPP_12_1_OWN_INVENTORY_REVIEWED_V1" if event_type in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'} else
+                                    ("WPP_12_1_QUEST_LOG_REVIEWED_V2" if payload.get('sample_kind') == 'CREATE'
+                                     else "WPP_12_1_QUEST_LOG_REVIEWED_V1") if event_type == 'OWN_QUEST_LOG_UPDATE' else
+                                    "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+@@ -590,13 +595,39 @@
+ UNIT_FIELDS = ("health", "max_health", "level", "faction_template", "unit_flags", "unit_flags2", "unit_flags3", "bounding_radius", "combat_reach", "target_guid", "summoned_by", "created_by")
+ 
+ 
+-def _decode_update_object(data: bytes, fragments: dict, *, own_character_guid=None) -> list[tuple[str, dict]]:
++def _decode_update_object(data: bytes, fragments: dict, *, own_character_guid=None,
++                         owned_items=None) -> list[tuple[str, dict]]:
+     """Public entities, plus health deltas of the correlated own login only."""
+     events = []
+-    for row in decode_update_object(data, fragments, own_character_guid=own_character_guid):
++    from .context import same_player
++    owned_items = owned_items if owned_items is not None else {}
++    world_map = struct.unpack_from('<H',data)[0]
++    for row in decode_update_object(data, fragments, own_character_guid=own_character_guid,
++                                   own_item_guids=owned_items if own_character_guid is not None else ()):
++        guid = row['guid']
++        item = row.get('own_item')
++        if item is not None:
++            owned_items[guid] = item['mover_guid']
++            if len(owned_items)>2048:owned_items.pop(next(iter(owned_items)))
++            events.append(('OWN_ITEM_UPDATE',{'item_guid':guid,'item_id':row['entry_id'],
++                'world_map_id':world_map,'sample_kind':'CREATE',**item}))
++            continue
++        previous = owned_items.get(guid)
++        if previous is not None and own_character_guid is not None and same_player(previous,own_character_guid):
++            reason = (row.get('reason') if row['kind']=='REMOVED' else
++                      'OWNER_CHANGED' if row.get('foreign_item_owner') else 'UNREVIEWED_UPDATE')
++            events.append(('OWN_ITEM_REMOVED',{'mover_guid':previous,'item_guid':guid,
++                          'world_map_id':world_map,'removal':reason}))
++            if row['kind']!='VALUES':owned_items.pop(guid,None)
++            continue
+         if own_character_guid is not None:
+             from .context import same_player
+             if same_player(row['guid'], own_character_guid):
++                if row.get('inventory_roots') is not None:
++                    events.append(('OWN_INVENTORY_ROOTS',{'mover_guid':row['guid'],'world_map_id':world_map,
++                        'sample_kind':'CREATE','root_slots':row['inventory_roots']}))
++                elif row.get('inventory_invalidated') or row['kind']=='CREATED':
++                    events.append(('OWN_INVENTORY_INVALIDATED',{'mover_guid':row['guid'],'world_map_id':world_map}))
+                 if row.get('quest_log_slots'):
+                     events.append(('OWN_QUEST_LOG_UPDATE', {'mover_guid': row['guid'],
+                         'world_map_id': struct.unpack_from('<H', data)[0], 'slots': row['quest_log_slots'],
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -337,7 +337,7 @@
+     return result
+ 
+ 
+-def _create_fields(blob: bytes, object_type: int, *, own_player=False) -> dict:
++def _create_fields(blob: bytes, object_type: int, *, own_player=False, own_character_guid=None) -> dict:
+     """ObjectData plus the leading UnitData/GameObjectData fields we use."""
+     c = _Bits(blob)
+     field_flags = c.u8()         # FieldFlags
+@@ -362,13 +362,32 @@
+                 if own_player and object_type in {6, 7}:
+                     from .own_create_quest_log import read_create_slots
+                     try:
+-                        slots = read_create_slots(c, field_flags)
++                        cosmetic_counts = {}
++                        slots = read_create_slots(c, field_flags, cosmetic_counts=cosmetic_counts)
+                         if slots:
+                             result['quest_log_slots'] = slots
++                            if object_type == 7 and field_flags & _OWNER:
++                                from .own_inventory_codec import create_roots
++                                try:
++                                    result['inventory_roots'] = create_roots(c,**cosmetic_counts)
++                                except ValueError:
++                                    pass  # later prefix unavailable, valid quest slots remain
+                     except ValueError:
+                         pass    # reviewed HP/profile prefix remains; no partial slot list
+             except UpdateLayoutError:
+                 pass             # the reviewed prefix stands; no guessed unit facts
++        elif object_type in {1, 2} and own_character_guid is not None:
++            from .own_inventory_codec import create_item, create_container
++            try:
++                item = create_item(c,flags=field_flags,own_guid=own_character_guid)
++                if item is not None and item.get('foreign_owner'):
++                    result['foreign_item_owner'] = True
++                elif item is not None:
++                    if object_type == 2:
++                        item.update(create_container(c))
++                    result['own_item'] = item
++            except ValueError:
++                pass  # no incomplete inventory item baseline
+         elif object_type == 8:
+             c.reset()
+             c.take(4*5)          # DisplayID .. SpawnTrackingStateAnimKitID
+@@ -469,6 +488,8 @@
+             return {}
+         update_type = c.u32()
+         result = {}
++        if own_player and update_type & 0x80:
++            result['inventory_invalidated'] = True  # ActivePlayerData update not reviewed yet
+         if update_type & 1:      # ObjectData
+             c.reset()
+             mask = c.bits(4)
+@@ -514,7 +535,8 @@
+     return _values_fields(blob, fragments).get("dynamic_flags")
+ 
+ 
+-def decode_update_object(data: bytes, fragments_by_guid: dict, *, own_character_guid=None) -> list[dict]:
++def decode_update_object(data: bytes, fragments_by_guid: dict, *, own_character_guid=None,
++                         own_item_guids=()) -> list[dict]:
+     """All objects of one record, or UpdateLayoutError for the whole record."""
+     c = _Bits(data)
+     map_id = c.u16()
+@@ -533,11 +555,15 @@
+     if c.u32() != len(data)-c.offset:
+         raise UpdateLayoutError("update data size does not match record")
+     pending = {}
++    known_own_items = set(own_item_guids)
+     for _ in range(count):
+         update_type = c.u8()
+         guid = c.guid()
+         if update_type == 0:
+             blob = c.take(_bounded(c.u32(), len(data), "values size"))
++            if guid in known_own_items:
++                rows.append({'kind':'VALUES','guid':guid,'own_item_invalidated':True})
++                continue  # unreviewed item deltas invalidate; no private item fields guessed
+             known = pending.get(guid, fragments_by_guid.get(guid))
+             if int(guid[:16], 16) >> 58 == 2:
+                 from .context import same_player
+@@ -553,7 +579,12 @@
+             blob = c.take(_bounded(c.u32(), len(data), "create fields size"))
+             from .context import same_player
+             own_player = own_character_guid is not None and same_player(guid, own_character_guid)
+-            fields = _create_fields(blob, object_type, own_player=own_player)
++            fields = _create_fields(blob, object_type, own_player=own_player,
++                                    own_character_guid=own_character_guid)
++            if fields.get('own_item') is not None:
++                known_own_items.add(guid)
++            elif object_type in {1,2}:
++                known_own_items.discard(guid)
+             pending[guid] = fields["fragments"]
+             rows.append({"kind": "CREATED", "guid": guid, "object_type": object_type,
+                          "map_id": map_id, **movement, **fields})
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -3,9 +3,15 @@
+ 
+ import math
+ import re
++from .own_inventory_codec import EVENTS as INVENTORY_EVENTS, LAYOUT as INVENTORY_LAYOUT
+ from .spell_cast import CAST_EVENTS, SPELL_LAYOUT
+ 
+ _FIELDS = {
++    'OWN_INVENTORY_ROOTS': {'mover_guid','world_map_id','sample_kind','root_slots'},
++    'OWN_INVENTORY_INVALIDATED': {'mover_guid','world_map_id'},
++    'OWN_ITEM_UPDATE': {'mover_guid','world_map_id','sample_kind','item_guid','item_id','stack_count',
++                        'container_guid','durability','max_durability','container_slots','num_slots'},
++    'OWN_ITEM_REMOVED': {'mover_guid','world_map_id','item_guid','removal'},
+     "SESSION_BASELINE": {"character_guid", "capture_epoch", "sequence", "world_map_id", "process_generation"},
+     "OWN_UNIT_UPDATE": {"mover_guid", "world_map_id", "health", "max_health", "sample_kind"},
+     "OWN_POWER_UPDATE": {'mover_guid', 'power_type', 'raw_power'},
+@@ -60,7 +66,8 @@
+ SCENE_EVENTS = frozenset({"SCENE_STARTED", "SCENE_ENDED", "SCENE_EVENT"})
+ CAPTURE_70575_EVENTS = SCENE_EVENTS | {"MOVEMENT_ROOT", "GOSSIP_SELECTED", "QUEST_POI_UPDATE"}
+ _LAYOUT_EVENTS = {
+-    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
++    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-INVENTORY_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
++    INVENTORY_LAYOUT: INVENTORY_EVENTS,
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
+@@ -111,6 +118,11 @@
+     if not isinstance(body, dict) or not isinstance(provenance, dict):
+         raise ValueError("invalid packet body/provenance")
+     safe_body = {k: v for k, v in body.items() if k in _FIELDS[kind] and _safe_scalar(v)}
++    if kind in INVENTORY_EVENTS:
++        if event['direction'] != 'SERVER_TO_CLIENT':
++            raise ValueError('own inventory requires a server observation')
++        from .own_inventory_codec import normalize_body
++        safe_body = normalize_body(kind,body)
+     if kind in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}:
+         if type(body.get('quest_id')) is not int or not 0 < body['quest_id'] < 2**31:
+             raise ValueError('quest definition response requires a quest ID')
+@@ -138,6 +150,7 @@
+     # Allowlisted *values* as well as keys: free text must not hide in an
+     # opcode/reason/provenance field and then leak through the recorder.
+     patterns = {"mover_guid": r"[A-Fa-f0-9]{32}", "attacker_guid": r"[A-Fa-f0-9]{32}",
++        'item_guid': r'[A-Fa-f0-9]{32}', 'container_guid': r'[A-Fa-f0-9]{32}',
+         "caster_guid": r"[A-Fa-f0-9]{32}", "cast_id": r"[A-Fa-f0-9]{32}",
+         "character_guid": r"Player-\d{1,5}-[A-Fa-f0-9]{1,16}", "capture_epoch": r"[a-f0-9]{32}",
+         "process_generation": r"[a-f0-9]{16}",
+@@ -156,6 +169,8 @@
+         "object_kind": {"UNIT", "GAMEOBJECT"}, "position_source": {"MOVEMENT", "STATIONARY"},
+         "sample_kind": {'CREATE', 'VALUES'},
+         "removal": {"DESTROYED", "OUT_OF_RANGE"}, "scene_event": {"CHECKPOINT", "RACE_COMPLETE"}}
++    if kind == 'OWN_ITEM_REMOVED':
++        enums['removal'] |= {'OWNER_CHANGED','UNREVIEWED_UPDATE'}
+     for values in (safe_body, safe_provenance):
+         for key, value in values.items():
+             if value is None:
+@@ -299,7 +314,7 @@
+             and (event.get("event_type") != "QUEST_POI_UPDATE" or source.get("semantic_ground_truth") is True)
+             and source.get("producer") == "PktEventDecoder" and source.get("container") == "PKT_V3_1"
+             and family is not None
+-            and (event.get('event_type') not in {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}
++            and (event.get('event_type') not in INVENTORY_EVENTS | {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}
+                  or family.defining_build == 70340)
+             and source.get("opcode_defining_build") == family.defining_build
+             and source.get("opcode_table_sha256") == family.sha256
+--- before/tests/test_native_inventory_20261030.py
++++ after/tests/test_native_inventory_20261030.py
+@@ -0,0 +1,228 @@
++"""Native owned inventory identity/counts; no bag-coordinate/input guessing."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.packetio.validation import normalize_event,verified_semantics
++from test_packet_agent_bridge import addon,bridge,deliver
++from wowbot.agent.models import Observation
++from test_unit_fields_20261027 import bits
++from test_packet_codecs import packed_guid
++from test_own_health_packets_20261030 import RAW_ME,own_event
++from test_own_create_quest_log_20261030 import create_payload,PRIVATE
++
++ZERO=bytes(2)
++ITEM=f'{3<<58:016X}{123:016X}'
++BAG=f'{3<<58:016X}{124:016X}'
++
++
++def packed(raw):return packed_guid(low=int(raw[16:],16),high=int(raw[:16],16))
++
++
++def full_player_tail(*, optional=True):
++    # Prefix fixture has three ordinary + two random cosmetic choices.
++    data=struct.pack('<IiiI',1,55639,3,1 if optional else 0)
++    for _ in range(19):data+=struct.pack('<3i2Hi2B',1,2,3,4,5,6,7,8)+bits([(1,1),(0,1)])
++    data+=struct.pack('<6i6fBiqI',1,2,3,4,5,6,*[1.]*6,0,10,12345,1 if optional else 0)
++    data+=struct.pack('<64i3iI',*range(64),11,12,13,1 if optional else 0)
++    data+=struct.pack('<IBI',1,2,3)+struct.pack('<I',77)  # CTROptions
++    data+=struct.pack('<2i2fI',1,2,3.,4.,1 if optional else 0)
++    if optional:data+=struct.pack('<ifiiB',1,2.,3,4,5)+bits([(1,1)])
++    data+=PRIVATE+bytes(40)+bits([(1,1)])+PRIVATE+struct.pack('<i',0)
++    for _ in range(16):
++        data+=struct.pack('<i',123)+bits([(1,7)])+struct.pack('<Bi',3,17)
++        data+=bits([(1,1)])+struct.pack('<BII',2,1,1234)
++    data+=struct.pack('<I',1)+bytes(19*4+5*4+28)+PRIVATE+bytes(5*8)
++    if optional:
++        data+=bytes(70)+bytes(25)
++        data+=struct.pack('<I',123)+bits([(3,8)])+b'pet'
++    data+=struct.pack('<i',999)
++    name=b'PRIVATE_PLAYER_SENTINEL'
++    data+=bits([(len(name),6),(1,1),(0,1),(int(optional),1)])+name
++    if optional:data+=bits([(3,10)]*5)+b'xyz'*5
++    data+=b''.join(packed(ITEM) if i==23 else packed(BAG) if i==19 else ZERO for i in range(105))
++    return data
++
++
++def item_payload(*, low=123, owner=RAW_ME, container=RAW_ME, bag=False, qty=7, truncated=0):
++    fields=bytes((1,3,255,1))+struct.pack('<iIf',12345 if not bag else 54321,0,1.)
++    fields+=packed(owner)+packed(container)+PRIVATE*2+struct.pack('<II5iI',qty,1234,1,2,3,4,5,6)
++    fields+=bytes(13*12)+struct.pack('<IIIBqQB',20,40,50,2,900,1000,3)
++    fields+=bits([(1,7)])+struct.pack('<Bi',2,123)
++    fields+=struct.pack('<IIiiII',1,1,7,12345,1,1)
++    fields+=struct.pack('<iBiH',789,2,555,12)+bytes(4+37)
++    if bag:
++        fields+=b''.join(packed(ITEM) if i==0 else ZERO for i in range(98))+struct.pack('<I',16)
++    if truncated:fields=fields[:-truncated]
++    movement=bits([(0,1)]*21)+struct.pack('<I',0)  # unconditional pause-times count
++    block=b'\2'+packed_guid(low=low,high=3<<58)+bytes((2 if bag else 1,))+movement
++    block+=struct.pack('<I',len(fields))+fields
++    return struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
++
++
++def events(payload, decoder=None):
++    if decoder is None:decoder,record=own_event()
++    else:_,record=own_event()
++    return decoder,decoder.decode_all(replace(record,payload=payload))
++
++
++@pytest.mark.parametrize('optional',[False,True])
++def test_roots_are_reached_after_exact_player_remainder_and_private_text_is_not_exported(optional):
++    _,values=events(create_payload(player_tail=full_player_tail(optional=optional)))
++    root=next(e for e in values if e.event_type=='OWN_INVENTORY_ROOTS')
++    assert verified_semantics(normalize_event(root.to_dict()))
++    assert root.payload['root_slots'][23]==[23,ITEM] and root.payload['root_slots'][19]==[19,BAG]
++    assert 'PRIVATE_PLAYER_SENTINEL' not in str(root.to_dict()) and 'DEADBEEF' not in str(root.to_dict())
++    assert all(e.event_type!='OWN_INVENTORY_INVALIDATED' for e in values)
++
++
++@pytest.mark.parametrize('bag',[False,True])
++def test_only_selected_owned_item_or_container_create_fields_are_normalized(bag):
++    _,values=events(item_payload(low=124 if bag else 123,bag=bag))
++    event=next(e for e in values if e.event_type=='OWN_ITEM_UPDATE')
++    assert verified_semantics(normalize_event(event.to_dict()))
++    assert event.payload['stack_count']==7 and event.payload['durability']==20
++    assert event.payload['max_durability']==40 and event.payload['container_guid']==RAW_ME
++    assert 'DEADBEEF' not in str(event.to_dict())
++    if bag:assert event.payload['num_slots']==16 and event.payload['container_slots'][0]==[0,ITEM]
++
++
++@pytest.mark.parametrize('payload',[item_payload(owner=f'{2<<58:016X}{999:016X}'),
++                                 item_payload(truncated=1),item_payload(bag=True,truncated=1)])
++def test_foreign_or_incomplete_inventory_prefixes_cannot_produce_owned_state(payload):
++    _,values=events(payload)
++    assert all(e.event_type!='OWN_ITEM_UPDATE' for e in values)
++
++
++def test_unreviewed_item_delta_invalidates_previous_count_without_reading_private_fields():
++    decoder,_=events(item_payload())
++    body=b'\0'+packed(ITEM)+struct.pack('<I',1)+b'\xff'
++    packet=struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(body))+body
++    _,values=events(packet,decoder)
++    removed=next(e for e in values if e.event_type=='OWN_ITEM_REMOVED')
++    assert removed.payload['removal']=='UNREVIEWED_UPDATE'
++    assert verified_semantics(normalize_event(removed.to_dict()))
++
++
++def ready(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575',inventory={'items':[{
++        'item_id':12345,'bag':0,'slot':1,'count':99,'x':.2,'y':.4}], 'complete':True}),9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++
++
++def deliver_native(bridge,payload,*,decoder=None,at=10.):
++    bridge.inbox._clock=lambda:at
++    bridge.inbox._wall_clock=lambda:1000.+at-10.
++    decoder,values=events(payload,decoder)
++    for value in values:
++        if value.event_type.startswith('OWN_'):
++            deliver(bridge,replace(value,timestamp=1000.+at-10.),at=at)
++    return decoder
++
++
++def test_owned_item_evidence_is_readonly_partial_and_never_overwrites_ui_or_quest_credit(bridge):
++    ready(bridge)
++    deliver_native(bridge,item_payload())
++    result=bridge.world.query.owned_item_count(12345,10.)
++    assert result['status']=='OBSERVED_LOWER_BOUND' and result['count']==7
++    assert result['carried'] is None and result['complete'] is False
++    assert bridge.world.state['inventory']['items'][0]['count']==99
++    assert bridge.world.state['packet_inventory']['coverage']=='PARTIAL'
++    assert bridge.world.last_received==9.1
++    assert not any(e.event_type in {'QUEST_COMPLETED','LOOT_RECEIVED','QUEST_TURNED_IN'}
++                   for e in bridge.world.event_records)
++    rows=bridge.world.query.native_inventory(10.)
++    rows['items'][0]['stack_count']=999
++    assert bridge.world.query.owned_item_count(12345,10.)['count']==7
++    assert bridge.world.query.owned_item_count(999,10.)['status']=='UNKNOWN'
++    assert bridge.world.query.owned_item_count(12345,12.1)['status']=='UNKNOWN'
++
++
++def test_unreviewed_delta_is_a_barrier_against_reordered_old_item_create(bridge):
++    ready(bridge)
++    decoder=deliver_native(bridge,item_payload())
++    body=b'\0'+packed(ITEM)+struct.pack('<I',1)+b'\xff'
++    packet=struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(body))+body
++    deliver_native(bridge,packet,decoder=decoder,at=10.2)
++    assert bridge.world.query.owned_item_count(12345,10.2)['status']=='UNKNOWN'
++    deliver_native(bridge,item_payload(qty=5),at=10.1)
++    assert bridge.world.query.owned_item_count(12345,10.2)['status']=='UNKNOWN'
++    deliver_native(bridge,item_payload(qty=8),at=10.3)
++    assert bridge.world.query.owned_item_count(12345,10.3)['count']==8
++
++
++def test_roots_are_complete_native_membership_and_never_client_coordinates(bridge):
++    ready(bridge)
++    deliver_native(bridge,create_payload(player_tail=full_player_tail()))
++    state=bridge.world.query.native_inventory(10.)
++    assert state['root_membership']=='COMPLETE' and state['coverage']=='PARTIAL'
++    assert state['root_slots'][23]==[23,ITEM] and state['root_sample_time']==10.
++    assert state['items']==[] and 'x' not in str(state['root_slots'])
++    assert 'root_slots' not in bridge.world.state['packet_inventory']  # hot status stays compact
++    assert bridge.world.state['inventory']['items'][0]['bag']==0
++
++
++@pytest.mark.parametrize('change',[{'loading':True},{'phase':'other'},{'character_guid':'Player-1602-9999'}])
++def test_native_items_do_not_cross_loading_phase_or_identity(bridge,change):
++    ready(bridge);deliver_native(bridge,item_payload())
++    bridge.world.ingest(Observation.create({**bridge.world.addon_state,**change,'frame_id':'changed'},10.1))
++    assert bridge.world.query.owned_item_count(12345,10.1)['status']=='UNKNOWN'
++    assert 'packet_inventory' not in bridge.world.state
++
++
++def test_inventory_schema_rejects_foreign_guids_invalid_indices_and_unknown_layout():
++    _,values=events(create_payload(player_tail=full_player_tail()))
++    value=next(e for e in values if e.event_type=='OWN_INVENTORY_ROOTS').to_dict()
++    value['payload']['root_slots'][0]=[0,f'{2<<58:016X}{999:016X}']
++    with pytest.raises(ValueError):normalize_event(value)
++    _,values=events(item_payload())
++    value=next(e for e in values if e.event_type=='OWN_ITEM_UPDATE').to_dict()
++    value['payload']['raw_secret']='must be dropped'
++    assert 'raw_secret' not in normalize_event(value)['payload']
++    value['provenance']['payload_layout']='WPP_12_1_REVIEWED_PREFIX_V1'
++    assert not verified_semantics(normalize_event(value))
++
++
++def test_item_create_then_delta_in_one_record_is_invalidated_in_wire_order():
++    first=item_payload()
++    update=b'\0'+packed(ITEM)+struct.pack('<I',1)+b'\xff'
++    blocks=first[11:]+update
++    together=struct.pack('<HI',2175,2)+b'\0'+struct.pack('<I',len(blocks))+blocks
++    _,values=events(together)
++    assert [e.event_type for e in values[1:]]==['OWN_ITEM_UPDATE','OWN_ITEM_REMOVED']
++    assert values[-1].payload['removal']=='UNREVIEWED_UPDATE'
++
++
++def test_known_item_changing_owner_is_not_read_as_another_players_inventory():
++    decoder,_=events(item_payload())
++    _,values=events(item_payload(owner=f'{2<<58:016X}{999:016X}'),decoder)
++    assert [e.event_type for e in values[1:]]==['OWN_ITEM_REMOVED']
++    assert values[-1].payload['removal']=='OWNER_CHANGED'
++
++
++def test_readonly_advisor_sees_ownership_as_lower_bound_not_carried_ui_readiness(bridge):
++    from wowbot.agent.advisory_tools import AdvisoryReadTools
++    ready(bridge);deliver_native(bridge,item_payload())
++    tool=AdvisoryReadTools(bridge.world,10.)
++    value=tool.call({'tool':'item','ref':'12345'})
++    assert value['count']==99  # independent client bag snapshot is retained
++    assert value['native_ownership']['count_lower_bound']==7
++    assert value['native_ownership']['carried'] is None and value['native_ownership']['complete'] is False
++    assert '12345' in tool.context()['allowed_refs']['items']
++    assert value['native_ownership']['evidence'][0] in tool.context()['allowed_refs']['evidence']
++    assert 'native_ownership' not in bridge.world.state['inventory']['items'][0]
++    assert 'native_ownership' not in AdvisoryReadTools(bridge.world,12.1).call({'tool':'item','ref':'12345'})
++
++
++def test_gap_rebaseline_cannot_reuse_old_inventory_even_before_projection(bridge):
++    from test_packet_continuity_20261030 import connected
++    provider,decoder,baseline,_=connected(bridge)
++    deliver_native(bridge,item_payload(),decoder=decoder)
++    assert bridge.world.query.owned_item_count(12345,10.)['count']==7
++    provider.invalidate('stream_gap')
++    assert provider.accept_baseline(baseline.to_dict())
++    assert bridge.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    bridge.world._rebuild_state()
++    assert '_packet_inventory' not in bridge.world.__dict__
++    assert 'packet_inventory' not in bridge.world.state
+--- before/tests/test_own_baseline_20261030.py
++++ after/tests/test_own_baseline_20261030.py
+@@ -28,6 +28,8 @@
+ @pytest.mark.parametrize('owner', [False, True])
+ def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+     rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
++    assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
++    rows = rows[1:]
+     assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                       'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                       'power_type': 1, 'level': 70})
+--- before/tests/test_own_create_quest_log_20261030.py
++++ after/tests/test_own_create_quest_log_20261030.py
+@@ -50,14 +50,14 @@
+     return value
+ 
+ 
+-def create_payload(rows=None, *, flags=3, low=0x1234, dynamic=True, assist=True, truncated=0):
++def create_payload(rows=None, *, flags=3, low=0x1234, dynamic=True, assist=True, truncated=0, player_tail=b''):
+     rows=[slot(i,55639 if i==3 else 0) for i in range(175)] if rows is None else rows
+     movement=bits([(int(i in {4,7,16}),1) for i in range(21)])
+     movement+=struct.pack('<IffffB',0,1.,2.,3.,0.,0)
+     fields=bytes((flags,3,255,1))+struct.pack('<iIfiII',0,0,1.,0,0,0)
+     prefix=unit_tail_bytes(health=40,max_health=100,owner=bool(flags&1),unit_all=bool(flags&4),
+                            identity=bytes((1,1,1,0,0,1)))
+-    fields+=prefix+remainder(flags,dynamic=dynamic,assist=assist)+player_prefix(rows)
++    fields+=prefix+remainder(flags,dynamic=dynamic,assist=assist)+player_prefix(rows)+player_tail
+     if truncated:fields=fields[:-truncated]
+     block=bytes((2,))+packed_guid(low=low)+bytes((7,))+movement+struct.pack('<I',len(fields))+fields
+     return struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
+--- before/tests/test_own_profile_20261030.py
++++ after/tests/test_own_profile_20261030.py
+@@ -42,7 +42,8 @@
+ def test_create_profile_and_health_have_separate_completeness():
+     decoder, record = own_event()
+     events = decoder.decode_all(replace(record, payload=create_payload()))
+-    assert [e.event_type for e in events] == ['PACKET_OPCODE_OBSERVED', 'OWN_PROFILE_UPDATE', 'OWN_UNIT_UPDATE']
++    assert [e.event_type for e in events] == ['PACKET_OPCODE_OBSERVED', 'OWN_INVENTORY_INVALIDATED',
++                                             'OWN_PROFILE_UPDATE', 'OWN_UNIT_UPDATE']
+     assert all(verified_semantics(normalize_event(e.to_dict())) for e in events[1:])
+ 
+ 
+@@ -164,7 +165,8 @@
+     setup(bridge)
+     descriptor = json.loads(bridge.path.read_text())
+     decoder, record = own_event()
+-    created = decoder.decode_all(replace(record, payload=create_payload()))[1]
++    created = next(e for e in decoder.decode_all(replace(record,payload=create_payload()))
++                   if e.event_type=='OWN_PROFILE_UPDATE')
+     assert bridge.inbox.ingest_datagram(canonical(envelope(created.to_dict(), descriptor)))
+     def enqueue(event, fields):
+         # Event IDs identify content: modifying a dataclass payload without

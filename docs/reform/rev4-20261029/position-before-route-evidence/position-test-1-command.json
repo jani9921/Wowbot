@@ -1,0 +1,22 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-position-before-route-20261030\\position-test-1-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-position-before-route-20261030\\position-test-1-junit.xml",
+    "tests/test_position_before_route_20261030.py",
+    "tests/test_movement_skill_runner.py",
+    "tests/test_navigation_service.py",
+    "tests/test_bridge_landing_20261027.py",
+    "tests/test_server_positions_20261020.py",
+    "tests/test_parallel_control.py",
+    "tests/test_trip_lifecycle_20261030.py"
+  ]
+}

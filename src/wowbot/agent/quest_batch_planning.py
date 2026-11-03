@@ -76,6 +76,7 @@ class QuestBatchPolicy:
                   if isinstance(quest, dict) and quest.get("quest_id") is not None]
         complete = {str(quest["quest_id"]) for quest in quests if quest.get("is_complete") is True}
         incomplete = {str(quest["quest_id"]) for quest in quests if quest.get("is_complete") is not True}
+        campaign = {str(quest["quest_id"]) for quest in quests if quest.get("is_campaign") is True}
         for quest_id in list(self.completed_since):
             if quest_id not in complete:
                 del self.completed_since[quest_id]
@@ -88,14 +89,21 @@ class QuestBatchPolicy:
             return frozenset()
         player = self._player(state)
         places = self.locations(state)
-        work = [distance for quest_id in incomplete for point in places.get(quest_id, ())
-                if (distance := self._distance(player, point)) is not None]
-        radius = self.BATCH_KEEP_RADIUS_YARDS if self.waiting else self.BATCH_RADIUS_YARDS
-        if not any(distance <= radius for distance in work):
-            self.waiting.clear()
-            return frozenset()
+        work = {quest_id: [distance for point in places.get(quest_id, ())
+                          if (distance := self._distance(player, point)) is not None]
+                for quest_id in incomplete}
         deferred = set()
         for quest_id in complete:
+            # Live 2026-10-22 21:39: three finished campaign quests waited
+            # for a 71% side/bonus area whose POI had no complete mesh route.
+            # Campaign-first must apply before candidates are suppressed,
+            # not just as a priority bonus after suppression. Nearby open
+            # campaign work still batches; ordinary side-quest batches stay.
+            relevant = incomplete & campaign if quest_id in campaign else incomplete
+            radius = (self.BATCH_KEEP_RADIUS_YARDS if quest_id in self.waiting
+                      else self.BATCH_RADIUS_YARDS)
+            if not any(distance <= radius for other in relevant for distance in work[other]):
+                continue
             since = self.completed_since.get(quest_id)
             if now is not None and since is not None and now - since > self.MAX_DEFER_SECONDS:
                 continue

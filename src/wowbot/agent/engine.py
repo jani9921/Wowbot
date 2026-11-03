@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from wowbot.query_ports import NavigationQueryPorts
 from dataclasses import asdict, replace
 import threading
 import time
@@ -8,9 +10,9 @@ from .skills import SkillRegistry
 from .world import WorldModel
 from wowbot.navigation.service import NavigationService
 from wowbot.skills import (CombatRuntimeRunner, CombatSkill, InteractionRuntimeRunner, InteractSkill,
-                           DefendWaitSkill, LootRuntimeRunner, LootSkill, SearchSkill,
+                           DefendWaitSkill, LootRuntimeRunner, LootSkill,
                            FieldTurnInSkill, MovementSkillRunner, ObjectUseSkill, QuestDialogSkill,
-                           TargetSkill, VisualApproachSkill, VisualRuntimeRunner)
+                           TargetSkill, VisualRuntimeRunner)
 from wowbot.verification import QuestProgressVerifier
 from .camera_controller import CameraController
 from .autonomy_loop import AutonomousLoop
@@ -41,7 +43,8 @@ from wowbot.runtime import (
 )
 from wowbot.runtime import SkillExecutor, StateInvalidationPolicy
 from wowbot.skills import InstructedSpellSkill, QuestItemSkill, QuestToolSkill
-from wowbot.execution import CommandDispatcher
+from wowbot.execution import CommandDispatcher, DispatchLane
+from .quest_object_lock import QuestObjectLock
 from .engine_control import EngineControlMixin, MOVEMENT_SKILLS
 from .engine_finish import EngineFinishMixin
 
@@ -60,31 +63,47 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
     DEATH_EXPORT_GRACE_SECONDS = 10.
 
     def __init__(self, executor, bindings=None, memory=None, reasoner=None, entity_memory=None,
-                 navmesh=None):
+                 navmesh=None, runtime_profile=None):
+        from wowbot.runtime_profile import RuntimeProfile
+        self.runtime_profile = RuntimeProfile(runtime_profile or RuntimeProfile.LEGACY_VISION)
         self.executor, self.memory, self.reasoner = executor, memory, reasoner
         self.command_dispatcher = CommandDispatcher(executor)
         self.world = WorldModel(memory.sensor_weight if memory else None,
                                 memory.save_world_relation if memory else None,
                                 memory.save_event_record if memory else None,
-                                entity_memory)
+                                entity_memory, runtime_profile=self.runtime_profile)
+        from .server_mode import server_mode_selected
+        self.command_dispatcher.pointer_gate = lambda: server_mode_selected(self.world.state)
         self.registry = SkillRegistry(bindings)
         from .quest_attempt_memory import QuestAttemptMemory
-        self.quest_attempt_memory = QuestAttemptMemory(); self.planner = Planner(self.registry, memory, self.quest_attempt_memory)
+        self.quest_attempt_memory = QuestAttemptMemory()
         self.navigation = NavigationService(bindings, navmesh=navmesh)
-        # Planning-only geometry query for the quest planner (pit/cave layer
-        # under a quest POI); WorldModel re-init keeps extra attributes.
-        self.world.__dict__["layer_oracle"] = self.navigation.lower_layer_point
-        self.world.__dict__["zone_sweep"] = self.navigation.zone_sweep_next
+        self.navigation_queries = NavigationQueryPorts(
+            player_layer=self.navigation.player_layer_z,
+            lower_layer=self.navigation.lower_layer_point,
+            zone_sweep=self.navigation.zone_sweep_next,
+            hostile_units=self.navigation.hostile_units,
+            flight_departure_walk=self.navigation.flight_departure_walk)
+        self.planner = Planner(self.registry, memory, self.quest_attempt_memory,
+                               travel_cost=self.navigation.walk_cost,
+                               navigation_queries=self.navigation_queries)
+        # User 2026-10-14: a found quest object keeps the mouse (see module).
+        self.object_lock = QuestObjectLock()
+        self.planner.quest.location_policy.object_interaction.lock = self.object_lock
         self.movement_skill_runner = MovementSkillRunner(self.navigation)
         self.navigation_terminal = NavigationTerminalProcessor(self.navigation)
         self.target_skill = TargetSkill()
         self.interact_skill = InteractSkill()
         self.combat_skill = CombatSkill(bindings)
         self.defend_wait_skill = DefendWaitSkill()
+        from wowbot.skills.rest import RestSkill
+        self.rest_skill = RestSkill(bindings=bindings)
+        from .native_parity import NativeParityMonitor
+        self.native_parity = NativeParityMonitor()
         self.combat_runtime = CombatRuntimeRunner(self.navigation, self.combat_skill)
         self.loot_skill = LootSkill()
         self.loot_runtime = LootRuntimeRunner(self.navigation, self.loot_skill)
-        self.object_use_skill = ObjectUseSkill()
+        self.object_use_skill = ObjectUseSkill(bindings=bindings,step_guard=self.navigation.object_pull_step_safe)
         self.quest_dialog_skill = QuestDialogSkill()
         self.field_turnin_skill = FieldTurnInSkill(self.quest_dialog_skill)
         self.quest_tool_skill = QuestToolSkill(bindings)
@@ -98,13 +117,17 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                                             field_turnin=self.field_turnin_skill,
                                             quest_tool=self.quest_tool_skill,
                                             quest_item=self.quest_item_skill,
-                                            instructed_spell=self.instructed_spell_skill)
+                                            instructed_spell=self.instructed_spell_skill,
+                                            rest=self.rest_skill)
         self.verification_engine = VerificationEngine()
         self.quest_progress_verifier = QuestProgressVerifier()
-        self.visual_approach_skill = VisualApproachSkill(bindings)
+        self.visual_approach_skill = self.search_skill = None
+        if self.runtime_profile.visual:
+            from wowbot.skills import VisualApproachSkill, SearchSkill
+            self.visual_approach_skill = VisualApproachSkill(bindings)
+            self.search_skill = SearchSkill(bindings)
         self.interaction_runtime = InteractionRuntimeRunner(
             self.navigation, self.interact_skill, self.visual_approach_skill)
-        self.search_skill = SearchSkill(bindings)
         self.visual_runtime = VisualRuntimeRunner(
             self.search_skill, self.visual_approach_skill)
         self.active_skill_supervisor = ActiveSkillSupervisor(
@@ -170,7 +193,8 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
             recovery_planner=self.recovery_planner)
         self.execution_bookkeeper = ExecutionBookkeeper()
         self.outcome_bookkeeper = AttemptOutcomeBookkeeper()
-        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory)
+        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory,
+                                                   travel_cost=self.navigation.walk_cost)
         self.quest_terminal = QuestTerminalProcessor(
             self.quest_progress_verifier, self.quest_runtime, self.planner.quest)
         self.brain_scheduler = BrainScheduler()
@@ -182,6 +206,8 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
         self._fast_control_updates = 0
         self._fast_control_dispatches = 0
         self._fast_control_terminal = None
+        from .parallel_control import ParallelControl
+        self.parallel_control = ParallelControl(self)
         # The failed REACH intent is retained as high-level context only. It
         # contains no held input state and is revalidated before one post-
         # recovery resume attempt is offered to the normal planner boundary.
@@ -189,7 +215,9 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
         self._recovery_resume_ready = False
 
     def _reset_quest_runtime(self) -> None:
-        self.quest_attempt_memory.reset_execution_failures(); self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory)
+        self.quest_attempt_memory.reset_execution_failures()
+        self.quest_runtime = QuestExecutionRuntime(self.quest_attempt_memory,
+                                                   travel_cost=self.navigation.walk_cost)
         self.quest_terminal = QuestTerminalProcessor(self.quest_progress_verifier, self.quest_runtime, self.planner.quest)
     @property
     def pending(self) -> Attempt | None:
@@ -263,12 +291,23 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                 self.memory.flush_world_relations(force=False)
             generation = self.generation
             primary = self.observation_ingestion.primary(payload, now)
-            if self.observation_ingestion.session_changed(self.world.session_id, primary):
+            provider = self.world.session_context_provider
+            expected = provider.expected(provider.process.selected_pid) if provider is not None else None
+            context_changed = bool(expected and self.world.session_id
+                                   and expected["session_id"] != self.world.session_id)
+            if self.observation_ingestion.session_changed(self.world.session_id, primary) or context_changed:
                 self._handle_session_change(now)
             ingestion = self.observation_ingestion.ingest(self.world, primary, supplemental)
             if self.memory and ingestion.durable:
                 self.memory.observe_many(ingestion.durable)
             self._apply_state_invalidations(now)
+            try:   # shadow only: journals native/addon parity, feeds no consumer
+                self.native_parity.observe(self.world.query, self.world.state, now, self._record)
+            except Exception:
+                pass
+            ledger = self.planner.__dict__.get("needs_user")
+            if ledger is not None:
+                ledger.report(now, self._record)    # P8.4 "I don't know, I'm telling you"
             self.camera.observe(self.world.state.get("camera_state") or {}, now)
             freshness = self.freshness_gate.evaluate(
                 fresh=self.world.fresh(now), detail_stale=self.world.detail_snapshot_stale(now),
@@ -311,6 +350,9 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                 if freshness.demote_to_manual:
                     self.set_mode(Mode.MANUAL)
                 return self.status(now)
+            # Combat and pending-skill early returns bypass planner.candidates.
+            # Mount transitions must still be observed on every fresh tick.
+            self.planner.travel_mode.observe(self.world, now)
             if freshness.resume_input_authority and self.mode == Mode.FULL_AI:
                 # STALE handling deliberately disarms the executor.  Restore
                 # authority only after the freshness gate has seen its stable
@@ -336,7 +378,10 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                 return self.status(now)
             self.goals.sync_world(self.world.quest_model, now)
             self.quest_runtime.observe(self.goal, self.world.quest_model, self.world.state, now,
-                                       locator=self.planner.quest.objective_locator)
+                                       locator=self.planner.quest.objective_locator,
+                                       objective_pois=self.world.query.quest_objective_pois)
+            self.planner.refresh_agenda(self.goal, self.world, now,
+                                       advisor=getattr(self, "semantic_advisor", None))
             if self.goal.status == "COMPLETED":
                 self.set_mode(Mode.MANUAL)
                 return self.status(now)
@@ -396,6 +441,7 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                                       "recovery_required": checkpoint.required_condition}
                 self.set_mode(Mode.MANUAL)
                 return self.status(now)
+            self._steer_object_lock(now)
             if self.pending:
                 active_skill = self.pending.proposal.skill
                 if active_skill not in MOVEMENT_SKILLS | {
@@ -404,12 +450,30 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                     self.active_skill.set_phase("VERIFY", now)
                     self.active_skill.begin_verification(now)
                 visual_interrupt = (
-                    movement_visual_interrupt(self.pending, self.world.state)
+                    movement_visual_interrupt(self.pending, self.world.state,
+                                              object_at_hand=self._quest_object_at_hand,
+                                              object_handoff=self._quest_object_handoff,
+                                              travel_cost=self.navigation.walk_cost,
+                                              skip_track_ids=self.planner.suppressed_movement_visual_tracks(
+                                                  self.pending.proposal, self.world.state, now))
                     if active_skill in MOVEMENT_SKILLS else None)
+                if (visual_interrupt is None and active_skill == "MOVE" and self.goal is not None
+                        and self.planner.travel_mode.mount_now(self.pending.proposal, self.goal,
+                                                               self.world, now)):
+                    visual_interrupt = {"kind": "MOUNT_FOR_LONG_ROUTE", "reason": "mount_for_long_route"}
+                if (visual_interrupt is None and active_skill == 'MOVE'
+                        and self.planner.travel_mode.flight_now(self.pending.proposal,self.world,now)):
+                    visual_interrupt = {'kind':'FLIGHT_MODE_AVAILABLE','reason':'flight_mode_available'}
                 if (visual_interrupt and
                         visual_interrupt.get("kind") == "QUEST_ROUTE_VISUAL_CUE"):
-                    self.planner.arm_movement_visual_handoff(visual_interrupt, now)
-                supervision = self.active_skill_supervisor.step(
+                    self.planner.arm_movement_visual_handoff(
+                        visual_interrupt, now, route=self.pending.proposal,
+                        world_state=self.world.state)
+                staged = self.parallel_control.take_terminal(self.pending.action_id)
+                if (staged is None and not visual_interrupt
+                        and self.parallel_control.drives(self.pending, now)):
+                    return self.status(now)
+                supervision = staged or self.active_skill_supervisor.step(
                     self.pending, self.active_skill.state, self.world,
                     world_observation_id=self.world.latest.observation_id,
                     visual_observation_id=visual_control_observation_id(self.world),
@@ -423,12 +487,13 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                 return self.status(now)
             if self.goals.completion_condition_verified(self.world, now):
                 self.goals.complete("goal_completion_condition_verified", now)
-                self.set_mode(Mode.MANUAL)
+                self.set_mode(Mode.MANUAL, reason='goal_completed')
                 self._record(now, "GOAL_COMPLETED", asdict(self.goal))
                 if self.memory:
                     self.memory.save_goal(self.goal)
                     self.memory.finish_episode(self.episode_id, self.world.state, now, "SUCCESS",
                                                {"goal_id": self.goal.goal_id,
+                                                'verified': True, 'verifier': 'GoalManager.completion_condition_verified',
                                                 "completed_steps": self.goal.completed_steps,
                                                 "failures": self.goal.failures})
                     self.episode_id = None
@@ -660,9 +725,64 @@ class AutonomousAgent(EngineFinishMixin, EngineControlMixin):
                 self.world.predictions.append(prediction)
             except Exception as error:
                 self.last_result = {"outcome": "FAILURE", "reason": str(error), "skill": proposal.skill}
-                self._record(now, "EXECUTOR_FAILURE", self.last_result)
+                # Keep a bounded source-only stack: a bare KeyError('x')
+                # hid the failing component in the 2026-10-28 turn-in run.
+                # No locals, packet bodies or secret values are recorded.
+                from traceback import extract_tb
+                frames = [{"file": frame.filename.replace("\\", "/").rsplit("/", 1)[-1],
+                           "function": frame.name, "line": frame.lineno}
+                          for frame in extract_tb(error.__traceback__)[-8:]]
+                self._record(now, "EXECUTOR_FAILURE", {**self.last_result,
+                    "exception_type": type(error).__name__, "error_frames": frames})
                 self.set_mode(Mode.MANUAL)
             return self.status(now)
 
     def status(self, now):
         return AgentStatusProjection.build(self, now)
+
+    def _steer_object_lock(self, now: float, state: dict | None = None, *, refresh: bool = True) -> None:
+        """Follow the active skill's track, otherwise the existing object lock."""
+        if self.parallel_control.enabled:
+            return                          # the live pump owns fresh pointer scheduling
+        state = self.world.state if state is None else state
+        lock = self.object_lock
+        if refresh:
+            lock.update(state, now, object_at_hand=self._quest_object_at_hand)
+        pending = self.pending.proposal.skill if self.pending else None
+        owned, command = self._active_target_pointer(state, now)
+        if not owned:
+            command = lock.pointer_command(state, now, pending)
+        if command is None:
+            return
+        try:
+            self.command_dispatcher.dispatch(
+                (command,), DispatchLane.DISCRETE,
+                correlation_id=self.pending.action_id if self.pending else None)
+        except Exception as error:              # foreground/authority: the next tick retries
+            self._record(now, "OBJECT_LOCK_POINTER_FAILED", {"error": str(error)})
+
+    def _quest_object_at_hand(self, quest_id) -> bool | None:
+        """Planning-only query for the MOVE interrupt: an unspent quest object
+        with a known spawn near on the player's floor (None: unknown)."""
+        location = getattr(getattr(self.planner, "quest", None), "location_policy", None)
+        flow = getattr(location, "object_interaction", None)
+        if flow is None or quest_id is None:
+            return None
+        try:
+            state = self.world.state
+            return flow.object_at_hand(state, quest_id, self.navigation.player_layer_z(state))
+        except Exception:                      # a hint only, never a crash in the loop
+            return None
+
+    def _quest_object_handoff(self, params: dict) -> dict | None:
+        """MOVE interrupt: a quest object passed on the way, a spent target or
+        a certified hovered one (planning-only query, never input)."""
+        location = getattr(getattr(self.planner, "quest", None), "location_policy", None)
+        flow = getattr(location, "object_interaction", None)
+        if flow is None:
+            return None
+        try:
+            state = self.world.state
+            return flow.object_move_handoff(state, params, self.navigation.player_layer_z(state))
+        except Exception:                      # a hint only, never a crash in the loop
+            return None

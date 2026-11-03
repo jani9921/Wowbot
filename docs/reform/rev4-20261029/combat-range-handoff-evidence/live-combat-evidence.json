@@ -1,0 +1,963 @@
+{
+  "source_database": "output/agent/profiles/<user>/agent_memory.sqlite3",
+  "database_open_mode": "ro, query_only",
+  "source_status": "output/agent/pid-7784/agent_status.json",
+  "source_status_sha256": "37bbc1d12198ba64c8381630a4e555a0b7d5ca581f55b9765f95c78b900efc75",
+  "live_observed": {
+    "mode": "MANUAL",
+    "navmesh_available": true,
+    "navmesh_reason": "route_found",
+    "provider_state": "READY",
+    "provider_source": "PACKET_BASELINE",
+    "delivery": {
+      "state": "CONTIGUOUS",
+      "sender_id": "80996e9ee9c6b458ce5133582bf5426e",
+      "sequence": 10442,
+      "loss_generation": 1,
+      "last_loss": "sequence_gap"
+    },
+    "control_rates": {
+      "fast_control_hz": 30.73,
+      "runtime_poll_hz": 30.73,
+      "movement_fast_consumer_hz": 0.0,
+      "control_target_hz": 40.0,
+      "parallel_control_hz": 0.0,
+      "addon_payload_hz": 25.36,
+      "addon_fast_state_hz": 25.55,
+      "consumed_fast_state_hz": 25.55,
+      "pixelstrip_source_fast_hz": 30.6,
+      "addon_full_state_hz": 1.3
+    }
+  },
+  "charge_transition_samples": [
+    {
+      "observation_id": "fa4b77094521ae25d1ce6f6c",
+      "received_at": 1346192.863203,
+      "source_sample_time": 1346192.786,
+      "own_last_spell": 0,
+      "own_last_cast_at": 0,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          false,
+          false,
+          0
+        ],
+        [
+          100,
+          true,
+          true,
+          0
+        ],
+        [
+          23922,
+          true,
+          false,
+          0
+        ],
+        false
+      ],
+      "orientation": 5.6825356483459,
+      "is_in_combat": false
+    },
+    {
+      "observation_id": "077d71151b5109a8c143499e",
+      "received_at": 1346193.2115393,
+      "source_sample_time": 1346193.111,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          false,
+          0
+        ],
+        [
+          100,
+          true,
+          true,
+          0
+        ],
+        [
+          23922,
+          true,
+          false,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.1275210380554,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "bdca38a0f58c4b53068d8d91",
+      "received_at": 1346193.3512749,
+      "source_sample_time": 1346193.24,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          false,
+          0
+        ],
+        [
+          100,
+          true,
+          false,
+          0
+        ],
+        [
+          23922,
+          true,
+          false,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.1033320426941,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "a2841c34b321e2059016d8c9",
+      "received_at": 1346193.3792998,
+      "source_sample_time": 1346193.275,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          false,
+          0
+        ],
+        [
+          100,
+          true,
+          false,
+          0
+        ],
+        [
+          23922,
+          true,
+          false,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.1412882804871,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "b2fc1a97dce453ba30dfe528",
+      "received_at": 1346193.4385653,
+      "source_sample_time": 1346193.353,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          false,
+          0
+        ],
+        [
+          100,
+          true,
+          false,
+          0
+        ],
+        [
+          23922,
+          true,
+          false,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.0978374481201,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "7595cdcf0af32f6de0b3a504",
+      "received_at": 1346193.5016296,
+      "source_sample_time": 1346193.388,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": null,
+      "orientation": 6.0978374481201,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "dd7fccf357725aab1ada8a62",
+      "received_at": 1346193.55842,
+      "source_sample_time": 1346193.438,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          true,
+          0
+        ],
+        [
+          100,
+          true,
+          false,
+          0
+        ],
+        [
+          23922,
+          true,
+          true,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.0978374481201,
+      "is_in_combat": true
+    },
+    {
+      "observation_id": "a5ae05872e1e3c2bc5866335",
+      "received_at": 1346193.5884596,
+      "source_sample_time": 1346193.485,
+      "own_last_spell": 100,
+      "own_last_cast_at": 1346193.111,
+      "target_entry": 50039,
+      "target_world_position_available": false,
+      "actionbar_fast": [
+        [
+          1464,
+          true,
+          true,
+          0
+        ],
+        [
+          100,
+          true,
+          false,
+          0
+        ],
+        [
+          23922,
+          true,
+          true,
+          0
+        ],
+        false
+      ],
+      "orientation": 6.027979850769,
+      "is_in_combat": true
+    }
+  ],
+  "transition_action_commands": [
+    {
+      "at": 1346193.2115393,
+      "kind": "ACTION_INTENT",
+      "action_id": "b3533b9585de43b9ad782d5e19eea089",
+      "commands": [],
+      "skill": "COMBAT"
+    },
+    {
+      "at": 1346193.2115393,
+      "kind": "ACTION_EXECUTED",
+      "action_id": "b3533b9585de43b9ad782d5e19eea089",
+      "commands": [],
+      "skill": "COMBAT"
+    }
+  ],
+  "verifications": [
+    {
+      "observation_id": "670c4a70a9acd785977c7442",
+      "at": 1345748.2084856,
+      "action_id": "e01d8f3e1a7f4d0aa21722f016524fb9",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_entity_available",
+      "baseline_observation_id": "d482506a9ed9f34604350457",
+      "observed_observation_id": "dddcdbaad05e5f2ac6571f58"
+    },
+    {
+      "observation_id": "ba2a8e1a3538edf2c6b4e454",
+      "at": 1345761.3831645,
+      "action_id": "54109e199ba7498cbd53a4f812f9888e",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_interaction_ready",
+      "baseline_observation_id": "dddcdbaad05e5f2ac6571f58",
+      "observed_observation_id": "dae1de5bb3dc12417c0a2a32"
+    },
+    {
+      "observation_id": "1dd0b7f27774c3ba5893b2f4",
+      "at": 1345761.8012633,
+      "action_id": "0e734bccb55a4f4b9e54264a685c442b",
+      "skill": "INTERACT",
+      "outcome": "SUCCESS",
+      "reason": "interaction_verified",
+      "baseline_observation_id": "dae1de5bb3dc12417c0a2a32",
+      "observed_observation_id": "d59b1a7f2df7b38a8b0e97ac"
+    },
+    {
+      "observation_id": "734f176a68f53a5190c66a05",
+      "at": 1345762.7217381,
+      "action_id": "bdd0176142d7484fb6520c51678c938f",
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "baseline_observation_id": "d59b1a7f2df7b38a8b0e97ac",
+      "observed_observation_id": "32ab5ff61be4443cf17dc96e"
+    },
+    {
+      "observation_id": "bc1de71c0c3e92b5fc230c52",
+      "at": 1345773.0678661,
+      "action_id": "be243d97f832489197aaf4450fb3e6fb",
+      "skill": "QUEST_DIALOG",
+      "outcome": "FAILURE",
+      "reason": "expected_state_not_reached",
+      "baseline_observation_id": "32ab5ff61be4443cf17dc96e",
+      "observed_observation_id": "25ad74da2e2fe40d64ab6edd"
+    },
+    {
+      "observation_id": "544a178783df2ba87fc0de5e",
+      "at": 1345787.8030572,
+      "action_id": "2fdbf120281c4ae89f78742b74781f8c",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "25ad74da2e2fe40d64ab6edd",
+      "observed_observation_id": "153f9a841a06acb74b6e3176"
+    },
+    {
+      "observation_id": "973ac4efcf6535bb61e39868",
+      "at": 1345789.5765557,
+      "action_id": "a4ebe4103d1a413c8a2b695b3b0404c2",
+      "skill": "MOVE",
+      "outcome": "SUCCESS",
+      "reason": "reach_arrival_verified",
+      "baseline_observation_id": "153f9a841a06acb74b6e3176",
+      "observed_observation_id": "8cd14ee92a3ee0819a09d5ab"
+    },
+    {
+      "observation_id": "dd111fc1b3d531cf0fb0121c",
+      "at": 1345813.010956,
+      "action_id": "1b054721b7fc41ba894cf4ee24905a0c",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "8cd14ee92a3ee0819a09d5ab",
+      "observed_observation_id": "cdfe84738eaf07ce273471b3"
+    },
+    {
+      "observation_id": "c7d34b22c60894cd3d5ed461",
+      "at": 1345814.0711548,
+      "action_id": "7a76ac985b374e5b8e1ed1b6966b2322",
+      "skill": "COMBAT",
+      "outcome": "FAILURE",
+      "reason": "out_of_range",
+      "baseline_observation_id": "cdfe84738eaf07ce273471b3",
+      "observed_observation_id": "f2466752a9ab4a9c0b315994"
+    },
+    {
+      "observation_id": "d554197dfb8a927347868f09",
+      "at": 1345817.8604748,
+      "action_id": "cf54fb5a36774c2b841f8d146b47d75a",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "interrupted",
+      "baseline_observation_id": "3cdd82ce8af599589c8b25a2",
+      "observed_observation_id": "78376dc506a1981a85d928f7"
+    },
+    {
+      "observation_id": "75528377ddec72a253d3c534",
+      "at": 1345829.8425542,
+      "action_id": "d78289c0d4784e57859c1bced11f10ba",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "c4ebd5cfc13751cc68cd087f",
+      "observed_observation_id": "d74830f05ee2e7577e20d75d"
+    },
+    {
+      "observation_id": "594ce670912eb2273cf4d297",
+      "at": 1345831.9831602,
+      "action_id": "bd026afd4bbd47b5a65ab443ee13f2ea",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "722ab32459a4e1fc7e1cd3e4",
+      "observed_observation_id": "ce3a1405e1b2d76579aeb988"
+    },
+    {
+      "observation_id": "4383d7b2a2c2a6c7a32299fe",
+      "at": 1345841.499082,
+      "action_id": "50cbaf3b217846d0a2662ec37dcb1c5a",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "ce3a1405e1b2d76579aeb988",
+      "observed_observation_id": "96062d8f142231b348c9fb5e"
+    },
+    {
+      "observation_id": "652d4b8a01b1e8f7fdf1213d",
+      "at": 1345842.1923569,
+      "action_id": "1a98df3e56d44443b27cf412b22ce2c4",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "17b9c95303db31e44a7b5226",
+      "observed_observation_id": "b8010275cad3b4817ab4e6bd"
+    },
+    {
+      "observation_id": "31bdc59590c34042e7783cd8",
+      "at": 1345851.7357562,
+      "action_id": "7f649e3c17e0478cb85585764e6afc26",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "3340db41c8c0fe526d6befc2",
+      "observed_observation_id": "7d62828f02c451cba033cf9a"
+    },
+    {
+      "observation_id": "14b2619c2ea8c096e0290463",
+      "at": 1345852.8117725,
+      "action_id": "7fb157747fd14b76af55c0d9f338bb79",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "7d62828f02c451cba033cf9a",
+      "observed_observation_id": "6485d97ef7a5f88eb7280cb4"
+    },
+    {
+      "observation_id": "aa0beffbec94b2b4b260f2ea",
+      "at": 1345868.9558684,
+      "action_id": "8bcf431121ff4629a301ca5a84d9fec3",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "6485d97ef7a5f88eb7280cb4",
+      "observed_observation_id": "73cc337fb601c0a31f15332a"
+    },
+    {
+      "observation_id": "3a2da5fe6e9be2402b48e1da",
+      "at": 1345885.2428779,
+      "action_id": "4cbe99e2190d4200a06d33634dc50053",
+      "skill": "MOVE",
+      "outcome": "SUCCESS",
+      "reason": "reach_arrival_verified",
+      "baseline_observation_id": "73cc337fb601c0a31f15332a",
+      "observed_observation_id": "f5b74a02b946f4bdc491a77e"
+    },
+    {
+      "observation_id": "74147dde73a9e5d5e4968a75",
+      "at": 1345886.3936998,
+      "action_id": "8ce7cb130f8b456798e1a991b109136a",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "route_endpoint_outside_arrival_envelope",
+      "baseline_observation_id": "f5b74a02b946f4bdc491a77e",
+      "observed_observation_id": "374f6d2cc229393725267b95"
+    },
+    {
+      "observation_id": "5d9cb54d4a8a6fb638364b04",
+      "at": 1345886.6309516,
+      "action_id": "4cfd5eb4f9b44e3fb93cb8b0e4de89b4",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "374f6d2cc229393725267b95",
+      "observed_observation_id": "374f6d2cc229393725267b95"
+    },
+    {
+      "observation_id": "4e2d64f9e611c95ecf82242d",
+      "at": 1345888.1940593,
+      "action_id": "ccfcaafc809e483283aef3860b93cf55",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "9fec6caad5d31a26eefcd07b",
+      "observed_observation_id": "c41141ecb479dff568f67301"
+    },
+    {
+      "observation_id": "4d97252f7755545a7d06bbff",
+      "at": 1345889.5269726,
+      "action_id": "b191afe7ef2a4951ba33e9c5c0be21ae",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "c41141ecb479dff568f67301",
+      "observed_observation_id": "952e83937f88c672acbb2177"
+    },
+    {
+      "observation_id": "c92965c65df9ee6480cac0e4",
+      "at": 1345931.4600308,
+      "action_id": "2a94c43cc1c341afb937220abdf75a48",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "952e83937f88c672acbb2177",
+      "observed_observation_id": "6b231ec941293aeaacbb0333"
+    },
+    {
+      "observation_id": "0d3ed32497f4bb702bb1bc67",
+      "at": 1345934.8140345,
+      "action_id": "65b0e4d6826f435fb8e76d01ce3c26f0",
+      "skill": "TARGET",
+      "outcome": "FAILURE",
+      "reason": "identity_uncertain",
+      "baseline_observation_id": "5845e8d08c458311d983f1be",
+      "observed_observation_id": "ccfaea6e0d9d68b1d5b88744"
+    },
+    {
+      "observation_id": "adb32c61ea6f45bcaba5847b",
+      "at": 1345941.3288254,
+      "action_id": "08ca6e1501a64af7be339a1a213b8054",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "14bd1c854057361afa9adb38",
+      "observed_observation_id": "4a8ebb9cfabde4a969b0ca82"
+    },
+    {
+      "observation_id": "450d9ee385cc3cca48b4b248",
+      "at": 1345943.1059818,
+      "action_id": "6363310ec47449b086f65cecaded2576",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "e49f3e57f1f2aee468bf7d3e",
+      "observed_observation_id": "e6fd77c7c6387b54f18b0796"
+    },
+    {
+      "observation_id": "9a864007747c670d341442aa",
+      "at": 1345949.6920208,
+      "action_id": "a3b147528a084cf4b8e5ce3f72cafaa8",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "e6fd77c7c6387b54f18b0796",
+      "observed_observation_id": "1f3da559af3858b51bba7396"
+    },
+    {
+      "observation_id": "66c01fe4bfe026dedbc4ede0",
+      "at": 1345980.0608444,
+      "action_id": "b0217f7d394f4f569c910aa3ec87b7a1",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "route_endpoint_outside_arrival_envelope",
+      "baseline_observation_id": "01de65b5fae483c2bcba94bc",
+      "observed_observation_id": "0535bbf28ff405c968de669c"
+    },
+    {
+      "observation_id": "77b8bd7c47e2528b32f4c329",
+      "at": 1345984.9677835,
+      "action_id": "ae273815a1dc485e9acadb2e4c35a75e",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "0535bbf28ff405c968de669c",
+      "observed_observation_id": "1b5ca743c37fc7ea944a1dd5"
+    },
+    {
+      "observation_id": "3d845c066a1ed504350825c3",
+      "at": 1345986.1842217,
+      "action_id": "1b55aa46007e427fb02bbcb560439323",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "1b5ca743c37fc7ea944a1dd5",
+      "observed_observation_id": "b4d078de86f82b50eda00e06"
+    },
+    {
+      "observation_id": "69ee49aa2c429d60f332b863",
+      "at": 1345994.8297115,
+      "action_id": "e00a109524354a2eb71ea3a400ddd2e0",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "b4d078de86f82b50eda00e06",
+      "observed_observation_id": "af1e25c050005a266d3b7965"
+    },
+    {
+      "observation_id": "3cb5a8834ceade9cda017aea",
+      "at": 1345997.0594394,
+      "action_id": "75222bbcd8b74b74bf7af19f7c53a988",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "c3c3284fe329cd584409f63d",
+      "observed_observation_id": "c3c3284fe329cd584409f63d"
+    },
+    {
+      "observation_id": "20c2f3d7da012e8de50c6195",
+      "at": 1346004.450743,
+      "action_id": "47b2c59c370145c2a917df5b0af11404",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "fb0a11e922f0f15b0ad1070f",
+      "observed_observation_id": "4a9c0a375054b32da84fef10"
+    },
+    {
+      "observation_id": "c33f392ab1b883d88c76fe29",
+      "at": 1346006.6370149,
+      "action_id": "4caa694305244c0ebc0c09ea8e06aabc",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "c2fbb302c67935f9dacf664e",
+      "observed_observation_id": "70f35db2fa0c11d05159a18f"
+    },
+    {
+      "observation_id": "eed2b601cfbea4f21da643e4",
+      "at": 1346016.9737758,
+      "action_id": "8f3f37ce754e4ff2875733dcb8932f08",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "70f35db2fa0c11d05159a18f",
+      "observed_observation_id": "43ad64737a3d67aef2d36b06"
+    },
+    {
+      "observation_id": "07a8b1ccd691d78ded1a2281",
+      "at": 1346017.6500762,
+      "action_id": "cc5cd727ea854224b1c1295f3a6e68cc",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "05acec1eeb5bf065247faa6f",
+      "observed_observation_id": "11cc2a0115f1f8ed66ed74fe"
+    },
+    {
+      "observation_id": "9fa29bdc141efa530c33ce2e",
+      "at": 1346022.8180599,
+      "action_id": "0d31c69de6c5416a8bdb0dc22334b481",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "0c6030264a2c5b779d5de805",
+      "observed_observation_id": "7e5300a4e1eb66b28724ce75"
+    },
+    {
+      "observation_id": "c7920b6073b36ef2b30a07dc",
+      "at": 1346023.0072305,
+      "action_id": "dd76c87bdadf4a84952e681807577b5a",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "7e5300a4e1eb66b28724ce75",
+      "observed_observation_id": "41e3d0ea321a9f6bb0d3151b"
+    },
+    {
+      "observation_id": "dbd3cf074cc85297632d003e",
+      "at": 1346028.5776045,
+      "action_id": "7d0ab8ca6b754c0ba13de513dc34e834",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "8f95b14f62285b4d9033c3af",
+      "observed_observation_id": "d41d67a592641bdf70151cfe"
+    },
+    {
+      "observation_id": "3f535793a2385d8551025fa7",
+      "at": 1346055.6146525,
+      "action_id": "7b35024d8c204470aea1f67831790679",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "d41d67a592641bdf70151cfe",
+      "observed_observation_id": "3d072e299ff8a1f8973a349f"
+    },
+    {
+      "observation_id": "2112aa8fa306549822b77716",
+      "at": 1346058.5069787,
+      "action_id": "6816d89a568e4a7fa04a90aba2354787",
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "baseline_observation_id": "1522bd97680f62b8c0a330c2",
+      "observed_observation_id": "5b42db83f2a5b0313ddd35e8"
+    },
+    {
+      "observation_id": "05ee4ddddd11a97407ae3d4f",
+      "at": 1346061.14245,
+      "action_id": "91bbae9eaa7f414eb82111a128935271",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "b868f7bc3ed69ea1619ef589",
+      "observed_observation_id": "084ae031e4c4e4011bbdfdcf"
+    },
+    {
+      "observation_id": "f43b012fd2cf28e167ad9deb",
+      "at": 1346063.0742024,
+      "action_id": "d28716fd57a249809578ece11ce6420d",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "56c0e93363d730289485f6d4",
+      "observed_observation_id": "c9d0f63e43cb57327978dec8"
+    },
+    {
+      "observation_id": "cb715ca4ab55511759ed2ae8",
+      "at": 1346081.4048939,
+      "action_id": "62766f7f600b405c83aa1373c8d201fd",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_interaction_ready",
+      "baseline_observation_id": "b7f3419556685b7c536b780b",
+      "observed_observation_id": "df248d416694e298e98e921b"
+    },
+    {
+      "observation_id": "90abd7bd7a1c70db36823274",
+      "at": 1346081.8753038,
+      "action_id": "20b4364d3e594dc194edc7723f752c1f",
+      "skill": "INTERACT",
+      "outcome": "SUCCESS",
+      "reason": "interaction_verified",
+      "baseline_observation_id": "df248d416694e298e98e921b",
+      "observed_observation_id": "5663ecb88db2b3da9c6daf8f"
+    },
+    {
+      "observation_id": "f26c29c06bc251bc48f04d79",
+      "at": 1346083.4964917,
+      "action_id": "a2d2826c188f4674ac43db767da63059",
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "baseline_observation_id": "5663ecb88db2b3da9c6daf8f",
+      "observed_observation_id": "db313ae34fefa9f6985ea874"
+    },
+    {
+      "observation_id": "c2bca0d6dbaba75a9da4a24c",
+      "at": 1346093.8756607,
+      "action_id": "d81763154a6c47508a0969e6f389d8a6",
+      "skill": "QUEST_DIALOG",
+      "outcome": "FAILURE",
+      "reason": "expected_state_not_reached",
+      "baseline_observation_id": "db313ae34fefa9f6985ea874",
+      "observed_observation_id": "ca3f5ae84a0bec1f5e5003e6"
+    },
+    {
+      "observation_id": "b15c8fe607837e4d86fe8ee5",
+      "at": 1346117.8859192,
+      "action_id": "9602d717a6d24d1f99d404ae9d9c5ea4",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_interaction_ready",
+      "baseline_observation_id": "d2a65ce1a4351a54ca8b7a89",
+      "observed_observation_id": "adb406432c4970ffa2fc4b44"
+    },
+    {
+      "observation_id": "e0a14b4674fdf0dce6649f11",
+      "at": 1346118.3726302,
+      "action_id": "9bd9f7938f414b858b2644476e0f0cf1",
+      "skill": "INTERACT",
+      "outcome": "SUCCESS",
+      "reason": "interaction_verified",
+      "baseline_observation_id": "adb406432c4970ffa2fc4b44",
+      "observed_observation_id": "6aff1073eede65c54d28d359"
+    },
+    {
+      "observation_id": "48adf897b97c9f34240d78ad",
+      "at": 1346119.9457248,
+      "action_id": "7e5ed7e611c14a82932c6d74ff02907d",
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "baseline_observation_id": "6aff1073eede65c54d28d359",
+      "observed_observation_id": "7bae4c1ea59a376fb62d57e6"
+    },
+    {
+      "observation_id": "b745893892a3b1c00776c759",
+      "at": 1346122.2019398,
+      "action_id": "629d17792b8b4ca48337440db718c0c6",
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "baseline_observation_id": "7bae4c1ea59a376fb62d57e6",
+      "observed_observation_id": "fa6e5971f59a36aa22cd031a"
+    },
+    {
+      "observation_id": "b0a46b3eed1e30ca82dbf7a6",
+      "at": 1346126.3466142,
+      "action_id": "458cbc76810c4df8be4f34bf22e3ed94",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "interaction_ui_opened_during_move",
+      "baseline_observation_id": "56ab3c22d076b37e91d78c30",
+      "observed_observation_id": "04187deaf04913b7adc1e921"
+    },
+    {
+      "observation_id": "0a3f120a3ae17dd44239ee0f",
+      "at": 1346126.9405227,
+      "action_id": "f6693449138d46e4a09ce8d4cad17108",
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "baseline_observation_id": "04187deaf04913b7adc1e921",
+      "observed_observation_id": "12356ee21e66ab45486fb0e3"
+    },
+    {
+      "observation_id": "909ad6016b47ecabc9161f88",
+      "at": 1346152.7092977,
+      "action_id": "b5e443508ad54f3ca5f901090bfd1134",
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "baseline_observation_id": "12356ee21e66ab45486fb0e3",
+      "observed_observation_id": "b19c2771fa1879250790d8a9"
+    },
+    {
+      "observation_id": "9a8b57a534a31fdad86ba91d",
+      "at": 1346193.2115393,
+      "action_id": "99635c6980954000b390d65b89e09e61",
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "interrupted",
+      "baseline_observation_id": "b19c2771fa1879250790d8a9",
+      "observed_observation_id": "077d71151b5109a8c143499e"
+    },
+    {
+      "observation_id": "ca51c0477f9b18568d94a94a",
+      "at": 1346193.3512749,
+      "action_id": "b3533b9585de43b9ad782d5e19eea089",
+      "skill": "COMBAT",
+      "outcome": "FAILURE",
+      "reason": "out_of_range",
+      "baseline_observation_id": "077d71151b5109a8c143499e",
+      "observed_observation_id": "bdca38a0f58c4b53068d8d91"
+    },
+    {
+      "observation_id": "f03e0aba1e30ccb9cd846d89",
+      "at": 1346197.1661543,
+      "action_id": "0659c78fc93f4e868f64ce7f949ab898",
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "baseline_observation_id": "08be951bdfffa2d47e2f7c5b",
+      "observed_observation_id": "19e18b596b1dc522abcec870"
+    },
+    {
+      "observation_id": "ed0fd21cd27aae7c40eefe6b",
+      "at": 1346198.947657,
+      "action_id": "efd9eca70e5343898c86e5e63aacc222",
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "baseline_observation_id": "37db689707c84f4f07240213",
+      "observed_observation_id": "fd15b132b99a8fe31be4a456"
+    }
+  ],
+  "verification_counts": [
+    {
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_entity_available",
+      "count": 1
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "server_turn_in_interaction_ready",
+      "count": 3
+    },
+    {
+      "skill": "INTERACT",
+      "outcome": "SUCCESS",
+      "reason": "interaction_verified",
+      "count": 3
+    },
+    {
+      "skill": "QUEST_DIALOG",
+      "outcome": "SUCCESS",
+      "reason": "quest_dialog_verified",
+      "count": 5
+    },
+    {
+      "skill": "QUEST_DIALOG",
+      "outcome": "FAILURE",
+      "reason": "expected_state_not_reached",
+      "count": 2
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "count": 11
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "SUCCESS",
+      "reason": "reach_arrival_verified",
+      "count": 2
+    },
+    {
+      "skill": "COMBAT",
+      "outcome": "FAILURE",
+      "reason": "out_of_range",
+      "count": 2
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "interrupted",
+      "count": 2
+    },
+    {
+      "skill": "COMBAT",
+      "outcome": "SUCCESS",
+      "reason": "target_death_verified",
+      "count": 9
+    },
+    {
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "count": 8
+    },
+    {
+      "skill": "TARGET",
+      "outcome": "SUCCESS",
+      "reason": "target_identity_changed",
+      "count": 6
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "route_endpoint_outside_arrival_envelope",
+      "count": 2
+    },
+    {
+      "skill": "TARGET",
+      "outcome": "FAILURE",
+      "reason": "identity_uncertain",
+      "count": 1
+    },
+    {
+      "skill": "MOVE",
+      "outcome": "CANCELLED",
+      "reason": "interaction_ui_opened_during_move",
+      "count": 1
+    }
+  ],
+  "operator_interventions_fully_known": false,
+  "autonomous_quest_completion_claim": false,
+  "raw_packet_or_private_identity_exported": false
+}

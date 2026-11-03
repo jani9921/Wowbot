@@ -1,0 +1,34 @@
+[
+  {
+    "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.lua",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.toc",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport/Bindings.lua",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport/Transport.lua",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.lua",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.toc",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport-12.1.0/Bindings.lua",
+    "unchanged": true
+  },
+  {
+    "path": "addon/AIPlayerControllerExport-12.1.0/Transport.lua",
+    "unchanged": true
+  }
+]

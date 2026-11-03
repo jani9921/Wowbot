@@ -15,7 +15,7 @@ class VisualApproachSkill:
 
     @staticmethod
     def _reason(value: str) -> FailureReason:
-        if value == "target_identity_changed" or "visual_track_lost" in value:
+        if value in {"target_identity_changed", "target_identity_stale"} or "visual_track_lost" in value:
             return FailureReason.TARGET_LOST
         if value == "target_dead":
             return FailureReason.TARGET_DEAD

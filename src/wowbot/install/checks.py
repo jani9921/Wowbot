@@ -482,14 +482,15 @@ def shortcut_command(project: Path) -> list[str]:
 OLLAMA_URL = "http://127.0.0.1:11434"
 
 
-def semantic_model_name(project: Path) -> str | None:
-    """The local-LLM model the agent's quest-text interpreter asks for."""
+def semantic_model_name(project: Path, key: str = "model") -> str | None:
+    """The local-LLM model the agent's quest-text interpreter asks for
+    (``key="escalation_model"``: the slower model for doubtful answers)."""
     try:
         data = json.loads((Path(project) / "config" / "ai_decision.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     section = data.get("semantic") if isinstance(data, dict) else None
-    return str(section.get("model")) if isinstance(section, dict) and section.get("model") else None
+    return str(section.get(key)) if isinstance(section, dict) and section.get(key) else None
 
 
 def ollama_executable() -> Path | None:
@@ -504,8 +505,10 @@ def ollama_status(project: Path, *, timeout: float = 1.) -> dict:
     """Optional local LLM: installed, server answering, model pulled."""
     import urllib.request
     model = semantic_model_name(project)
-    result = {"model": model, "installed": ollama_executable() is not None,
-              "running": False, "model_present": False}
+    escalation = semantic_model_name(project, "escalation_model")
+    result = {"model": model, "escalation_model": escalation,
+              "installed": ollama_executable() is not None,
+              "running": False, "model_present": False, "escalation_present": escalation is None}
     try:
         with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=timeout) as response:
             tags = json.loads(response.read().decode("utf-8"))
@@ -514,4 +517,5 @@ def ollama_status(project: Path, *, timeout: float = 1.) -> dict:
     result["running"] = True
     names = {str(item.get("name") or "") for item in tags.get("models") or () if isinstance(item, dict)}
     result["model_present"] = bool(model and (model in names or f"{model}:latest" in names))
+    result["escalation_present"] = escalation is None or escalation in names or f"{escalation}:latest" in names
     return result

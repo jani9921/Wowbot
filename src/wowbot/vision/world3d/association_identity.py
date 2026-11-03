@@ -1,7 +1,4 @@
-"""UltralyticsAssociationTracker id continuity: unique ids, screen-anchored (own avatar) boxes, re-identification.
-
-Split out of tracking.py (2026-10-05); unchanged.
-"""
+"""UltralyticsAssociationTracker public-id continuity and conservative ReID."""
 from __future__ import annotations
 from dataclasses import replace
 import math
@@ -37,11 +34,76 @@ class AssociationIdentityMixin:
 
     @staticmethod
     def _screen_anchored(candidate: WorldCandidate, width: int, height: int) -> bool:
-        """A large subject box centred on the third-person avatar position."""
+        """A lower-centre subject box, plausibly the third-person avatar.
+
+        Live PID 10348: a 96-99 px tall box at 649 px frame height crossed
+        the former .15-height threshold every few frames, switching between
+        native and anchored ID spaces. The stronger bottom gate excludes most
+        distant NPCs while allowing that small box-height variation.
+        """
         rect = candidate.rect
         return ("subject" in str(candidate.kind)
                 and abs((rect.left+rect.right)/2 - width/2) < .06*width
-                and rect.bottom > .55*height and rect.height > .15*height)
+                and rect.bottom > .65*height and rect.height > .12*height)
+
+    def _screen_anchor_indices(self, candidates, width: int, height: int,
+                               timestamp: float | None = None) -> tuple[list[int], int]:
+        """Only one box can be the local screen-anchored avatar.
+
+        Live PIDs 16548/10348: flanking and upper NPCs also passed the broad
+        positional gate. Anchoring them excluded them from BoT-SORT and made
+        IDs alternate. Prefer the lowest plausible subject, then centrality;
+        ambiguous neighbours remain ordinary world detections.
+        """
+        now = float(timestamp) if timestamp is not None else self.frame_index/30.
+        previous = self._screen_anchor_last
+        eligible = [index for index, candidate in enumerate(candidates)
+                    if self._screen_anchored(candidate, width, height)]
+        if previous is not None and 0. <= now-previous[1] <= .2:
+            # PID 1296: the same avatar box moved from bottom=337 to 336 on
+            # a 518 px frame, crossing the strict .65 gate and switching its
+            # feed ID for 0.6 s. Only an almost-identical immediately prior
+            # anchor may use this narrower continuation gate.
+            for index, candidate in enumerate(candidates):
+                if index in eligible or "subject" not in str(candidate.kind):
+                    continue
+                rect = candidate.rect
+                if (abs((rect.left+rect.right)/2-width/2) >= .07*width
+                        or rect.bottom <= .60*height or rect.height <= .10*height):
+                    continue
+                if self._rect_iou((rect.left, rect.top, rect.right, rect.bottom),
+                                  previous[0]) >= .90:
+                    eligible.append(index)
+        if not eligible:
+            return [], 0
+        if previous is not None and now-previous[1] <= self.anchored_retention_seconds:
+            overlapping = [index for index in eligible if self._rect_iou(
+                (candidates[index].rect.left, candidates[index].rect.top,
+                 candidates[index].rect.right, candidates[index].rect.bottom),
+                previous[0]) >= .35]
+            if overlapping:
+                eligible_for_choice = overlapping
+            elif now-previous[1] <= 1.:
+                # The avatar vanished for a frame: do not immediately assign
+                # its screen anchor to a different nearby NPC.
+                return [], len(eligible)
+            else:
+                eligible_for_choice = eligible
+        else:
+            eligible_for_choice = eligible
+        best = min(eligible_for_choice, key=lambda index: (
+            -(self._rect_iou(
+                (candidates[index].rect.left, candidates[index].rect.top,
+                 candidates[index].rect.right, candidates[index].rect.bottom),
+                previous[0]) if previous is not None and now-previous[1] <= 1. else 0.),
+            -candidates[index].rect.bottom,
+            abs((candidates[index].rect.left+candidates[index].rect.right)/2-width/2),
+            -candidates[index].rect.height,
+            -candidates[index].confidence,
+            index))
+        rect = candidates[best].rect
+        self._screen_anchor_last = ((rect.left, rect.top, rect.right, rect.bottom), now)
+        return [best], len(eligible)
 
     def _anchored_assign(self, candidates, indices: list[int],
                          timestamp: float | None, world_in_use: set[int]) -> dict[int, int]:
@@ -130,30 +192,115 @@ class AssociationIdentityMixin:
 
     def _age_recently_lost(self, timestamp: float | None) -> None:
         """Carry vanished ids with the camera and forget them after a while."""
+        now = float(timestamp) if timestamp is not None else self.frame_index / 30.
         dx, dy = self._gmc_translation()
         for public_id, entry in list(self._recently_lost.items()):
-            if (timestamp is not None and entry["lost_at"] is not None
-                    and timestamp-entry["lost_at"] > self.reid_seconds):
+            if now-entry["lost_at"] > self.reid_gallery_seconds:
                 del self._recently_lost[public_id]
                 continue
             entry["cx"] += dx
             entry["cy"] += dy
 
-    def _remember_published(self, output, timestamp: float | None) -> None:
-        present = {int(item.track_id): item for item in output if item.track_id is not None}
+    @staticmethod
+    def _descriptor_distance(left, right) -> float | None:
+        if left is None or right is None:
+            return None
+        return sum(abs(a-b) for a, b in zip(left, right)) / 6.
+
+    def _alias_compatible(self, public_id: int, descriptor,
+                          timestamp: float | None) -> bool:
+        """A legacy alias may bridge MOT, but cannot overrule contradictory pixels."""
+        entry = self._last_boxes.get(public_id) or self._recently_lost.get(public_id)
+        if entry is None:
+            return False
+        now = float(timestamp) if timestamp is not None else self.frame_index / 30.
+        if now-entry.get("seen_at", now) > self.reid_gallery_seconds:
+            return False
+        visual = self._descriptor_distance(descriptor, entry.get("descriptor"))
+        return visual is None or visual <= .23
+
+    def _remember_published(self, output, timestamp: float | None,
+                            descriptors=()) -> None:
+        now = float(timestamp) if timestamp is not None else self.frame_index / 30.
+        present = {int(item.track_id): (item, descriptor)
+                   for item, descriptor in zip(output, descriptors)
+                   if item.track_id is not None}
         for public_id, box in list(self._last_boxes.items()):
             if public_id not in present:
-                self._recently_lost[public_id] = {**box, "lost_at": timestamp}
+                self._recently_lost[public_id] = {**box, "lost_at": now}
                 del self._last_boxes[public_id]
-        for public_id, item in present.items():
+        for public_id, (item, descriptor) in present.items():
             rect = item.rect
             self._last_boxes[public_id] = {
+                "rect": (rect.left, rect.top, rect.right, rect.bottom),
                 "cx": (rect.left+rect.right)/2, "cy": (rect.top+rect.bottom)/2,
                 "height": max(1., float(rect.height)),
-                "family": self._family(item.kind)}
+                "family": self._family(item.kind),
+                "descriptor": descriptor,
+                "hits": int(item.appearance.get("track_hits") or 1),
+                "seen_at": now}
             self._recently_lost.pop(public_id, None)
 
-    def _reidentify(self, candidate: WorldCandidate, in_use: set[int]) -> int | None:
+    @staticmethod
+    def _rect_iou(left, right) -> float:
+        intersection = (max(0, min(left[2], right[2])-max(left[0], right[0]))
+                        * max(0, min(left[3], right[3])-max(left[1], right[1])))
+        first = max(0, left[2]-left[0])*max(0, left[3]-left[1])
+        second = max(0, right[2]-right[0])*max(0, right[3]-right[1])
+        union = first+second-intersection
+        return intersection/union if union > 0 else 0.
+
+    def _coalesce_exact_continuation(self, candidate: WorldCandidate, public_id: int,
+                                     in_use: set[int], timestamp: float | None,
+                                     descriptor) -> tuple[int, int] | None:
+        """Reconcile alternating native/tentative IDs for one *visible* box.
+
+        The 2026-10-15 feed alternated V3:437/V3:445 at the same 60x100 box
+        every 35-70 ms. The previous-frame spatial evidence is much stronger
+        than the fallback alias, but says nothing about an NPC after it has
+        gone off-screen. Never bridge a long gap or simultaneous detections.
+        """
+        if public_id in self._last_boxes:
+            return None
+        now = float(timestamp) if timestamp is not None else self.frame_index/30.
+        rect = candidate.rect
+        current_rect = (rect.left, rect.top, rect.right, rect.bottom)
+        matches = []
+        for old_id, entry in self._last_boxes.items():
+            if (old_id == public_id or old_id in in_use or old_id in self._anchored
+                    or entry.get("family") != self._family(candidate.kind)
+                    or now-entry.get("seen_at", now) > .15):
+                continue
+            old_rect = entry.get("rect")
+            if old_rect is None or self._rect_iou(current_rect, old_rect) < .90:
+                continue
+            visual = self._descriptor_distance(descriptor, entry.get("descriptor"))
+            if visual is None or visual > .23:
+                continue
+            matches.append(old_id)
+        if len(matches) != 1:
+            return None
+        # Continuity of the just-published box wins over native/fallback hit
+        # counts: the latter may have accumulated on a hidden parallel alias.
+        return matches[0], public_id
+
+    def _merge_public_alias(self, winner: int, loser: int) -> None:
+        for mapping in (self._native_to_public, self._fallback_to_public):
+            for source_id, public_id in list(mapping.items()):
+                if public_id == loser:
+                    mapping[source_id] = winner
+        old_state = self._states.pop(loser, None)
+        if old_state is not None:
+            if winner in self._states:
+                self._states[winner].hits = max(self._states[winner].hits, old_state.hits)
+            else:
+                old_state.track_id = winner
+                self._states[winner] = old_state
+        self._last_boxes.pop(loser, None)
+        self._recently_lost.pop(loser, None)
+
+    def _reidentify(self, candidate: WorldCandidate, in_use: set[int],
+                    *, timestamp: float | None = None, descriptor=None) -> int | None:
         """Give a newly born native track the id of a subject that just vanished.
 
         Live 2026-09-30 (running around an NPC): 73 % of new subject ids were
@@ -178,22 +325,39 @@ class AssociationIdentityMixin:
         for public_id, box in self._last_boxes.items():
             if public_id not in pool:
                 pool[public_id] = {**box, "cx": box["cx"]+dx, "cy": box["cy"]+dy}
-        scored = []
+        now = float(timestamp) if timestamp is not None else self.frame_index / 30.
+        nearby = []
+        appearance_matches = []
         for public_id, entry in pool.items():
             if (public_id in in_use or public_id in self._anchored
                     or entry["family"] != family):
                 continue
             ratio = max(height, entry["height"])/min(height, entry["height"])
-            if ratio > 1.7:
+            if ratio > 2.:
                 continue
             distance = math.hypot(cx-entry["cx"], cy-entry["cy"])/max(height, entry["height"])
-            if distance <= self.reid_max_heights:
-                scored.append((distance, public_id))
-        if not scored:
+            visual = self._descriptor_distance(descriptor, entry.get("descriptor"))
+            # A clear appearance contradiction must not be hidden by a close
+            # box after two similar NPCs cross on screen.
+            if visual is not None and visual > .23:
+                continue
+            age = max(0., now-entry.get("lost_at", entry.get("seen_at", now)))
+            if age <= self.reid_seconds and distance <= self.reid_max_heights:
+                nearby.append((distance + (visual or 0.)*.5, public_id))
+            # After a full camera turn the GMC position is not a useful gate.
+            # Only a distinctive, established visual track can reclaim its id;
+            # similarity is still visual evidence, never confirmed NPC identity.
+            if (age <= self.reid_gallery_seconds and visual is not None
+                    and visual <= .10 and entry.get("hits", 0) >= 3):
+                appearance_matches.append((visual, public_id))
+        nearby.sort()
+        appearance_matches.sort()
+        if nearby and (len(nearby) == 1 or nearby[1][0]-nearby[0][0] >= .25):
+            public_id = nearby[0][1]
+        elif appearance_matches and (len(appearance_matches) == 1
+                                     or appearance_matches[1][0]-appearance_matches[0][0] >= .035):
+            public_id = appearance_matches[0][1]
+        else:
             return None
-        scored.sort()
-        if len(scored) > 1 and scored[1][0]-scored[0][0] < .25:
-            return None
-        public_id = scored[0][1]
         self._recently_lost.pop(public_id, None)
         return public_id

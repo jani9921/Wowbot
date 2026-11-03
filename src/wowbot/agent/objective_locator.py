@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from wowbot.query_ports import TravelCostPort
 from wowbot.runtime import ObjectiveLocationStatus
 from .models import number, words
+from .ui_zones import same_zone
 
 
 @dataclass(frozen=True)
@@ -20,14 +22,33 @@ class ObjectiveLocation:
 
 
 class ObjectiveLocator:
-    def locate(self, objective, record, state: dict) -> ObjectiveLocation:
+    def __init__(self, *, travel_cost: TravelCostPort | None = None):
+        self.travel_cost = travel_cost
+
+    def locate(self, objective, record, state: dict, *, quest_pois=()) -> ObjectiveLocation:
         target = state.get("target") or {}
         entity = objective.target_entity or {}
         if self._matches(target, entity):
             return ObjectiveLocation(ObjectiveLocationStatus.LOCAL_ENTITY, confidence=.98,
                                      evidence=("selected_target_matches_objective",))
+        from .quest_poi_evidence import objective_destinations
+        destinations = objective_destinations(state, quest_pois)
+        if destinations:
+            player = state.get('player_world_position') or {}
+            from math import hypot
+            closest = min(destinations, key=lambda p: hypot(p['x']-player['x'], p['y']-player['y']))
+            return ObjectiveLocation(ObjectiveLocationStatus.SEARCH_AREA, closest, .98,
+                                     ('PACKET_QUEST_POI', 'server_objective_geometry'))
+        # A current API location precedes a static/reference hypothesis.
+        location = self._valid_location(objective.target_location)
+        from .planning_types import world_point
+        if location and world_point(location) is not None:
+            status = (ObjectiveLocationStatus.LOCAL_MARKER if same_zone(location.get('map_id'), state.get('map_id'))
+                      else ObjectiveLocationStatus.WORLD_MAP_LOCATION)
+            return ObjectiveLocation(status, location, objective.confidence, ('objective_api_location',))
         from .tdb_locations import objective_region
-        primary = objective_region(state, getattr(record, 'quest_id', None), objective)
+        primary = objective_region(state, getattr(record, 'quest_id', None), objective,
+                                   travel_cost=self.travel_cost)
         if primary:
             return ObjectiveLocation(ObjectiveLocationStatus.SEARCH_AREA, primary, .75,
                                      (primary['source'], 'tdb_primary_requires_navmesh_and_live_verification'))

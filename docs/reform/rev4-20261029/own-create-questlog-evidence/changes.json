@@ -1,0 +1,79 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "fbadac7aec19608885fd16e01ad0c3dba31d3630bfafbc2ad13c4a7f4849866e",
+      "after_sha256": "6fa060c82b8c5385270e9c69ad1af418545f716a938ace6e64b4ebcaf7a1cb54"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "51bf99bbc182ff5734e8dbc9a7980cd3a9e52a7bb7d9f54f9a8915e2aa83b9c5",
+      "after_sha256": "b8b315920ad46b5bf9b31f571a297bd126a0f6e1dc3bf14c09b36ad3c816aa81"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "10b568738c65361570c8d32adae485217a0a50e02efbf430891e49e870b91547",
+      "after_sha256": "6a94a093025407f0898ab16c8098a487d82c1f2765e55187cae1fe550d0bc042"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "fcaa923df876ae96eb1ea8729fe680c399ebd9b242b1dcd1a98923032f62d4cc",
+      "after_sha256": "6f47d8f07f7846cb611ac2d7df005f33a585d7026efe05475cd77ede709b297a"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "d8538c818986a069e6b9501214e9500cb9a5d979e59d3f53230f505e1aa72f32"
+    },
+    {
+      "path": "src/wowbot/agent/packet_quest_log.py",
+      "status": "MODIFIED",
+      "before_sha256": "e2a443c5a750b8fbc9b73bc146f38e41d69a67aba19e0caa414e1d6733d2cb50",
+      "after_sha256": "19226a049c02ba91f0b292785ad80c1d8422a349f5dc3aa46e5d5ffb9587e4cc"
+    },
+    {
+      "path": "src/wowbot/packetio/own_create_quest_log.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "bbbb2ea0ccb830c294c75f81617406e7faffaf009e424ede980450734b7fabae"
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "status": "MODIFIED",
+      "before_sha256": "106c0e2135992b9b5cd80a7aa80a824adab144e39f5a34d42576607628b6301c",
+      "after_sha256": "a36a415992d35eef8ca2f7e4e415df8362d527d21fad2ab087c1b194547593b2"
+    },
+    {
+      "path": "src/wowbot/packetio/update_object.py",
+      "status": "MODIFIED",
+      "before_sha256": "b1234e2fbda12dd11a5ea0c0ae9a857eb1cc48998cd756526b4346ce5d122387",
+      "after_sha256": "ba1617a362585c38d796ca03c0bc8e8a4d146a733d5bc187bedbc805badc1d1e"
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "status": "MODIFIED",
+      "before_sha256": "e4d61d0373ab5db8664cbb04f9c5be03bf4d6daaea7b4812a844cfda6d9adc99",
+      "after_sha256": "25b357de97faf5cb6fb476bc447ec1619ac93959a35f2c6e2add3277124842e1"
+    },
+    {
+      "path": "tests/test_own_create_quest_log_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "0b999d2f894f1729cadacd7b585450a57b52763afece074b3a48d691aa5bf0de"
+    },
+    {
+      "path": "tests/test_unit_fields_20261027.py",
+      "status": "MODIFIED",
+      "before_sha256": "87f0f31a469e49b29bac48bc3be71a0ff988307995a5cdaa53a34a7de9bcc505",
+      "after_sha256": "759364956cfdf6bb9a7e7e638aa81547976d6bd320e2769ebc4811908680fd71"
+    }
+  ],
+  "modified": 9,
+  "added": 3,
+  "removed": 0
+}

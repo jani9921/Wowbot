@@ -1,0 +1,1604 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,18 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P5/P7 canonical entity approaches — **OFFLINE_TESTED / full
++migration PARTIAL**. M0 combat/interaction/loot and final LOS now enter typed
++shared navigation; server routes require geometry, FAST defers queries to the
++same medium owner without another retry/action. Original deadline/goal/GUID
++survives; moving entity goals replan without rewriting corridor anchors.
++Physical release precedes arrival interaction; explicit handoff preserves only
++its owned request. Bounded nested navigation failure details persist. FAST and
++medium share one scoped own-Z projection, continuity GAP clears inherited Z;
++corpse pose does not imply loot entitlement. Selected regression **4083 passed, 2 skipped, 10 unchanged deselections, 326 modules, exit 0**,
++211.81 s pytest; 560 source + 635 tests parse, 203 rows unchanged. Main-query
++blocking, dispatch-time source freshness, full provider/domain migration and
++live acceptance remain open. Addon/Ymir unchanged, no assistant client input/
++capture/live DB writes. [Details](reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md).
+ 
+ 2026-10-30 REV4 P5 own-position acquisition before grounded 3D routing —
+ **OFFLINE_TESTED / full migration PARTIAL**. A live packet-assisted MMAP
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,21 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — shared M0 entity routing and medium handoff (offline)
++
++Combat/interaction/loot + final LOS enter shared typed routing; FAST only
++queues the same owned request and releases input for medium planning. Live
++GUID pose, original clocks/budgets, separate corpse eligibility, route-anchor
++preservation, known floor and final facing gates remain. FAST own-Z overlay
++loss is fixed through the same canonical packet projection; GAP drops held Z.
++Bounded nested failure details survive reset and physical release precedes
++F7/cast. Existing positive legacy fixture now states WORLD_YARDS explicitly;
++original loot expectation stays. Known layer regression was fixed in source.
++Targeted 228 pass + regression-fix 110 pass overlap. Final selected regression
++**4083 passed, 2 skipped, 10 unchanged deselections, 326 modules, exit 0**, 211.81 s pytest; 203 rows unchanged. No assistant game/capture/
++FULL_AI/input/live DB changes; addon/Ymir unchanged, no new live acceptance.
++Main synchronous route blocking and late dispatch freshness need the next P4
++audit; general role/provider/domain migration and prior facing cases remain.
++[Details/checkpoint](reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md).
+ 
+ ## 2026-10-30 — grounded own first-fix before routing (offline)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 4057 passed, 2 skipped, 10 változatlan deselection, 325 modul, exit 0.
++Végső kijelölt regresszió: 4083 passed, 2 skipped, 10 változatlan deselection, 326 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -83,6 +83,13 @@
+ medium lane az eredeti célt/időkeretet folytatja. Ez nem teljes flight/vehicle
+ first-fix vagy M0 entity-route migráció; az új élő próba még nyitott.
+ 
++A [közös M0 entity route/handoff](P5_DOMAIN_NAVIGATION_HANDOFF.md) elkészült:
++combat/interact/loot/LOS typed NavigationRequest, FAST → medium kérés ugyanabban
++az attemptben, mozgó GUID-cél és corridor-szétválasztás, nested deadline/stop/
++failure diagnostics. A FAST own-Z nézet közös packet projekciója is megvan.
++A szinkron main-query és hosszú számítás utáni dispatch-forráskor a következő
++P4-audit konkrét nyitott pontja; teljes felelősség-/provider-migráció még nincs.
++
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+ késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+@@ -124,14 +131,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **4057 passed, 2 skipped, 10 deselected; 325 modul; 176.38 s; exit 0** |
++| Végső kijelölt regresszió | **4083 passed, 2 skipped, 10 deselected; 326 modul; 211.81 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 558 source + 634 tests Python-fájl; 633 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 560 source + 635 tests Python-fájl; 634 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 633 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **326 kijelölt modul eredménye**, nem a teljes 634 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md
++++ after/docs/reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md
+@@ -0,0 +1,92 @@
++# REV4 P5/P7 — közös M0 entity route és medium handoff
++
++2026-10-30. Aktív munkamappa a felhasználó által kijelölt `projekt`.
++OFFLINE_TESTED; új élő elfogadás nincs.
++
++## A ténylegesen cserélt futási út
++
++A move_to_entity korábban require_navmesh jelző mellett is a közvetlen
++controller.start ágat hívta. Most a selected/soft GUID, same-world pose,
++fresh recipient és reachability ellenőrzés után egy NavigationRequest kerül
++a meglévő GlobalNavigator → corridor → controller → TripExecutor láncra.
++A szerverpozíciós ág bizonyított geometry route-ot igényel; hiányzó meshből
++nem lesz közvetlen előresétálás. A legacy/cue szerződés közös API-n marad,
++a korábbi explicit gyengébb direkt-fallbacket nem nevezzük MMAP-bizonyítéknak.
++
++COMBAT/DEFEND, INTERACT/TALK és LOOT runtime-ja ugyanazt a canonical NavService-t
++használja. FAST esetben a request a szolgáltatás egyetlen bounded pending
++mezőjébe kerül, nincs query/input/új action. A gyors supervisor explicit medium
++handoffot kér; a main runner friss scope/GUID/inputállapot/deadline mellett
++tervez. Nem hívja újra a domén verifiert és nem fogyaszt második retry-t.
++Az entity-local LOS utolsó route-lépése is ezt az ágat használja, legfeljebb
++2.5 s eredeti időkerettel. A kiadott parancsot a meglévő dispatcher végzi;
++nincs második skill, planner vagy input-owner.
++
++A start/request és a Trip eredeti kezdőideje megmarad a pending/own-first-fix/
++mozgó-cél replan között. A nested combat/interaction/loot eredeti attempt-
++deadline-ja minden folytatás előtt ellenőrzött. Cancel/reset eldobja a pending
++requestet; késői adat nem indítja újra. Hiányzó vagy változott identitás,
++scopeváltás és tiltott inputállapot nem lesz új geometriaterv/jogosultság.
++
++## Mozgó cél és megérkezés
++
++Az entity_goal célazonossága a pinned GUID, kezdeti XYZ-je helypillanatkép.
++Két yardnál nagyobb változás medium replant kér az aktuális, ugyanahhoz az
++actorhoz tartozó pontra. A controller köztes útvonalpontját a target/recipient
++követés nem írhatja felül; a végső facing az élő actorhoz igazodik. A Trip
++az eredeti GUID-hoz tartozó aktuális pontot ellenőrzi. Statikus quest/forge-
++corner célokra ez nem vonatkozik: azok eredeti végpontja megmarad.
++
++Az új typed út egyik regressziója az ismert actor layer_z-jét direct legacy
++anchor mellett None-ra cserélte; a régi emelet-teszt ezt megfogta. A végső
++anchor most megtartja a valóban ismert célmagasságot (a Z=0 is valós érték
++lehet), az ismeretlen addon-Z továbbra sem lesz 0. A másik nagy körbeli hiba
++egy régi pozitív loot-fixture hiányzó coordinate_space jelölése volt; a
++fixture WORLD_YARDS szerződést kapott, az eredeti F7-elvárás változatlan.
++A korábbi direct-follow spy tesztjei az új typed/medium határt ellenőrzik;
++nem lett teszt kizárva vagy assertion törölve a viselkedés elfedésére.
++
++A nested megérkezés/failure most explicit fizikai movement-stopot kér a
++diszkrét F7/cast előtt. Egy külön preserve_navigation jelzés biztosítja,
++hogy a tervezési handoff miatti inputfelengedés ne törölje a saját pending
++requestet. Rendes STOP/MANUAL továbbra is töröl. A navigation failure bounded
++ok/facing/sample/probe részlete még a reset előtt megmarad és egyszer
++SKILL_NAVIGATION_FAILURE_DETAIL eseményként naplózódik; nem teljes world /
++corridor vagy nyers packet body kerül lemezre.
++
++## Saját magasság és holttest
++
++A FAST addon XY overlay eltakarhatta a már ismert szervermagasságot, így a
++first-fix várás a friss packet ellenére timeoutolhatott. A medium és FAST
++most ugyanazt a project_own_navigation implementációt használja. A megtartott
++own Z csak változatlan közeli XY/scope mellett érvényes; eredeti packet-idő
++nem frissül. Native continuity GAP-ben az örökölt packet-Z sem marad ismert.
++Új process-memory reader, parser vagy capture backend nem került be.
++
++A corpse-approach a same-GUID/same-world szerverpozíciót is felhasználja,
++explicit allow_dead pozíciós opcióval. Ez nem lootjog: a meglévő dead/selected/
++soft-recipient/loot-verifier szerződés marad. Egyszerű UNIT_DIED vagy egy
++koordináta nem hoz létre owned-corpse/loot eligibility bizonyítékot.
++
++## Ellenőrzés és nyitott kapuk
++
++Domén/navigation célzott kör: 228 pass; a regressziójavítás külön 110 pass
++(átfedő körök, nem összeadandók). A tényleges Python MMAP backend kétpolygonos
++formátum-fixture-én is végigment az entity API. Más testek determinisztikus
++geometry API tesztduplát használnak: egyik sem élő/native klienselfogadás.
++
++Végső kijelölt regresszió: **4083 passed, 2 skipped, 10 unchanged deselections, 326 modules, exit 0**, 211.81 s pytest / 214.51 s runner.
++560 source + 635 test Python-fájl AST-ellenőrzött; 203 számozott sor megmarad.
++A 10 korábbi deselection változatlan, a teljes 634 modulos teszttár nem futott.
++[Forrás/diff/parancs/JUnit checkpoint](domain-navigation-handoff-evidence/verification.json).
++
++Az asszisztens nem indított WoW-ot/Ymir-t/capture-t/FULL_AI-t, nem küldött
++kliensinputot és nem írt éles adatbázist. Addon/Ymir változatlan.
++
++Nyitott: új élő entity/loot/route/facing próba; a korábbi 11 facing-hiba teljes
++magyarázata; általános FAST route-requery audit; a main route-query továbbra
++szinkron és cold mesh betöltés alatt az agent lock késleltetheti a vezérlést.
++Külön P4-audit szükséges a hosszú számítás után közvetlenül kiadott command
++forráskorának ellenőrzésére (a tick eleji freshness önmagában nem dispatch-
++pillanatbeli bizonyíték). A nagy Combat/Travel/Quest felelősségbontás, retained
++provider/collection paritás és teljes REV4 M0/M1 elfogadás továbbra is PARTIAL.
+--- before/src/wowbot/agent/active_skill_supervision.py
++++ after/src/wowbot/agent/active_skill_supervision.py
+@@ -30,6 +30,7 @@
+     next_segment_baseline: dict | None = None
+     # Sent on the discrete lane next to a movement lease (CAMERA_GLANCE).
+     side_commands: tuple = ()
++    preserve_navigation: bool = False
+ 
+ 
+ class ActiveSkillSupervisor:
+@@ -55,9 +56,11 @@
+     def step(self, attempt, active_state, world, *, world_observation_id: str,
+              visual_observation_id: str, now: float,
+              segment_baseline: dict | None = None,
+-             reference_reach_interrupt: str | dict | None = None) -> ActiveSkillSupervisionStep:
++             reference_reach_interrupt: str | dict | None = None,
++             allow_route_queries: bool = True) -> ActiveSkillSupervisionStep:
+         skill = attempt.proposal.skill
+         state = world.state
++        route_options = {} if allow_route_queries else {'allow_route_queries':False}
+         if ((getattr(attempt.proposal, 'parameters', None) or {}).get('purpose') == 'CORPSE_RUN'
+                 and state.get('is_ghost') is not True):
+             return self._verified_outcome(
+@@ -78,17 +81,17 @@
+             return self._project(skill, result, state)
+         if skill in {"INTERACT", "TALK"}:
+             return self._interaction(active_state, state, world_observation_id,
+-                                     visual_observation_id, now)
++                                     visual_observation_id, now, **route_options)
+         if skill in {"COMBAT", "DEFEND"}:
+-            return self._combat(active_state, state, world_observation_id, now)
++            return self._combat(active_state, state, world_observation_id, now, **route_options)
+         if skill == "LOOT":
+             context = active_state.skill_context.get("loot", {})
+             runtime_step = (
+                 self.loot_runtime.continue_approach(
+-                    active_state, state, world_observation_id, now)
++                    active_state, state, world_observation_id, now, **route_options)
+                 if context.get("approach_request") else
+                 self.loot_runtime.step_verification(
+-                    active_state, state, world_observation_id, now))
++                    active_state, state, world_observation_id, now, **route_options))
+             if runtime_step.terminal_result is not None:
+                 return self._project(skill, runtime_step.terminal_result, state)
+             return self._runtime(runtime_step, skill, state)
+@@ -221,13 +224,14 @@
+         return ActiveSkillSupervisionStep(**values)
+ 
+     def _interaction(self, active_state, state: dict, world_observation_id: str,
+-                     visual_observation_id: str, now: float) -> ActiveSkillSupervisionStep:
++                     visual_observation_id: str, now: float, *, allow_route_queries=True) -> ActiveSkillSupervisionStep:
++        route_options = {} if allow_route_queries else {'allow_route_queries':False}
+         context = active_state.skill_context.get("interaction", {})
+         approach = context.get("approach_request")
+         if approach:
+             if approach.get("kind") == "WORLD_ENTITY":
+                 return self._runtime(self.interaction_runtime.step_world_entity(
+-                    active_state, state, world_observation_id, now),
++                    active_state, state, world_observation_id, now, **route_options),
+                     active_state.skill_type, state)
+             if approach.get("purpose") == "INTERACT":
+                 return self._runtime(self.interaction_runtime.step_visual(
+@@ -243,21 +247,23 @@
+             return self._runtime(self.interaction_runtime.step_verification(
+                 active_state, state, result,
+                 world_observation_id=world_observation_id,
+-                visual_observation_id=visual_observation_id, now=now),
++                visual_observation_id=visual_observation_id, now=now, **route_options),
+                 active_state.skill_type, state)
+         return self._project(active_state.skill_type, result, state)
+ 
+     def _combat(self, active_state, state: dict, observation_id: str,
+-                now: float) -> ActiveSkillSupervisionStep:
++                now: float, *, allow_route_queries=True) -> ActiveSkillSupervisionStep:
++        from wowbot.skills.navigation_handoff import deadline
++        route_options = {} if allow_route_queries else {'allow_route_queries':False}
+         context = active_state.skill_context.get("combat", {})
+         if context.get("approach_request"):
+             return self._runtime(self.combat_runtime.continue_approach(
+-                active_state, state, observation_id, now),
++                active_state, state, observation_id, now, **route_options),
+                 active_state.skill_type, state)
+         result = self.m0_skills.verify(active_state, state, now)
+         if result.status is SkillStatus.RUNNING:
+             return self._runtime(self.combat_runtime.step_verification(
+-                state, result, observation_id, now),
++                state, result, observation_id, now, deadline=deadline(active_state), **route_options),
+                 active_state.skill_type, state)
+         return self._project(active_state.skill_type, result, state)
+ 
+@@ -277,6 +283,10 @@
+             })
+ 
+     def _runtime(self, step, skill: str, state: dict) -> ActiveSkillSupervisionStep:
++        if getattr(step, 'plan_pending', False):
++            return ActiveSkillSupervisionStep(yield_tick=True, stop_movement=True, preserve_navigation=True,
++                reason='skill_navigation_plan_pending', event_type='SKILL_NAVIGATION_PLAN_PENDING',
++                diagnostics=dict(step.diagnostics))
+         result = step.terminal_result
+         if result is not None:
+             projected = self._project(skill, result, state)
+@@ -287,6 +297,9 @@
+                                     or (result.reason.value.lower() if result.reason
+                                         else "active_skill_runtime_failed"))
+             values["stop_movement"] = bool(getattr(step, "stop_movement", False))
++            if result.metadata.get('navigation_failure'):
++                values['diagnostics'] = {**values['diagnostics'],
++                    'navigation_failure':result.metadata['navigation_failure']}
+             values["dispatch_failure_terminal"] = True
+             values["return_after_terminal"] = True
+             return ActiveSkillSupervisionStep(**values)
+--- before/src/wowbot/agent/engine_control.py
++++ after/src/wowbot/agent/engine_control.py
+@@ -236,7 +236,13 @@
+             stop_movement = getattr(self.executor, "stop_movement", None)
+             if stop_movement:
+                 stop_movement()
+-            self.navigation.cancel_movement()
++            if not supervision.preserve_navigation:
++                self.navigation.cancel_movement()
++        navigation_failure = supervision.diagnostics.get('navigation_failure')
++        if navigation_failure and self.pending is not None:
++            self._record(now, 'SKILL_NAVIGATION_FAILURE_DETAIL', {
++                'action_id':self.pending.action_id, 'skill':self.pending.proposal.skill,
++                **navigation_failure})
+         if supervision.terminal_outcome is not None:
+             self._finish(
+                 supervision.terminal_outcome,
+--- before/src/wowbot/agent/fast_movement_lane.py
++++ after/src/wowbot/agent/fast_movement_lane.py
+@@ -86,6 +86,7 @@
+         # 2026-10-25: Skyriding overshot every heading on 0.3-0.6 s old data).
+         feedback(agent.world, now)
+     WorldPacketReducer.project_flight_feedback(agent.world, state, now)
++    WorldPacketReducer.project_own_navigation(agent.world, state, now)
+     position_plan = getattr(agent.navigation, 'position_plan_pending', None)
+     if callable(position_plan) and position_plan(state, now):
+         agent.command_dispatcher.stop_movement()
+--- before/src/wowbot/agent/movement_controller.py
++++ after/src/wowbot/agent/movement_controller.py
+@@ -274,10 +274,12 @@
+ 
+     def _refresh_object_destination(self, state: dict) -> bool:
+         """Update a moving object's endpoint without replacing the REACH attempt."""
++        if (self.destination or {}).get('entity_route_anchor') is True:
++            return True  # NavigationService owns the corridor; identity/facing remain live.
+         recipient = (self.destination or {}).get("interaction_recipient_guid")
+         if recipient:
+             from .packet_entity_facts import interaction_position
+-            point = interaction_position(state, recipient)
++            point = interaction_position(state, recipient, allow_dead=self.destination.get('allow_dead') is True)
+             if point is None:
+                 return False
+             if ((self.destination or {}).get("interaction_identity_source") == "TARGET"
+--- before/src/wowbot/agent/packet_entity_facts.py
++++ after/src/wowbot/agent/packet_entity_facts.py
+@@ -47,7 +47,7 @@
+ 
+ 
+ 
+-def interaction_position(state: dict, guid) -> dict | None:
++def interaction_position(state: dict, guid, *, allow_dead: bool = False) -> dict | None:
+     """An existing same-instance server actor's position, never an F7 permit.
+ 
+     Static create positions remain valid until removed; a new observation
+@@ -57,8 +57,8 @@
+     value = entity(state, guid)
+     if (value is None or str(value.get("guid")) != str(guid)
+             or value.get("kind") not in {"CREATURE", "VEHICLE", "GAMEOBJECT"}
+-            or value.get("dead", value.get("is_dead")) is True
+-            or value.get("kind") != "GAMEOBJECT" and _unit_flags(value) & UNIT_LOOTABLE):
++            or not allow_dead and (value.get("dead", value.get("is_dead")) is True
++                or value.get("kind") != "GAMEOBJECT" and _unit_flags(value) & UNIT_LOOTABLE)):
+         return None
+     point = best_position(value)
+     player = state.get("player_world_position") or {}
+--- before/src/wowbot/agent/parallel_control.py
++++ after/src/wowbot/agent/parallel_control.py
+@@ -51,7 +51,8 @@
+         """
+         return (self.enabled and attempt.proposal.skill in FAST_SKILLS - {"INSPECT"}
+                 and attempt.action_id == self._last_action
+-                and self.last_reason not in {"movement_ground_approach_pending", "movement_position_acquired_pending"}
++                and self.last_reason not in {"movement_ground_approach_pending", "movement_position_acquired_pending",
++                                             'skill_navigation_plan_pending'}
+                 # The medium caller may have sampled its clock just before
+                 # this fast update. A newer control sample is not stale.
+                 and now < attempt.deadline and self._last_control_at >= now-.25)
+@@ -183,6 +184,8 @@
+             self.attention.clear()
+             self.arbiter.revoke_all(now, "new_attempt")
+         state = control_view(agent.world.state, payload, vision, now)
++        from .world_packet_reducer import WorldPacketReducer
++        WorldPacketReducer.project_own_navigation(agent.world, state, now)
+         self._last_control_at = now
+         frame = (payload.get("fast_sequence"), payload.get("frame_id"),
+                  vision.get("revision") if vision else None)
+@@ -258,10 +261,14 @@
+             source="FAST_CONTROL", payload={}, observation_id=observation_id))
+         step = agent.active_skill_supervisor.step(attempt, agent.active_skill.state, world,
+             world_observation_id=observation_id, visual_observation_id=observation_id, now=now,
+-            segment_baseline=agent._movement_segment_baseline)
++            segment_baseline=agent._movement_segment_baseline, allow_route_queries=False)
+         self.last_reason = step.reason or "active_skill_control"
+         if step.stop_movement:
+             agent.command_dispatcher.stop_movement()
++        if step.yield_tick:
++            self._last_control_at = -1e9
++            self.arbiter.release('LOCOMOTION')
++            return {'consumed':False, 'force_medium':True, 'reason':self.last_reason}
+         if step.terminal_outcome is not None:
+             self.terminal = (attempt.action_id, step)
+             agent.command_dispatcher.stop_movement()
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -817,7 +817,26 @@
+         state["server_mode"] = server_mode_status(
+             reference - last if isinstance(last, (int, float)) else None,
+             len(state.get("packet_entities") or {}))
++        WorldPacketReducer.project_own_navigation(model, state, reference)
++
++    @staticmethod
++    def project_own_navigation(model, state, reference):
++        """The same scoped own-position projection for medium and FAST views."""
++        from .packet_continuity import current
++        if not current(model):
++            point = state.get('player_world_position') or {}
++            if (point.get('source') == 'PACKET_CLIENT_MOVEMENT'
++                    or str(point.get('z_source') or '').startswith('PACKET_')):
++                if point.get('source') == 'PACKET_CLIENT_MOVEMENT':
++                    point = copy(model.addon_state.get('player_world_position') or {})
++                else:
++                    point = copy(point)
++                point.pop('z', None);point.pop('observed_z', None)
++                point.update(z_known=False,z_observed=False,z_source='PACKET_CONTINUITY_GAP')
++                state['player_world_position'] = point
++            return
+         _held_own_height(model, state)
++        nav = model.__dict__.get('_packet_navigation')
+         if not nav:
+             return
+         context = _context(model, model.addon_state, nav["context"]["selected_pid"])
+@@ -825,11 +844,12 @@
+                 or state.get("loading") or state.get("player_present") is False):
+             model.__dict__.pop("_packet_navigation", None)
+             return
+-        addon_sample = number(model.addon_state.get("monotonic_time"))
++        point = state.get('player_world_position') or {}
++        addon_sample = number(point.get('sample_time', model.addon_state.get("monotonic_time")))
+         if addon_sample is not None and addon_sample >= nav["sampled_at"]:
+             return  # newer addon position/heading wins; never restamp an old packet
+         body = nav["body"]
+-        position = copy(model.addon_state.get("player_world_position") or {})
++        position = copy(point)
+         position.update({k: body[k] for k in ("x", "y", "z")})
+         position.update(coordinate_space="WORLD_YARDS", source="PACKET_CLIENT_MOVEMENT",
+                         instance_id=context["instance_id"],
+--- before/src/wowbot/navigation/entity_goal.py
++++ after/src/wowbot/navigation/entity_goal.py
+@@ -0,0 +1,36 @@
++"""Resolve the position of an explicit entity goal without changing its identity."""
++from wowbot.value_helpers import number
++from wowbot.runtime.entity_identity import check_entity_identity
++from wowbot.runtime.skill_identity import sample_fresh
++
++
++def resolve(destination, state, now):
++    if destination.get('entity_goal') is not True:
++        return dict(destination)
++    guid = destination.get('interaction_recipient_guid') or destination.get('target_guid')
++    if not guid:
++        return None
++    if destination.get('interaction_identity_source') != 'SOFT_INTERACT':
++        target = state.get('target') or {}
++        if not check_entity_identity({'guid':guid}, target) or not sample_fresh(state, 'target', now):
++            return None
++        if target.get('dead', target.get('is_dead')) and not destination.get('allow_dead'):
++            return None
++    if destination.get('server_entity_guid'):
++        from wowbot.agent.packet_entity_facts import interaction_position
++        point = interaction_position(state, guid, allow_dead=destination.get('allow_dead') is True)
++    else:
++        point = (state.get('target') or {}).get('world_position')
++    if not isinstance(point, dict) or any(number(point.get(k)) is None for k in ('x','y')):
++        return None
++    instance = (state.get('player_world_position') or {}).get('instance_id')
++    if point.get('instance_id') is not None and instance is not None and str(point['instance_id']) != str(instance):
++        return None
++    result = {**destination, 'x':point['x'], 'y':point['y'], 'instance_id':point.get('instance_id')}
++    z = number(point.get('z'))
++    if z is not None and point.get('z_known') is not False and point.get('source') != 'UNIT_POSITION':
++        result.update(z=z, z_known=True, layer_z=z)
++    else:
++        result.pop('z', None);result.pop('layer_z', None)
++        result['z_known'] = False
++    return result
+--- before/src/wowbot/navigation/navigation_combat.py
++++ after/src/wowbot/navigation/navigation_combat.py
+@@ -85,7 +85,8 @@
+ 
+     def reposition_for_los(self, state: dict, entity_ref: str | None,
+                            observation_id: str, now: float, *,
+-                           desired_range: float = 4.5) -> dict | None:
++                           desired_range: float = 4.5, defer_plan: bool = False,
++                           deadline: float | None = None) -> dict | None:
+         """Start the final, geometry-backed LOS recovery through this service.
+ 
+         No screen pixel is converted into a world position.  A same-instance,
+@@ -95,40 +96,20 @@
+         """
+         expected = world_entity_id(entity_ref)
+         target = state.get("target") or {}
+-        player = state.get("player_world_position") or {}
+-        position = target.get("world_position") or {}
+         if (not expected or str(target.get("guid") or "") != expected
+                 or target.get("dead", target.get("is_dead"))
+                 or target.get("attackable", target.get("is_attackable")) is not True):
+             return None
+-        sampled = number(position.get("sample_time", target.get("sample_time", state.get("target_sample_time"))))
+-        state_at = number(state.get("monotonic_time"))
+-        state_at = now if state_at is None else state_at
+-        if sampled is not None and not 0. <= state_at-sampled <= 1.5:
++        destination = self._resolve_entity_destination(state, expected, now, stop_distance=desired_range)
++        if deadline is not None:
++            deadline = number(deadline)
++            if deadline is None:
++                return None
++        if destination is None or deadline is not None and now >= deadline:
+             return None
+-        px, py = number(player.get("x")), number(player.get("y"))
+-        tx, ty = number(position.get("x")), number(position.get("y"))
+-        if None in {px, py, tx, ty}:
+-            return None
+-        player_instance = player.get("instance_id")
+-        target_instance = position.get("instance_id")
+-        if (player_instance is not None and target_instance is not None
+-                and player_instance != target_instance):
+-            return None
+-        destination = {
+-            "target_guid": expected, "purpose": "LOS_REPOSITION",
+-            "coordinate_space": "WORLD_YARDS", "x": tx, "y": ty,
+-            "z": number(position.get("z")) or 0.,
+-            "instance_id": target_instance, "world_map_id": target_instance,
+-            "stop_distance": float(desired_range), "allow_combat": True,
+-        }
+-        request = NavigationRequest(
+-            request_id=f"los:{observation_id}", correlation_id=observation_id,
+-            mode="REPOSITION_FOR_LOS", destination=destination,
+-            target_entity_id=expected,
+-            arrival=ArrivalEnvelope(desired_range=float(desired_range)),
+-            allow_combat=True, priority=90, timeout=2.5)
+-        self.start_request(request, state, now)
++        destination.update(purpose='LOS_REPOSITION', entity_goal=True, allow_combat=True, require_navmesh=True)
++        self._start_entity_request(destination, state, observation_id, now, defer_plan=defer_plan,
++            deadline=min(deadline,now+2.5) if deadline is not None else now+2.5, mode='REPOSITION_FOR_LOS')
+         return destination
+ 
+     def record_los_exhaustion(self, entity_ref: str | None, state: dict,
+--- before/src/wowbot/navigation/service.py
++++ after/src/wowbot/navigation/service.py
+@@ -83,6 +83,8 @@
+         self._request_started_at: float | None = None
+         self._position_wait: dict | None = None
+         self._position_trace: dict | None = None
++        self._deferred_request: NavigationRequest | None = None
++        self._deferred_scope: tuple | None = None
+         self._active_route: GlobalRoute | None = None
+         self._active_corridor: PathCorridor | None = None
+         self._latest_local_plan: LocalMotionPlan | None = None
+@@ -131,6 +133,7 @@
+         self._request_started_at = None
+         self._position_wait = None
+         self._position_trace = None
++        self._deferred_request = self._deferred_scope = None
+         self._active_route = None
+         self._active_corridor = None
+         self._latest_local_plan = None
+@@ -153,6 +156,7 @@
+             self._navmesh.close()
+ 
+     def cancel_movement(self) -> None:
++        self._deferred_request = self._deferred_scope = None
+         if self._position_wait is not None and self._position_trace is not None:
+             self._position_trace['phase'] = 'CANCELLED'
+         self.trip.cancel('navigation_cancelled')
+@@ -223,6 +227,7 @@
+     def start_request(self, request: NavigationRequest, state: dict, now: float, *,
+                       continuing: bool = False) -> None:
+         """Accept one typed request and delegate all control to the existing controller."""
++        self._deferred_request = self._deferred_scope = None
+         self.trip.start(request, now, continuing=continuing)
+         self.trip.transitions.observe(state, now)
+         if self._position_trace is not None and self._position_trace['request_id'] != request.request_id:
+@@ -232,7 +237,8 @@
+             same = bool(self._position_wait and self._active_request
+                         and self._active_request.request_id == request.request_id)
+             if not same:
+-                self._request_started_at = now
++                if self._active_request is None or self._active_request.request_id != request.request_id:
++                    self._request_started_at = now
+                 self._position_wait = {'started_at': now, 'scope': position_scope(state)}
+                 self._position_trace = {'request_id': request.request_id, 'phase': 'AWAITING_PACKET',
+                     'started_at': now, 'timeout_seconds': min(self.POSITION_ACQUISITION_SECONDS,
+@@ -646,6 +652,16 @@
+             # Navmesh polygon height of this anchor: the layer to arrive on.
+             "layer_z": anchor.get("z") if anchor.get("source") == "TRINITYCORE_MMAP" else None,
+         }
++        if request.destination.get('entity_goal') is True:
++            destination['entity_route_anchor'] = True
++            if destination.get('layer_z') is None:
++                if final and number(request.destination.get('layer_z')) is not None:
++                    destination['layer_z'] = request.destination['layer_z']
++                else:
++                    destination.pop('layer_z', None)
++            if not final:
++                for key in ('server_entity_guid', 'interaction_recipient_guid', 'face_on_arrival'):
++                    destination.pop(key, None)
+         if anchor.get("flight_plan"):
+             destination["flight_plan"] = anchor["flight_plan"]
+             destination["z"] = anchor.get("z")
+@@ -776,7 +792,8 @@
+         A confirmed central obstruction asks for a local replan; it does not
+         infer a fake world-space detour from screen pixels.
+         """
+-        if self._active_request is None or self._route_failure_reason or self._position_wait is not None:
++        if (self._active_request is None or self._route_failure_reason
++                or self._position_wait is not None or self._deferred_request is not None):
+             return None
+         state = self._state_with_navmesh_surface(state)
+         self._danger.observe_hostiles(state, now)
+@@ -811,7 +828,8 @@
+ 
+     def move_to_entity(self, state: dict, entity_ref: str | None, observation_id: str,
+                        now: float, *, stop_distance: float = 4.5,
+-                       allow_dead: bool = False, recipient: str = "TARGET") -> dict | None:
++                       allow_dead: bool = False, recipient: str = "TARGET",
++                       defer_plan: bool = False, deadline: float | None = None) -> dict | None:
+         """Start or refresh one canonical reach attempt for a selected entity.
+ 
+         This is intentionally the only entity-approach entry point.  It
+@@ -820,12 +838,48 @@
+         Callers retain ownership of their skill FSM while this service owns
+         the movement controller and route knowledge.
+         """
++        destination = self._resolve_entity_destination(state, entity_ref, now,
++            stop_distance=stop_distance, allow_dead=allow_dead, recipient=recipient)
++        if deadline is not None:
++            deadline = number(deadline)
++            if deadline is None:
++                return None
++        if destination is None or deadline is not None and now >= deadline:
++            return None
++        destination.update(entity_goal=True, allow_dead=allow_dead)
++        self._start_entity_request(destination, state, observation_id, now,
++                                   defer_plan=defer_plan, deadline=deadline)
++        return destination
++
++    def _start_entity_request(self, destination, state, observation_id, now, *,
++                              defer_plan=False, deadline=None, mode='APPROACH_ENTITY'):
++        allow_combat = bool(destination.get('allow_combat') or state.get('is_in_combat'))
++        request = NavigationRequest(f'entity:{observation_id}', observation_id, mode,
++            dict(destination), target_entity_id=str(destination.get('interaction_recipient_guid')
++                or destination.get('target_guid') or '') or None,
++            arrival=ArrivalEnvelope(desired_range=float(destination.get('stop_distance',4.5))),
++            avoid_combat=bool(destination.get('avoid_combat')) and not allow_combat,
++            allow_combat=allow_combat,
++            priority=90 if mode == 'REPOSITION_FOR_LOS' else 0,
++            timeout=min(self.max_reach_seconds, deadline-now) if deadline is not None else self.max_reach_seconds)
++        if defer_plan:
++            from .position_acquisition import scope
++            self.cancel_movement()
++            self.trip.start(request, now)
++            self._active_request = self._deferred_request = request
++            self._deferred_scope = scope(state)
++            self._request_started_at = now
++        else:
++            self.start_request(request, state, now)
++
++    def _resolve_entity_destination(self, state, entity_ref, now, *, stop_distance=4.5,
++                                    allow_dead=False, recipient='TARGET'):
+         expected = world_entity_id(entity_ref)
+         target = state.get("target") or {}
+         from wowbot.runtime.entity_identity import check_entity_identity
+         from wowbot.agent.packet_entity_facts import interaction_position
+         from wowbot.runtime.skill_identity import check_interaction_recipient, soft_interact, sample_fresh
+-        packet_point = interaction_position(state, expected)
++        packet_point = interaction_position(state, expected, allow_dead=allow_dead)
+         soft = recipient == "SOFT_INTERACT"
+         # The selected Retail UnitPosition may contain a plausible XY but a
+         # frozen/zero height. A current exact same-world server actor supplies
+@@ -849,7 +903,6 @@
+                 "interaction_identity_source": recipient, "require_navmesh": True,
+                 "stop_distance": float(stop_distance),
+             }
+-            self.start(destination, state, observation_id, now)
+             return destination
+         if recipient != "TARGET":
+             return None
+@@ -901,7 +954,6 @@
+             "avoid_combat": bool(target.get("avoid_combat", False)),
+             "allow_combat": bool(target.get("allow_combat", False)),
+         }
+-        self.start(destination, state, observation_id, now)
+         return destination
+ 
+     def _entity_route_identity_matches(self, state: dict, now: float) -> bool:
+@@ -920,7 +972,7 @@
+             from wowbot.agent.packet_entity_facts import interaction_position
+             from wowbot.runtime.entity_identity import check_entity_identity
+             from wowbot.runtime.skill_identity import sample_fresh
+-            if interaction_position(state, server_guid) is None:
++            if interaction_position(state, server_guid, allow_dead=destination.get('allow_dead') is True) is None:
+                 return False
+             # A soft hint may disappear while turning/walking, but the exact
+             # live server actor still owns the route. F7 is checked again on
+@@ -952,6 +1004,60 @@
+ 
+     POSITION_ACQUISITION_SECONDS = 3.
+ 
++    def owned_route_plan_pending(self, state, now):
++        if self._deferred_request is not None or self.position_plan_pending(state, now):
++            return True
++        request = self._active_request
++        if request is None or request.destination.get('entity_goal') is not True or self._route_failure_reason:
++            return False
++        from .entity_goal import resolve
++        point = resolve(request.destination, state, now)
++        return bool(point is not None and math.hypot(point['x']-request.destination['x'],
++            point['y']-request.destination['y'], (number(point.get('z')) or 0.)-
++            (number(request.destination.get('z')) or 0.)) > 2.)
++
++    def resume_owned_route(self, state, now, *, allow_route_queries=True):
++        """The same owned subflow yields heavy planning from FAST to medium."""
++        if self._owned_route_expired(now):
++            self._route_failure_reason = 'movement_safety_deadline'
++            self._deferred_request = self._deferred_scope = None
++            return True
++        pending = self.owned_route_plan_pending(state, now)
++        if pending and not allow_route_queries:
++            return False
++        if self._deferred_request is not None:
++            from .position_acquisition import scope
++            if scope(state) != self._deferred_scope:
++                self._route_failure_reason = 'server_position_probe_context_changed'
++            elif now-self._request_started_at >= self._deferred_request.timeout:
++                self._route_failure_reason = 'movement_safety_deadline'
++            elif not self._entity_route_identity_matches(state, now):
++                self._route_failure_reason = 'target_identity_changed'
++            elif (state.get('loading') or state.get('input_blocked') or state.get('player_present') is False
++                    or state.get('is_dead') or state.get('is_ghost') or state.get('on_taxi')
++                    or state.get('quest_ui_open') or state.get('gossip_open') or state.get('world_map_open')):
++                self._route_failure_reason = 'navigation_plan_interrupted'
++            if self._route_failure_reason:
++                self._deferred_request = self._deferred_scope = None
++                return True
++        request = self._deferred_request or self._active_request
++        if pending and request is not None and not self.position_plan_pending(state, now):
++            from .entity_goal import resolve
++            destination = resolve(request.destination, state, now)
++            if destination is None:
++                self._route_failure_reason = 'target_identity_changed'
++                self._deferred_request = self._deferred_scope = None
++            else:
++                self.start_request(replace(request, destination=destination), state, now, continuing=True)
++        self.resume_position_request(state, now)
++        return True
++
++    def _owned_route_expired(self, now):
++        request = self._active_request
++        return bool(request is not None and request.destination.get('entity_goal') is True
++            and self._request_started_at is not None
++            and now-self._request_started_at >= (request.timeout or self.max_reach_seconds))
++
+     def _position_wait_status(self, state: dict, now: float) -> str | None:
+         if self._position_wait is None:
+             return None
+@@ -962,7 +1068,8 @@
+             return 'server_position_probe_interrupted'
+         request = self._active_request
+         budget = min(self.POSITION_ACQUISITION_SECONDS, request.timeout or self.max_reach_seconds)
+-        if now-self._position_wait['started_at'] >= budget:
++        if (now-self._position_wait['started_at'] >= budget
++                or now-self._request_started_at >= (request.timeout or self.max_reach_seconds)):
+             return 'server_position_probe_timeout'
+         return 'READY' if observed_height(state) is not None else 'WAITING'
+ 
+@@ -984,11 +1091,18 @@
+                                         plan_at=now, plan_failure=self._route_failure_reason)
+ 
+     def _observe_control(self, state: dict, observation_id: str, now: float, *, commanded: bool = True):
++        if self._owned_route_expired(now):
++            self._route_failure_reason = 'movement_safety_deadline'
++        if self._route_failure_reason in {'server_position_probe_context_changed', 'movement_safety_deadline',
++                                          'navigation_plan_interrupted'}:
++            return MovementAssessment(MovementPhase.FAILED, True, False, self._route_failure_reason)
+         if not self._entity_route_identity_matches(state, now):
+             self._route_failure_reason = "target_identity_changed"
+             self._movement.reset()
+             return MovementAssessment(MovementPhase.FAILED, True, False,
+                                       self._route_failure_reason)
++        if self._deferred_request is not None:
++            return MovementAssessment(MovementPhase.NO_PROGRESS_YET, False, False, 'owned_route_plan_pending')
+         position_status = self._position_wait_status(state, now)
+         if position_status is not None:
+             if position_status not in {'READY', 'WAITING'}:
+@@ -1181,7 +1295,7 @@
+                                               self._route_failure_reason)
+                 return MovementAssessment(MovementPhase.MOVING, False, False,
+                                           "route_localization_leg_advanced")
+-            if request is not None and not self._original_goal_within_arrival(state):
++            if request is not None and not self._original_goal_within_arrival(state, now):
+                 self._route_failure_reason = "route_endpoint_outside_arrival_envelope"
+                 self._movement.reset()
+                 return MovementAssessment(MovementPhase.FAILED, True, False,
+@@ -1251,11 +1365,16 @@
+         # key lease until the declarative postcondition is actually observed.
+         return MovementAssessment(MovementPhase.MOVING, False, False, "awaiting_arrival_evidence")
+ 
+-    def _original_goal_within_arrival(self, state: dict) -> bool:
++    def _original_goal_within_arrival(self, state: dict, now: float | None = None) -> bool:
+         """A projected/cropped route endpoint cannot certify a distant POI."""
+         from wowbot.agent.destination_distance import other_level
+         request = self._active_request
+         destination = request.destination
++        if destination.get('entity_goal') is True:
++            from .entity_goal import resolve
++            destination = resolve(destination, state, now if now is not None else number(state.get('monotonic_time')) or 0.)
++            if destination is None:
++                return False
+         if destination.get("coordinate_space") != "WORLD_YARDS":
+             return True
+         player = state.get("player_world_position") or {}
+@@ -1309,6 +1428,8 @@
+         return self._transition_resolver.resolve(signals)
+ 
+     def command(self, state: dict, observation_id: str, now: float):
++        if self._owned_route_expired(now) or self._deferred_request is not None or self.owned_route_plan_pending(state, now):
++            return ()
+         if self._route_failure_reason or ((state.get("movement") or {}).get("falling") is True
+                                           and not self.flight_controls_allowed(state)):
+             return ()
+@@ -1472,6 +1593,7 @@
+         snapshot["z_resolver"] = self._z.snapshot()
+         snapshot["route_danger_revision"] = self._route_danger_revision
+         snapshot["route_failure_reason"] = self._route_failure_reason
++        snapshot['owned_route_plan_pending'] = self._deferred_request is not None
+         snapshot['position_acquisition'] = self._position_acquisition_snapshot()
+         snapshot["player_surface_projection"] = (dict(self._latest_surface_projection)
+                                                    if self._latest_surface_projection else None)
+--- before/src/wowbot/navigation/travel.py
++++ after/src/wowbot/navigation/travel.py
+@@ -168,6 +168,14 @@
+ 
+     def final_arrival_problem(self, state, now, *, resolved_destination=None):
+         request, destination = self.request, self.request.destination
++        if destination.get('entity_goal') is True:
++            from .entity_goal import resolve
++            guid = destination.get('interaction_recipient_guid') or destination.get('target_guid')
++            if not guid or str(guid) != str(request.target_reference):
++                return 'trip_entity_identity_unknown'
++            destination = resolve(destination, state, now)
++            if destination is None:
++                return 'trip_entity_identity_or_position_lost'
+         player = state.get('player_world_position') or {}
+         if (player.get('coordinate_space') != 'WORLD_YARDS'
+                 or player.get('instance_id') != destination['instance_id']
+--- before/src/wowbot/runtime/contracts.py
++++ after/src/wowbot/runtime/contracts.py
+@@ -151,6 +151,8 @@
+         return FailureReason.POSITION_UNCERTAIN
+     if normalized == "SERVER_POSITION_PROBE_CONTEXT_CHANGED":
+         return FailureReason.WRONG_MAP_CONTEXT
++    if normalized in {'TARGET_IDENTITY_CHANGED', 'REACH_OBJECT_IDENTITY_OR_POSITION_LOST'}:
++        return FailureReason.IDENTITY_UNCERTAIN
+     if normalized in {"AMBIGUOUS_PLAYER_LAYER", "AMBIGUOUS_PLAYER_LAYER_AFTER_FALL"}:
+         # Missing floor evidence is recoverable when own movement supplies Z.
+         # It is not a software fault (INTERNAL_ERROR permanently blocks the
+--- before/src/wowbot/skills/combat_runtime.py
++++ after/src/wowbot/skills/combat_runtime.py
+@@ -4,6 +4,7 @@
+ from dataclasses import dataclass, field
+ 
+ from wowbot.runtime import FailureReason, SkillResult, SkillStatus, failure_reason_from_legacy
++from .navigation_handoff import prepare, start_options, failure_detail
+ 
+ 
+ @dataclass(frozen=True)
+@@ -14,6 +15,8 @@
+     event_type: str | None = None
+     diagnostics: dict = field(default_factory=dict)
+     set_segment_baseline: bool = False
++    stop_movement: bool = False
++    plan_pending: bool = False
+ 
+ 
+ class CombatRuntimeRunner:
+@@ -21,37 +24,54 @@
+         self.navigation, self.combat_skill = navigation, combat_skill
+ 
+     def continue_approach(self, active_state, state: dict, observation_id: str,
+-                          now: float) -> CombatRuntimeStep:
++                          now: float, *, allow_route_queries=True) -> CombatRuntimeStep:
+         # This is still the same COMBAT attempt; NavigationService owns the
+         # movement, while the canonical combat FSM exposes the approach phase.
++        preparation = prepare(self.navigation, active_state, state, now, allow_route_queries=allow_route_queries)
++        if preparation.terminal:
++            return CombatRuntimeStep(stop_movement=True, terminal_result=preparation.terminal)
++        if preparation.pending:
++            return CombatRuntimeStep(stop_movement=True, plan_pending=True)
+         if hasattr(active_state, "phase"):
+             active_state.phase = "APPROACH_TARGET"
+         assessment = self.navigation.observe(state, observation_id, now, commanded=True)
+         if assessment.terminal:
++            detail = failure_detail(self.navigation, assessment) if not assessment.success else None
++            movement = self.navigation.movement_snapshot()
+             self.navigation.cancel_movement()
+             if not assessment.success:
+-                return CombatRuntimeStep(terminal_result=SkillResult(
++                return CombatRuntimeStep(stop_movement=True, terminal_result=SkillResult(
+                     SkillStatus.FAILURE, reason=failure_reason_from_legacy(assessment.reason),
+                     retryable=True, replan_required=True,
+-                    metadata={"legacy_reason": assessment.reason}))
++                    metadata={"legacy_reason": assessment.reason, 'navigation_failure':detail}))
+             resumed = self.combat_skill.resume_after_approach(active_state, state, now)
+             if resumed.status is not SkillStatus.RUNNING:
+-                return CombatRuntimeStep(terminal_result=resumed)
++                return CombatRuntimeStep(stop_movement=True, terminal_result=resumed)
++            if resumed.metadata.get('approach_request') or resumed.metadata.get('los_reposition_request'):
++                return self.step_verification(state,resumed,observation_id,now,
++                    allow_route_queries=allow_route_queries,
++                    deadline=getattr(getattr(active_state,'attempt',None),'deadline',None))
+             return CombatRuntimeStep(
+                 tuple(resumed.commands), False, event_type="COMBAT_APPROACH_ARRIVED",
+-                diagnostics={"movement": self.navigation.movement_snapshot()})
++                diagnostics={"movement": movement}, stop_movement=True)
+         return CombatRuntimeStep(
+             tuple(self.navigation.command(state, observation_id, now)), True,
+             event_type="COMBAT_APPROACH_CONTROL_UPDATE",
+             diagnostics={"movement": self.navigation.movement_snapshot()})
+ 
+     def step_verification(self, state: dict, result: SkillResult,
+-                          observation_id: str, now: float) -> CombatRuntimeStep:
++                          observation_id: str, now: float, *, allow_route_queries=True,
++                          deadline=None) -> CombatRuntimeStep:
++        if deadline is not None and now >= deadline:
++            self.navigation.cancel_movement()
++            return CombatRuntimeStep(stop_movement=True, terminal_result=SkillResult(
++                SkillStatus.FAILURE, FailureReason.TIMEOUT, retryable=True, replan_required=True))
+         los_reposition = result.metadata.get("los_reposition_request")
+         if los_reposition:
+             destination = self.navigation.reposition_for_los(
+                 state, los_reposition.get("expected_guid"), observation_id, now,
+-                desired_range=los_reposition.get("stop_distance", 4.5))
++                desired_range=los_reposition.get("stop_distance", 4.5),
++                **start_options(allow_route_queries=allow_route_queries, end=deadline))
+             if destination is None:
+                 return CombatRuntimeStep(terminal_result=SkillResult(
+                     SkillStatus.FAILURE, reason=FailureReason.LINE_OF_SIGHT,
+@@ -63,12 +83,14 @@
+                 event_type="COMBAT_LOS_REPLAN_STARTED",
+                 diagnostics={"destination": destination,
+                              "navigation_mode": "REPOSITION_FOR_LOS"},
+-                set_segment_baseline=True)
++                set_segment_baseline=True, stop_movement=not allow_route_queries,
++                plan_pending=not allow_route_queries)
+         approach = result.metadata.get("approach_request")
+         if approach:
+             destination = self.navigation.move_to_entity(
+                 state, approach.get("expected_guid"), observation_id, now,
+-                stop_distance=approach.get("stop_distance", 3.5))
++                stop_distance=approach.get("stop_distance", 3.5),
++                **start_options(allow_route_queries=allow_route_queries, end=deadline))
+             if destination is None:
+                 return CombatRuntimeStep(terminal_result=SkillResult(
+                     SkillStatus.FAILURE, reason=FailureReason.TARGET_MOVED,
+@@ -77,7 +99,8 @@
+             return CombatRuntimeStep(
+                 tuple(self.navigation.command(state, observation_id, now)), True,
+                 event_type="COMBAT_APPROACH_STARTED",
+-                diagnostics={"destination": destination}, set_segment_baseline=True)
++                diagnostics={"destination": destination}, set_segment_baseline=True,
++                stop_movement=not allow_route_queries, plan_pending=not allow_route_queries)
+         local = result.metadata.get("local_navigation_request")
+         if local:
+             commands = tuple(self.navigation.local_combat_reposition(state, local))
+--- before/src/wowbot/skills/interaction_runtime.py
++++ after/src/wowbot/skills/interaction_runtime.py
+@@ -4,6 +4,7 @@
+ from dataclasses import dataclass, field
+ 
+ from wowbot.runtime import SkillResult, SkillStatus, failure_reason_from_legacy
++from .navigation_handoff import prepare, start_options, failure_detail, deadline
+ 
+ 
+ @dataclass(frozen=True)
+@@ -15,6 +16,7 @@
+     diagnostics: dict = field(default_factory=dict)
+     stop_movement: bool = False
+     set_segment_baseline: bool = False
++    plan_pending: bool = False
+ 
+ 
+ class InteractionRuntimeRunner:
+@@ -26,30 +28,32 @@
+         self.visual_approach_skill = visual_approach_skill
+ 
+     def step_world_entity(self, active_state, world_state: dict,
+-                          observation_id: str, now: float) -> InteractionRuntimeStep:
+-        deadline = getattr(getattr(active_state, "attempt", None), "deadline", None)
+-        if deadline is not None and now >= deadline:
+-            from wowbot.runtime import FailureReason
+-            self.navigation.cancel_movement()
+-            return InteractionRuntimeStep(stop_movement=True, terminal_result=SkillResult(
+-                SkillStatus.FAILURE, FailureReason.TIMEOUT, retryable=True, replan_required=True))
++                          observation_id: str, now: float, *, allow_route_queries=True) -> InteractionRuntimeStep:
++        preparation = prepare(self.navigation, active_state, world_state, now,
++                              allow_route_queries=allow_route_queries)
++        if preparation.terminal:
++            return InteractionRuntimeStep(stop_movement=True, terminal_result=preparation.terminal)
++        if preparation.pending:
++            return InteractionRuntimeStep(stop_movement=True, plan_pending=True)
+         assessment = self.navigation.observe(
+             world_state, observation_id, now, commanded=True)
+         if assessment.terminal:
++            detail = failure_detail(self.navigation, assessment) if not assessment.success else None
++            movement = self.navigation.movement_snapshot()
+             self.navigation.cancel_movement()
+             if not assessment.success:
+-                return InteractionRuntimeStep(terminal_result=SkillResult(
++                return InteractionRuntimeStep(stop_movement=True, terminal_result=SkillResult(
+                     SkillStatus.FAILURE,
+                     reason=failure_reason_from_legacy(assessment.reason),
+                     retryable=True, replan_required=True,
+-                    metadata={"legacy_reason": assessment.reason}))
++                    metadata={"legacy_reason": assessment.reason, 'navigation_failure':detail}))
+             resumed = self.interact_skill.resume_after_approach(active_state, world_state, now=now)
+             if resumed.status is not SkillStatus.RUNNING:
+-                return InteractionRuntimeStep(terminal_result=resumed)
++                return InteractionRuntimeStep(stop_movement=True, terminal_result=resumed)
+             return InteractionRuntimeStep(
+                 commands=tuple(resumed.commands), movement_lane=False,
+                 event_type="INTERACT_APPROACH_ARRIVED",
+-                diagnostics={"movement": self.navigation.movement_snapshot()})
++                diagnostics={"movement": movement}, stop_movement=True)
+         commands = tuple(self.navigation.command(world_state, observation_id, now))
+         return InteractionRuntimeStep(
+             commands=commands, movement_lane=True,
+@@ -85,13 +89,20 @@
+             diagnostics={"visual_approach": self.visual_approach_skill.snapshot(active_state)})
+ 
+     def start_approach(self, active_state, world_state: dict, observation_id: str,
+-                       now: float, request: dict) -> InteractionRuntimeStep:
++                       now: float, request: dict, *, allow_route_queries=True) -> InteractionRuntimeStep:
++        end = deadline(active_state)
++        if end is not None and now >= end:
++            from wowbot.runtime import FailureReason
++            self.navigation.cancel_movement()
++            return InteractionRuntimeStep(stop_movement=True, terminal_result=SkillResult(
++                SkillStatus.FAILURE,FailureReason.TIMEOUT,retryable=True,replan_required=True))
+         if request.get("kind") == "WORLD_ENTITY":
+             recipient = ({"recipient": "SOFT_INTERACT"}
+                          if request.get("recipient") == "SOFT_INTERACT" else {})
+             destination = self.navigation.move_to_entity(
+                 world_state, request.get("expected_guid"), observation_id, now,
+-                stop_distance=request.get("stop_distance", 4.5), **recipient)
++                stop_distance=request.get("stop_distance", 4.5), **recipient,
++                **start_options(active_state, allow_route_queries=allow_route_queries))
+             if destination is None:
+                 from wowbot.runtime import FailureReason
+                 return InteractionRuntimeStep(terminal_result=SkillResult(
+@@ -101,7 +112,8 @@
+             return InteractionRuntimeStep(
+                 commands=tuple(self.navigation.command(world_state, observation_id, now)),
+                 movement_lane=True, event_type="INTERACT_APPROACH_STARTED",
+-                diagnostics={"destination": destination}, set_segment_baseline=True)
++                diagnostics={"destination": destination}, set_segment_baseline=True,
++                stop_movement=not allow_route_queries, plan_pending=not allow_route_queries)
+         if self.visual_approach_skill is None:
+             return InteractionRuntimeStep(terminal_result=SkillResult(
+                 SkillStatus.FAILURE, replan_required=True, metadata={'reason': 'visual_capability_disabled'}))
+@@ -126,12 +138,13 @@
+ 
+     def step_verification(self, active_state, world_state: dict, result: SkillResult,
+                           *, world_observation_id: str, visual_observation_id: str,
+-                          now: float) -> InteractionRuntimeStep:
++                          now: float, allow_route_queries=True) -> InteractionRuntimeStep:
+         request = result.metadata.get("approach_request")
+         if request:
+             observation_id = (world_observation_id if request.get("kind") == "WORLD_ENTITY"
+                               else visual_observation_id)
+-            return self.start_approach(active_state, world_state, observation_id, now, request)
++            return self.start_approach(active_state, world_state, observation_id, now, request,
++                                       allow_route_queries=allow_route_queries)
+         face_request = result.metadata.get("local_face_request")
+         if face_request:
+             faced = self.navigation.face_entity(
+--- before/src/wowbot/skills/loot.py
++++ after/src/wowbot/skills/loot.py
+@@ -120,6 +120,8 @@
+         if (not corpse_guid or str(target.get("guid") or "") != str(corpse_guid)
+                 or target.get("dead", target.get("is_dead")) is not True):
+             return None
++        from wowbot.agent.packet_entity_facts import interaction_position
++        position = interaction_position(world_state, corpse_guid, allow_dead=True) or position
+         if None in {number(player.get("x")), number(player.get("y")),
+                     number(position.get("x")), number(position.get("y"))}:
+             return None
+--- before/src/wowbot/skills/loot_runtime.py
++++ after/src/wowbot/skills/loot_runtime.py
+@@ -4,6 +4,7 @@
+ from dataclasses import dataclass, field
+ 
+ from wowbot.runtime import FailureReason, SkillResult, SkillStatus, failure_reason_from_legacy
++from .navigation_handoff import prepare, start_options, failure_detail, deadline
+ 
+ 
+ @dataclass(frozen=True)
+@@ -14,6 +15,8 @@
+     event_type: str | None = None
+     diagnostics: dict = field(default_factory=dict)
+     set_segment_baseline: bool = False
++    stop_movement: bool = False
++    plan_pending: bool = False
+ 
+ 
+ class LootRuntimeRunner:
+@@ -27,28 +30,40 @@
+         self.navigation, self.loot_skill = navigation, loot_skill
+ 
+     def continue_approach(self, active_state, state: dict, observation_id: str,
+-                          now: float) -> LootRuntimeStep:
++                          now: float, *, allow_route_queries=True) -> LootRuntimeStep:
++        preparation = prepare(self.navigation, active_state, state, now, allow_route_queries=allow_route_queries)
++        if preparation.terminal:
++            return LootRuntimeStep(stop_movement=True, terminal_result=preparation.terminal)
++        if preparation.pending:
++            return LootRuntimeStep(stop_movement=True, plan_pending=True)
+         assessment = self.navigation.observe(state, observation_id, now, commanded=True)
+         if assessment.terminal:
++            detail = failure_detail(self.navigation, assessment) if not assessment.success else None
++            movement = self.navigation.movement_snapshot()
+             self.navigation.cancel_movement()
+             if not assessment.success:
+-                return LootRuntimeStep(terminal_result=SkillResult(
++                return LootRuntimeStep(stop_movement=True, terminal_result=SkillResult(
+                     SkillStatus.FAILURE, reason=failure_reason_from_legacy(assessment.reason),
+                     retryable=True, replan_required=True,
+-                    metadata={"legacy_reason": assessment.reason}))
++                    metadata={"legacy_reason": assessment.reason, 'navigation_failure':detail}))
+             resumed = self.loot_skill.resume_after_approach(active_state, state)
+             if resumed.status is not SkillStatus.RUNNING:
+-                return LootRuntimeStep(terminal_result=resumed)
++                return LootRuntimeStep(stop_movement=True, terminal_result=resumed)
+             return LootRuntimeStep(
+                 tuple(resumed.commands), False, event_type="LOOT_APPROACH_ARRIVED",
+-                diagnostics={"movement": self.navigation.movement_snapshot()})
++                diagnostics={"movement": movement}, stop_movement=True)
+         return LootRuntimeStep(
+             tuple(self.navigation.command(state, observation_id, now)), True,
+             event_type="LOOT_APPROACH_CONTROL_UPDATE",
+             diagnostics={"movement": self.navigation.movement_snapshot()})
+ 
+     def step_verification(self, active_state, state: dict, observation_id: str,
+-                          now: float) -> LootRuntimeStep:
++                          now: float, *, allow_route_queries=True) -> LootRuntimeStep:
++        end = deadline(active_state)
++        if end is not None and now >= end:
++            self.navigation.cancel_movement()
++            return LootRuntimeStep(stop_movement=True, terminal_result=SkillResult(
++                SkillStatus.FAILURE,FailureReason.TIMEOUT,retryable=True,replan_required=True))
+         result = self.loot_skill.verify(active_state, state, now)
+         if result.status is not SkillStatus.RUNNING:
+             return LootRuntimeStep(terminal_result=result)
+@@ -61,7 +76,8 @@
+             return LootRuntimeStep()
+         destination = self.navigation.move_to_entity(
+             state, approach.get("corpse_guid"), observation_id, now,
+-            stop_distance=approach.get("stop_distance", 3.5), allow_dead=True)
++            stop_distance=approach.get("stop_distance", 3.5), allow_dead=True,
++            **start_options(active_state, allow_route_queries=allow_route_queries))
+         if destination is None:
+             return LootRuntimeStep(terminal_result=SkillResult(
+                 SkillStatus.FAILURE, reason=FailureReason.CORPSE_NOT_FOUND,
+@@ -70,4 +86,5 @@
+         return LootRuntimeStep(
+             tuple(self.navigation.command(state, observation_id, now)), True,
+             event_type="LOOT_APPROACH_STARTED",
+-            diagnostics={"destination": destination}, set_segment_baseline=True)
++            diagnostics={"destination": destination}, set_segment_baseline=True,
++            stop_movement=not allow_route_queries, plan_pending=not allow_route_queries)
+--- before/src/wowbot/skills/navigation_handoff.py
++++ after/src/wowbot/skills/navigation_handoff.py
+@@ -0,0 +1,41 @@
++"""Shared subflow boundary; the active skill and NavigationService keep ownership."""
++from dataclasses import dataclass
++
++from wowbot.runtime import FailureReason, SkillResult, SkillStatus
++from wowbot.value_helpers import number
++
++
++def deadline(active):
++    return number(getattr(getattr(active, 'attempt', None), 'deadline', None))
++
++
++@dataclass(frozen=True)
++class ApproachPreparation:
++    pending: bool = False
++    terminal: SkillResult | None = None
++
++
++def prepare(navigation, active, state, now, *, allow_route_queries=True):
++    end = deadline(active)
++    if end is not None and now >= end:
++        navigation.cancel_movement()
++        return ApproachPreparation(terminal=SkillResult(SkillStatus.FAILURE, FailureReason.TIMEOUT,
++            retryable=True, replan_required=True, metadata={'legacy_reason':'movement_safety_deadline'}))
++    resume = getattr(navigation, 'resume_owned_route', None)
++    if callable(resume) and not resume(state, now, allow_route_queries=allow_route_queries):
++        return ApproachPreparation(pending=True)
++    return ApproachPreparation()
++
++
++def start_options(active=None, *, allow_route_queries=True, end=None):
++    options = {} if allow_route_queries else {'defer_plan':True}
++    end = deadline(active) if end is None else end
++    if end is not None:
++        options['deadline'] = end
++    return options
++
++
++def failure_detail(navigation, assessment):
++    movement = navigation.movement_snapshot()
++    return {'reason':assessment.reason, **{key:movement.get(key) for key in
++        ('phase','steering_mode','final_facing','latest_sample','control_updates','position_acquisition')}}
+--- before/tests/test_agent_core.py
++++ after/tests/test_agent_core.py
+@@ -959,8 +959,9 @@
+ def test_loot_range_recovery_keeps_the_same_canonical_attempt_until_corpse_arrival():
+     value, exe = agent()
+     corpse = {"guid": "corpse-range", "dead": True, "attackable": True,
+-              "world_position": {"x": 110., "y": 100., "z": 3., "instance_id": 2175}}
+-    player = {"x": 100., "y": 100., "z": 3., "instance_id": 2175}
++              "world_position": {"x": 110., "y": 100., "z": 3., "instance_id": 2175,
++                                 "coordinate_space": "WORLD_YARDS"}}
++    player = {"x": 100., "y": 100., "z": 3., "instance_id": 2175, "coordinate_space": "WORLD_YARDS"}
+     value.tick(state(1, target=corpse, loot_pending=True, player_world_position=player), 1.)
+     assert value.pending and value.pending.proposal.skill == "LOOT"
+     action_id = value.pending.action_id
+--- before/tests/test_combat_range_handoff_20261030.py
++++ after/tests/test_combat_range_handoff_20261030.py
+@@ -164,13 +164,17 @@
+ 
+ 
+ def test_server_recipient_reach_refreshes_the_same_guid_instead_of_freezing_its_start_pose():
+-    world=state();nav=NavigationService()
++    from test_domain_navigation_handoff_20261030 import navigation
++    world=state();world['player_world_position']['z_observed']=True
++    nav,_=navigation()
+     nav.move_to_entity(world,GUID,'moving',10.)
+     moved=deepcopy(world)
+     moved['packet_entities'][GUID]['position'].update(x=12.,y=3.,z=11.)
+-    assert nav._movement._refresh_object_destination(moved)
+-    point=nav._movement.destination
++    assert nav.owned_route_plan_pending(moved,10.)
++    assert nav.resume_owned_route(moved,10.,allow_route_queries=False) is False
++    nav.resume_owned_route(moved,10.)
++    point=nav._active_request.destination
+     assert (point['x'],point['y'],point['z'],point['layer_z'])==(12.,3.,11.,11.)
+     assert point['server_entity_guid']==GUID
+     moved['packet_entities'][GUID]['removed']=True
+-    assert not nav._movement._refresh_object_destination(moved)
++    assert not nav._entity_route_identity_matches(moved,10.)
+--- before/tests/test_domain_navigation_handoff_20261030.py
++++ after/tests/test_domain_navigation_handoff_20261030.py
+@@ -0,0 +1,309 @@
++"""Shared entity routing, real FSM handoff and own-pose projection; no OS input."""
++from copy import deepcopy
++import math
++from types import SimpleNamespace
++
++import pytest
++
++from wowbot.agent.active_skill_supervision import ActiveSkillSupervisor
++from wowbot.agent.models import Outcome, Proposal
++from wowbot.agent.world_packet_reducer import WorldPacketReducer
++from wowbot.navigation.mmap_navmesh import NavMeshPath
++from wowbot.navigation.service import NavigationService
++from wowbot.runtime import FailureReason, SkillResult, SkillStatus
++from wowbot.skills.combat_runtime import CombatRuntimeRunner
++from wowbot.skills.interaction_runtime import InteractionRuntimeRunner
++from wowbot.skills.loot import LootSkill
++from wowbot.skills.loot_runtime import LootRuntimeRunner
++from test_m0_combat_loot_skills import active
++
++GUID='Creature-0-1469-0-29720-50039-000064C1B0'
++
++
++class Geometry:
++    """Deterministic geometry API test double, not native/live path evidence."""
++    revision='test-geometry'
++    def __init__(self): self.calls=[]
++    def find_path(self, instance, start, end):
++        self.calls.append((instance,deepcopy(start),deepcopy(end)))
++        points=[dict(start),{'x':(start['x']+end['x'])/2,'y':end['y']+2.,'z':end['z']},dict(end)]
++        anchors=tuple({**p,'coordinate_space':'WORLD_YARDS','instance_id':instance,
++                       'source':'TRINITYCORE_MMAP','z_known':True} for p in points)
++        return NavMeshPath(anchors,3,1,sum(math.dist((a['x'],a['y'],a['z']),
++            (b['x'],b['y'],b['z'])) for a,b in zip(anchors,anchors[1:])))
++
++
++def navigation():
++    geometry=Geometry()
++    return NavigationService(navmesh=geometry),geometry
++
++
++def world(at=10., *, dead=False):
++    return {'session_id':'domain-test','character_guid':'Player-1','monotonic_time':at,
++        'target_sample_time':at,'orientation':0.,'movement':{'falling':False,'flying':False},
++        'target':{'guid':GUID,'dead':dead,'attackable':not dead,'world_position':False},
++        'player_world_position':{'x':0.,'y':0.,'z':10.,'z_known':True,'z_observed':True,
++            'coordinate_space':'WORLD_YARDS','instance_id':0,'sample_time':at},
++        'packet_entities':{GUID:{'guid':GUID,'kind':'CREATURE','map_id':0,'entry_id':50039,'dead':dead,
++            'position':{'x':15.,'y':0.,'z':10.,'source':'PACKET_CREATE_MOVEMENT'}}}}
++
++
++def runtime_active(skill, state):
++    return active(skill,{'guid':GUID},state,deadline=30.)
++
++
++def approach_result(skill):
++    request=({'kind':'WORLD_CORPSE','corpse_guid':GUID} if skill=='LOOT'
++             else {'kind':'WORLD_ENTITY' if skill=='INTERACT' else 'WORLD_COMBAT','expected_guid':GUID})
++    return SkillResult(SkillStatus.RUNNING,metadata={'approach_request':{**request,'stop_distance':3.5}})
++
++
++def test_entity_api_queries_shared_geometry_and_preserves_the_corridor_waypoint():
++    nav,geo=navigation();state=world()
++    destination=nav.move_to_entity(state,GUID,'owned',10.,stop_distance=3.5)
++    assert geo.calls and nav._active_request.mode=='APPROACH_ENTITY'
++    assert destination['entity_goal'] is True and destination['require_navmesh'] is True
++    assert nav._active_request.target_entity_id==GUID and nav._active_route.regions[0]['route_source']=='TRINITYCORE_MMAP'
++    waypoint=deepcopy(nav._movement.destination)
++    assert waypoint['x']==7.5 and waypoint['y']==2. and waypoint['entity_route_anchor']
++    assert nav._movement._refresh_object_destination(state)
++    assert (nav._movement.destination['x'],nav._movement.destination['y'])==(7.5,2.)
++    assert waypoint.get('face_on_arrival') is not True  # intermediate corners never face the final actor
++
++
++@pytest.mark.parametrize('skill',['COMBAT','INTERACT','LOOT'])
++def test_every_domain_defers_fast_planning_then_medium_resumes_the_same_attempt(skill):
++    state=world(dead=skill=='LOOT');nav,geo=navigation();running=runtime_active(skill,state)
++    result=approach_result(skill)
++    dummy=SimpleNamespace(verify=lambda *a:result,resume_after_approach=lambda *a,**k:SkillResult(SkillStatus.RUNNING))
++    if skill=='COMBAT':
++        runner=CombatRuntimeRunner(nav,dummy)
++        step=runner.step_verification(state,result,'fast',10.,allow_route_queries=False,deadline=30.)
++        continuing=runner.continue_approach
++    elif skill=='INTERACT':
++        runner=InteractionRuntimeRunner(nav,dummy)
++        step=runner.step_verification(running,state,result,world_observation_id='fast',
++            visual_observation_id='v',now=10.,allow_route_queries=False)
++        continuing=runner.step_world_entity
++    else:
++        runner=LootRuntimeRunner(nav,dummy)
++        step=runner.step_verification(running,state,'fast',10.,allow_route_queries=False)
++        continuing=runner.continue_approach
++    assert step.plan_pending and step.stop_movement and not step.commands and geo.calls==[]
++    assert nav._deferred_request is nav._active_request and nav._active_request.timeout==20.
++    retry_count=running.local_retry_count
++    assert continuing(running,state,'fast-again',10.1,allow_route_queries=False).plan_pending
++    assert geo.calls==[] and running.local_retry_count==retry_count
++    step=continuing(running,state,'medium',10.2)
++    assert not step.plan_pending and step.movement_lane and len(geo.calls)==1
++    assert nav._deferred_request is None and nav._request_started_at==10. and nav.trip.started_at==10.
++    assert running.local_retry_count==retry_count and running.attempt.deadline==30.
++
++
++@pytest.mark.parametrize('skill',['COMBAT','INTERACT','LOOT'])
++def test_domain_original_deadline_expires_before_a_queued_path_query(skill):
++    state=world(dead=skill=='LOOT');nav,geo=navigation();running=runtime_active(skill,state)
++    nav.move_to_entity(state,GUID,'queued',10.,allow_dead=skill=='LOOT',defer_plan=True,deadline=30.)
++    dummy=SimpleNamespace()
++    runner=({'COMBAT':CombatRuntimeRunner,'INTERACT':InteractionRuntimeRunner,'LOOT':LootRuntimeRunner}[skill])(nav,dummy)
++    continue_=runner.step_world_entity if skill=='INTERACT' else runner.continue_approach
++    step=continue_(running,world(30.,dead=skill=='LOOT'),'expired',30.)
++    assert step.terminal_result.reason is FailureReason.TIMEOUT and step.stop_movement
++    assert geo.calls==[] and nav._deferred_request is None and not step.commands
++
++
++@pytest.mark.parametrize('change',['target','map','session','loading','ui'])
++def test_queued_query_rechecks_current_identity_scope_and_input_state(change):
++    state=world();nav,geo=navigation()
++    nav.move_to_entity(state,GUID,'queued',10.,defer_plan=True,deadline=30.)
++    current=world(10.2)
++    if change=='target':current['target']['guid']='other-guid'
++    elif change=='map':current['player_world_position']['instance_id']=1
++    elif change=='session':current['session_id']='next-session'
++    elif change=='loading':current['loading']=True
++    else:current['quest_ui_open']=True
++    nav.resume_owned_route(current,10.2)
++    assert geo.calls==[] and nav._deferred_request is None
++    assert nav.observe(current,'bad-context',10.2).terminal and nav.command(current,'no-input',10.2)==()
++
++
++def test_manual_cancel_discards_pending_query_and_late_data_cannot_restart_it():
++    nav,geo=navigation();state=world()
++    nav.move_to_entity(state,GUID,'queued',10.,defer_plan=True)
++    nav.cancel_movement();nav.resume_owned_route(world(10.2),10.2)
++    assert geo.calls==[] and nav._active_request is None and nav._deferred_request is None
++
++
++def test_moving_actor_replans_in_medium_and_trip_arrival_resolves_the_same_guid():
++    nav,geo=navigation();nav.move_to_entity(world(),GUID,'moving',10.,stop_distance=3.5)
++    original_goal=nav.trip.request.destination
++    moving=world(10.3);moving['packet_entities'][GUID]['position']['x']=25.
++    old_waypoint=deepcopy(nav._movement.destination)
++    assert not nav.resume_owned_route(moving,10.3,allow_route_queries=False)
++    assert len(geo.calls)==1 and nav._movement.destination==old_waypoint
++    nav.resume_owned_route(moving,10.3)
++    assert len(geo.calls)==2 and geo.calls[-1][2]['x']==25.
++    assert nav.trip.request.destination==original_goal and nav.trip.started_at==10.
++    moving['player_world_position']['x']=23.
++    assert nav.trip.final_arrival_problem(moving,10.3) is None
++    moving['player_world_position']['x']=13.
++    assert nav.trip.final_arrival_problem(moving,10.3)=='trip_original_goal_not_reached'
++    moving['target']['guid']='different-spawn-same-entry'
++    assert nav.trip.final_arrival_problem(moving,10.3)=='trip_entity_identity_or_position_lost'
++
++
++def test_loot_uses_server_corpse_position_without_promoting_it_to_loot_eligibility():
++    from wowbot.agent.packet_entity_facts import interaction_position
++    state=world(dead=True)
++    assert interaction_position(state,GUID) is None
++    assert interaction_position(state,GUID,allow_dead=True)['x']==15.
++    assert LootSkill._world_approach_request(state,GUID)['corpse_guid']==GUID
++    nav,geo=navigation();nav.move_to_entity(state,GUID,'corpse',10.,allow_dead=True)
++    assert geo.calls and nav._active_request.destination['allow_dead'] is True
++    assert 'owned_corpse_guids' not in state and 'lootable' not in state['target']
++    assert 'loot_eligible' not in nav._active_request.destination
++
++
++def test_los_query_uses_exact_server_position_and_the_same_deferred_navigation_boundary():
++    nav,geo=navigation();state=world();state['is_in_combat']=True
++    point=nav.reposition_for_los(state,GUID,'los',10.,defer_plan=True,deadline=30.)
++    assert point['z']==10. and point['require_navmesh'] is True and geo.calls==[]
++    assert nav._active_request.mode=='REPOSITION_FOR_LOS' and nav._active_request.timeout==2.5
++    nav.resume_owned_route(world(10.2),10.2)
++    assert geo.calls and nav._request_started_at==10.
++    calls=len(geo.calls)
++    nav.resume_owned_route(world(12.6),12.6)
++    assert len(geo.calls)==calls and nav.observe(world(12.6),'expired-los',12.6).reason=='movement_safety_deadline'
++    assert nav.command(world(12.6),'no-late-input',12.6)==()
++
++
++def test_supervisor_fast_handoff_does_not_verify_twice_or_consume_another_retry():
++    from test_active_skill_supervision import Verification, Registry
++    nav,geo=navigation();state=world();running=runtime_active('COMBAT',state);calls=[]
++    def verify(active_,current,now):
++        calls.append(now);running.local_retry_count+=1
++        result=approach_result('COMBAT')
++        running.skill_context['combat']={'approach_request':result.metadata['approach_request']}
++        return result
++    skill=SimpleNamespace(verify=verify)
++    supervisor=ActiveSkillSupervisor(m0_skills=skill,verification_engine=Verification(),
++        interaction_runtime=None,combat_runtime=CombatRuntimeRunner(nav,SimpleNamespace()),
++        loot_runtime=None,registry=Registry())
++    attempt=SimpleNamespace(proposal=Proposal.make('COMBAT','test'))
++    view=SimpleNamespace(state=state)
++    step=supervisor.step(attempt,running,view,world_observation_id='fast',
++        visual_observation_id='v',now=10.,allow_route_queries=False)
++    assert step.yield_tick and step.stop_movement and step.reason=='skill_navigation_plan_pending'
++    assert geo.calls==[] and calls==[10.]
++    supervisor.step(attempt,running,view,world_observation_id='medium',visual_observation_id='v',now=10.2)
++    assert len(geo.calls)==1 and calls==[10.] and running.local_retry_count==1
++
++
++def test_parallel_control_requests_medium_without_movement_or_a_new_attempt(monkeypatch):
++    from test_parallel_control import setup, control_sample
++    from wowbot.agent.active_skill_supervision import ActiveSkillSupervisionStep
++    agent,executor=setup('COMBAT');action=agent.pending.action_id;calls=[]
++    def step(*args,**kwargs):
++        calls.append(kwargs['allow_route_queries'])
++        return ActiveSkillSupervisionStep(yield_tick=True,stop_movement=True,reason='skill_navigation_plan_pending')
++    monkeypatch.setattr(agent.active_skill_supervisor,'step',step)
++    payload,vision=control_sample(agent,10.04,1)
++    result=agent.parallel_control.tick(payload,10.04,vision,10.04)
++    assert result['force_medium'] and result['reason']=='skill_navigation_plan_pending'
++    assert calls==[False] and not agent.parallel_control.drives(agent.pending,10.04)
++    assert agent.pending.action_id==action and executor.stops
++    assert all(command.kind=='POINTER' for command in executor.commands)  # compatible attention remains active
++
++
++def test_unknown_mesh_cannot_silently_become_direct_server_approach():
++    nav=NavigationService(navmesh=False)
++    nav.move_to_entity(world(),GUID,'no-mesh',10.)
++    failure=nav.observe(world(10.1),'checked',10.1)
++    assert failure.terminal and not failure.success
++    assert failure.reason=='required_navmesh_route_unavailable' and nav.command(world(),'no-input',10.1)==()
++
++
++def test_fast_view_recovers_held_server_height_after_addon_xy_overlay(bridge):
++    from test_packet_agent_bridge import deliver
++    from test_packet_codecs import decoded
++    from wowbot.agent.parallel_view import control_view
++    deliver(bridge,decoded()[-1])
++    payload={'session_id':'live-s','monotonic_time':11.,'player_world_position':{
++        'x':10.6,'y':-20.2,'instance_id':2175,'coordinate_space':'WORLD_YARDS',
++        'source':'C_MAP_PLAYER_WORLD_POS','sample_time':11.,'z_known':False}}
++    view=control_view(bridge.world.state,payload,None,11.)
++    assert view['player_world_position'].get('z_observed') is not True
++    before=deepcopy(bridge.world.addon_state)
++    WorldPacketReducer.project_own_navigation(bridge.world,view,11.)
++    assert view['player_world_position']['z']==31.75 and view['player_world_position']['z_observed'] is True
++    assert view['player_world_position']['sample_time']==11.  # actual addon XY clock, no fake new packet
++    assert bridge.world.__dict__['_packet_last_own']['sampled_at']==10.
++    assert bridge.world.addon_state==before
++
++
++def test_explicit_probe_handoff_releases_input_without_erasing_the_owned_request():
++    from test_parallel_control import setup
++    from wowbot.agent.active_skill_supervision import ActiveSkillSupervisionStep
++    agent,executor=setup('COMBAT');nav=agent.navigation
++    nav.move_to_entity(world(),GUID,'owned',10.,defer_plan=True)
++    request=nav._deferred_request
++    yielded=ActiveSkillSupervisionStep(yield_tick=True,stop_movement=True,preserve_navigation=True,
++        reason='skill_navigation_plan_pending')
++    assert agent._apply_active_supervision(yielded,10.1)
++    assert executor.stops and nav._deferred_request is request
++    # An ordinary stop still cancels; only the explicit handoff preserves it.
++    agent._apply_active_supervision(ActiveSkillSupervisionStep(stop_movement=True,yield_tick=True),10.2)
++    assert nav._deferred_request is None
++
++
++@pytest.mark.parametrize('skill',['COMBAT','INTERACT','LOOT'])
++def test_nested_navigation_failure_retains_cause_and_releases_physical_movement(skill):
++    nav=NavigationService(navmesh=False);state=world(dead=skill=='LOOT')
++    running=runtime_active(skill,state)
++    nav.move_to_entity(state,GUID,'unavailable',10.,allow_dead=skill=='LOOT')
++    dummy=SimpleNamespace()
++    runner=({'COMBAT':CombatRuntimeRunner,'INTERACT':InteractionRuntimeRunner,'LOOT':LootRuntimeRunner}[skill])(nav,dummy)
++    step=(runner.step_world_entity if skill=='INTERACT' else runner.continue_approach)(running,state,'failed',10.1)
++    assert step.stop_movement and step.terminal_result.reason is FailureReason.PATH_BLOCKED
++    detail=step.terminal_result.metadata['navigation_failure']
++    assert detail['reason']=='required_navmesh_route_unavailable'
++    assert 'packet_entities' not in detail and 'global_route' not in detail
++    assert nav._active_request is None
++
++
++def test_own_height_projection_does_not_cross_a_native_continuity_gap(bridge):
++    from test_packet_agent_bridge import deliver
++    from test_packet_codecs import decoded
++    deliver(bridge,decoded()[-1])
++    bridge.world.session_context_provider=SimpleNamespace(continuity_generation=2,capture_epoch='new',
++        process=SimpleNamespace(generation='new-process',selected_pid=77),expected=lambda pid:None)
++    state={'player_world_position':{'x':10.5,'y':-20.25,'z_known':False,'instance_id':2175}}
++    WorldPacketReducer.project_own_navigation(bridge.world,state,10.2)
++    assert state['player_world_position'].get('z_observed') is not True and 'z' not in state['player_world_position']
++    held={'player_world_position':{'x':10.5,'y':-20.25,'z':31.75,'z_observed':True,'z_known':True,
++        'source':'C_MAP_PLAYER_WORLD_POS','z_source':'PACKET_CLIENT_MOVEMENT_HELD','instance_id':2175}}
++    WorldPacketReducer.project_own_navigation(bridge.world,held,10.2)
++    assert held['player_world_position']['z_observed'] is False and 'z' not in held['player_world_position']
++
++
++def test_entity_api_uses_the_actual_python_mmap_backend_on_a_real_tile_layout(tmp_path):
++    from test_mmap_navmesh import _map_header, _tile
++    from wowbot.navigation.mmap_navmesh import TrinityMMapNavMesh
++    (tmp_path/'2175.mmap').write_bytes(_map_header())
++    (tmp_path/'2175_32_36.mmtile').write_bytes(_tile())
++    geometry=TrinityMMapNavMesh(tmp_path);nav=NavigationService(navmesh=geometry)
++    state=world()
++    guid=GUID.replace('-0-29720-','-2175-29720-')
++    state['packet_entities'][guid]=state['packet_entities'].pop(GUID)
++    state['packet_entities'][guid]['guid']=guid
++    state['target']['guid']=guid
++    state['player_world_position'].update(x=-449.7,y=-2614.,z=0.,instance_id=2175)
++    state['packet_entities'][guid]['map_id']=2175
++    state['packet_entities'][guid]['position'].update(x=-448.3,y=-2614.,z=0.)
++    nav.move_to_entity(state,guid,'mmap-entity',10.,stop_distance=.2)
++    assert geometry.last_diagnostics['reason']=='route_found'
++    assert nav._active_route.regions[0]['route_source']=='TRINITYCORE_MMAP'
++    assert nav._active_request.destination['z']==0. and nav._active_request.target_entity_id==guid
++
++
++from test_packet_agent_bridge import bridge  # fixture; synthetic authenticated IPC only
+--- before/tests/test_interact_packet_range_20261022.py
++++ after/tests/test_interact_packet_range_20261022.py
+@@ -84,11 +84,13 @@
+     result = skill.verify(running, after, 100.3)
+     nav = NavigationService()
+     starts = []
+-    nav.start = lambda destination, *args: starts.append(destination)
++    nav.start_request = lambda request, *args: starts.append(request)
+     nav.command = lambda *args: ()
+     step = InteractionRuntimeRunner(nav, skill).step_verification(
+         running, after, result, world_observation_id="range", visual_observation_id="v", now=100.3)
+-    destination, = starts
++    request, = starts
++    assert request.mode == 'APPROACH_ENTITY' and request.target_entity_id == GUID
++    destination = request.destination
+     assert step.event_type == "INTERACT_APPROACH_STARTED" and step.movement_lane
+     assert destination["server_entity_guid"] == GUID and destination["require_navmesh"] is True
+     assert destination["z"] == 36.5990 and not destination.get("target_guid")
+--- before/tests/test_navigation_service.py
++++ after/tests/test_navigation_service.py
+@@ -98,10 +98,14 @@
+     assert service.move_to_entity(live, "npc-1", "obs-1", 1.) is not None
+     moved = {**live, "target": {"guid": "npc-1",
+                                  "world_position": {"x": 23., "y": 16., "instance_id": 4}}}
++    request_id = service._active_request.request_id
++    assert service.owned_route_plan_pending(moved, 1.2)
++    service.resume_owned_route(moved, 1.2)  # medium owner replans the same entity goal
+     assessment = service.observe(moved, "obs-2", 1.2)
+     assert not assessment.terminal
+     destination = service.movement_snapshot()["destination"]
+     assert (destination["x"], destination["y"]) == (23., 16.)
++    assert service._active_request.request_id == request_id and service._request_started_at == 1.
+ 
+ 
+ def test_move_to_entity_allows_confirmed_corpse_only_for_loot_callers():

@@ -1,0 +1,8 @@
+{
+  "path": "native\\WowPacketParser\\WowPacketParserModule.V12_0_0_65390\\Parsers\\UpdateFieldsHandler1215.cs",
+  "sha256": "a628276266a46838fa8f1383fe8507dafb5ac78d10479c9fc70c0cd3cf4590b2",
+  "scope": "70340 own PlayerData VALUES QuestLog prefix; reviewed sizes/masks only",
+  "slot_count": 175,
+  "objective_storage_count": 24,
+  "live_validated": false
+}

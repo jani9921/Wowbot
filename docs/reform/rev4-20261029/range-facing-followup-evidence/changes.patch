@@ -1,0 +1,634 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,19 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P5/P7 range/facing follow-up — **OFFLINE_TESTED / full
++ownership migration PARTIAL**. Mobility opener range no longer becomes the
++sustained rotation's approach radius; ranged envelopes remain distinct from
++melee defaults and do not permit spells. Three existing entity-pose helpers
++have one pure canonical implementation with exact old reexports. Final facing
++uses pure source/GUID/map assessment; missing identity/position cannot fall
++back to an old request point or silently re-arm a terminal attempt. Bounded
++terminal failure geometry/last-command diagnostics persist beyond image-ring
++limits. Existing screen-space FaceController is preserved byte-for-byte.
++Selected regression: **4015 passed, 2 skipped, 10 unchanged deselections, 324
++modules, exit 0**, 163.87 s pytest; 557 source + 633 test Python files parse,
++203 rows unchanged. Eleven recorded live facing failures are not all declared
++fixed. No assistant live input/capture/database writes, addon/Ymir unchanged.
++See [follow-up and checkpoint](reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md).
+ 
+ 2026-10-30 REV4 P7 combat range handoff — **OFFLINE_TESTED / remaining combat
+ and facing gaps PARTIAL**. User trace shows OUT_OF_RANGE only 0.14 s after
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,23 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — sustained range/facing follow-up (offline)
++
++Charge's former ~20 yd recovery radius is replaced by the non-mobility
++rotation range; known ranged envelopes remain available, no spell is allowed
++by geometry alone. Pure canonical pose/facing helpers preserve one authority.
++Unknown/removed/wrong-GUID/world actor cannot silently use a stale point for
++turning. Typed identity loss is terminal until explicit restart; a bounded
++NAVIGATION_FAILURE_DETAIL records exact geometry, sample and recent commands.
++The existing screen-space FaceController was restored byte-identically after
++an initial import collision. A positive old test fixture now supplies its
++required initial actor; the new negative test preserves fail-closed semantics.
++
++Final selected regression: **4015 passed, 2 skipped, 10 unchanged deselections**,
++324 modules, 163.87 s pytest / 166.87 s runner, exit 0; 557 source + 633 test
++Python files parse, all 203 rows persist. No assistant game/capture/FULL_AI/
++input/live DB write; no new live acceptance. The recorded eleven facing
++failures and dialog/route-floor cases are not all declared solved.
++[Details/checkpoint](reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md).
+ 
+ ## 2026-10-30 — longer user run: session/navmesh observed; combat handoff fixed offline
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3999 passed, 2 skipped, 10 változatlan deselection, 323 modul, exit 0.
++Végső kijelölt regresszió: 4015 passed, 2 skipped, 10 változatlan deselection, 324 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -67,6 +67,12 @@
+ és üres addon targetpozíció esetén a meglévő exact szerverpozíciót használja.
+ A többi ráfordulási/dialog hiba nincs ettől lezárva.
+ 
++A [range/facing follow-up](P7_RANGE_FACING_FOLLOWUP.md) a sustained támadási
++távot külön kezeli a mobility openerétől, a három tiszta entity-pose helper
++egy canonical implementációba került, és a végső facinghez GUID/map/reason
++vizsgálat és bounded terminal diagnostics tartozik. Ez nem a teljes mozgó
++entity-goal/floor migráció és nem minden élő facing-hiba igazolt javítása.
++
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+ késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+@@ -108,14 +114,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3999 passed, 2 skipped, 10 deselected; 323 modul; 229.76 s; exit 0** |
++| Végső kijelölt regresszió | **4015 passed, 2 skipped, 10 deselected; 324 modul; 163.87 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 553 source + 632 tests Python-fájl; 631 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 557 source + 633 tests Python-fájl; 632 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 631 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 632 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md
++++ after/docs/reform/rev4-20261029/P7_RANGE_FACING_FOLLOWUP.md
+@@ -0,0 +1,59 @@
++# REV4 P5/P7 — sustained range, canonical facing és hibanyom
++
++2026-10-30. A [korábbi Charge/range javítás](P7_COMBAT_RANGE_HANDOFF.md)
++folytatása, ugyanabban a kijelölt `projekt` mappában. Offline ellenőrzött;
++új élő elfogadás nincs.
++
++A CombatSkill a Charge 25-yardos maximumából 20-yardos `desired_range` értéket
++hagyott a recovery-contextben. Ez a következő közelítéskor már túl nagy volt
++Slam/Shield Slam számára. A canonical `combat.positioning.range` most a
++nem-movement rotáció kívánt távolságát választja. Ismert pozitív caster-
++envelope megmarad (30 → 24 yd); ismeretlen/0 envelope mellett a meglévő
++3.5 yd-es alapérték marad. Charge miatt nem hátrál ki és a geometriai cél
++nem jogosít spellt: a friss usability/range/cooldown/binding kapuk változatlanok.
++
++Az `entity`, `best_position`, `travel_position` tényleges tiszta implementációi
++`entity_spatial.py`-ba kerültek, a régi module ugyanazokat az objektumokat
++exportálja. Három AST-törzs változatlan, nincs párhuzamos state-owner.
++Ez a megtalált fájlszintű migráció kis, tényleges felelősségbontása.
++
++A ReachMovementController végső bearing-számítása a tiszta
++`navigation.facing_geometry` modult használja. Explicit kérési pont,
++selected GUID és szerver-entitás külön forrás. Hiányzó/eltávolított/eltérő GUID
++vagy hiányzó/eltérő szervertérkép nem válik a régi kérési pont felé küldött
++vak fordulássá. Identitás-/pozícióvesztéskor typed terminal eredmény jön,
++nem 2.5–8 s elteltével általános `facing_failed`; új megfigyelés önmagában
++nem élesíti újra, explicit indítás kell.
++
++A controller továbbra is az egyetlen fizikai mozgás-owner. A geometria nem
++nyom gombot és nem hosszabbít retry budgetet. A meglévő screen-space
++`FaceController` byte-változatlan maradt. Egy kezdeti fájlnévütközést az import-
++teszt fogott; ezt a rögzített checkpointból javítottuk, az új geometria külön
++fájlt kapott. Az egyetlen későbbi széles teszthiba pozitív fixture-e még a
++saját server actor nélkül indított, majd később csendben visszaélesített.
++A pozitív próba most a szükséges actorral indul, a külön negatív próba igazolja,
++hogy hiányzó identitás esetén valóban megáll és nem indul újra magától.
++
++Minden sikertelen mozgás lezárásakor egy bounded `NAVIGATION_FAILURE_DETAIL`
++mentődik a meglévő naplóba: action ID, valódi ok, phase, steering, utolsó
++sample, exact facing geometry és legfeljebb 6 korábbi fordulóparancs. Nem
++másolja az összes entitást/corridort/waypointot minden tickben. A 180 képes
++capture-limit után is megvizsgálható lesz, kapott-e koordinátát, milyen szögre
++akart fordulni és volt-e kimenő turn-utasítás.
++
++Célzott körök: sustained-range/combat 109 pass; facing/navigation 98 pass
++(átfedések, nem összeadandók). Végső kijelölt regresszió: **4015 passed,
++2 skipped, 10 változatlan deselection, 324 modul, exit 0**, pytest 163.87 s /
++runner 166.87 s. Mind az 557 source és 633 test Python-fájl AST-je érvényes;
++a 632 testmodulból a kijelölt 324 futott. A 203 számozott sor megmaradt.
++
++[Forrás/diff/parancs/JUnit checkpoint](range-facing-followup-evidence/verification.json).
++A korábbi checkpointok változatlanul megmaradtak. Az asszisztens nem indított
++játékot/capture-t/FULL_AI-t, nem küldött inputot, nem írt éles adatbázist.
++Addon/Ymir változatlan.
++
++Az élő 11 ráfordulási hiba mindegyikének oka nincs bizonyítva; a nem változó
++heading és a parancs-/pose-/entity-állapot pontos viszonyát az új részletes
++terminális nyom teszi ellenőrizhetővé. A dialog-, route-envelope-, addon
++unit-pozíció és teljes entity-goal/floor konzisztencia további auditot igényel.
++A teljes Combat/Travel/Quest migráció és retained provider-paritás nem zárult le.
+--- before/src/wowbot/agent/movement_controller.py
++++ after/src/wowbot/agent/movement_controller.py
+@@ -134,6 +134,7 @@
+         self.face_started_at: float | None = None
+         self.face_progress_at: float | None = None
+         self.face_best_error: float | None = None
++        self.face_geometry: dict | None = None
+         self._interaction_forward_pose: tuple | None = None
+         # One running jump per no-progress episode (user 2026-10-02: Space
+         # often clears a small obstacle).  Cleared when progress resumes.
+@@ -396,37 +397,10 @@
+     FACE_MIN_DISTANCE_YARDS = 1.
+ 
+     def _arrival_facing_error(self, state: dict) -> tuple[float, float] | None:
+-        """Unsmooth world bearing to the actor, not the last projected waypoint."""
+-        destination = self.destination or {}
+-        point = destination.get("face_towards") or destination
+-        guid, entities = destination.get("server_entity_guid"), state.get("packet_entities")
+-        if guid and isinstance(entities, dict):
+-            from .packet_entity_facts import best_position
+-            entity = entities.get(str(guid))
+-            if not isinstance(entity, dict) or entity.get("removed"):
+-                return None
+-            point = best_position(entity)
+-            if point is None:
+-                return None
+-        elif destination.get("target_guid"):
+-            target = state.get("target") or {}
+-            if str(target.get("guid") or "") != str(destination["target_guid"]):
+-                return None
+-            point = target.get("world_position")
+-            if not isinstance(point, dict):
+-                return None
+-        position = self._position(state)
+-        x, y, facing = number(point.get("x")), number(point.get("y")), number(state.get("orientation"))
+-        instance = point.get("instance_id")
+-        player_instance = (state.get("player_world_position") or {}).get("instance_id")
+-        if (position is None or None in (x, y, facing)
+-                or not all(math.isfinite(value) for value in (x, y, facing))
+-                or (instance is not None and player_instance is not None
+-                    and str(instance) != str(player_instance))):
+-            return None
+-        dx, dy = x-position[0], y-position[1]
+-        error = (math.atan2(dy, dx)-facing+math.pi) % math.tau - math.pi
+-        return math.hypot(dx, dy), error
++        from wowbot.navigation.facing_geometry import assess
++        assessment=assess(self.destination or {},state,self._position(state))
++        self.face_geometry=assessment.snapshot()
++        return ((assessment.distance,assessment.error) if assessment.reason=='KNOWN' else None)
+ 
+     OTHER_LEVEL_YARDS = 12.
+ 
+@@ -461,6 +435,12 @@
+         if self.face_started_at is None:
+             self.face_started_at = now
+         geometry = self._arrival_facing_error(state)
++        face_reason=(self.face_geometry or {}).get('reason')
++        if geometry is None and face_reason in {
++                'ENTITY_UNKNOWN_OR_REMOVED','ENTITY_POSITION_UNKNOWN','SELECTED_IDENTITY_CHANGED',
++                'WORLD_UNKNOWN','WORLD_MISMATCH'}:
++            self.phase=MovementPhase.FAILED
++            return MovementAssessment(self.phase,True,False,'reach_object_identity_or_position_lost')
+         if geometry is not None and (self.face_best_error is None or abs(geometry[1]) < self.face_best_error-.05):
+             self.face_best_error = abs(geometry[1])
+             self.face_progress_at = now
+@@ -496,7 +476,8 @@
+             # medium skill tick records this failure. Never re-arm W until an
+             # explicit start(). ARRIVED retains its evidence-update behavior.
+             return MovementAssessment(self.phase, True, False, self.terminal_reason)
+-        if self.terminal_reason == "facing_failed" and self.phase is MovementPhase.FAILED:
++        if (self.terminal_reason in {"facing_failed","reach_object_identity_or_position_lost"}
++                and self.phase is MovementPhase.FAILED):
+             return MovementAssessment(self.phase, True, False, self.terminal_reason)
+         assessment = self._observe_once(state, observation_id, now, commanded=commanded)
+         if assessment.terminal and self.destination:
+@@ -1140,6 +1121,9 @@
+                 "final_facing": {"started_at": self.face_started_at,
+                                  "last_progress_at": self.face_progress_at,
+                                  "best_error_radians": self.face_best_error,
++                                 "geometry": dict(self.face_geometry) if self.face_geometry else None,
++                                 "last_command_at": self.last_command_at,
++                                 "recent_commands": list(self.command_history)[-6:],
+                                  "no_progress_timeout_seconds": self.FACE_ON_ARRIVAL_SECONDS,
+                                  "total_budget_seconds": self.FACE_ON_ARRIVAL_MAX_SECONDS},
+                 "no_progress_span_seconds": round(
+--- before/src/wowbot/agent/navigation_terminal.py
++++ after/src/wowbot/agent/navigation_terminal.py
+@@ -54,6 +54,16 @@
+                     self.navigation.cancel_movement()
+                     recovery_succeeded = True
+         elif outcome == Outcome.FAILURE:
++            if skill in MOVEMENT_SKILLS:
++                snapshotter=getattr(self.navigation,'movement_snapshot',None)
++                movement=snapshotter() if callable(snapshotter) else {}
++                # Preserve a bounded terminal trace even when the live image
++                # ring is full. No entire corridor/entity collection is saved.
++                events.append(('NAVIGATION_FAILURE_DETAIL',{
++                    'action_id':attempt.action_id,'skill':skill,'reason':reason,
++                    'phase':movement.get('phase'),'steering_mode':movement.get('steering_mode'),
++                    'final_facing':movement.get('final_facing'),'latest_sample':movement.get('latest_sample'),
++                    'control_updates':movement.get('control_updates')}))
+             if skill in ENTITY_SKILLS and failure_reason in REACHABILITY_FAILURES:
+                 self.navigation.report_entity_failure(guid, failure_reason.value, now)
+             if skill == "COMBAT" and failure_reason is FailureReason.LINE_OF_SIGHT:
+--- before/src/wowbot/agent/packet_entity_facts.py
++++ after/src/wowbot/agent/packet_entity_facts.py
+@@ -17,12 +17,9 @@
+ import re
+ 
+ from .models import number
+-
+-
+-def entity(state: dict, guid) -> dict | None:
+-    entities = state.get("packet_entities")
+-    value = entities.get(str(guid or "")) if isinstance(entities, dict) and guid else None
+-    return value if isinstance(value, dict) and not value.get("removed") else None
++from wowbot.entity_spatial import entity, best_position, travel_position
++
++
+ 
+ 
+ def quest_marker(state: dict, guid, *, max_age: float | None = None) -> dict | None:
+@@ -46,35 +43,8 @@
+     return None if marker is None else bool(marker.get("quest_available"))
+ 
+ 
+-def best_position(value: dict) -> dict | None:
+-    """Spline estimate when moving, else the last server position."""
+-    position = value.get("position") if isinstance(value, dict) else None
+-    if not isinstance(position, dict):
+-        return None
+-    point = position.get("estimate") or position
+-    if any(number(point.get(axis)) is None for axis in ("x", "y", "z")):
+-        return None
+-    return {"x": point["x"], "y": point["y"], "z": point["z"], "coordinate_space": "WORLD_YARDS",
+-            "instance_id": value.get("map_id"), "z_known": True,
+-            "source": position.get("source"), "age": position.get("age")}
+-
+-
+-def travel_position(value: dict) -> dict | None:
+-    """Where a moving unit is going (its spline's end), else ``best_position``.
+-
+-    Live 2026-10-25 10:57:25-10:57:41 (Westward Bound): Bjorn ran ~6 yd/s to
+-    the next camp; walking at his interpolated point re-planned the turn-in
+-    walk every second.  The server's spline end is where he will stand."""
+-    point = best_position(value)
+-    position = value.get("position") if isinstance(value, dict) else None
+-    destination = position.get("destination") if isinstance(position, dict) else None
+-    estimate = position.get("estimate") if isinstance(position, dict) else None
+-    if (point is None or not isinstance(destination, dict) or not isinstance(estimate, dict)
+-            or estimate.get("arrived") is True
+-            or any(number(destination.get(axis)) is None for axis in ("x", "y", "z"))):
+-        return point
+-    return {**point, "x": destination["x"], "y": destination["y"], "z": destination["z"],
+-            "source": "PACKET_MONSTER_MOVE_DESTINATION"}
++
++
+ 
+ 
+ def interaction_position(state: dict, guid) -> dict | None:
+--- before/src/wowbot/combat/positioning/__init__.py
++++ after/src/wowbot/combat/positioning/__init__.py
+@@ -0,0 +1 @@
++"""Pure combat positioning policy; shared navigation owns movement."""
+--- before/src/wowbot/combat/positioning/range.py
++++ after/src/wowbot/combat/positioning/range.py
+@@ -0,0 +1,25 @@
++"""Desired sustained-attack range, never an ability-in-range permission."""
++from wowbot.value_helpers import number
++
++
++def engagement_range(actions, chosen, *, fallback=3.5):
++    """A mobility opener cannot set the standing rotation's approach radius.
++
++    Prefer the current non-movement action's documented positive envelope;
++    after mobility, use the highest-priority bound offensive rotation action.
++    Absent/zero envelopes keep the existing conservative approach default.
++    Live readiness/range still decides whether any spell may be sent.
++    """
++    if 'MOVEMENT' not in chosen.tags:
++        maximum=chosen.max_range
++    else:
++        candidates=[]
++        for order,action in enumerate(actions):
++            maximum=number(action.get('max_range'))
++            if (action.get('kind')=='spell' and action.get('action')
++                    and action.get('is_harmful') is True
++                    and 'MOVEMENT' not in action.get('tags',())
++                    and maximum is not None and maximum>0):
++                candidates.append((number(action.get('combat_priority')) or 0.,-order,maximum))
++        maximum=max(candidates)[2] if candidates else None
++    return min(35.,max(2.,maximum*.8)) if maximum is not None and maximum>0 else fallback
+--- before/src/wowbot/entity_spatial.py
++++ after/src/wowbot/entity_spatial.py
+@@ -0,0 +1,37 @@
++"""Canonical pure projection of existing scoped entity facts; no input or planner."""
++from .value_helpers import number
++
++
++def entity(state: dict, guid) -> dict | None:
++    entities = state.get("packet_entities")
++    value = entities.get(str(guid or "")) if isinstance(entities, dict) and guid else None
++    return value if isinstance(value, dict) and not value.get("removed") else None
++
++def best_position(value: dict) -> dict | None:
++    """Spline estimate when moving, else the last server position."""
++    position = value.get("position") if isinstance(value, dict) else None
++    if not isinstance(position, dict):
++        return None
++    point = position.get("estimate") or position
++    if any(number(point.get(axis)) is None for axis in ("x", "y", "z")):
++        return None
++    return {"x": point["x"], "y": point["y"], "z": point["z"], "coordinate_space": "WORLD_YARDS",
++            "instance_id": value.get("map_id"), "z_known": True,
++            "source": position.get("source"), "age": position.get("age")}
++
++def travel_position(value: dict) -> dict | None:
++    """Where a moving unit is going (its spline's end), else ``best_position``.
++
++    Live 2026-10-25 10:57:25-10:57:41 (Westward Bound): Bjorn ran ~6 yd/s to
++    the next camp; walking at his interpolated point re-planned the turn-in
++    walk every second.  The server's spline end is where he will stand."""
++    point = best_position(value)
++    position = value.get("position") if isinstance(value, dict) else None
++    destination = position.get("destination") if isinstance(position, dict) else None
++    estimate = position.get("estimate") if isinstance(position, dict) else None
++    if (point is None or not isinstance(destination, dict) or not isinstance(estimate, dict)
++            or estimate.get("arrived") is True
++            or any(number(destination.get(axis)) is None for axis in ("x", "y", "z"))):
++        return point
++    return {**point, "x": destination["x"], "y": destination["y"], "z": destination["z"],
++            "source": "PACKET_MONSTER_MOVE_DESTINATION"}
+--- before/src/wowbot/navigation/facing_geometry.py
++++ after/src/wowbot/navigation/facing_geometry.py
+@@ -0,0 +1,60 @@
++"""Pure final-bearing assessment; no turn, retry, planner or input ownership."""
++from dataclasses import asdict,dataclass
++import math
++
++from wowbot.entity_spatial import best_position
++from wowbot.value_helpers import number
++
++
++@dataclass(frozen=True,slots=True)
++class FacingGeometry:
++    reason: str
++    source: str
++    distance: float | None = None
++    error: float | None = None
++    desired_heading: float | None = None
++    current_heading: float | None = None
++    target_guid: str | None = None
++    target_x: float | None = None
++    target_y: float | None = None
++
++    def snapshot(self):
++        return asdict(self)
++
++
++def assess(destination,state,position):
++    point=destination.get('face_towards') or destination
++    source='REQUEST_POINT'
++    guid=destination.get('server_entity_guid')
++    entities=state.get('packet_entities')
++    if guid:
++        source='SERVER_ENTITY'
++        row=entities.get(str(guid)) if isinstance(entities,dict) else None
++        if (not isinstance(row,dict) or row.get('removed')
++                or row.get('guid') is not None and str(row['guid'])!=str(guid)):
++            return FacingGeometry('ENTITY_UNKNOWN_OR_REMOVED',source,target_guid=str(guid))
++        point=best_position(row)
++        if point is None:
++            return FacingGeometry('ENTITY_POSITION_UNKNOWN',source,target_guid=str(guid))
++    elif destination.get('target_guid'):
++        guid=destination['target_guid'];source='SELECTED_TARGET'
++        target=state.get('target') or {}
++        if str(target.get('guid') or '')!=str(guid):
++            return FacingGeometry('SELECTED_IDENTITY_CHANGED',source,target_guid=str(guid))
++        point=target.get('world_position')
++    if not isinstance(point,dict):
++        return FacingGeometry('POSITION_UNKNOWN',source,target_guid=str(guid) if guid else None)
++    x,y,heading=number(point.get('x')),number(point.get('y')),number(state.get('orientation'))
++    expected=(state.get('player_world_position') or {}).get('instance_id')
++    instance=point.get('instance_id')
++    if source=='SERVER_ENTITY' and (instance is None or expected is None):
++        return FacingGeometry('WORLD_UNKNOWN',source,target_guid=str(guid))
++    if instance is not None and expected is not None and str(instance)!=str(expected):
++        return FacingGeometry('WORLD_MISMATCH',source,target_guid=str(guid) if guid else None)
++    if (position is None or len(position)<2 or None in (x,y,heading)
++            or any(number(v) is None for v in position[:2])):
++        return FacingGeometry('POSE_UNKNOWN',source,target_guid=str(guid) if guid else None)
++    dx,dy=x-position[0],y-position[1]
++    desired=math.atan2(dy,dx)
++    return FacingGeometry('KNOWN',source,math.hypot(dx,dy),
++        (desired-heading+math.pi)%math.tau-math.pi,desired,heading,str(guid) if guid else None,x,y)
+--- before/src/wowbot/skills/combat.py
++++ after/src/wowbot/skills/combat.py
+@@ -594,10 +594,8 @@
+         attempts.append({"spell_id": spell_id, "binding": action.get("action"), "at": now})
+         del attempts[:-24]
+         definition = self.ability_rules.definition(action)
+-        context["desired_range"] = (
+-            min(self.RANGE_SAFE_MAX,
+-                max(self.RANGE_SAFE_MIN, definition.max_range * .80))
+-            if definition.max_range is not None else 3.5)
++        from wowbot.combat.positioning.range import engagement_range
++        context["desired_range"] = engagement_range(self.ability_rules.actionbar(world_state),definition)
+         context["ability_attempt"] = self.error_correlation.start(
+             world_state, now,
+             ability_id=action.get("id", action.get("spell_id")),
+--- before/tests/test_combat_range_handoff_20261030.py
++++ after/tests/test_combat_range_handoff_20261030.py
+@@ -100,3 +100,31 @@
+     result=skill.begin(running,world,10.)
+     assert result.commands[0].binding=='ACTIONBUTTON3'
+     assert 'approach_request' not in result.metadata
++
++
++def test_charge_max_range_does_not_become_the_followup_melee_approach_radius():
++    world=state(10.,charge=True)
++    skill=CombatSkill();running=active('COMBAT',{'guid':GUID},world,deadline=30.)
++    result=skill.begin(running,world,10.)
++    assert result.commands[0].binding=='ACTIONBUTTON2'
++    assert running.skill_context['combat']['desired_range']==3.5
++    outside=state(11.);outside.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    request=skill.verify(running,outside,11.).metadata['approach_request']
++    assert request['stop_distance']==3.5  # never the opener's former 25*.8=20
++
++
++def test_mobility_opener_keeps_a_ranged_rotation_range_instead_of_forcing_melee():
++    from wowbot.combat.positioning.range import engagement_range
++    skill=CombatSkill()
++    charge=next(a for a in skill.ability_rules.actionbar(state()) if a['id']==100)
++    ranged={'id':77,'kind':'spell','action':'ACTIONBUTTON4','is_harmful':True,
++            'max_range':30.,'combat_priority':100.}
++    assert engagement_range([charge,ranged],skill.ability_rules.definition(charge))==24.
++
++
++def test_range_policy_does_not_turn_zero_or_unbound_spells_into_ranged_attack_authority():
++    from wowbot.combat.positioning.range import engagement_range
++    skill=CombatSkill();actions=skill.ability_rules.actionbar(state())
++    charge=next(a for a in actions if a['id']==100)
++    assert engagement_range([*actions,{'kind':'spell','max_range':40.,'is_harmful':True}],
++                            skill.ability_rules.definition(charge))==3.5
+--- before/tests/test_navigation_facing_geometry_20261030.py
++++ after/tests/test_navigation_facing_geometry_20261030.py
+@@ -0,0 +1,112 @@
++"""Canonical bearing geometry and bounded terminal evidence; no client input."""
++import ast
++from dataclasses import asdict
++from pathlib import Path
++from types import SimpleNamespace
++import math
++
++import pytest
++
++from wowbot import entity_spatial
++from wowbot.agent import packet_entity_facts
++from wowbot.agent.models import Outcome
++from wowbot.agent.navigation_terminal import NavigationTerminalProcessor
++from wowbot.navigation.facing_geometry import assess
++from wowbot.runtime import FailureReason
++from test_server_arrival_facing_20261021 import ready_controller,enter_facing,seen
++
++GUID='Creature-0-1-2444-1-7-00000001'
++
++
++def world():
++    return {'orientation':0.,'player_world_position':{'instance_id':2444},
++            'packet_entities':{GUID:{'guid':GUID,'map_id':2444,
++                'position':{'x':2.,'y':3.,'z':100.,'source':'PACKET_CREATE_MOVEMENT'}}}}
++
++
++def test_entity_pose_helpers_are_one_canonical_implementation_without_agent_dependency():
++    for name in ('entity','best_position','travel_position'):
++        assert getattr(packet_entity_facts,name) is getattr(entity_spatial,name)
++    nodes=ast.parse(Path(entity_spatial.__file__).read_text(encoding='utf-8')).body
++    for node in nodes:
++        if isinstance(node,ast.ImportFrom):assert 'agent' not in (node.module or '')
++
++
++def test_current_server_spline_estimate_controls_bearing_not_old_nav_anchor():
++    state=world();state['packet_entities'][GUID]['position']['estimate']={'x':0.,'y':5.,'z':100.}
++    result=assess({'x':10.,'y':0.,'server_entity_guid':GUID},state,(0.,0.))
++    assert result.reason=='KNOWN' and result.source=='SERVER_ENTITY'
++    assert result.distance==5. and result.error==pytest.approx(math.pi/2)
++    assert result.target_guid==GUID and (result.target_x,result.target_y)==(0.,5.)
++
++
++@pytest.mark.parametrize('change,reason',[
++    ('no-list','ENTITY_UNKNOWN_OR_REMOVED'),('missing','ENTITY_UNKNOWN_OR_REMOVED'),
++    ('foreign-key','ENTITY_UNKNOWN_OR_REMOVED'),('removed','ENTITY_UNKNOWN_OR_REMOVED'),
++    ('no-position','ENTITY_POSITION_UNKNOWN'),('wrong-map','WORLD_MISMATCH'),('no-map','WORLD_UNKNOWN')])
++def test_unknown_identity_or_world_never_uses_an_old_request_point_for_turning(change,reason):
++    state=world()
++    if change=='no-list':state.pop('packet_entities')
++    elif change=='missing':state['packet_entities'].clear()
++    elif change=='foreign-key':state['packet_entities'][GUID]['guid']='other'
++    elif change=='removed':state['packet_entities'][GUID]['removed']=True
++    elif change=='no-position':state['packet_entities'][GUID].pop('position')
++    elif change=='no-map':state['packet_entities'][GUID].pop('map_id')
++    else:state['packet_entities'][GUID]['map_id']=1
++    result=assess({'x':10.,'y':0.,'server_entity_guid':GUID},state,(0.,0.))
++    assert result.reason==reason and result.error is None
++
++
++def test_explicit_point_and_selected_identity_keep_separate_contracts():
++    state=world()
++    assert assess({'face_towards':{'x':0.,'y':3.}},state,(0.,0.)).error==math.pi/2
++    state['target']={'guid':'selected','world_position':{'x':-5.,'y':0.,'instance_id':2444}}
++    result=assess({'target_guid':'selected','x':3.,'y':0.},state,(0.,0.))
++    assert result.reason=='KNOWN' and abs(result.error)==math.pi
++    state['target']['guid']='different'
++    assert assess({'target_guid':'selected'},state,(0.,0.)).reason=='SELECTED_IDENTITY_CHANGED'
++
++
++def test_final_turn_failure_preserves_exact_geometry_and_last_turn_command():
++    controller=ready_controller()
++    enter_facing(controller)
++    commands=controller.command(seen(math.pi/2,.5),'turn',.5)
++    assert commands[0].binding=='TURNRIGHT'
++    result=controller.observe(seen(math.pi/2,4.),'no-heading-progress',4.)
++    assert result.terminal and result.reason=='facing_failed'
++    snapshot=controller.snapshot()['final_facing']
++    assert snapshot['geometry']['reason']=='KNOWN'
++    assert snapshot['geometry']['error']==pytest.approx(-math.pi/2)
++    assert snapshot['last_command_at']==.5
++    assert snapshot['recent_commands'][-1][1]=='FACE_ON_ARRIVAL'
++    snapshot['geometry']['reason']='changed'
++    assert controller.snapshot()['final_facing']['geometry']['reason']=='KNOWN'
++
++
++def test_terminal_failure_emits_one_compact_detail_event_without_whole_world_or_corridor():
++    controller=ready_controller();enter_facing(controller)
++    controller.command(seen(math.pi/2,.5),'turn',.5)
++    controller.observe(seen(math.pi/2,4.),'failed',4.)
++    navigation=SimpleNamespace(movement_snapshot=controller.snapshot)
++    attempt=SimpleNamespace(action_id='same-attempt',proposal=SimpleNamespace(skill='MOVE',parameters={}))
++    report=NavigationTerminalProcessor(navigation).process(attempt,Outcome.FAILURE,'facing_failed',
++        FailureReason.FACING_FAILED,{},world(),latest_observation_id='after',now=4.)
++    kind,payload=report.events[0]
++    assert kind=='NAVIGATION_FAILURE_DETAIL' and payload['action_id']=='same-attempt'
++    assert payload['final_facing']['geometry']['reason']=='KNOWN'
++    assert 'packet_entities' not in str(payload) and 'path_corridor' not in payload
++
++
++def test_lost_server_facing_identity_stops_with_its_real_cause_without_spending_turn_budget():
++    controller=ready_controller(server_entity_guid=GUID)
++    current=seen(math.pi/2,.1);current['packet_entities']={}
++    for i in range(1,5):
++        result=controller.observe(current,str(i),i*.1)
++        if result.terminal:break
++    assert result.terminal and not result.success
++    assert result.reason=='reach_object_identity_or_position_lost'
++    assert not controller.command(current,'no-blind-turn',.5)
++    assert controller.snapshot()['final_facing']['geometry']['reason']=='ENTITY_UNKNOWN_OR_REMOVED'
++    current['packet_entities']=world()['packet_entities']
++    after=controller.observe(current,'late-returned-identity',.6)
++    assert after.terminal and not after.success  # only an explicit new start can re-arm
+--- before/tests/test_server_arrival_facing_20261021.py
++++ after/tests/test_server_arrival_facing_20261021.py
+@@ -81,11 +81,17 @@
+ 
+ def test_live_server_actor_position_controls_final_bearing_and_removal_stops_input():
+     guid = "Creature-0-3769-2444-47-193393-00005824CA"
+-    controller = ready_controller(server_entity_guid=guid)
+     live = seen(0., .1)
+     actor = {"guid": guid, "kind": "CREATURE", "entry_id": 193393, "map_id": 2444,
+         "position": {"x": 7.5, "y": 3., "z": 2., "source": "PACKET_CREATE_MOVEMENT", "age": 0.}}
+     live["packet_entities"] = {guid: actor}
++    controller=ReachMovementController()
++    # The positive scenario starts with its verified own-world actor present.
++    # A start without that identity now correctly latches a typed terminal
++    # loss, rather than letting a later control frame silently re-arm it.
++    controller.start({"coordinate_space":"WORLD_YARDS","x":10.,"y":0.,
++        "stop_distance":4.,"face_on_arrival":True,"instance_id":2444,
++        "server_entity_guid":guid},live,'s0',0.)
+     for index in range(1, 5):
+         controller.observe(live, str(index), index*.1)
+     assert controller.command(live, "turn-live", .5)[0].binding == "TURNLEFT"

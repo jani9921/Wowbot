@@ -1,0 +1,87 @@
+
+=================================== ERRORS ====================================
+_____ ERROR collecting tests/test_navigation_facing_geometry_20261030.py ______
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_navigation_facing_geometry_20261030.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_navigation_facing_geometry_20261030.py:16: in <module>
+    from test_server_arrival_facing_20261021 import ready_controller,enter_facing,seen
+tests\test_server_arrival_facing_20261021.py:7: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+________ ERROR collecting tests/test_server_arrival_facing_20261021.py ________
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_server_arrival_facing_20261021.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_server_arrival_facing_20261021.py:7: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+_________ ERROR collecting tests/test_coal_turn_transport_20261027.py _________
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_coal_turn_transport_20261027.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_coal_turn_transport_20261027.py:20: in <module>
+    from test_server_arrival_facing_20261021 import ready_controller, enter_facing, seen
+tests\test_server_arrival_facing_20261021.py:7: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+________ ERROR collecting tests/test_combat_range_handoff_20261030.py _________
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_combat_range_handoff_20261030.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_combat_range_handoff_20261030.py:7: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+___________ ERROR collecting tests/test_trip_lifecycle_20261030.py ____________
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_trip_lifecycle_20261030.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_trip_lifecycle_20261030.py:4: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+_________________ ERROR collecting tests/test_mmap_navmesh.py _________________
+ImportError while importing test module 'C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\tests\test_mmap_navmesh.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_mmap_navmesh.py:9: in <module>
+    from wowbot.navigation.service import NavigationService
+src\wowbot\navigation\service.py:17: in <module>
+    from .facing import FaceController
+E   ImportError: cannot import name 'FaceController' from 'wowbot.navigation.facing' (C:\Users\<user>\Documents\ChatGPT\ai_visual_bot_midnight claude\ai_visual_bot_midnight 1.2\projekt\src\wowbot\navigation\facing.py)
+=========================== short test summary info ===========================
+ERROR tests/test_navigation_facing_geometry_20261030.py
+ERROR tests/test_server_arrival_facing_20261021.py
+ERROR tests/test_coal_turn_transport_20261027.py
+ERROR tests/test_combat_range_handoff_20261030.py
+ERROR tests/test_trip_lifecycle_20261030.py
+ERROR tests/test_mmap_navmesh.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 6 errors during collection !!!!!!!!!!!!!!!!!!!
+6 errors in 2.39s

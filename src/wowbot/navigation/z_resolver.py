@@ -149,6 +149,14 @@ class ZResolver:
         self._heights_cache = (key, heights, refs)
         return heights
 
+    def single_floor_height(self, instance_id, x, y) -> float | None:
+        """The walkable height here when the navmesh knows exactly one floor."""
+        try:
+            heights = self._layers_at(int(instance_id), float(x), float(y))
+        except (TypeError, ValueError):
+            return None
+        return heights[0] if len(heights) == 1 else None
+
     def _layer_id(self, instance_id: int, x: float, y: float, z: float):
         self._layers_at(instance_id, x, y)
         refs = self._heights_cache[2] if self._heights_cache is not None else ()
@@ -250,10 +258,36 @@ class ZResolver:
             resolved = self._continue(previous, layers, x, y, now, instance_id, route_z)
         else:
             resolved = self._first_fix(layers, x, y, now, instance_id, route_z)
+        resolved = self._outdoors_not_underground(resolved, layers, x, y, now, instance_id)
         if resolved.source not in {"CONTINUITY"}:
             resolved = replace(resolved, layer_id=self._layer_id(instance_id, x, y, resolved.z))
         self.player = resolved
         return resolved
+
+    # Live 2026-10-13 05:47: above Hrun's pit (layers 39 / 96) the route was
+    # planned from z ~39 while the addon reported the player outdoors; the
+    # cave path's x/y led the player off the edge into the pit.  Outdoors the
+    # player cannot be this far below the terrain surface (a bridge or a
+    # roof is *above* it, never below), so snap to the surface layer.
+    OUTDOOR_BELOW_TERRAIN_YARDS = 8.
+    OUTDOOR_TERRAIN_SNAP_YARDS = 4.
+
+    def _outdoors_not_underground(self, resolved: ResolvedPosition, layers: list[float],
+                                  x: float, y: float, now: float, instance_id: int) -> ResolvedPosition:
+        if (self._indoors is not False or resolved.source == "OBSERVED" or len(layers) < 2
+                or resolved.z >= max(layers) - self.OUTDOOR_BELOW_TERRAIN_YARDS):
+            return resolved
+        terrain = self._terrain_z(instance_id, x, y)
+        if terrain is None or resolved.z >= terrain - self.OUTDOOR_BELOW_TERRAIN_YARDS:
+            return resolved
+        surface = min(layers, key=lambda height: abs(height-terrain))
+        if abs(surface-terrain) > self.OUTDOOR_TERRAIN_SNAP_YARDS:
+            return resolved
+        self._pending_fall = None
+        return ResolvedPosition(x, y, surface, .85, "OUTDOOR_TERRAIN", instance_id,
+                                alternatives=tuple(height for height in layers if height != surface),
+                                evidence=("outdoors_not_below_terrain", f"was_{resolved.source.lower()}"),
+                                at=now)
 
     def _landing(self, previous: ResolvedPosition, layers: list[float], x: float, y: float,
                  now: float, instance_id: int) -> ResolvedPosition:
@@ -504,7 +538,11 @@ class ZResolver:
                 if abs(dz) > 60.:
                     candidate.score -= 50.
                 if floor_hint == "SAME":
-                    candidate.score += 20. if abs(dz) <= 8. else -20.
+                    # Live 2026-10-14 20:31:13 (Hrun's pit, 5th cocoon): the
+                    # yellow dot's own floor (-5.3, 92 yd away) lost to the
+                    # spiral 41 yd above it (219 yd) on a VMAP headroom hint
+                    # (-80); a storey off a yellow dot must outweigh that.
+                    candidate.score += 20. if abs(dz) <= 8. else -60.
                 elif floor_hint == "BELOW":
                     candidate.score += 20. if dz < -self.STOREY_YARDS else -50.
                 elif floor_hint == "ABOVE":

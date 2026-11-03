@@ -86,3 +86,16 @@ def test_unknown_backend_name_is_rejected():
     from wowbot.agent.capture_worker import _build_capture
     with pytest.raises(ValueError):
         _build_capture(0, "not_a_real_backend")
+
+
+def test_vertical_fast_cache_is_not_suppressed_by_primary_discovery_throttle(monkeypatch):
+    import adapters.pixel_bridge as bridge
+    from wowbot.agent.capture_worker import _StripDecoder
+    from wowbot.agent.shared_frame_buffer import PAYLOAD_DECODED
+    monkeypatch.setattr(bridge, "_GRID_CACHE", {})
+    monkeypatch.setattr(bridge, "_VERTICAL_FAST_CACHE", {(1345, 697): (1145, 300, 3.)})
+    monkeypatch.setattr(bridge, "decode_payload_from_bgra", lambda *a: "AIPC5|s|2|0|1|FAST|{}")
+    decoder = _StripDecoder()
+    decoder.next_discovery = 100.
+    payload, status = decoder.decode(b"", 1345, 697, 99.)
+    assert status == PAYLOAD_DECODED and "|FAST|" in payload

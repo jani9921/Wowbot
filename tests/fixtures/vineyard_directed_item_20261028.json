@@ -1,0 +1,1183 @@
+{
+  "provenance": {
+    "kind": "USER_RUN_STATE_WITH_REBUILT_STATIC_REFERENCE",
+    "source_log": "live-debug-20261028-155532*.jsonl; journal 411950-413679",
+    "static_reference": "local DB2 ItemEffect -> periodic spell -> cone; existing TDB SmartAI spell-hit credit",
+    "live_result": "UNVALIDATED_FIX; original run remained 0/8 under FULL_AI; later credit was manual",
+    "privacy": "Only quest/item/creature/position facts retained; player identity and other data omitted"
+  },
+  "state": {
+    "monotonic_time": 1169535.85,
+    "timestamp": 1793200112,
+    "map_id": 425,
+    "orientation": 3.1659638881683,
+    "movement": {
+      "falling": false,
+      "flying": false,
+      "indoors": false,
+      "moving": false,
+      "speed": 0,
+      "swimming": false
+    },
+    "player_world_position": {
+      "coordinate_space": "WORLD_YARDS",
+      "instance_id": 0,
+      "sample_time": 1169535.85,
+      "source": "C_MAP_PLAYER_WORLD_POS",
+      "ui_map_id": 425,
+      "x": -8976.9599609375,
+      "y": -337.77444458008,
+      "z_known": true,
+      "z_source": "PACKET_CLIENT_MOVEMENT_HELD",
+      "z": 74.0833740234375,
+      "z_observed": true
+    },
+    "player_present": true,
+    "max_health": 380,
+    "is_in_combat": false,
+    "is_mounted": false,
+    "is_casting": false,
+    "world_map_open": false,
+    "quest_ui_open": false,
+    "bags_open": false,
+    "quest_item_target": false,
+    "is_dead": false,
+    "is_ghost": false,
+    "session_id": "recorded-vineyard-anonymized",
+    "active_quests": [
+      {
+        "is_accepted": true,
+        "is_campaign": false,
+        "is_complete": false,
+        "level": 4,
+        "objectives": [
+          {
+            "current": 0,
+            "description": "0/8 Vineyard Fire extinguished",
+            "is_complete": false,
+            "raw_type": "monster",
+            "required": 8,
+            "type": "KILL",
+            "type_source": "QUEST_API_NORMALIZATION"
+          }
+        ],
+        "quest_id": 26391,
+        "special_item": {
+          "item_id": 58362,
+          "item_name": "Milly's Fire Extinguisher",
+          "source": "QUEST_LOG_SPECIAL_ITEM"
+        },
+        "suggested_group": 0,
+        "title": "Extinguishing Hope"
+      }
+    ],
+    "reference_knowledge": {
+      "quests": {
+        "26391": {
+          "quest_id": 26391,
+          "title": "Extinguishing Hope",
+          "description": "Times like these make me long for when the Defias were still around. The cataclysm has opened a pathway from the Burning Steppes and now Blackrock orcs pour into Northshire Valley! They have taken over my vineyard and are burning it to the ground! TO THE GROUND!$B$BPlease, $n, that vineyard is all I have. Take my fire extinguisher and extinguish the flames at the vineyard. There still might be hope for that land!",
+          "objectives_text": "Use Milly's Extinguisher to put out 8 Vineyard Fires.",
+          "completion_text": "",
+          "allowable_races": "6130900294268439629",
+          "verified_build": 69497,
+          "objectives": [
+            {
+              "objective_id": 266871,
+              "order": 0,
+              "raw_type": 0,
+              "credit_object_id": 42940,
+              "amount": 8,
+              "description": "Vineyard Fire extinguished",
+              "storage_index": 0,
+              "parent_objective_id": 0,
+              "verified_build": 69497,
+              "metadata": {
+                "ID": 266871,
+                "QuestID": 26391,
+                "Type": 0,
+                "Order": 0,
+                "StorageIndex": 0,
+                "ObjectID": 42940,
+                "Amount": 8,
+                "ConditionalAmount": 0,
+                "Flags": 0,
+                "Flags2": 0,
+                "ProgressBarWeight": 0.0,
+                "ParentObjectiveID": 0,
+                "Visible": 1,
+                "Description": "Vineyard Fire extinguished",
+                "VerifiedBuild": 69497
+              },
+              "credit_kind": "CREATURE_CREDIT",
+              "named_creatures": [],
+              "credit_name": "Northshire Vineyards Fire Trigger",
+              "credit_creatures": [],
+              "mechanism": "USE_ITEM",
+              "mechanism_tags": [
+                "DB2_ITEM_EFFECT",
+                "PROXY_CREDIT"
+              ],
+              "item_uses": [
+                {
+                  "item_id": 58362,
+                  "spell_id": 80199,
+                  "match": "SPELL_EFFECT_CREDIT",
+                  "credit_links": [
+                    {
+                      "kind": "CREATURE_CREDIT",
+                      "id": 42940,
+                      "subject_entry": 42940,
+                      "hit_spell_id": 80208,
+                      "source": "TDB_SPELL_HIT_CREDIT",
+                      "conditional": true,
+                      "script": {
+                        "entryorguid": 42940,
+                        "source_type": 0,
+                        "id": 2,
+                        "link": 3,
+                        "Difficulties": "",
+                        "event_type": 8,
+                        "event_phase_mask": 1,
+                        "event_chance": 100,
+                        "event_flags": 0,
+                        "event_param1": 80208,
+                        "event_param2": 0,
+                        "event_param3": 0,
+                        "event_param4": 0,
+                        "event_param5": 0,
+                        "event_param_string": "",
+                        "action_type": 33,
+                        "action_param1": 42940,
+                        "action_param2": 0,
+                        "action_param3": 0,
+                        "action_param4": 0,
+                        "action_param5": 0,
+                        "action_param6": 0,
+                        "action_param7": 0,
+                        "action_param_string": null,
+                        "target_type": 7,
+                        "target_param1": 0,
+                        "target_param2": 0,
+                        "target_param3": 0,
+                        "target_param4": 0,
+                        "target_param_string": null,
+                        "target_x": 0.0,
+                        "target_y": 0.0,
+                        "target_z": 0.0,
+                        "target_o": 0.0,
+                        "comment": "Northshire Vineyards Fire Trigger - Give Kill Credit on SpellHit_Spray Water"
+                      },
+                      "target_conditions": [
+                        {
+                          "SourceTypeOrReferenceId": 13,
+                          "SourceGroup": 1,
+                          "SourceEntry": 80208,
+                          "SourceId": 0,
+                          "ElseGroup": 0,
+                          "ConditionTypeOrReference": 31,
+                          "ConditionTarget": 0,
+                          "ConditionValue1": 3,
+                          "ConditionValue2": 42940,
+                          "ConditionValue3": 0,
+                          "ConditionStringValue1": "",
+                          "NegativeCondition": 0,
+                          "ErrorType": 0,
+                          "ErrorTextId": 0,
+                          "ScriptName": "",
+                          "Comment": "Spray Water requires target Northshire Vineyards Fire Trigger"
+                        }
+                      ],
+                      "spell_chain": [
+                        80199,
+                        80208
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "quest_roles": [
+            {
+              "npc_id": 9296,
+              "quest_id": 26391,
+              "role": "QUEST_ENDER",
+              "verified_build": 56288,
+              "name": "Milly Osworth"
+            },
+            {
+              "npc_id": 9296,
+              "quest_id": 26391,
+              "role": "QUEST_STARTER",
+              "verified_build": 53441,
+              "name": "Milly Osworth"
+            }
+          ],
+          "object_roles": [],
+          "pois": [
+            {
+              "poi_id": "26391:0:0",
+              "blob_index": 0,
+              "point_group_id": "26391:0",
+              "shared_geometry_count": 1,
+              "geometry_ambiguous": false,
+              "geometry_kind": "POINT",
+              "point_builds": [
+                66384
+              ],
+              "geometry_mixed_build": false,
+              "verified_build": 66384,
+              "metadata": {
+                "QuestID": 26391,
+                "BlobIndex": 0,
+                "Idx1": 0,
+                "ObjectiveIndex": -1,
+                "QuestObjectiveID": 0,
+                "QuestObjectID": 0,
+                "MapID": 0,
+                "UiMapID": 425,
+                "Priority": 0,
+                "Flags": 1,
+                "WorldEffectID": 0,
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0,
+                "SpawnTrackingID": 0,
+                "AlwaysAllowMergingBlobs": 0,
+                "VerifiedBuild": 66384
+              },
+              "objective_id": 0,
+              "objective_index": -1,
+              "world_map_id": 0,
+              "ui_map_id": 425,
+              "conditions": {
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0
+              },
+              "spawn_tracking_id": 0,
+              "points": [
+                {
+                  "x": -8929,
+                  "y": -149,
+                  "z": 80,
+                  "point_index": 0,
+                  "verified_build": 66384
+                }
+              ],
+              "coordinate_space": "TDB_WORLD_REFERENCE",
+              "source": "TDB_REFERENCE",
+              "source_file": "TDB_full_world_1210.26091_2026_09_09.sqlite3",
+              "source_sha256": "143158fc89fc98e829221293db3e7d98a448638747caa7cb1b4745d63659d588",
+              "source_version": "TDB 1210.26091",
+              "knowledge_priority": "PRIMARY_STATIC",
+              "confirmed": false,
+              "navigation_trusted": false
+            },
+            {
+              "poi_id": "26391:0:1",
+              "blob_index": 0,
+              "point_group_id": "26391:1",
+              "shared_geometry_count": 1,
+              "geometry_ambiguous": false,
+              "geometry_kind": "POLYGON_CANDIDATE",
+              "point_builds": [
+                66384
+              ],
+              "geometry_mixed_build": false,
+              "verified_build": 66384,
+              "metadata": {
+                "QuestID": 26391,
+                "BlobIndex": 0,
+                "Idx1": 1,
+                "ObjectiveIndex": 0,
+                "QuestObjectiveID": 266871,
+                "QuestObjectID": 42940,
+                "MapID": 0,
+                "UiMapID": 425,
+                "Priority": 0,
+                "Flags": 3,
+                "WorldEffectID": 0,
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0,
+                "SpawnTrackingID": 0,
+                "AlwaysAllowMergingBlobs": 0,
+                "VerifiedBuild": 66384
+              },
+              "objective_id": 266871,
+              "objective_index": 0,
+              "world_map_id": 0,
+              "ui_map_id": 425,
+              "conditions": {
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0
+              },
+              "spawn_tracking_id": 0,
+              "points": [
+                {
+                  "x": -9060,
+                  "y": -384,
+                  "z": 74,
+                  "point_index": 0,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9030,
+                  "y": -351,
+                  "z": 74,
+                  "point_index": 1,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9015,
+                  "y": -332,
+                  "z": 74,
+                  "point_index": 2,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9035,
+                  "y": -305,
+                  "z": 74,
+                  "point_index": 3,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9064,
+                  "y": -278,
+                  "z": 74,
+                  "point_index": 4,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9078,
+                  "y": -288,
+                  "z": 74,
+                  "point_index": 5,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9093,
+                  "y": -303,
+                  "z": 74,
+                  "point_index": 6,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9117,
+                  "y": -326,
+                  "z": 74,
+                  "point_index": 7,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9126,
+                  "y": -339,
+                  "z": 74,
+                  "point_index": 8,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9102,
+                  "y": -363,
+                  "z": 74,
+                  "point_index": 9,
+                  "verified_build": 66384
+                },
+                {
+                  "x": -9069,
+                  "y": -381,
+                  "z": 74,
+                  "point_index": 10,
+                  "verified_build": 66384
+                }
+              ],
+              "coordinate_space": "TDB_WORLD_REFERENCE",
+              "source": "TDB_REFERENCE",
+              "source_file": "TDB_full_world_1210.26091_2026_09_09.sqlite3",
+              "source_sha256": "143158fc89fc98e829221293db3e7d98a448638747caa7cb1b4745d63659d588",
+              "source_version": "TDB 1210.26091",
+              "knowledge_priority": "PRIMARY_STATIC",
+              "confirmed": false,
+              "navigation_trusted": false
+            },
+            {
+              "poi_id": "26391:0:2",
+              "blob_index": 0,
+              "point_group_id": "26391:2",
+              "shared_geometry_count": 1,
+              "geometry_ambiguous": false,
+              "geometry_kind": "POINT",
+              "point_builds": [
+                66384
+              ],
+              "geometry_mixed_build": false,
+              "verified_build": 66384,
+              "metadata": {
+                "QuestID": 26391,
+                "BlobIndex": 0,
+                "Idx1": 2,
+                "ObjectiveIndex": 32,
+                "QuestObjectiveID": 0,
+                "QuestObjectID": 0,
+                "MapID": 0,
+                "UiMapID": 425,
+                "Priority": 0,
+                "Flags": 0,
+                "WorldEffectID": 0,
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0,
+                "SpawnTrackingID": 90340,
+                "AlwaysAllowMergingBlobs": 0,
+                "VerifiedBuild": 66384
+              },
+              "objective_id": 0,
+              "objective_index": 32,
+              "world_map_id": 0,
+              "ui_map_id": 425,
+              "conditions": {
+                "PlayerConditionID": 0,
+                "NavigationPlayerConditionID": 0
+              },
+              "spawn_tracking_id": 90340,
+              "points": [
+                {
+                  "x": -8924,
+                  "y": -136,
+                  "z": 80,
+                  "point_index": 0,
+                  "verified_build": 66384
+                }
+              ],
+              "coordinate_space": "TDB_WORLD_REFERENCE",
+              "source": "TDB_REFERENCE",
+              "source_file": "TDB_full_world_1210.26091_2026_09_09.sqlite3",
+              "source_sha256": "143158fc89fc98e829221293db3e7d98a448638747caa7cb1b4745d63659d588",
+              "source_version": "TDB 1210.26091",
+              "knowledge_priority": "PRIMARY_STATIC",
+              "confirmed": false,
+              "navigation_trusted": false
+            }
+          ],
+          "poi_catalogue_count": 3,
+          "poi_superseded_count": 0,
+          "details": [
+            {
+              "ID": 26391,
+              "MaxLevel": 0,
+              "AllowableClasses": 0,
+              "SourceSpellID": 0,
+              "PrevQuestID": 0,
+              "NextQuestID": 0,
+              "ExclusiveGroup": 0,
+              "BreadcrumbForQuestId": 0,
+              "RewardMailTemplateID": 0,
+              "RewardMailDelay": 0,
+              "RequiredSkillID": 0,
+              "RequiredSkillPoints": 0,
+              "RequiredMinRepFaction": 0,
+              "RequiredMaxRepFaction": 0,
+              "RequiredMinRepValue": 0,
+              "RequiredMaxRepValue": 0,
+              "ProvidedItemCount": 1,
+              "SpecialFlags": 0,
+              "ScriptName": ""
+            }
+          ],
+          "source": "TDB_REFERENCE",
+          "source_file": "TDB_full_world_1210.26091_2026_09_09.sqlite3",
+          "source_sha256": "143158fc89fc98e829221293db3e7d98a448638747caa7cb1b4745d63659d588",
+          "source_version": "TDB 1210.26091",
+          "knowledge_priority": "PRIMARY_STATIC",
+          "confirmed": false,
+          "navigation_trusted": false,
+          "chain": {
+            "PrevQuestID": 0,
+            "NextQuestID": 0,
+            "ExclusiveGroup": 0,
+            "BreadcrumbForQuestId": 0,
+            "RewardNextQuest": 0,
+            "source_build": 69497
+          },
+          "eligibility": {
+            "status": "REQUIRES_LIVE_AVAILABILITY",
+            "AllowableRaces": "6130900294268439629",
+            "AllowableClasses": 0,
+            "RequiredSkillID": 0,
+            "RequiredSkillPoints": 0,
+            "RequiredMinRepFaction": 0,
+            "RequiredMinRepValue": 0,
+            "RequiredMaxRepFaction": 0,
+            "RequiredMaxRepValue": 0
+          },
+          "items": {
+            "start_item_id": 58362,
+            "drop_item_ids": [
+              58362
+            ],
+            "fixed_rewards": [
+              {
+                "item_id": 57247,
+                "count": 1
+              },
+              {
+                "item_id": 11475,
+                "count": 1
+              }
+            ],
+            "choice_rewards": [],
+            "source_spell_id": 0,
+            "use_profiles": {
+              "58362": {
+                "item_id": 58362,
+                "name": "Milly's Fire Extinguisher",
+                "description": "",
+                "effects": [
+                  {
+                    "id": 12239,
+                    "spell_id": 80199,
+                    "trigger_type": 0,
+                    "slot": 0,
+                    "charges": 0,
+                    "cooldown_ms": 0,
+                    "category_cooldown_ms": 1500,
+                    "category_id": 1149,
+                    "specialization_id": 0,
+                    "condition_id": 0,
+                    "link_id": 11671
+                  }
+                ],
+                "uses": [
+                  {
+                    "id": 12239,
+                    "spell_id": 80199,
+                    "trigger_type": 0,
+                    "slot": 0,
+                    "charges": 0,
+                    "cooldown_ms": 0,
+                    "category_cooldown_ms": 1500,
+                    "category_id": 1149,
+                    "specialization_id": 0,
+                    "condition_id": 0,
+                    "link_id": 11671,
+                    "target_mode": "SELF",
+                    "target_relation": "ANY",
+                    "implicit_targets": [
+                      1
+                    ],
+                    "target_restrictions": [],
+                    "difficulty_id": 0,
+                    "spell_name": "Spray Water",
+                    "ranges": [
+                      {
+                        "ID": 1,
+                        "DisplayName_lang": "Self Only",
+                        "DisplayNameShort_lang": "Self",
+                        "Flags": 0,
+                        "RangeMin": [
+                          0,
+                          0
+                        ],
+                        "RangeMax": [
+                          0,
+                          0
+                        ]
+                      }
+                    ],
+                    "status": "RESOLVED",
+                    "credit_links": [
+                      {
+                        "kind": "CREATURE_CREDIT",
+                        "id": 42940,
+                        "subject_entry": 42940,
+                        "hit_spell_id": 80208,
+                        "source": "TDB_SPELL_HIT_CREDIT",
+                        "conditional": true,
+                        "script": {
+                          "entryorguid": 42940,
+                          "source_type": 0,
+                          "id": 2,
+                          "link": 3,
+                          "Difficulties": "",
+                          "event_type": 8,
+                          "event_phase_mask": 1,
+                          "event_chance": 100,
+                          "event_flags": 0,
+                          "event_param1": 80208,
+                          "event_param2": 0,
+                          "event_param3": 0,
+                          "event_param4": 0,
+                          "event_param5": 0,
+                          "event_param_string": "",
+                          "action_type": 33,
+                          "action_param1": 42940,
+                          "action_param2": 0,
+                          "action_param3": 0,
+                          "action_param4": 0,
+                          "action_param5": 0,
+                          "action_param6": 0,
+                          "action_param7": 0,
+                          "action_param_string": null,
+                          "target_type": 7,
+                          "target_param1": 0,
+                          "target_param2": 0,
+                          "target_param3": 0,
+                          "target_param4": 0,
+                          "target_param_string": null,
+                          "target_x": 0.0,
+                          "target_y": 0.0,
+                          "target_z": 0.0,
+                          "target_o": 0.0,
+                          "comment": "Northshire Vineyards Fire Trigger - Give Kill Credit on SpellHit_Spray Water"
+                        },
+                        "target_conditions": [
+                          {
+                            "SourceTypeOrReferenceId": 13,
+                            "SourceGroup": 1,
+                            "SourceEntry": 80208,
+                            "SourceId": 0,
+                            "ElseGroup": 0,
+                            "ConditionTypeOrReference": 31,
+                            "ConditionTarget": 0,
+                            "ConditionValue1": 3,
+                            "ConditionValue2": 42940,
+                            "ConditionValue3": 0,
+                            "ConditionStringValue1": "",
+                            "NegativeCondition": 0,
+                            "ErrorType": 0,
+                            "ErrorTextId": 0,
+                            "ScriptName": "",
+                            "Comment": "Spray Water requires target Northshire Vineyards Fire Trigger"
+                          }
+                        ],
+                        "spell_chain": [
+                          80199,
+                          80208
+                        ]
+                      }
+                    ],
+                    "triggered_spells": [
+                      {
+                        "spell_id": 80199,
+                        "spell_chain": [
+                          80199
+                        ]
+                      },
+                      {
+                        "spell_id": 80208,
+                        "spell_chain": [
+                          80199,
+                          80208
+                        ]
+                      }
+                    ],
+                    "credit_search_truncated": false,
+                    "delivery": {
+                      "mode": "FORWARD_CONE",
+                      "status": "RESOLVED",
+                      "spell_id": 80208,
+                      "effect_id": 79789,
+                      "spell_chain": [
+                        80199,
+                        80208
+                      ],
+                      "effect_index": 0,
+                      "radius": 15,
+                      "cone_degrees": 60,
+                      "duration_ms": 5000
+                    }
+                  }
+                ],
+                "status": "RESOLVED",
+                "source": "CLIENT_DB2_ITEM_EFFECT",
+                "confirmed": false
+              }
+            }
+          },
+          "faction_variants": []
+        }
+      }
+    },
+    "packet_entities": {
+      "Creature-0-3770-0-39-42940-00006209AD": {
+        "guid": "Creature-0-3770-0-39-42940-00006209AD",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826271127
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826271127
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826271127
+        },
+        "position": {
+          "x": -9015.1669921875,
+          "y": -332.109375,
+          "z": 74.9659423828125,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826271127,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 38.62
+      },
+      "Creature-0-3770-0-39-42940-0000620AA1": {
+        "guid": "Creature-0-3770-0-39-42940-0000620AA1",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.582619448
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.582619448
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.582619448
+        },
+        "position": {
+          "x": -9041.71875,
+          "y": -363.3177185058594,
+          "z": 75.22817993164062,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.582619448,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 69.61
+      },
+      "Creature-0-3770-0-39-42940-0000620CC6": {
+        "guid": "Creature-0-3770-0-39-42940-0000620CC6",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826088819
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826088819
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826088819
+        },
+        "position": {
+          "x": -9047.9345703125,
+          "y": -333.9739685058594,
+          "z": 75.48370361328125,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826088819,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 71.08
+      },
+      "Creature-0-3770-0-39-42940-0000620CA2": {
+        "guid": "Creature-0-3770-0-39-42940-0000620CA2",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.582610539
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.582610539
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.582610539
+        },
+        "position": {
+          "x": -9043.076171875,
+          "y": -303.3888854980469,
+          "z": 74.22589111328125,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.582610539,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 74.52
+      },
+      "Creature-0-3770-0-39-42940-0000620B32": {
+        "guid": "Creature-0-3770-0-39-42940-0000620B32",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.582606625
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.582606625
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.582606625
+        },
+        "position": {
+          "x": -9058.3544921875,
+          "y": -362.296875,
+          "z": 73.5420913696289,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.582606625,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 85.01
+      },
+      "Creature-0-3770-0-39-42940-0000620B19": {
+        "guid": "Creature-0-3770-0-39-42940-0000620B19",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826121245
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826121245
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826121245
+        },
+        "position": {
+          "x": -9069.0517578125,
+          "y": -350.0069580078125,
+          "z": 73.53506469726562,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826121245,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 92.9
+      },
+      "Creature-0-3770-0-39-42940-00006203C6": {
+        "guid": "Creature-0-3770-0-39-42940-00006203C6",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826119927
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826119927
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826119927
+        },
+        "position": {
+          "x": -9059.7431640625,
+          "y": -383.828125,
+          "z": 73.87528991699219,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826119927,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 94.73
+      },
+      "Creature-0-3770-0-39-42940-0000620343": {
+        "guid": "Creature-0-3770-0-39-42940-0000620343",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826017663
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826017663
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826017663
+        },
+        "position": {
+          "x": -9068.9423828125,
+          "y": -380.9913330078125,
+          "z": 73.55610656738281,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826017663,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 101.63
+      },
+      "Creature-0-3770-0-39-42940-0000620CF9": {
+        "guid": "Creature-0-3770-0-39-42940-0000620CF9",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826077806
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826077806
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826077806
+        },
+        "position": {
+          "x": -9064.4345703125,
+          "y": -278.8385314941406,
+          "z": 75.19645690917969,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826077806,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 105.48
+      },
+      "Creature-0-3770-0-39-42940-0000620905": {
+        "guid": "Creature-0-3770-0-39-42940-0000620905",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826083212
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826083212
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826083212
+        },
+        "position": {
+          "x": -9101.982421875,
+          "y": -363.0572814941406,
+          "z": 75.02001953125,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826083212,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 127.55
+      },
+      "Creature-0-3770-0-39-42940-0000620CE6": {
+        "guid": "Creature-0-3770-0-39-42940-0000620CE6",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.5826181178
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.5826181178
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.5826181178
+        },
+        "position": {
+          "x": -9112.3544921875,
+          "y": -341.6545104980469,
+          "z": 73.43684387207031,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.5826181178,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 135.45
+      },
+      "Creature-0-3770-0-39-42940-0000620D01": {
+        "guid": "Creature-0-3770-0-39-42940-0000620D01",
+        "kind": "CREATURE",
+        "entry_id": 42940,
+        "map_id": 0,
+        "info": {
+          "object_kind": "UNIT",
+          "npc_flags": 0,
+          "sampled_at": 1169368.582601735
+        },
+        "dynamic_flags": {
+          "value": 0,
+          "sampled_at": 1169368.582601735
+        },
+        "unit": {
+          "health": 4378,
+          "max_health": 4378,
+          "level": 30,
+          "faction_template": 35,
+          "unit_flags": 33555200,
+          "unit_flags2": 2099200,
+          "unit_flags3": 1090519056,
+          "bounding_radius": 0.5,
+          "combat_reach": 1.0,
+          "sampled_at": 1169368.582601735
+        },
+        "position": {
+          "x": -9125.84375,
+          "y": -339.1076354980469,
+          "z": 73.81358337402344,
+          "facing": 0.0,
+          "source": "PACKET_CREATE_MOVEMENT",
+          "sampled_at": 1169368.582601735,
+          "coordinate_space": "WORLD_YARDS",
+          "age": 167.357
+        },
+        "distance": 148.89
+      }
+    },
+    "inventory": {
+      "items": [
+        {
+          "bag": 0,
+          "coordinate_space": "CLIENT_BOTTOM_LEFT",
+          "count": 1,
+          "has_no_value": true,
+          "is_equippable": false,
+          "is_locked": false,
+          "is_quest_item": true,
+          "item_id": 58362,
+          "item_level": 1,
+          "item_name": "Milly's Fire Extinguisher",
+          "item_type": "Quest",
+          "max_stack": 1,
+          "quality": 1,
+          "sell_price": 0,
+          "slot": 8,
+          "x": 0.98398386806143,
+          "y": 0.21539710196046
+        }
+      ]
+    },
+    "actionbar": []
+  }
+}

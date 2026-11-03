@@ -1,0 +1,134 @@
+{
+  "files": [
+    {
+      "bytes": 205798,
+      "sha256": "6a3effe1af62dc40424d590dfeda4d8487ff541358f75288c12dd578e2a6045d",
+      "path": "baseline.json"
+    },
+    {
+      "bytes": 3542615,
+      "sha256": "cdf7e2c829b50bbf3a66a1679f3ba9b8877bef30ea4d2c23afd9b5f81fbe9da1",
+      "path": "baseline.zip"
+    },
+    {
+      "bytes": 5877,
+      "sha256": "df6a756cff232672ee8e82feaca85951602288e1ba4177f679d1b55cad060181",
+      "path": "changes.json"
+    },
+    {
+      "bytes": 67777,
+      "sha256": "1624b6fc7ad26c0018358907d897c2f1a9ddeeabf2b33508f6555c5fb872caa1",
+      "path": "changes.patch"
+    },
+    {
+      "bytes": 30564,
+      "sha256": "a529288b25a3011b7a6d7a60f83cb16907643b654ef5c21bd18b100a8e89194a",
+      "path": "combined-final-command.json"
+    },
+    {
+      "bytes": 211,
+      "sha256": "49eef381ad23affed1f1abb0633f7517ce0ce5fad0c0b75434fa4f8caa7cfe27",
+      "path": "combined-final-result.json"
+    },
+    {
+      "bytes": 4353,
+      "sha256": "7f3340007788a665dab96edca54d95d7a900cb60bd3e4e1b4be9657f114063b1",
+      "path": "combined-final.log"
+    },
+    {
+      "bytes": 30568,
+      "sha256": "72549a88a6f7b75521789fa7321e0f6a4cde6476d2b736b141fb38e1c5783109",
+      "path": "combined-release-command.json"
+    },
+    {
+      "bytes": 214,
+      "sha256": "1f352d786e7c2e8a2ed8e92cee5a3f031e0785f85769abe665feecb3240194cc",
+      "path": "combined-release-result.json"
+    },
+    {
+      "bytes": 4353,
+      "sha256": "076ae95a1e8ffd2d8e20b0d1babf1002d68d5a7f82abc9872c59d61a985c6126",
+      "path": "combined-release.log"
+    },
+    {
+      "bytes": 30570,
+      "sha256": "c970f7ace99198fb07dd32fc5ce457f8b3d06b9573702880d8227485a4f50030",
+      "path": "combined-release2-command.json"
+    },
+    {
+      "bytes": 576562,
+      "sha256": "b0b1f755927dfd13b7b55c61b4d752fa3b05259f2012d49c87a4a2f19770a68f",
+      "path": "combined-release2-junit.xml"
+    },
+    {
+      "bytes": 215,
+      "sha256": "8ee7dae4e443662215b759b1aa8544bb4d020e3afe5f20e95da2234d1ff9e9cd",
+      "path": "combined-release2-result.json"
+    },
+    {
+      "bytes": 4353,
+      "sha256": "b1a76bc5edf37aa47eb370ffc192876e4f6482e449232c121953fa51ecf47fda",
+      "path": "combined-release2.log"
+    },
+    {
+      "bytes": 206879,
+      "sha256": "0f27360bd19f20301f3eda9668e54ba408c1d5a9ed1df53e36e7ffb6207c04bc",
+      "path": "current-files.json"
+    },
+    {
+      "bytes": 3558469,
+      "sha256": "c154f31fbf9968888ce80ac252ad0c1e5c60d756de5a594b5c9a2f052ef4cda4",
+      "path": "current-source.zip"
+    },
+    {
+      "bytes": 101,
+      "sha256": "ecce60b8fde7d17eb8f8cd2d6585293f7b0c6241a8f88f910cc3c4e2747d5a19",
+      "path": "quest-test-1.log"
+    },
+    {
+      "bytes": 17225,
+      "sha256": "b93b4235c51e94e50f44a3d1fdd8612c575f4d276f4eadd9495d75ffd4231a54",
+      "path": "quest-test-4-junit.xml"
+    },
+    {
+      "bytes": 183,
+      "sha256": "d7022aa3694d086d937831632afa20c214eadc7ae067cdd891350113aa3996c9",
+      "path": "quest-test-4.log"
+    },
+    {
+      "bytes": 17528,
+      "sha256": "e0581ca625a4f67de37e4a57c224f841f1a4e1cdf977b85945354da430b06528",
+      "path": "quest-test-5-junit.xml"
+    },
+    {
+      "bytes": 183,
+      "sha256": "8aa6a1c21c88090ceaa44b64982a20c64d6898d8ac3552ef7b4dc5831690988e",
+      "path": "quest-test-5.log"
+    },
+    {
+      "bytes": 368,
+      "sha256": "5e2af66d7551d55dd7757b6a0fdbee11ca8726833b8ac316114fe37514f1e55c",
+      "path": "reviewed-layout.json"
+    },
+    {
+      "bytes": 2084,
+      "sha256": "71a9e8f2ff88f4d9beb7f7f1adf2d049addc7fff1cf2428f6d3491badcf206aa",
+      "path": "run_release2.py"
+    },
+    {
+      "bytes": 242,
+      "sha256": "c98c6f72caef818c9b2fd7ded78da8cdcfa40b685e80aad93aa8d25533caff1c",
+      "path": "source-verification.json"
+    },
+    {
+      "bytes": 703,
+      "sha256": "17c3483f756efee7ac336a657c820476eca49e9cb5da3440c4243906c7e3ec10",
+      "path": "verification.json"
+    },
+    {
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf",
+      "path": "verify_closure.py"
+    }
+  ]
+}

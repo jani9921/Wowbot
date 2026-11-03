@@ -1,6 +1,8 @@
 """Canonical spell use explicitly named by fresh NPC instruction telemetry."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 import re
 from wowbot.agent.models import Command, number
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus
@@ -15,6 +17,7 @@ class InstructedSpellSkill:
     def __init__(self, bindings=None, verifier: QuestProgressVerifier | None = None):
         self.bindings, self.verifier = bindings, verifier or QuestProgressVerifier()
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         params, target = state.intent.parameters, world_state.get("target") or {}
         guid, instruction = state.intent.target_ref or str(params.get("guid") or ""), _words(params.get("instruction"))
@@ -30,7 +33,7 @@ class InstructedSpellSkill:
         # of truth for every real input path, including this M1 convenience
         # mechanic.  This mirrors QuestToolSkill's fail-closed boundary.
         if self.bindings is None or not self.bindings.contains(binding):
-            return SkillResult(SkillStatus.BLOCKED, FailureReason.UNSUPPORTED_MECHANIC,
+            return SkillResult(SkillStatus.BLOCKED, FailureReason.MISSING_BINDING,
                                replan_required=True,
                                metadata={"reason": "selected_cache_missing_instructed_spell_binding"})
         action = next((a for a in world_state.get("actionbar", ()) if isinstance(a, dict)
@@ -43,13 +46,14 @@ class InstructedSpellSkill:
         state.skill_context["instructed_spell"] = {"guid": guid, "quest_ids": quest_ids, "objective_ids": objective_ids}
         return SkillResult(SkillStatus.RUNNING, commands=(Command("BIND", binding),))
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         context = state.skill_context.get("instructed_spell") or {}
-        if (world_state.get("target") or {}).get("guid") != context.get("guid"):
-            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN, retryable=True, replan_required=True)
         result = self.verifier.evaluate(state.before_snapshot, world_state, quest_ids=context.get("quest_ids", ()), objective_ids=context.get("objective_ids", ()))
         if result.success:
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
+        if (world_state.get("target") or {}).get("guid") != context.get("guid"):
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN, retryable=True, replan_required=True)
         if now >= state.attempt.deadline:
             return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED, retryable=True, replan_required=True)
         return SkillResult(SkillStatus.RUNNING)

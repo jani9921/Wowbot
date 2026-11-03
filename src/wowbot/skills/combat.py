@@ -5,7 +5,10 @@ navigation, or global combat-controller state.
 """
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
+import math
 import re
 
 from wowbot.agent.models import Command, number
@@ -13,10 +16,12 @@ from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillSt
 from wowbot.verification.combat import CombatVerifier
 from wowbot.verification.combat_error_classifier import classify_combat_error
 from .action_error_correlation import ActionErrorCorrelator
-from .ability_rules import AbilityRuleEngine
+from wowbot.combat.ability.evaluator import AbilityRuleEngine
 from .combat_visual_follow import CombatVisualFollowPolicy
 from .vehicle import rotation_allowed
 from .target_recovery import InvalidTargetRecoveryPolicy
+from .combat_facing import CombatFacingController
+from .combat_arbitrator import CombatArbitrator
 
 
 class CombatPhase(StrEnum):
@@ -61,65 +66,61 @@ class CombatSkill:
     FACING_SWEEP_SETTLE_SECONDS = .45
     FACING_SWEEP_QUIET_SECONDS = 1.1
 
+    # User 2026-10-20: "facing does not work with the mob, although the
+    # server tells where the mob is and where we look".  Live 16:46:57 and
+    # 16:47:06-07 COMBAT failed facing_wrong_way three times.  The selected
+    # target's exact point (server position, else the addon's target world
+    # position) and our own position + facing give the exact turn: turn
+    # first when it is well to the side or behind, and answer "facing the
+    # wrong way" with that turn before the blind sweep.
+    FACE_PRETURN_RADIANS = 1.2
+    FACE_RECOVERY_RADIANS = .3
+    KEY_TURN_RATE = math.pi            # keyboard turn speed, rad/s
+    FACE_TURN_SETTLE_SECONDS = .35
+    FACE_EXACT_TURNS = 2
+
+    @staticmethod
+    def _target_bearing_error(world_state: dict, expected_guid) -> float | None:
+        target = world_state.get("target") or {}
+        guid = str(target.get("guid") or "")
+        if not guid or (expected_guid and guid != str(expected_guid)):
+            return None
+        from wowbot.agent.packet_entity_facts import best_position, entity
+        value = entity(world_state, guid)
+        point = best_position(value) if value is not None else None
+        if point is None:
+            world = target.get("world_position") or {}
+            if number(world.get("x")) is None or number(world.get("y")) is None:
+                return None
+            point = {"x": number(world["x"]), "y": number(world["y"])}
+        player = world_state.get("player_world_position") or {}
+        from wowbot.combat.target.facing import bearing_error
+        return bearing_error(player, point, world_state.get("orientation"))
+
+    # REV4 split: the facing turn/sweep commands live in
+    # combat_facing.CombatFacingController; these keep the skill API.
+    def _exact_facing_turn(self, state: ActiveSkillState, world_state: dict, now: float, *,
+                           threshold: float, attack: bool) -> SkillResult | None:
+        return CombatFacingController(self).exact_turn(state, world_state, now,
+                                                       threshold=threshold, attack=attack)
+
     @staticmethod
     def _facing_text(world_state: dict) -> bool:
-        text = str(world_state.get("ui_error") or "").casefold()
-        return "front" in text or "facing" in text
+        return CombatFacingController.facing_text(world_state)
 
-    def _sweep_attack_binding(self, context: dict) -> str:
-        if self.bindings is None or self.bindings.contains("INTERACTTARGET"):
-            return "INTERACTTARGET"
-        return str(context.get("last_binding") or "INTERACTTARGET")
+    def _interact_attacks_expected(self, context: dict, world_state: dict, now: float) -> bool:
+        return CombatFacingController(self).interact_attacks_expected(context, world_state, now)
+
+    def _sweep_attack_binding(self, context: dict, world_state: dict, now: float) -> str | None:
+        return CombatFacingController(self).sweep_attack_binding(context, world_state, now)
 
     def _facing_sweep_step(self, state: ActiveSkillState, world_state: dict,
                            now: float) -> SkillResult:
-        context = state.skill_context.setdefault("combat", {})
-        sweep = context["facing_sweep"]
-        if int(sweep.get("steps") or 0) >= self.FACING_SWEEP_STEPS:
-            context.pop("facing_sweep", None)
-            state.phase = CombatPhase.FAILED.value
-            return SkillResult(SkillStatus.FAILURE, FailureReason.FACING_FAILED,
-                               retryable=True, replan_required=True,
-                               metadata={"facing_sweep_steps": sweep.get("steps")})
-        sweep["steps"] = int(sweep.get("steps") or 0) + 1
-        sweep["last_step_at"] = now
-        sweep["error_sequence"] = number(world_state.get("ui_error_sequence"))
-        context["facing_handled_sequence"] = sweep["error_sequence"]
-        context["facing_recovery_started_at"] = now      # the sweep has its own bound
-        state.phase = CombatPhase.RECOVER_FACING.value
-        return SkillResult(
-            SkillStatus.RUNNING,
-            commands=(Command("BIND", sweep["direction"], self.FACING_SWEEP_TURN_SECONDS),
-                      Command("BIND", self._sweep_attack_binding(context))),
-            metadata={"facing_sweep_step": sweep["steps"]})
+        return CombatFacingController(self).sweep_step(state, world_state, now)
 
     def _continue_facing_sweep(self, state: ActiveSkillState, world_state: dict,
                                now: float) -> SkillResult | None:
-        """Next sweep step on a newer facing error; end it when quiet/visible."""
-        context = state.skill_context.setdefault("combat", {})
-        sweep = context.get("facing_sweep")
-        if not sweep:
-            return None
-        target = world_state.get("target") or {}
-        if (str(target.get("guid") or "") != str(context.get("expected_guid") or "")
-                or target.get("dead", target.get("is_dead"))
-                or self._target_on_screen(target, now)):
-            context.pop("facing_sweep", None)
-            return None
-        since = now - float(sweep.get("last_step_at") or now)
-        if since < self.FACING_SWEEP_SETTLE_SECONDS:
-            return SkillResult(SkillStatus.RUNNING, metadata={"facing_sweep_settling": True})
-        sequence = number(world_state.get("ui_error_sequence"))
-        previous = number(sweep.get("error_sequence"))
-        newer = sequence is not None and (previous is None or sequence > previous)
-        if newer and self._facing_text(world_state):
-            return self._facing_sweep_step(state, world_state, now)
-        if since >= self.FACING_SWEEP_QUIET_SECONDS:
-            # No new "not in front" answer to the last attack key: facing.
-            context.pop("facing_sweep", None)
-            context.pop("facing_recovery_started_at", None)
-            return None
-        return SkillResult(SkillStatus.RUNNING, metadata={"facing_sweep_waiting": True})
+        return CombatFacingController(self).continue_sweep(state, world_state, now)
 
     def __init__(self, bindings=None, verifier: CombatVerifier | None = None):
         self.bindings = bindings
@@ -129,6 +130,7 @@ class CombatSkill:
         self.visual_follow = CombatVisualFollowPolicy()
         self.target_recovery = InvalidTargetRecoveryPolicy()
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         state.phase = CombatPhase.SELECT_TARGET.value
         expected = world_entity_id(state.intent.target_ref or state.intent.parameters.get("guid"))
@@ -180,6 +182,7 @@ class CombatSkill:
         state.phase = CombatPhase.ENGAGE.value
         return self._next_action(state, world_state, now)
 
+    @identity_guarded
     def resume_after_approach(self, state: ActiveSkillState, world_state: dict,
                               now: float) -> SkillResult:
         """Resume the same committed combat attempt after canonical reach.
@@ -204,6 +207,7 @@ class CombatSkill:
         state.phase = CombatPhase.ENGAGE.value
         return self._next_action(state, world_state, now)
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         context = state.skill_context.setdefault("combat", {})
         progress_at = context.setdefault("last_progress_at", now)
@@ -246,6 +250,18 @@ class CombatSkill:
         # it).  The launch path itself can only dispatch direct commands.
         context["visual_follow_armed"] = True
         target = world_state.get("target") or {}
+        recovery_hover = context.get("target_recovery_hover")
+        if recovery_hover and target.get("guid") != context.get("expected_guid"):
+            from .hover_confirm import hover_confirm_step
+            outcome, commands = hover_confirm_step(
+                recovery_hover, world_state, now,
+                expected_guid=str(context.get("expected_guid") or ""),
+                deadline=state.attempt.deadline)
+            if outcome in {"CLICK", "HOVER", "WAIT"}:
+                return SkillResult(SkillStatus.RUNNING, commands=commands,
+                                   metadata={"target_recovery": "REACQUIRE_INTENDED"})
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
+                               retryable=True, replan_required=True)
         sweep = self._continue_facing_sweep(state, world_state, now)
         if sweep is not None:
             return sweep
@@ -254,6 +270,7 @@ class CombatSkill:
                 and target.get("attackable", target.get("is_attackable")) is True
                 and not target.get("dead", target.get("is_dead"))):
             context["target_recovery_pending"] = False
+            context.pop("target_recovery_hover", None)
             state.phase = CombatPhase.ENGAGE.value
             return self._next_action(state, world_state, now)
         correlation = self.error_correlation.correlate(
@@ -413,88 +430,11 @@ class CombatSkill:
                 "health", "max_health")},
         }
 
+    # REV4 split: the per-tick action choice (rotation, opener, GCD, the
+    # auto-attack fallback, out-of-range) lives in
+    # combat_arbitrator.CombatArbitrator; these keep the skill API.
     def _next_action(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
-        context = state.skill_context.setdefault("combat", {})
-        state.phase = CombatPhase.SELECT_ABILITY.value
-        if not rotation_allowed(world_state):
-            # V4-055: do not let normal rotation fire into a vehicle
-            # override state. Fail typed so the planner can switch to
-            # VehicleSkill rather than silently stalling this attempt.
-            state.phase = CombatPhase.FAILED.value
-            return SkillResult(SkillStatus.FAILURE, FailureReason.UNSUPPORTED_MECHANIC,
-                               replan_required=True, metadata={"reason": "vehicle_override_active"})
-        if world_state.get("is_casting"):
-            state.phase = CombatPhase.VERIFY_ABILITY.value
-            return SkillResult(SkillStatus.RUNNING)
-        # The launch path can only dispatch direct commands; navigation
-        # metadata is composed by CombatRuntimeRunner on subsequent control
-        # ticks.  Cast the first probe normally, then keep the committed
-        # target centred during its GCD and all later rotation steps.
-        visual_follow = (self._visual_follow_request(state, world_state, now)
-                         if ((context.get("ability_attempts")
-                              or context.get("visual_follow_armed"))
-                             and not context.get("await_post_recovery_cast")) else None)
-        if visual_follow is not None:
-            return visual_follow
-        # Respect the client GCD and wait for a fresh usable action instead of
-        # issuing an uncontrolled repeated keypress.
-        if now - float(context.get("last_cast_at", -float("inf"))) < .9:
-            state.phase = CombatPhase.VERIFY_ABILITY.value
-            return SkillResult(SkillStatus.RUNNING)
-        sample = self._combat_sample_key(world_state)
-        if (sample is not None and context.get("last_action_sample") is not None
-                and sample == context.get("last_action_sample")):
-            # Never make a second combat decision from the exact same FAST
-            # sample.  Live logs showed Charge being dispatched twice while
-            # its pre-cast readiness state was still being replayed.
-            state.phase = CombatPhase.VERIFY_ABILITY.value
-            return SkillResult(SkillStatus.RUNNING)
-        uses = context.setdefault("ability_uses", {})
-        action = self._choose_action(world_state, uses=uses, now=now, context=context)
-        if action is None:
-            auto_attack = self._auto_attack_fallback(state, world_state, now)
-            if auto_attack is not None:
-                return auto_attack
-            harmful = [row for row in self.ability_rules.actionbar(world_state)
-                       if row.get("kind") == "spell" and row.get("is_harmful") is True]
-            if harmful and all(row.get("in_range") is False for row in harmful):
-                visual_approach = self._visual_range_approach_request(
-                    state, world_state, now)
-                if visual_approach is not None:
-                    return visual_approach
-                recovery = self._local_recovery_request(
-                    state, world_state, FailureReason.OUT_OF_RANGE, now)
-                if recovery is not None:
-                    return recovery
-                state.phase = CombatPhase.RECOVER_RANGE.value
-                return SkillResult(SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
-                                   retryable=True, replan_required=True)
-            return SkillResult(SkillStatus.RUNNING)
-        context["last_cast_at"] = now
-        context["last_action_sample"] = sample
-        context["last_binding"] = action["action"]
-        spell_id = action.get("id", action.get("spell_id"))
-        uses[spell_id] = int(uses.get(spell_id) or 0)+1
-        context["visual_follow_armed"] = True
-        attempts = context.setdefault("ability_attempts", [])
-        attempts.append({"spell_id": spell_id, "binding": action.get("action"), "at": now})
-        del attempts[:-24]
-        definition = self.ability_rules.definition(action)
-        context["desired_range"] = (
-            min(self.RANGE_SAFE_MAX,
-                max(self.RANGE_SAFE_MIN, definition.max_range * .80))
-            if definition.max_range is not None else 3.5)
-        context["ability_attempt"] = self.error_correlation.start(
-            world_state, now,
-            ability_id=action.get("id", action.get("spell_id")),
-            binding=action.get("action"))
-        context["ability_attempt_id"] = context["ability_attempt"].attempt_id
-        state.phase = CombatPhase.EXECUTE_ABILITY.value
-        return SkillResult(SkillStatus.RUNNING, commands=(Command("BIND", action["action"]),),
-                           metadata={"spell_id": spell_id,
-                                     "cast_dispatched": True,
-                                     "ability_use_count": uses[spell_id],
-                                     "ability_attempt_id": context["ability_attempt_id"]})
+        return CombatArbitrator(self).next_action(state, world_state, now)
 
     @staticmethod
     def _combat_sample_key(world_state: dict):
@@ -506,71 +446,7 @@ class CombatSkill:
 
     def _auto_attack_fallback(self, state: ActiveSkillState,
                               world_state: dict, now: float) -> SkillResult | None:
-        """Start melee auto-attack when no rage/cooldown ability is usable.
-
-        A right click is allowed only on a fresh screen position belonging to
-        the exact addon-selected hostile GUID.  It is dispatched once per
-        COMBAT attempt; later ticks keep evaluating Slam/Shield Slam as rage
-        and cooldown telemetry changes.
-        """
-        context = state.skill_context.setdefault("combat", {})
-        if int(context.get("auto_attack_dispatches") or 0) >= 1:
-            return None
-        expected = str(context.get("expected_guid") or "")
-        target = world_state.get("target") or {}
-        if (not expected or str(target.get("guid") or "") != expected
-                or target.get("attackable", target.get("is_attackable")) is not True
-                or target.get("dead", target.get("is_dead")) is True):
-            return None
-        actions = self.ability_rules.actionbar(world_state)
-        melee_range = False
-        for action in actions:
-            if not isinstance(action, dict) or action.get("is_harmful") is not True:
-                continue
-            definition = self.ability_rules.definition(action)
-            if ("MOVEMENT" not in definition.tags
-                    and definition.max_range is not None
-                    and definition.max_range <= 5.
-                    and action.get("in_range") is True):
-                melee_range = True
-                break
-        distance = number(target.get("distance", target.get("distance_yards")))
-        # Live 13:58: in combat Retail exported no range for the goat that
-        # was hitting the character; "unknown" is not "out of range".
-        range_unknown = (world_state.get("is_in_combat") is True and not any(
-            isinstance(action, dict) and action.get("is_harmful") is True
-            and action.get("in_range") is False for action in actions))
-        if (not melee_range and not (distance is not None and distance <= 5.)
-                and not range_unknown):
-            return None
-        if self.bindings is not None and self.bindings.contains("INTERACTTARGET"):
-            # Live 2026-10-03 13:37: the goat overlapped the character and the
-            # right click at its box landed on our own model; no attack for
-            # 15 s.  Interact-with-target attacks the selected unit itself.
-            context["auto_attack_started_at"] = now
-            context["auto_attack_dispatches"] = 1
-            context["last_action_sample"] = self._combat_sample_key(world_state)
-            state.phase = CombatPhase.EXECUTE_ABILITY.value
-            return SkillResult(
-                SkillStatus.RUNNING, commands=(Command("BIND", "INTERACTTARGET"),),
-                metadata={"auto_attack_fallback": True, "expected_guid": expected,
-                          "reason": "no_usable_melee_ability", "via": "INTERACTTARGET"})
-        screen = target.get("screen_position") or {}
-        x, y = number(screen.get("x")), number(screen.get("y"))
-        sampled = number(screen.get("sample_time", screen.get("observed_at")))
-        if (x is None or y is None or not .01 < x < .99 or not .01 < y < .99
-                or (sampled is not None and not 0. <= now-sampled <= .75)):
-            return None
-        context["auto_attack_started_at"] = now
-        context["auto_attack_dispatches"] = 1
-        context["last_action_sample"] = self._combat_sample_key(world_state)
-        state.phase = CombatPhase.EXECUTE_ABILITY.value
-        return SkillResult(
-            SkillStatus.RUNNING,
-            commands=(Command("CLICK", x=x, y=y, button="RIGHT"),),
-            metadata={"auto_attack_fallback": True,
-                      "expected_guid": expected,
-                      "reason": "no_usable_melee_ability"})
+        return CombatArbitrator(self).auto_attack_fallback(state, world_state, now)
 
     def _visual_follow_request(self, state: ActiveSkillState, world_state: dict,
                                now: float) -> SkillResult | None:
@@ -635,188 +511,10 @@ class CombatSkill:
 
     def _local_recovery_request(self, state: ActiveSkillState, world_state: dict,
                                 reason: FailureReason | None, now: float) -> SkillResult | None:
-        """Request one safe local navigation correction, or return ``None``.
-
-        Combat owns the decision that its *current* target needs a local retry;
-        NavigationService owns the resulting turn/forward command.  No blind
-        movement is permitted: a current matching target and fresh normalized
-        screen position are required.  Missing localization therefore remains
-        a typed combat failure for the planner to resolve at a higher level.
-        """
-        if reason not in {FailureReason.OUT_OF_RANGE, FailureReason.FACING_WRONG_WAY,
-                          FailureReason.LINE_OF_SIGHT}:
-            return None
-        context = state.skill_context.setdefault("combat", {})
-        expected = context.get("expected_guid")
-        target = world_state.get("target") or {}
-        if reason is FailureReason.OUT_OF_RANGE and not context.get("approach_request"):
-            started_at = context.get("range_recovery_started_at")
-            if started_at is None:
-                context["range_recovery_started_at"] = now
-                started_at = now
-            if now - float(started_at) >= self.RANGE_RECOVERY_TIMEOUT_SECONDS:
-                state.phase = CombatPhase.FAILED.value
-                return SkillResult(
-                    SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
-                    retryable=False, replan_required=True,
-                    metadata={"target_unreachable": True,
-                              "range_recovery_timeout_seconds":
-                                  self.RANGE_RECOVERY_TIMEOUT_SECONDS})
-            desired_range = number(context.get("desired_range")) or 3.5
-            world_request = self._world_approach_request(
-                world_state, expected, desired_range=desired_range)
-            if world_request is not None:
-                attempts = context.setdefault("world_approach_attempts", 0)
-                if attempts < self.RANGE_DIRECT_APPROACH_BUDGET:
-                    context["world_approach_attempts"] = attempts + 1
-                    context["approach_request"] = world_request
-                    state.local_retry_count += 1
-                    state.failure_history.append(reason)
-                    state.phase = CombatPhase.RECOVER_RANGE.value
-                    return SkillResult(SkillStatus.RUNNING,
-                                       metadata={"approach_request": world_request})
-        screen = target.get("screen_position") or {}
-        x = number(screen.get("x"))
-        y = number(screen.get("y"))
-        sampled = number(screen.get("sample_time"))
-        current_time = number(world_state.get("monotonic_time"))
-        attempts = context.setdefault("local_recovery_attempts", {})
-        count = int(attempts.get(reason.value, 0))
-        if reason is FailureReason.LINE_OF_SIGHT and count >= self.LOS_RECOVERY_ATTEMPTS:
-            state.phase = CombatPhase.FAILED.value
-            return SkillResult(
-                SkillStatus.FAILURE, FailureReason.LINE_OF_SIGHT,
-                retryable=True, replan_required=True,
-                metadata={"target_unreachable": True,
-                          "replan_scope": "LOCAL",
-                          "los_recovery_phase": "TARGET_UNREACHABLE",
-                          "los_recovery_attempts": count})
-        # The third LOS step is not another blind screen-space pulse.  It is a
-        # validated same-instance world request; NavigationService may route
-        # it through Trinity mmap and its persistent movement controller.
-        if reason is FailureReason.LINE_OF_SIGHT and count == 2:
-            desired_range = number(context.get("desired_range")) or 4.5
-            world_request = self._world_approach_request(
-                world_state, expected, desired_range=desired_range)
-            if world_request is None:
-                attempts[reason.value] = self.LOS_RECOVERY_ATTEMPTS
-                state.phase = CombatPhase.FAILED.value
-                return SkillResult(
-                    SkillStatus.FAILURE, FailureReason.LINE_OF_SIGHT,
-                    retryable=True, replan_required=True,
-                    metadata={"target_unreachable": True,
-                              "replan_scope": "LOCAL",
-                              "los_recovery_phase": "LOCAL_REPLAN_UNAVAILABLE",
-                              "los_recovery_attempts": count})
-            world_request["kind"] = "LOS_REPOSITION"
-            context["approach_request"] = world_request
-            attempts[reason.value] = count + 1
-            state.local_retry_count += 1
-            state.failure_history.append(reason)
-            state.phase = CombatPhase.RECOVER_LOS.value
-            return SkillResult(
-                SkillStatus.RUNNING,
-                metadata={"los_reposition_request": world_request,
-                          "los_recovery_phase": "LOCAL_REPLAN",
-                          "los_recovery_attempt": count,
-                          "timeout": self.LOS_RECOVERY_TIMEOUT_PER_ATTEMPT})
-        if reason is FailureReason.FACING_WRONG_WAY:
-            facing_started = context.get("facing_recovery_started_at")
-            if facing_started is None:
-                context["facing_recovery_started_at"] = now
-                facing_started = now
-            if now - float(facing_started) >= self.FACING_RECOVERY_TIMEOUT_SECONDS:
-                state.phase = CombatPhase.FAILED.value
-                return SkillResult(
-                    SkillStatus.FAILURE, FailureReason.FACING_FAILED,
-                    retryable=True, replan_required=True,
-                    metadata={"facing_recovery_timeout_seconds":
-                                  self.FACING_RECOVERY_TIMEOUT_SECONDS})
-            if x is None or y is None:
-                # Live 2026-10-02: the attacker was behind the character, so
-                # it was not on screen and COMBAT gave up in 1.5 s.  Turn
-                # toward the last bearing seen (default left); a full keyboard
-                # turn takes ~2 s, within the facing timeout.
-                follow = context.get("visual_follow") or {}
-                last_x = number(follow.get("last_seen_x"))
-                direction = follow.get("reacquire_direction")
-                if direction not in {"TURNLEFT", "TURNRIGHT"}:
-                    direction = ("TURNRIGHT" if last_x is not None and last_x >= .5
-                                 else "TURNLEFT")
-                state.phase = CombatPhase.RECOVER_FACING.value
-                # Live 2026-10-03 13:57: turning blindly for 3 s without ever
-                # retrying the attack ended in FACING_FAILED while a goat
-                # beat the character to death.  Sweep instead: a ~35 degree
-                # turn plus the attack key, repeated only while the client
-                # keeps answering "not in front".
-                sequence = number(world_state.get("ui_error_sequence"))
-                if (not context.get("facing_sweep") and sequence is not None
-                        and sequence == number(context.get("facing_handled_sequence"))):
-                    # The addon keeps an error for 3 s; one already answered
-                    # by a sweep step is not a new facing failure.
-                    return None
-                if not context.get("facing_sweep"):
-                    context["facing_sweep"] = {
-                        "steps": 0, "direction": direction,
-                        "error_sequence": number(world_state.get("ui_error_sequence"))}
-                return self._facing_sweep_step(state, world_state, now)
-        if (not expected or target.get("guid") != expected or x is None or y is None
-                or not .02 < x < .98 or not .02 < y < .98
-                or (sampled is not None and current_time is not None
-                    and not 0 <= current_time-sampled <= 1.5)):
-            return None
-        # One facing correction, at most two small range corrections and two
-        # LOS lateral probes preserve commitment without an uncontrolled loop.
-        # LOS attempt three was handled above as a geometry-backed replan.
-        maximum = (1 if reason is FailureReason.FACING_WRONG_WAY else
-                   self.LOS_RECOVERY_ATTEMPTS
-                   if reason is FailureReason.LINE_OF_SIGHT else 2)
-        if count >= maximum:
-            if reason is FailureReason.OUT_OF_RANGE:
-                state.phase = CombatPhase.FAILED.value
-                return SkillResult(
-                    SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
-                    retryable=False, replan_required=True,
-                    metadata={"target_unreachable": True,
-                              "replan_scope": "LOCAL",
-                              "range_recovery_attempts": {
-                                  "direct": context.get("world_approach_attempts", 0),
-                                  "local": count,
-                              }})
-            if reason is FailureReason.LINE_OF_SIGHT:
-                state.phase = CombatPhase.FAILED.value
-                return SkillResult(
-                    SkillStatus.FAILURE, FailureReason.LINE_OF_SIGHT,
-                    retryable=True, replan_required=True,
-                    metadata={"target_unreachable": True,
-                              "replan_scope": "LOCAL",
-                              "los_recovery_attempts": count})
-            return None
-        attempts[reason.value] = count + 1
-        # CombatSkill receives the canonical mutable ActiveSkillState, not
-        # the runtime façade.  Record this local retry on that sole active
-        # state so the supervisor/debug snapshot sees it too.
-        state.local_retry_count += 1
-        state.failure_history.append(reason)
-        phase = {
-            FailureReason.OUT_OF_RANGE: CombatPhase.RECOVER_RANGE,
-            FailureReason.FACING_WRONG_WAY: CombatPhase.RECOVER_FACING,
-            FailureReason.LINE_OF_SIGHT: CombatPhase.RECOVER_LOS,
-        }[reason]
-        state.phase = phase.value
-        context["await_post_recovery_cast"] = True
-        return SkillResult(
-            SkillStatus.RUNNING,
-            metadata={"local_navigation_request": {
-                "kind": "COMBAT_LOCAL_RECOVERY",
-                "reason": reason.value,
-                "expected_guid": expected,
-                "target_screen_x": x,
-                "target_screen_y": y,
-                "attempt": count,
-                "requested_at": now,
-            }},
-        )
+        """One safe local correction of the current target, or ``None``
+        (skills/combat_recovery.py, REV4 split)."""
+        from .combat_recovery import CombatLocalRecovery
+        return CombatLocalRecovery(self).request(state, world_state, reason, now)
 
     @staticmethod
     def _world_approach_request(world_state: dict, expected_guid: str | None,
@@ -829,6 +527,8 @@ class CombatSkill:
                 or target.get("dead", target.get("is_dead"))
                 or target.get("attackable", target.get("is_attackable")) is not True):
             return None
+        from wowbot.agent.packet_entity_facts import interaction_position
+        position=interaction_position(world_state,expected_guid) or position
         if None in {number(player.get("x")), number(player.get("y")),
                     number(position.get("x")), number(position.get("y"))}:
             return None
@@ -882,7 +582,10 @@ class CombatSkill:
                         and set(candidate.rejection_reasons) <= self.INSTRUCTION_WAIVED):
                     context["followed_instruction_sequence"] = sequence
                     return dict(raw)
-        return self.ability_rules.choose(world_state, uses=uses, now=now)
+        action = self.ability_rules.choose(world_state, uses=uses, now=now)
+        if context is not None:
+            context['combat_arbitration'] = self.ability_rules.last_arbitration
+        return action
 
     def _invalid_target_recovery(self, state: ActiveSkillState,
                                  world_state: dict,
@@ -895,12 +598,13 @@ class CombatSkill:
             world_state, context.get("expected_guid"),
             quest_ids=state.intent.parameters.get("quest_ids") or ())
         state.phase = CombatPhase.RECOVER_TARGET.value
-        if decision.kind == "REACQUIRE_INTENDED" and decision.anchor:
-            commands = []
-            if self.bindings is not None and self.bindings.contains("CLEARTARGET"):
-                commands.append(Command("BIND", "CLEARTARGET"))
-            commands.append(Command("CLICK", x=decision.anchor["x"],
-                                    y=decision.anchor["y"]))
+        from .hover_confirm import pointer_acquisition_retired
+        if (decision.kind == "REACQUIRE_INTENDED" and decision.anchor
+                and not pointer_acquisition_retired(world_state)):
+            point = (decision.anchor["x"], decision.anchor["y"])
+            context["target_recovery_hover"] = {"hover_point": point, "hovers": 1,
+                "hovered_at": world_state.get("monotonic_time", state.started_at)}
+            commands = (Command("HOVER", x=point[0], y=point[1]),)
             context["target_recovery_attempts"] = count + 1
             context["target_recovery_pending"] = True
             return SkillResult(

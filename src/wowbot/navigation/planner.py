@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import heapq
 from typing import Optional
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 from .graph import NavGraph, NavGraphNode
 from .learning import LearningPolicy
 

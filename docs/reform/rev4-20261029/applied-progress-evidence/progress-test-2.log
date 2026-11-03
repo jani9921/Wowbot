@@ -1,0 +1,64 @@
+...................F.................................................... [ 57%]
+......................................................                   [100%]
+================================== FAILURES ===================================
+___ test_bridge_follows_real_decoder_progress_and_resets_on_rotated_header ____
+
+tmp_path = WindowsPath('C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-applied-progress-20261030/pytest-progress-2/test_bridge_follows_real_decod0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023E96947BB0>
+
+    def test_bridge_follows_real_decoder_progress_and_resets_on_rotated_header(tmp_path,monkeypatch):
+        from wowbot.packetio import ymir_bridge as module, process_identity, stream_progress
+        from wowbot.packetio.pkt import PktV31StreamParser
+        from wowbot.session_context import ProcessIdentity
+        from test_packet_codecs import pkt_bytes,packed_guid
+        decoder,verification=session_events(build=70575)
+        login=PktV31StreamParser().feed(pkt_bytes('CMSG_PLAYER_LOGIN',
+            packed_guid()+struct.pack('<fB',500.,0),build=70575))[0]
+        from test_native_inventory_20261030 import item_payload
+        item=replace(verification,record_number=2,opcode=0x60000B,payload=item_payload())
+        class Follower:
+            def __init__(self,path):self.parser=type('Parser',(),{'header':decoder.header})()
+            def records(self,stop):
+                yield login
+                yield verification
+                yield item
+                self.parser.header=replace(decoder.header)
+                yield login
+                yield verification
+        class UDP:
+            def __init__(self,**kwargs):self.sent=0;self.progress=[]
+            def context_id(self):return None
+            def emit(self,event):self.sent+=1;return True
+            def emit_progress(self,value):self.progress.append(value);self.sent+=1;return True
+            def close(self):pass
+        udp=UDP()
+        monkeypatch.setattr(module,'UdpJsonForwarder',lambda **kwargs:udp)
+        monkeypatch.setattr(module,'PktFileFollower',Follower)
+        monkeypatch.setattr(process_identity,'selected_process_identity',lambda pid:
+            ProcessIdentity(77,'0000000000000001',70575))
+        real=stream_progress.CaptureProgress
+        monkeypatch.setattr(stream_progress,'CaptureProgress',lambda:real(interval=0.))
+        path=tmp_path/'capture.pkt';path.write_bytes(b'fixture')
+        bridge=module.YmirAgentBridge(executable=tmp_path/'not-started.exe',output=tmp_path,
+                                      selected_pid=77,endpoint_path=tmp_path/'endpoint.json')
+        bridge._stream(path)
+>       assert bridge.process is None and bridge.snapshot()['error'] is None
+                                          ^^^^^^^^^^^^^^^^^
+
+tests\test_applied_packet_progress_20261030.py:198: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <wowbot.packetio.ymir_bridge.YmirAgentBridge object at 0x0000023E96A6D550>
+
+    def snapshot(self):
+        with self._lock:
+            value = dict(self._state)
+        if self.follower is not None:
+>           value["pkt"] = self.follower.snapshot()
+                           ^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Follower' object has no attribute 'snapshot'
+
+src\wowbot\packetio\ymir_bridge.py:90: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_applied_packet_progress_20261030.py::test_bridge_follows_real_decoder_progress_and_resets_on_rotated_header
+1 failed, 125 passed in 4.24s

@@ -1,0 +1,14 @@
+{
+  "src/wowbot/agent/fast_movement_lane.py": "7c2b50fd61013e2648371958f67e58724a3829214356669de80716ab7662933e",
+  "src/wowbot/agent/movement_controller.py": "39e6fad75d9a37349a9ea0e74d5050f1fd1c8cc3ff3ede1782b2b10c7047aa70",
+  "src/wowbot/agent/navigation_terminal.py": "4fe08a9050248cb719cedff222b0d5f48496ef38455bce9d4db776299fac88a6",
+  "src/wowbot/agent/parallel_control.py": "7eeb7b571dc2ce6fc7ef7e1df966cdaf580e90ad8e972658c450c0785686165e",
+  "src/wowbot/navigation/entity_goal.py": "8a3444b0bc79f3da92988ab4ef177410b74a3e14f4b4aafabeb32b61776aa84e",
+  "src/wowbot/navigation/service.py": "b2e10ca83371a60317ac959f73cc6601ee20198f0f2ab730175f773b209fb8df",
+  "src/wowbot/navigation/route_feedback.py": "fd2c03075268642b4d874df3ae23e38cf73866ba3becfda4d602b3a66d5b89e7",
+  "src/wowbot/runtime/contracts.py": "b9607b770746ad97b0c68213d21d3cca267bd4a0cb1235f1cbd4d3a885fccb2d",
+  "src/wowbot/skills/movement.py": "19a54ae2472c4ce76d34d4f69f5e18fa836dccacb18c2f967d9f9c481c0a2748",
+  "src/wowbot/skills/navigation_handoff.py": "7d1060f7714c43bf4d21cc964db331d549c8284c5de75f20c7b8a5cfb0829d21",
+  "tests/test_route_feedback_wip_20261030.py": "4548e36b3c3265b20aab840da0444178ae32368f1f9fafc18e4255f77fe3adc0",
+  "tests/test_uniform_entity_identity_20261016.py": "f49868c33484d44f72817cad70c7aa38922ea8bc4a89b30a469b4587f10281f4"
+}

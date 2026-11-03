@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 from .models import Command, number
 from .visual_approach_types import VisualApproachPhase
+from wowbot.runtime.skill_identity import check_interaction_recipient, expected_identity
 
 
 class VisualApproachCommandMixin:
@@ -16,6 +17,10 @@ class VisualApproachCommandMixin:
                 or state.get("quest_ui_open") is True
                 or (state.get("gossip_ui") or {}).get("open") is True
                 or state.get("gossip_open") is True):
+            return ()
+        # command() also runs on fast-lane refreshes of the same visual
+        # observation. Never re-lease movement from a now-lost/stale GUID.
+        if not self._approach_identity_check(state, now):
             return ()
         # HOVER has moved the physical pointer and the movement lease was
         # deliberately released by the executor.  Do not issue another W
@@ -58,8 +63,10 @@ class VisualApproachCommandMixin:
             # published candidate to the selected identity again. It is a
             # bounded perception action, never a click or a guessed move.
             if committed_guid and target.get("guid") == committed_guid:
-                candidate = self._reacquire_hover_candidate(state)
-                if (candidate is not None and self._requires_identity_recheck()
+                candidate = self._selected_target_recheck_candidate(state, now)
+                if candidate is None and self._requires_identity_recheck():
+                    candidate = self._reacquire_hover_candidate(state)
+                if (candidate is not None
                         and (self.last_occluded_reacquire_at is None
                              or now-self.last_occluded_reacquire_at >= .40)):
                     self.last_occluded_reacquire_at = now
@@ -67,6 +74,7 @@ class VisualApproachCommandMixin:
                     self.identity_recheck_mouse_sample_before = number(
                         state.get("mouseover_sample_time"))
                     self.identity_recheck_track_id = str(candidate.get("track_id"))
+                    self.identity_recheck_point = (float(candidate["x"]), float(candidate["y"]))
                     self.identity_rechecks += 1
                     self.control_updates += 1
                     self.last_command_at = now
@@ -74,6 +82,7 @@ class VisualApproachCommandMixin:
                                     y=float(candidate["y"]), duration=.05),)
                 point = self.last_confirmed_hover_point
                 if (point and self._requires_identity_recheck()
+                        and 0 <= now-point.get("at", -math.inf) <= .75
                         and (self.last_occluded_reacquire_at is None
                              or now-self.last_occluded_reacquire_at >= .40)):
                     self.last_occluded_reacquire_at = now
@@ -81,6 +90,7 @@ class VisualApproachCommandMixin:
                     self.identity_recheck_mouse_sample_before = number(
                         state.get("mouseover_sample_time"))
                     self.identity_recheck_track_id = None
+                    self.identity_recheck_point = (point["x"], point["y"])
                     self.identity_rechecks += 1
                     self.control_updates += 1
                     self.last_command_at = now
@@ -89,6 +99,8 @@ class VisualApproachCommandMixin:
                 # reacquisition try: it opens the UI at real client range and
                 # otherwise returns the same explicit range feedback.
                 if (self.intent.get("purpose") == "INTERACT"
+                        and not self.intent.get("item_use_approach")
+                        and check_interaction_recipient(expected_identity(self.intent), state, now)
                         and (self.last_interaction_probe_at is None
                              or now-self.last_interaction_probe_at >= 1.2)):
                     self.last_interaction_probe_at = now
@@ -150,6 +162,8 @@ class VisualApproachCommandMixin:
         # lease release) made the walk stop-and-go; arrival is decided by the
         # visual scale (learned per GUID from real client range errors).
         if (self.range_probe_enabled and self.intent.get("purpose") == "INTERACT"
+                and not self.intent.get("item_use_approach")
+                and check_interaction_recipient(expected_identity(self.intent), state, now)
                 and str((state.get("target") or {}).get("guid") or "")
                     == str(self.intent.get("guid") or "")
                 and self.forward_updates_since_probe >= probe_updates
@@ -184,23 +198,10 @@ class VisualApproachCommandMixin:
             if not (sample.x is not None and sample.y is not None
                     and 0. < sample.x < 1. and 0. < sample.y < 1.):
                 return ()
+            self.identity_recheck_point = (sample.x, sample.y)
             return (Command("HOVER", x=sample.x, y=sample.y, duration=.05),)
-        cursor = state.get("cursor_position") or {}
-        cursor_x, cursor_y = number(cursor.get("nx")), number(cursor.get("ny"))
-        if (self.pointer_tracking and self.final_align_started_at is None
-                and self.control_updates > 0
-                and sample.x is not None and sample.y is not None
-                and .02 < sample.x < .98 and .02 < sample.y < .98
-                and cursor_x is not None and cursor_y is not None
-                and now-self.last_pointer_hover_at >= self.POINTER_INTERVAL
-                and math.hypot(cursor_x-sample.x, cursor_y-sample.y) > self.POINTER_TOLERANCE):
-            # Turning moves the camera and slides the pointer off the unit
-            # (user 2026-10-01); put it back without stopping the approach.
-            self.last_pointer_hover_at = now
-            self.pointer_hovers += 1
-            self.last_command_at = now
-            self.last_command_visual_sample_time = sample.visual_sample_time
-            return (Command("POINTER", x=sample.x, y=sample.y, duration=.02),)
+        # Pointer following has its own engine hook. Returning only POINTER
+        # here would consume this movement update (at 30 Hz it starves W).
         turn = "TURNRIGHT" if error > 0 else "TURNLEFT"
         if self._last_turn and turn != self._last_turn and abs(error) > .055:
             self.steering_reversals += 1

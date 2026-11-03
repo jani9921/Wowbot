@@ -23,9 +23,11 @@ class BindingsCache:
         actions: dict[str, list[str]] = {}
         assigned: dict[str, str] = {}
         for line in raw.decode("utf-8-sig").splitlines():
-            match = re.fullmatch(r'\s*bind\s+(?:"([^"]+)"|(\S+))\s+(?:"([^"]*)"|(\S+))\s*', line, re.I)
+            # A CLICK binding names a button: "bind F10 CLICK AIPCEmoteButton:LeftButton".
+            match = re.fullmatch(r'\s*bind\s+(?:"([^"]+)"|(\S+))\s+(?:"([^"]*)"|(CLICK\s+\S+|\S+))\s*',
+                                 line, re.I)
             if match:
-                key, command = (match[1] or match[2]).upper(), (match[3] or match[4] or "").upper()
+                key, command = (match[1] or match[2]).upper(), " ".join((match[3] or match[4] or "").upper().split())
                 assigned[key] = command
         for key, command in assigned.items():
             if command and command != "NONE":
@@ -49,7 +51,12 @@ class BindingsCache:
         except OSError:
             return False
 
-    def required_actions(self, domain: str, actionbar=()) -> list[str]:
+    def required_actions(self, domain: str, actionbar=(), *, context: str = "NORMAL") -> list[str]:
+        if context == "SKYRIDING":
+            # The course uses flight controls, then ordinary forward walking
+            # for its verified ground approach after touchdown.
+            # Hidden ground combat spells do not authorize/require flight input.
+            return ["JUMP", "MOVEFORWARD", "PITCHDOWN", "PITCHUP", "TURNLEFT", "TURNRIGHT"]
         required = {"QUEST": ("MOVEFORWARD", "TURNLEFT", "TURNRIGHT", "JUMP", "INTERACTTARGET", "TARGETNEARESTENEMY"),
                     "MOVE": ("MOVEFORWARD", "TURNLEFT", "TURNRIGHT"),
                     "EXPLORE": ("MOVEFORWARD", "TURNLEFT", "TURNRIGHT"),
@@ -61,8 +68,8 @@ class BindingsCache:
                            if a.get("is_harmful") is True and a.get("action"))
         return sorted(set(actions))
 
-    def preflight(self, domain: str, actionbar=()) -> dict:
-        required = self.required_actions(domain, actionbar)
+    def preflight(self, domain: str, actionbar=(), *, context: str = "NORMAL") -> dict:
+        required = self.required_actions(domain, actionbar, context=context)
         missing = [action for action in required if not self.contains(action)]
         return {"ready": not missing, "missing": sorted(set(missing)), "path": str(self.path), "sha256": self.digest}
 

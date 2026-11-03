@@ -1,0 +1,36 @@
+{
+  "archive": "C:\\Users\\<user>\\Downloads\\WoW_agent_audit_REV4 (9).zip",
+  "sha256": "f86840c5afb9e52d0a849a5db0a7f31bc212ed0e107d559a10dc5825b4406565",
+  "files": [
+    {
+      "name": "SRC_MELY_AUDIT_20261029_HU.md",
+      "bytes": 34124,
+      "lines": 288,
+      "sha256": "c9fae60cb36d9f69f784176f39346a61252878394ec765acf949f5e0c389c7f3"
+    },
+    {
+      "name": "SRC_498_MODUL_LELTAR_20261029.csv",
+      "bytes": 82028,
+      "lines": 499,
+      "sha256": "8b3f465f92b280cd0aee0c47d2cc1dec917745919e1b9e67d3df577a1818007b"
+    },
+    {
+      "name": "ARCHITEKTURA_TERV_20261029_HU_REV4_AUDITALT.md",
+      "bytes": 98424,
+      "lines": 965,
+      "sha256": "22b2deb08a2b1621466045e982a186e36834619de1fdfcc520d155474e0dd765"
+    },
+    {
+      "name": "COMBAT_ES_KARAKTER_TERV_20261029_HU_REV4_AUDITALT.md",
+      "bytes": 45612,
+      "lines": 768,
+      "sha256": "d45b873860c01faafde472a75ec5e66ab180bd6dc73c56cd942750600e1b8ac6"
+    },
+    {
+      "name": "MEZOK_ES_FUGGESEGEK_20261029_HU_REV4_AUDITALT.md",
+      "bytes": 136797,
+      "lines": 696,
+      "sha256": "1b8cd160911c67eec3b50a0df354e57cd6c64bfdd6c2654a181c9b71df6b6f1d"
+    }
+  ]
+}

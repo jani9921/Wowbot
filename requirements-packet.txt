@@ -1,0 +1,3 @@
+# Optional passive Npcap sidecar: selected-PID TCP endpoint ownership.
+# PKT-file reading and offline tests do not require psutil or Npcap.
+psutil

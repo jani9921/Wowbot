@@ -1,0 +1,109 @@
+{
+  "files": [
+    {
+      "path": "baseline.json",
+      "bytes": 209810,
+      "sha256": "6e1087d09db90ceb00311a0f0428f1d58f735fc8f3f50440c2fa825124e87636"
+    },
+    {
+      "path": "baseline.zip",
+      "bytes": 3607433,
+      "sha256": "de56f8fd7c6f53fb106894e549cd721b8fb14c436cfd63bc9518383a7149b039"
+    },
+    {
+      "path": "changes.json",
+      "bytes": 4126,
+      "sha256": "ee04388001daad7938e3094e3617cd501939a67a4aadcc17bb8cf942b456f224"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 40276,
+      "sha256": "dc1502427ee24c22be151d99170c95a626027c3c39c2648673826cab7904a549"
+    },
+    {
+      "path": "combined-inventory-deltas-1-command.json",
+      "bytes": 31320,
+      "sha256": "233dfe81db1bc96711548d0c012700afa3bb0ebe44e4ecaf26171ff2c53621f7"
+    },
+    {
+      "path": "combined-inventory-deltas-1-result.json",
+      "bytes": 233,
+      "sha256": "697a36ada7f82a2f4c199c07defc6e709c1781e19df524b00e6c80a504307334"
+    },
+    {
+      "path": "combined-inventory-deltas-1.log",
+      "bytes": 4434,
+      "sha256": "4b9f409c456d2cf966882cd8235db94accb61e2bd08edf58c90c2965818b05fa"
+    },
+    {
+      "path": "combined-inventory-deltas-final-command.json",
+      "bytes": 31328,
+      "sha256": "268516f9b91a55458f3e8b5bbed7ae2d3aff6791c8c5d99280d00c136698019c"
+    },
+    {
+      "path": "combined-inventory-deltas-final-junit.xml",
+      "bytes": 605195,
+      "sha256": "6a5dc8c619762dec09d7c66f679029c9c0688214d721de7174f078470b0245ef"
+    },
+    {
+      "path": "combined-inventory-deltas-final-result.json",
+      "bytes": 236,
+      "sha256": "9354ae9ee6bbd06dede83329e9ca2a82becd829570ba1e19c0a512ce79cb7fa2"
+    },
+    {
+      "path": "combined-inventory-deltas-final.log",
+      "bytes": 4434,
+      "sha256": "5f3eab478b01a3515bcc5eacf435748a541dde3d490e5d229058b681826fa244"
+    },
+    {
+      "path": "current-files.json",
+      "bytes": 210367,
+      "sha256": "f40ff40766c8471a2db3cffe657ed34feaeb063f584e77fce018161a71345f7f"
+    },
+    {
+      "path": "current-source.zip",
+      "bytes": 3615543,
+      "sha256": "fc6e251db1236c46bfd655757c26412fd80901b86ac8fce6635b5c67904ad6a3"
+    },
+    {
+      "path": "delta-test-1-junit.xml",
+      "bytes": 15685,
+      "sha256": "6288b5568f21afc85dcbcb79dca6d1d4992097de12f8e1a6aed3989460b4b6ea"
+    },
+    {
+      "path": "delta-test-1.log",
+      "bytes": 101,
+      "sha256": "0f8655b3a6815731e0337997bd3851fcd48569162abcf998c907bea353d68e76"
+    },
+    {
+      "path": "reviewed-layout.json",
+      "bytes": 1053,
+      "sha256": "8287dc42114d91e6fe7402e01100ab7bbac9669bfbfb837afe8c6285b0f777ef"
+    },
+    {
+      "path": "run_combined.py",
+      "bytes": 2206,
+      "sha256": "9030cc578f5ae566e59c55225ad6c152427c6ca8f1325bf685421ffa58035351"
+    },
+    {
+      "path": "save_delta_checkpoint.py",
+      "bytes": 5863,
+      "sha256": "35a8a7d085028e0f1e6d5996eb84a96ffeba48ddef3342595dade7cdca867899"
+    },
+    {
+      "path": "source-verification.json",
+      "bytes": 242,
+      "sha256": "1ca0a3aa180f92468d6e9a1eed3c1aed7750a76e4fcfc65984d6e3bb07ae99ed"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 700,
+      "sha256": "8f835c2e13c2256b37117413b97fc042fdaaa30c43914aee80a944628130a44a"
+    },
+    {
+      "path": "verify_closure.py",
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf"
+    }
+  ]
+}

@@ -1,5 +1,4 @@
 """V4-051 wiring: terminal credit feeds belief and Planner consumes it."""
-import inspect
 
 from wowbot.agent.collect_strategy import CollectStrategy
 from wowbot.agent.models import Attempt, Observation, Outcome, Prediction, Proposal
@@ -105,6 +104,22 @@ def test_credit_learned_collect_source_guides_but_does_not_suppress_alternatives
     assert guided[1] == combat
 
 
-def test_planner_applies_collect_guidance_before_global_ranking():
-    source = inspect.getsource(Planner.candidates)
-    assert source.index("apply_collect_strategy") < source.index("proposal_ranker.rank")
+def test_planner_applies_collect_guidance_before_global_ranking(monkeypatch):
+    from wowbot.agent.models import Goal
+    from wowbot.agent.skills import SkillRegistry
+
+    planner = Planner(SkillRegistry())
+    live = _collect_world()
+    object_use = Proposal.make("OBJECT_USE", "ground source", {
+        "objective_id": "0", "quest_ids": [10]}, priority=50)
+    interact = Proposal.make("INTERACT", "other source", {
+        "objective_id": "0", "quest_ids": [10]}, priority=50)
+    planner.quest.collect_strategy.record_outcome(
+        10, "0", strategy=CollectStrategy.GROUND_OBJECT, objective_progressed=True)
+    monkeypatch.setattr(planner.quest, "propose", lambda *a, **kw: [object_use, interact])
+    monkeypatch.setattr(planner.registry, "available", lambda *_args: True)
+
+    choices = planner.candidates(Goal.parse("Questelj", 1.), live, 1.)
+    selected = next(item for item in choices if item.skill == "OBJECT_USE")
+    assert selected.parameters["collect_strategy_guidance"]["strategy"] == "GROUND_OBJECT"
+    assert planner.last_scores[selected.key]["priority"] > object_use.priority

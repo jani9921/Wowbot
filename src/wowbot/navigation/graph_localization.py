@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 from .graph import NavGraph, NavGraphEdge
 
 

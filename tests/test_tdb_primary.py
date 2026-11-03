@@ -286,8 +286,9 @@ def test_object_name_reaches_hover_search_without_forcing_missing_tooltip_id():
         'raw_type':2,'object_template':{'name':'Thick Cocoon','object_id':9999}}]}}})
     identity=ObjectInteractionFlow.expected_identity(model.records[7].objectives[0])
     assert 'Thick Cocoon' in identity['expected_tooltips'] and identity['object_id']==9999
-    assert ObjectInteractionFlow.mouseover_matches(identity,{'name':'Thick Cocoon','quest_related':True})
-    assert ObjectInteractionFlow.mouseover_matches(identity,{'tooltip':'Thick Cocoon ~ Quest 7'})
+    assert ObjectInteractionFlow.mouseover_search_hint(identity,{'name':'Thick Cocoon','quest_related':True})
+    assert not ObjectInteractionFlow.mouseover_matches(identity,{'name':'Thick Cocoon','quest_related':True})
+    assert ObjectInteractionFlow.mouseover_search_hint(identity,{'tooltip':'Thick Cocoon ~ Quest 7'})
     assert not ObjectInteractionFlow.mouseover_matches(identity,{'name':'Thick Cocoon','object_id':4444})
     assert not ObjectInteractionFlow.mouseover_matches(identity,{'name':'Torch','quest_related':True})
     model.ingest(quests,'next_full',2)
@@ -312,16 +313,16 @@ def test_tdb_gameobject_type_fills_unknown_live_objective_only_after_exact_match
     assert objective.raw['tdb_objective_id']==391939
     identity=ObjectInteractionFlow.expected_identity(objective)
     assert identity['object_id']==339568
-    assert ObjectInteractionFlow.mouseover_matches(identity,{'name':'Thick Cocoon'})
+    assert ObjectInteractionFlow.mouseover_search_hint(identity,{'name':'Thick Cocoon'})
     assert not ObjectInteractionFlow.mouseover_matches(identity,{'name':'A nearby torch'})
     state={'active_quests':[{'quest_id':55639,'title':'Who Lurks in the Pit',
                             'objectives':[{'current':0,'required':5}]}]}
     assert ObjectInteractionFlow.quest_mouseover_matches(identity,
-        {'name':'Thick Cocoon','quest_related':True,'quest_id':55639},state,55639)
+        {'name':'Thick Cocoon','object_id':339568,'quest_related':True,'quest_id':55639},state,55639)
     assert not ObjectInteractionFlow.quest_mouseover_matches(identity,
         {'name':'Thick Cocoon','quest_related':True,'quest_id':99999},state,55639)
     assert ObjectInteractionFlow.quest_mouseover_matches(identity,
-        {'name':'Thick Cocoon','tooltip':'Thick Cocoon ~ Who Lurks in the Pit'},state,55639)
+        {'name':'Thick Cocoon','object_id':339568,'tooltip':'Thick Cocoon ~ Who Lurks in the Pit'},state,55639)
     model.apply_reference_knowledge({'quests':{}})
     assert model.records[55639].objectives[0].type=='UNKNOWN'
 

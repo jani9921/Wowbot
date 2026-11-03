@@ -12,7 +12,10 @@ def test_scene_roi_excludes_ui_bands():
     assert roi.learned_rect.bottom == 868
     # Upper middle world remains visible, while the addon block and the two
     # stable unit-frame islands are hard masks for learned inference.
-    assert any(r.left == 0 and r.right >= 581 and r.bottom >= 156
+    # 0.9.64 replaced the tall 512x132 STATE island with a wide, shallow
+    # 1152x33 strip. Mask the current physical strip, not the old world area.
+    assert any(r.left == 0 and r.top == 0 and 1152 <= r.right <= 1164
+               and 33 <= r.bottom <= 45
                for r in roi.hard_excluded_rects)
     assert any(r.left <= 404 and r.right >= 581 and r.top >= 580
                for r in roi.hard_excluded_rects)

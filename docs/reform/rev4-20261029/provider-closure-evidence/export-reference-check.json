@@ -1,0 +1,7 @@
+{
+  "reference": "data/client_power_types.json",
+  "sha256": "54d34963da05882730c1952a65678d12b7b0f65e7b5747098b0a53bfd1da4118",
+  "rows": 21,
+  "migration_includes_reference": true,
+  "github_includes_reference": true
+}

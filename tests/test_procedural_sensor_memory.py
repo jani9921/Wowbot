@@ -79,9 +79,12 @@ def test_episode_contains_lifecycle_and_pattern_needs_repetition(tmp_path):
         first_id = first_id or episode_id
         memory.record_episode_step(episode_id, index*10+.5, "ACTION_INTENT", {"skill": "MOVE"})
         memory.record_episode_step(episode_id, index*10+1, "VERIFICATION",
-                                   {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress"})
+                                   {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress",
+                                    'verification_id': f'v{index}', 'action_id': f'a{index}',
+                                    'baseline_observation_id': f'before{index}', 'observed_observation_id': f'after{index}',
+                                    'evidence': [f'before{index}', f'after{index}']})
         memory.finish_episode(episode_id, {"map_id": 1, "game_build": "12.1.0"}, index*10+2,
-                              "SUCCESS", {"done": True})
+                              "SUCCESS", {"done": True, 'verified': True})
         memory.finish_episode(episode_id, {"map_id": 1, "game_build": "12.1.0"}, index*10+3,
                               "SUCCESS", {"done": True})
     episode = memory.episode(first_id)
@@ -103,8 +106,11 @@ def test_task_pattern_generalization_requires_multiple_contexts(tmp_path):
         initial = {"map_id": map_id, "game_build": "12.1.0"}
         episode_id = memory.start_episode(goal, f"s{index}", initial, index*10)
         memory.record_episode_step(episode_id, index*10+1, "VERIFICATION",
-                                   {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress"})
-        memory.finish_episode(episode_id, initial, index*10+2, "SUCCESS", {})
+                                   {"skill": "MOVE", "outcome": "SUCCESS", "expected": "progress",
+                                    'verification_id': f'v{index}', 'action_id': f'a{index}',
+                                    'baseline_observation_id': f'before{index}', 'observed_observation_id': f'after{index}',
+                                    'evidence': [f'before{index}', f'after{index}']})
+        memory.finish_episode(episode_id, initial, index*10+2, "SUCCESS", {'verified': True})
     pattern = memory.task_patterns("QUEST")[0]
     assert pattern["stage"] == "GENERALIZED"
     assert len(pattern["provenance"]["context_keys"]) == 3

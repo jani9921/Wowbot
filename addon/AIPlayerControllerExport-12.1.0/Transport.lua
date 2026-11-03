@@ -48,7 +48,8 @@ local function compactSoftTargets(values)
             result[#result+1] = {
                 source_unit=compactText(value.source_unit,16),
                 guid=compactText(value.guid,128),name=compactText(value.name,96),
-                npc_id=value.npc_id,unit_type=compactText(value.unit_type,24),
+                npc_id=value.npc_id,object_id=value.object_id,
+                unit_type=compactText(value.unit_type,24),
                 is_attackable=value.is_attackable,is_dead=value.is_dead,
                 evidence_role="CANDIDATE_HINT",confirmed=false,
             }
@@ -58,6 +59,20 @@ local function compactSoftTargets(values)
 end
 local function available(v)
     return not (issecretvalue and issecretvalue(v)) and not (canaccessvalue and not canaccessvalue(v))
+end
+local function compactQuestItemTarget(value)
+    if type(value) ~= "table" or type(value.items) ~= "table" then return false end
+    local rows = {}
+    for i=1,math.min(4,#value.items) do
+        local row = value.items[i]
+        if type(row) == "table" then
+            rows[#rows+1] = {row.quest_id, row.item_id,
+                row.in_range == nil and -1 or (row.in_range and 1 or 0),
+                row.is_usable == nil and -1 or (row.is_usable and 1 or 0),
+                row.cooldown_remaining == nil and -1 or row.cooldown_remaining}
+        end
+    end
+    return #rows > 0 and rows or false
 end
 local function quote(s)
     return '"' .. s:gsub('[%z\1-\31\\"]', function(c)
@@ -113,9 +128,14 @@ local function split(text, size)
     return result
 end
 function ns.EncodeJSON(value) return encode(value) end
+local function compactCombatHint(hint)
+    if not hint then return false end
+    return {spell_id=hint.spell_id,at=hint.at,channel_spell_id=hint.channel_spell_id,
+        channel_at=hint.channel_spell_id and hint.channel_spell_id ~= 0 and hint.channel_at or nil}
+end
 local function fastBody(sample, limit)
     local v = {
-        telemetry_lane="FAST_STATE", fast_sample_time=sample.monotonic_time,
+        telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context, fast_sample_time=sample.monotonic_time,
         timestamp=sample.timestamp, monotonic_time=sample.monotonic_time,
         map_id=sample.map_id,
         map_context=sample.map_context and {
@@ -130,21 +150,25 @@ local function fastBody(sample, limit)
         player_world_position=sample.player_world_position, orientation=sample.orientation,
         health=sample.health, max_health=sample.max_health, is_dead=sample.is_dead, is_ghost=sample.is_ghost,
         is_in_combat=sample.is_in_combat, is_mounted=sample.is_mounted, is_casting=sample.is_casting,
+        -- 0.9.72 (live 2026-10-21): every tier carries IsFlying; a ghost hovered on a
+        -- flying mount while the fast lane hid it.
         movement=sample.movement and {speed=sample.movement.speed,moving=sample.movement.moving,
             falling=sample.movement.falling,swimming=sample.movement.swimming,
-            indoors=sample.movement.indoors} or false,
+            indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
         player_present=sample.player_present, ui_error=sample.ui_error,
         ui_error_at=sample.ui_error_at, ui_error_sequence=sample.ui_error_sequence,
         ui_error_code=sample.ui_error_code,
         input_blocked=sample.input_blocked, loading=sample.loading,
-        target=sample.target and {guid=sample.target.guid, name=sample.target.name, npc_id=sample.target.npc_id,
+        target=sample.target and {guid=sample.target.guid, name=sample.target.name, npc_id=sample.target.npc_id,object_id=sample.target.object_id,
             health=sample.target.health, max_health=sample.target.max_health, attackable=sample.target.attackable,
             dead=sample.target.dead, world_position=sample.target.world_position,
+            interact_near=sample.target.interact_near,
             screen_position=sample.target.screen_position} or false,
         target_sample_time=sample.monotonic_time,
         soft_targets=compactSoftTargets(sample.soft_targets),
         mouseover=sample.mouseover and {guid=sample.mouseover.guid, name=compactMouseoverName(sample.mouseover,96),
-            npc_id=sample.mouseover.npc_id, unit_type=sample.mouseover.unit_type,
+            npc_id=sample.mouseover.npc_id,object_id=sample.mouseover.object_id,item_id=sample.mouseover.item_id,
+            unit_type=sample.mouseover.unit_type,
             structured_unit=sample.mouseover.structured_unit,
             is_attackable=sample.mouseover.is_attackable, is_dead=sample.mouseover.is_dead,
             lootable=sample.mouseover.lootable,
@@ -173,7 +197,7 @@ local function fastBody(sample, limit)
         map_mouseover_sample_time=sample.monotonic_time,
         quest_ui=sample.quest_ui and {open=sample.quest_ui.open,
             action=sample.quest_ui.action,x=sample.quest_ui.x,y=sample.quest_ui.y,
-            quest_id=sample.quest_ui.quest_id,
+            quest_id=sample.quest_ui.quest_id,npc_guid=sample.quest_ui.npc_guid or false,
             gossip_option=sample.quest_ui.gossip_option} or false,
         extra_action=sample.extra_action and {visible=sample.extra_action.visible,
             usable=sample.extra_action.usable,action=sample.extra_action.action,
@@ -181,7 +205,7 @@ local function fastBody(sample, limit)
         quest_digest=sample.quest_digest or false,
         quest_state_revision=sample.quest_state_revision,
         actionbar_fast=sample.actionbar_fast,
-        combat_hint=sample.combat_hint and {spell_id=sample.combat_hint.spell_id,at=sample.combat_hint.at} or false,
+        combat_hint=compactCombatHint(sample.combat_hint),
     }
     local text = encode(v)
     if #text > limit then
@@ -189,7 +213,7 @@ local function fastBody(sample, limit)
         -- already present in the paged snapshot. Keep movement feedback as
         -- well, so an incidental mouseover cannot starve closed-loop motion.
         v = {
-            telemetry_lane=v.telemetry_lane, fast_sample_time=v.fast_sample_time,
+            telemetry_lane=v.telemetry_lane, actionbar_context=v.actionbar_context, fast_sample_time=v.fast_sample_time,
             timestamp=v.timestamp, monotonic_time=v.monotonic_time,
             map_id=v.map_id, map_context=v.map_context, position=v.position,
             player_world_position=v.player_world_position, orientation=v.orientation,
@@ -199,8 +223,8 @@ local function fastBody(sample, limit)
             is_ghost=v.is_ghost, is_in_combat=v.is_in_combat, is_casting=v.is_casting,
             player_present=v.player_present, loading=v.loading,
             input_blocked=v.input_blocked,
-            target=v.target and {guid=v.target.guid,name=v.target.name,npc_id=v.target.npc_id,
-                attackable=v.target.attackable,dead=v.target.dead,
+            target=v.target and {guid=v.target.guid,name=v.target.name,npc_id=v.target.npc_id,object_id=v.target.object_id,
+                attackable=v.target.attackable,dead=v.target.dead,interact_near=v.target.interact_near,
                 world_position=v.target.world_position or false} or false,
             target_sample_time=v.target_sample_time,
             soft_targets=v.soft_targets,
@@ -208,7 +232,7 @@ local function fastBody(sample, limit)
             -- Preserve the time-critical unit identity and discard only
             -- bulky presentation text on the compact lane.
             mouseover=v.mouseover and {guid=v.mouseover.guid,name=v.mouseover.name,
-                npc_id=v.mouseover.npc_id,unit_type=v.mouseover.unit_type,
+                npc_id=v.mouseover.npc_id,object_id=v.mouseover.object_id,item_id=v.mouseover.item_id,unit_type=v.mouseover.unit_type,
                 structured_unit=v.mouseover.structured_unit,
                 is_attackable=v.mouseover.is_attackable,is_dead=v.mouseover.is_dead,
                 quest_related=v.mouseover.quest_related,quest_id=v.mouseover.quest_id,
@@ -238,7 +262,7 @@ local function fastBody(sample, limit)
         -- bounded control core; never make identity wait for a paged full
         -- snapshot whose assembly can outlive a short hover.
         v = {
-            telemetry_lane="FAST_STATE", fast_sample_time=sample.monotonic_time,
+            telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context, fast_sample_time=sample.monotonic_time,
             timestamp=sample.timestamp, monotonic_time=sample.monotonic_time,
             map_id=sample.map_id,
             map_context=sample.map_context and {
@@ -252,13 +276,13 @@ local function fastBody(sample, limit)
             orientation=sample.orientation, movement=sample.movement and {
                 speed=sample.movement.speed,moving=sample.movement.moving,
                 falling=sample.movement.falling,swimming=sample.movement.swimming,
-                indoors=sample.movement.indoors} or false,
-            target=sample.target and {guid=sample.target.guid,name=sample.target.name,npc_id=sample.target.npc_id,
-                attackable=sample.target.attackable,dead=sample.target.dead,
+                indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
+            target=sample.target and {guid=sample.target.guid,name=sample.target.name,npc_id=sample.target.npc_id,object_id=sample.target.object_id,
+                attackable=sample.target.attackable,dead=sample.target.dead,interact_near=sample.target.interact_near,
                 world_position=sample.target.world_position or false} or false,
             target_sample_time=sample.monotonic_time,
             mouseover=sample.mouseover and {guid=sample.mouseover.guid,
-                name=compactMouseoverName(sample.mouseover,96),npc_id=sample.mouseover.npc_id,
+                name=compactMouseoverName(sample.mouseover,96),npc_id=sample.mouseover.npc_id,object_id=sample.mouseover.object_id,item_id=sample.mouseover.item_id,
                 unit_type=sample.mouseover.unit_type,
                 structured_unit=sample.mouseover.structured_unit,
                 is_attackable=sample.mouseover.is_attackable,
@@ -270,7 +294,7 @@ local function fastBody(sample, limit)
             cursor_sample_time=sample.monotonic_time,
             quest_ui=sample.quest_ui and {open=sample.quest_ui.open,
                 action=sample.quest_ui.action,x=sample.quest_ui.x,y=sample.quest_ui.y,
-                quest_id=sample.quest_ui.quest_id,
+                quest_id=sample.quest_ui.quest_id,npc_guid=sample.quest_ui.npc_guid or false,
                 gossip_option=sample.quest_ui.gossip_option} or false,
             extra_action=sample.extra_action and {visible=sample.extra_action.visible,
                 usable=sample.extra_action.usable,action=sample.extra_action.action,
@@ -281,7 +305,7 @@ local function fastBody(sample, limit)
             player_present=sample.player_present,loading=sample.loading,
             input_blocked=sample.input_blocked,
             actionbar_fast=sample.actionbar_fast,
-            combat_hint=sample.combat_hint and {spell_id=sample.combat_hint.spell_id,at=sample.combat_hint.at} or false,
+            combat_hint=compactCombatHint(sample.combat_hint),
         }
         text = encode(v)
     end
@@ -295,7 +319,7 @@ local function fastBody(sample, limit)
         -- The *_sample_time copies of monotonic_time are omitted from
         -- here on (Python restores them) to make room for the position.
         v = {
-            telemetry_lane="FAST_STATE",
+            telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context,
             player_world_position=compactWorldPosition(sample.player_world_position),
             timestamp=sample.timestamp, monotonic_time=sample.monotonic_time,
             map_id=sample.map_id,
@@ -306,14 +330,14 @@ local function fastBody(sample, limit)
             position=sample.position and {x=sample.position.x,y=sample.position.y} or false,
             orientation=sample.orientation, movement=sample.movement and {
                 speed=sample.movement.speed,moving=sample.movement.moving,
-                indoors=sample.movement.indoors} or false,
+                indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
             target=sample.target and {guid=compactText(sample.target.guid,128),
-                name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,
+                name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,object_id=sample.target.object_id,
                 attackable=sample.target.attackable,dead=sample.target.dead} or false,
             mouseover=sample.mouseover and {
                 guid=compactText(sample.mouseover.guid,128),
                 name=compactMouseoverName(sample.mouseover,64),
-                npc_id=sample.mouseover.npc_id,
+                npc_id=sample.mouseover.npc_id,object_id=sample.mouseover.object_id,item_id=sample.mouseover.item_id,
                 unit_type=compactText(sample.mouseover.unit_type,24),
                 structured_unit=sample.mouseover.structured_unit,
                 is_attackable=sample.mouseover.is_attackable,
@@ -324,7 +348,7 @@ local function fastBody(sample, limit)
                 nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
             quest_ui=sample.quest_ui and {open=sample.quest_ui.open,
                 action=sample.quest_ui.action,x=sample.quest_ui.x,y=sample.quest_ui.y,
-                quest_id=sample.quest_ui.quest_id,
+                quest_id=sample.quest_ui.quest_id,npc_guid=sample.quest_ui.npc_guid or false,
                 gossip_option=sample.quest_ui.gossip_option} or false,
             extra_action=sample.extra_action and {visible=sample.extra_action.visible,
                 usable=sample.extra_action.usable,action=sample.extra_action.action,
@@ -335,7 +359,7 @@ local function fastBody(sample, limit)
             player_present=sample.player_present,loading=sample.loading,
             input_blocked=sample.input_blocked,
             actionbar_fast=sample.actionbar_fast,
-            combat_hint=sample.combat_hint and {spell_id=sample.combat_hint.spell_id,at=sample.combat_hint.at} or false,
+            combat_hint=compactCombatHint(sample.combat_hint),
         }
         text = encode(v)
     end
@@ -347,7 +371,7 @@ local function fastBody(sample, limit)
         -- ability as cooldown_unknown, and resumed MOVE while attacked.
         -- In combat, survival/control facts outrank hover presentation.
         v = {
-            telemetry_lane="FAST_STATE",
+            telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context,
             player_world_position=compactWorldPosition(sample.player_world_position),
             monotonic_time=sample.monotonic_time, map_id=sample.map_id,
             orientation=sample.orientation,
@@ -358,14 +382,14 @@ local function fastBody(sample, limit)
             loading=sample.loading,
             movement=sample.movement and {
                 speed=sample.movement.speed,moving=sample.movement.moving,
-                indoors=sample.movement.indoors} or false,
+                indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
             target=sample.target and {
                 guid=compactText(sample.target.guid,128),
-                npc_id=sample.target.npc_id,attackable=sample.target.attackable,
+                npc_id=sample.target.npc_id,object_id=sample.target.object_id,attackable=sample.target.attackable,
                 dead=sample.target.dead,health=sample.target.health,
                 max_health=sample.target.max_health} or false,
             actionbar_fast=sample.actionbar_fast,
-            combat_hint=sample.combat_hint and {spell_id=sample.combat_hint.spell_id,at=sample.combat_hint.at} or false,
+            combat_hint=compactCombatHint(sample.combat_hint),
         }
         text = encode(v)
     end
@@ -376,7 +400,7 @@ local function fastBody(sample, limit)
         -- GUIDs and unit names fit; deliberately oversized strings are
         -- omitted by compactText rather than evicting the entire sensor.
         v = {
-            telemetry_lane="FAST_STATE",
+            telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context,
             player_world_position=compactWorldPosition(sample.player_world_position),
             monotonic_time=sample.monotonic_time, map_id=sample.map_id,
             map_context=sample.map_context and {
@@ -386,15 +410,15 @@ local function fastBody(sample, limit)
             orientation=sample.orientation,
             movement=sample.movement and {
                 speed=sample.movement.speed,moving=sample.movement.moving,
-                indoors=sample.movement.indoors} or false,
+                indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
             target=sample.target and {
                 guid=compactText(sample.target.guid,128),
-                name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,
+                name=compactText(sample.target.name,96),npc_id=sample.target.npc_id,object_id=sample.target.object_id,
                 attackable=sample.target.attackable,dead=sample.target.dead} or false,
             mouseover=sample.mouseover and {
                 guid=compactText(sample.mouseover.guid,128),
                 name=compactMouseoverName(sample.mouseover,64),
-                npc_id=sample.mouseover.npc_id,
+                npc_id=sample.mouseover.npc_id,object_id=sample.mouseover.object_id,item_id=sample.mouseover.item_id,
                 structured_unit=sample.mouseover.structured_unit,
                 is_attackable=sample.mouseover.is_attackable,
                 is_dead=sample.mouseover.is_dead,
@@ -411,19 +435,21 @@ local function fastBody(sample, limit)
         -- Final non-combat edge: retain the exact game-object name and
         -- pointer with movement/target control even in a rich sample.
         v = {
-            telemetry_lane="FAST_STATE", monotonic_time=sample.monotonic_time,
+            telemetry_lane="FAST_STATE", actionbar_context=sample.actionbar_context, monotonic_time=sample.monotonic_time,
             map_id=sample.map_id,
             player_world_position=compactWorldPosition(sample.player_world_position),
             orientation=sample.orientation,
             movement=sample.movement and {speed=sample.movement.speed,
-                moving=sample.movement.moving,indoors=sample.movement.indoors} or false,
+                moving=sample.movement.moving,indoors=sample.movement.indoors,flying=sample.movement.flying,pitch=sample.movement.pitch,gliding=sample.movement.gliding,forward_speed=sample.movement.forward_speed} or false,
             target=sample.target and {guid=compactText(sample.target.guid,128),
-                npc_id=sample.target.npc_id,attackable=sample.target.attackable,
+                npc_id=sample.target.npc_id,object_id=sample.target.object_id,attackable=sample.target.attackable,
                 dead=sample.target.dead} or false,
             mouseover=sample.mouseover and {
                 guid=compactText(sample.mouseover.guid,128),
                 name=compactMouseoverName(sample.mouseover,64),
                 quest_related=sample.mouseover.quest_related,
+                npc_id=sample.mouseover.npc_id,object_id=sample.mouseover.object_id,
+                item_id=sample.mouseover.item_id,
                 quest_id=sample.mouseover.quest_id} or false,
             cursor_position=sample.cursor_position and {
                 nx=sample.cursor_position.nx,ny=sample.cursor_position.ny} or false,
@@ -431,6 +457,17 @@ local function fastBody(sample, limit)
             is_in_combat=sample.is_in_combat,input_blocked=sample.input_blocked,
         }
         text = encode(v)
+    end
+    -- A known own quest channel is control evidence even in an inspection
+    -- edge packet. Keep it when it fits; missing identity stays fail-closed.
+    if sample.combat_hint and sample.combat_hint.channel_spell_id
+        and sample.combat_hint.channel_spell_id ~= 0 then
+        local richer = {}
+        for key,value in pairs(v) do richer[key] = value end
+        richer.is_casting = sample.is_casting
+        richer.combat_hint = compactCombatHint(sample.combat_hint)
+        local encoded = encode(richer)
+        if #encoded <= limit then v = richer; text = encoded end
     end
     -- Live 2026-10-07: every live FAST sample fell back to a bounded
     -- variant without quest_digest/ui_error, so quest credit and "You are
@@ -458,9 +495,90 @@ local function fastBody(sample, limit)
                 local encoded = encode(richer)
                 if #encoded <= limit then
                     text = encoded
+                    v = richer
                     break
                 end
             end
+        end
+    end
+    -- 0.9.67: the compact public Interact recipient and exact item readiness
+    -- outrank redundant presentation. Far F7 can attack instead of using an
+    -- item; losing this edge made every near use fail identity_uncertain.
+    if sample.interact_guid ~= nil or sample.quest_item_target ~= nil then
+        local richer = {}
+        for key,value in pairs(v) do richer[key] = value end
+        richer.interact_guid = sample.interact_guid
+        richer.quest_item_target = compactQuestItemTarget(sample.quest_item_target)
+        richer.bags_open = sample.bags_open
+        local encoded = encode(richer)
+        if #encoded > limit and richer.soft_targets then
+            richer.soft_targets = nil; encoded = encode(richer) -- recipient stays above
+        end
+        if #encoded > limit and richer.map_mouseover then
+            richer.map_mouseover = nil; encoded = encode(richer)
+        end
+        if #encoded > limit and richer.map_context then
+            richer.world_map_open = richer.map_context.world_map_open
+            richer.map_context = nil
+            encoded = encode(richer)
+        end
+        if #encoded > limit and richer.position then
+            richer.position = nil; encoded = encode(richer) -- world XY is retained
+        end
+        if #encoded > limit and richer.extra_action and not richer.extra_action.visible then
+            richer.extra_action = nil
+            encoded = encode(richer)
+        end
+        if #encoded > limit and richer.quest_ui and not richer.quest_ui.open then
+            richer.quest_ui = {open=false}
+            encoded = encode(richer)
+        end
+        if #encoded > limit and richer.mouseover then
+            local mouse = {}
+            for key,value in pairs(richer.mouseover) do mouse[key] = value end
+            mouse.identity_source, mouse.unit_type, mouse.structured_unit = nil, nil, nil
+            mouse.tooltip_text, mouse.tooltip_data = nil, nil
+            richer.mouseover = mouse
+            encoded = encode(richer)
+        end
+        if #encoded > limit and not sample.is_in_combat and richer.actionbar_fast then
+            richer.actionbar_fast = nil; encoded = encode(richer)
+        end
+        if #encoded > limit and richer.target then
+            local target = {}
+            for key,value in pairs(richer.target) do target[key] = value end
+            target.name, target.screen_position, target.world_position = nil, nil, nil
+            richer.target = target
+            encoded = encode(richer)
+        end
+        while #encoded > limit and type(richer.quest_item_target) == "table"
+                and #richer.quest_item_target > 1 do
+            table.remove(richer.quest_item_target) -- omitted item != a fresh sample
+            encoded = encode(richer)
+        end
+        v, text = richer, encoded
+    end
+    -- A bounded profile can omit the candidate list. Carry it when it fits;
+    -- otherwise Python must not refresh an older soft-target identity.
+    if v.soft_targets == nil then
+        v.soft_targets = compactSoftTargets(sample.soft_targets)
+        local candidate = encode(v)
+        if #candidate <= limit then text = candidate
+        else v.soft_targets = nil end
+    end
+    -- Completion acknowledgements are retained independently of the volatile
+    -- event list. Carry newest first when a legacy bounded FAST profile is
+    -- necessary; never discard recipient/control safety fields to make room.
+    if type(sample.quest_turn_in_receipts) == "table" and #sample.quest_turn_in_receipts > 0 then
+        local richer = {}
+        for key,value in pairs(v) do richer[key] = value end
+        richer.quest_turn_in_receipts = {}
+        for i=#sample.quest_turn_in_receipts,math.max(1,#sample.quest_turn_in_receipts-3),-1 do
+            local row = sample.quest_turn_in_receipts[i]
+            table.insert(richer.quest_turn_in_receipts, 1, row)
+            local encoded = encode(richer)
+            if #encoded <= limit then text = encoded
+            else table.remove(richer.quest_turn_in_receipts, 1); break end
         end
     end
     return text

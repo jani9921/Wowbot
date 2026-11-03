@@ -1,0 +1,109 @@
+{
+  "files": [
+    {
+      "path": "baseline.json",
+      "bytes": 210746,
+      "sha256": "12ab7cb2ab3e1397fd1f94f396f04347b3a9ef9282e45b7f46f23effe8520d86"
+    },
+    {
+      "path": "baseline.zip",
+      "bytes": 3621073,
+      "sha256": "bc67b7b1c71511d384ac3322264501e7c8e0c43dff65f0eb2bc2a34f3c70dfed"
+    },
+    {
+      "path": "changes.json",
+      "bytes": 2778,
+      "sha256": "13ad9030f9ac0f74dadabccda6ef8b76e444dff3e2dab73e19176ee3a1571d33"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 35837,
+      "sha256": "d8439c9078ba846b57708d4d8d2f19481f6beed5acc36d82ab770bb2e89e993d"
+    },
+    {
+      "path": "combined-episode-proofs-1-command.json",
+      "bytes": 31520,
+      "sha256": "1ae9ce4a37767f943e60117be1db8bb6b87217525482fe8d8ead88795334b552"
+    },
+    {
+      "path": "combined-episode-proofs-1-junit.xml",
+      "bytes": 610468,
+      "sha256": "4a4a249e60d3110893aa8000c1c51df4fc3ac41666e104873b953aff8aae02e7"
+    },
+    {
+      "path": "combined-episode-proofs-1-result.json",
+      "bytes": 229,
+      "sha256": "f3b5fb94c8cc02d51610e9399fec42e6cbd3890e00704f24d8850aa9cf18620d"
+    },
+    {
+      "path": "combined-episode-proofs-1.log",
+      "bytes": 4515,
+      "sha256": "f5381352f6de8945788cb6b49b2547e2b59a90bce55be0864df4b77d07210dee"
+    },
+    {
+      "path": "current-files.json",
+      "bytes": 211124,
+      "sha256": "50414cb6940fc8f48982c2f1b3e025c1512cf195883be225636a60489fca58af"
+    },
+    {
+      "path": "current-source.zip",
+      "bytes": 3628365,
+      "sha256": "9d932b0c1e2cd18c0bd2d7f39bf3b06302581f79ecfdae0768a5655e43b612cc"
+    },
+    {
+      "path": "proof-policy.json",
+      "bytes": 359,
+      "sha256": "98b9887bf7d1cc92e0f79b6d371ce85339b41b3c8ea68dfa84f0192e80a75cf3"
+    },
+    {
+      "path": "proof-test-1-junit.xml",
+      "bytes": 5539,
+      "sha256": "322ecbb57d404faadb43591cbbc723259c80f0237a6af48d629083603995d3a4"
+    },
+    {
+      "path": "proof-test-1.log",
+      "bytes": 101,
+      "sha256": "b0a3da884677cdf7d92d71ffa973f8af1a7e9cc9b6506fe503c8a7898838458c"
+    },
+    {
+      "path": "proof-test-2.log",
+      "bytes": 94,
+      "sha256": "1dd3c18e693859380c97f0cdfabfbba1e5ea9e4556cf47171ef45b3798f75931"
+    },
+    {
+      "path": "proof-test-3-junit.xml",
+      "bytes": 6079,
+      "sha256": "57838fb072871e9ec95ac58940f9f2c206dd891c6d46d071e9d0d99514cc9a09"
+    },
+    {
+      "path": "proof-test-3.log",
+      "bytes": 101,
+      "sha256": "cca0ae0a85df6c4e054e211c3edb0db78faef24361fa11763b44d5655c7d1443"
+    },
+    {
+      "path": "run_combined.py",
+      "bytes": 2166,
+      "sha256": "edbc03c2c091a1fdbb0b2732768a3f6c656113445d79bf2aa47c812e0086deac"
+    },
+    {
+      "path": "save_proof_checkpoint.py",
+      "bytes": 5395,
+      "sha256": "73f04da25b671f4ab19a4e95b4d312c90a38497488b17381e965ffe665e26440"
+    },
+    {
+      "path": "source-verification.json",
+      "bytes": 242,
+      "sha256": "f0ef75f423d55c17dfc9eeff3047bd658b16a9a587daef63cb2fc5d746dfb42a"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 701,
+      "sha256": "701e57d186f519022f92591da8ff2de3eeab02d4d5471efef24f13bf9a7f34cd"
+    },
+    {
+      "path": "verify_closure.py",
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf"
+    }
+  ]
+}

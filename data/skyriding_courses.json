@@ -1,0 +1,54 @@
+{
+  "_provenance": "Client DB2 via wago.tools 12.1.7.70493 (read 2026-10-25): SceneScriptPackageMember -> SceneScriptText '10.0 Dragon Racing - Client Scene - Race Globals' (pathID) -> PathNode -> Location.Pos/Rot. The rings are a client scene (SMSG_PLAY_SCENE, CMSG_SCENE_TRIGGER_EVENT 'Checkpoint'/'RaceComplete'); the server only credits them. Glide course cross-checked with the user's own two runs (live 2026-10-25 14:08/14:10, credits within 10 yd).",
+  "ring_hit_yards": 10,
+  "courses": {
+    "65118": {
+      "title": "How to Glide with Your Dragon",
+      "scene_package": 3747,
+      "path_id": 45295,
+      "map_id": 2444,
+      "ring_objective_entry": 182800,
+      "target_objective_entry": 182847,
+      "rings": [
+        [1924.18, 55.56, 270.43, 4.330],
+        [1975.24, 59.43, 248.15, 3.766],
+        [2031.97, 62.66, 223.64, 3.818],
+        [2093.18, 67.30, 196.77, 4.270],
+        [2162.25, 72.39, 167.62, 3.201]
+      ],
+      "target": [2225.82, 74.72, 143.65, 2.102]
+    },
+    "65120": {
+      "title": "How to Dive with Your Dragon",
+      "scene_package": 3748,
+      "path_id": 45296,
+      "map_id": 2444,
+      "ring_objective_entry": 182800,
+      "target_objective_entry": 182847,
+      "rings": [
+        [1851.25, 53.44, 274.52, 2.567],
+        [1884.28, 54.93, 230.49, 2.751],
+        [1968.34, 59.07, 194.03, 2.723],
+        [2069.79, 63.75, 165.94, 3.145],
+        [2162.05, 69.72, 150.36, 4.079]
+      ],
+      "target": [2225.56, 74.86, 143.04, 4.631]
+    },
+    "65133": {
+      "title": "How to Use Momentum with Your Dragon",
+      "scene_package": 3749,
+      "path_id": 45297,
+      "map_id": 2444,
+      "ring_objective_entry": 182800,
+      "target_objective_entry": 182847,
+      "rings": [
+        [1850.45, 53.22, 274.44, 4.102],
+        [1865.48, 54.30, 231.60, 3.236],
+        [1901.97, 56.14, 171.00, 3.817],
+        [2027.70, 65.12, 111.93, 3.533],
+        [2161.77, 72.18, 130.92, 2.845]
+      ],
+      "target": [2225.50, 74.95, 143.03, 2.494]
+    }
+  }
+}

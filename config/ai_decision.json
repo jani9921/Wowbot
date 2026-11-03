@@ -19,7 +19,9 @@
     "num_thread": 4,
     "timeout_seconds": 600,
     "keep_alive": "2m",
-    "_note": "Local-LLM text interpretation (semantic_advisor). Benchmark 2026-10-04: qwen3:4b-instruct-2507 beat llama3.2:3b. num_gpu null = Ollama fits layers into free VRAM (live 2026-10-04: CPU-only load took 3 min and timed out with 0.6 GB free RAM). num_ctx 2048 keeps the KV cache small; keep_alive 2m unloads between question bursts.",
-    "num_ctx": 2048
+    "_note": "Local-LLM text interpretation (semantic_advisor). Benchmark 2026-10-04: qwen3:4b-instruct-2507 beat llama3.2:3b. num_gpu null = Ollama fits layers into free VRAM (live 2026-10-04: CPU-only load took 3 min and timed out with 0.6 GB free RAM). num_ctx 2048 keeps the KV cache small; keep_alive 2m unloads between question bursts. 2026-10-12: num_ctx 4096 for TDB facts + verified examples; escalation_model re-asks only doubtful answers (UNKNOWN, missing name, TDB clash) -- pull it with `ollama pull qwen3:4b-thinking-2507-q4_K_M`; if missing, the first answer is kept.",
+    "num_ctx": 4096,
+    "escalation_model": "qwen3:4b-thinking-2507-q4_K_M",
+    "escalation_think": true
   }
 }

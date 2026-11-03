@@ -1,0 +1,1182 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,22 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P2/P3 native quest slots and continuity — **OFFLINE_TESTED /
++complete quest/inventory parity PARTIAL**. Reviewed own PlayerData VALUES masks
++now expose 175 quest slots and 24 storage counters through the canonical packet
++reducer and read-only WorldQuery. Complete fresh slot membership can prove
++absence; partial/stale data cannot. Replacing a slot's QuestID drops the old
++counters, field ages remain distinct, UI objective order is not inferred.
++Definitions and objective alignment stay UNKNOWN; QuestModel/active objectives
++are not overwritten by raw slot indices. Own full CREATE-chain coverage is open.
++A reproduced same-epoch GAP/identity-rebaseline bug now invalidates native
++baseline/cache/evidence through a separate continuity generation. Immutable trace
++and replay deduplication remain. Confirmed events must match the active capture
++epoch; a stale worker gets a specific restart status and GUI message, opaque
++traffic cannot clear it. Selected regression: **3765 passed, 2 skipped,
++10 unchanged deselections, 308 modules, exit 0**, 143.93 s. All 529 source and
++617 test Python files parse. No assistant game/capture/input operation, no new
++live acceptance. All 203 numbered rows and prior checkpoints are preserved.
++See [native questlog and continuity](reform/rev4-20261029/P2_P3_NATIVE_QUESTLOG.md).
+ 
+ 2026-10-30 REV4 P3/P4 provider closure — **OFFLINE_TESTED / full parity PARTIAL**.
+ Own HP CREATE baseline now accompanies VALUES deltas. Selected-own power packets
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,27 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — native quest slots and stream continuity (offline only)
++
++Own PlayerData VALUES slot masks, complete-slot records and partial storage
++counters now reach the shared WorldModel and read-only queries. Unknown prefixes,
++other players and incomplete membership do not become facts/absence. Native
++membership does not prove turn-in, objective completion or an ID-to-UI-row mapping.
++Full own CREATE-chain, quest definitions/consumer parity and inventory are open.
++
++An explicit same-epoch stream GAP followed by identity rebaseline previously
++left native field-baseline caches alive in WorldModel. A separate continuity
++generation now evicts current packet caches/evidence; immutable history remains.
++Queries reject the previous generation before projection. Epoch mismatches are
++rejected at both adapter/reducer boundaries. A still-running worker missing the
++new epoch tag receives a specific GUI restart message; unknown opcode traffic
++does not fake recovery. No source worker/Ymir/client was started or restarted.
++
++Final selected regression: **3765 passed, 2 skipped, 10 unchanged deselections**,
++308 modules, 143.93 seconds, exit 0. All 529 source and 617 test Python files parse.
++The focused overlapping group has 117 passes. No assistant client input, no new
++live quest/combat/travel acceptance. Addon 0.9.80 and pinned Ymir are unchanged;
++user addon-load proof remains pending. All 203 numbered requirement rows persist.
++Details: [native questlog/checkpoint](reform/rev4-20261029/P2_P3_NATIVE_QUESTLOG.md).
+ 
+ ## 2026-10-30 — own HP baseline, power/profile and pixeltransport (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3736 passed, 2 skipped, 10 változatlan deselection, 306 modul, exit 0.
++Végső kijelölt regresszió: 3765 passed, 2 skipped, 10 változatlan deselection, 308 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -13,6 +13,9 @@
+ Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+ SERVER pixeltransport-próba elkészült: [P3/P4 provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
++Saját questlog slotok és a reprodukált folytonossági cache-hiba javítása:
++[P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A teljes questdefiníció-/objective-
++és inventory-paritás továbbra sem teljes.
+ Új P7 packet-cast adatút és részletes határai:
+ [P7 casts / addon fix](P7_PACKET_CASTS.md).
+ P3 kiegészítésként a [saját HP-delta és field sample-time](P3_OWN_HEALTH.md) is bekötve;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -14,6 +14,9 @@
+ Részletek és források: [P7 packet casts és addonhiba](P7_PACKET_CASTS.md).
+ Az általános százalékbecslést felváltotta a konkrét provider-/elfogadásikapu-nyilvántartás:
+ [saját HP-baseline, resource/profile adatút és valódi pixeltransport-próba](P3_PROVIDER_CLOSURE.md).
++Elkészült a saját natív questslot-prefix és a stream-GAP utáni cache-öröklés
++javítása is: [P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A slot nem
++helyettesíti a questdefiníciót vagy a UI-objective igazolt storage-kapcsolatát.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -56,14 +59,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3736 passed, 2 skipped, 10 deselected; 306 modul; 137.48 s; exit 0** |
+-| Sajátállapot/policy/combat/pixeltransport célzott kör | **92 passed, 4.63 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 526 source + 615 tests Python-fájl; 614 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Végső kijelölt regresszió | **3765 passed, 2 skipped, 10 deselected; 308 modul; 143.93 s; exit 0** |
++| Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
++| Teljes Python AST | 529 source + 617 tests Python-fájl; 616 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **306 kijelölt modul eredménye**, nem a teljes 614 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **308 kijelölt modul eredménye**, nem a teljes 616 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P2_P3_NATIVE_QUESTLOG.md
++++ after/docs/reform/rev4-20261029/P2_P3_NATIVE_QUESTLOG.md
+@@ -0,0 +1,99 @@
++# REV4 P2/P3 — saját questlog slotok és packetfolytonosság
++
++2026-10-30, Europe/Budapest. A kijelölt `projekt` módosítása.
++
++**Offline tesztelt részadatút. A teljes packetes questdefiníció/progress és
++inventory-paritás továbbra is PARTIAL.** A közös WorldModel/Query/QuestModel
++architektúra megmaradt; nem keletkezett külön questtervező vagy inputút.
++
++## Natív slotolvasó
++
++A pinnelt WPP `UpdateFieldsHandler1215` 70340-es családjához igazított olvasó
++a saját PlayerData VALUES blokk ismert QuestLog-prefixét kezeli:
++
++- 175 slot; slotonként QuestID, StateFlags, EndTime, ObjectiveFlags,
++  EnabledObjectivesMask és 24 ObjectiveProgress tárolóhely.
++- A teljes slotminta és a belső mező-/számláló-delta eltérő maskot használ.
++  A hiányzó érték `None`; a QuestID=0 tényleges üres slot.
++- A megelőző, ismert méretű saját mezők átugorhatók. Account/guild/player
++  azonosítók és nevek nem kerülnek a normalizált eseménybe. Ismeretlen dinamikus
++  map/array/névblokk vagy nem teljesen bejárt megelőző UnitData-tail esetén
++  questslot nem keletkezik találgatott offsetről.
++- A `OWN_QUEST_LOG_UPDATE` csak igazolt saját login, ismert fragment, selected
++  PID/GUID/build/world és a külön `WPP_12_1_QUEST_LOG_REVIEWED_V1` layout mellett
++  lesz szemantikai adat. Másik játékos slotolvasója meg sem hívódik.
++- A kompakt, szigorúan numerikus slotformátum 175 maximális értékű rekorddal
++  együtt is elfér a meglévő 60 000 bájtos IPC-kapun. Hibás alak, bool helyetti
++  szám, ismételt slot, csonkolás és túlcsordulás elutasított.
++
++A WorldModel meglévő packetreducere birtokolja az adatot. A `WorldQuery`
++`quest_log_slots()` és `quest_presence()` saját másolatot ad, nincs input- vagy
++tervezési mellékhatás. Csak az összes slot friss, ismert QuestID-ját igazoló
++baseline bizonyíthat ABSENT tagságot. Részleges vagy lejárt lista UNKNOWN.
++Ez az ABSENT **nem** questleadási/abandon-nyugta.
++
++Egy tárolóhelyen a quest lecserélése törli az előző quest számlálóit. A részleges
++frissítés csak az érintett mezőket mintázza újra, az identitás és a többi számláló
++eredeti ideje/evidence-ID-ja megmarad. A normál tick státusza csak lefedettséget
++és darabszámot vetít ki; a 175 slot teste csak explicit queryn másolódik.
++
++## Folytonossági hiba és javítás
++
++A SessionContextProvider már korábban is törölte saját coverage-jelzőit egy GAP
++állapotnál. A tényleges hiba a WorldModelben maradó packet-cache és evidence volt:
++ugyanazon identitás/map mellett az identitás-baseline újbóli elfogadása után a régi
++HP-/questslot-baseline életben maradhatott. Az új HP-delta így tévesen örökölhette
++a korábbi COMPLETE jelzőt. Ezt valódi decoder → hitelesített inbox → reducer
++teszt reprodukálja.
++
++Most külön `continuity_generation` változik adatkimaradás, új capture-korszak és
++valódi entity-scope váltás esetén. A közös packetkapu érvényteleníti az előző
++aktuális cache-eket és packet-evidence-t; az immutable Observation/history
++megmarad. A readonly field/belief/slot query már a következő projekció előtt is
++kizárja az előző generációt. Addon UI-adat nem lesz ettől újabb vagy hitelesebb.
++
++Az új semantic packetek a decoder valódi `capture_epoch` azonosítóját hordozzák.
++A RuntimePacketSource és a WorldPacketReducer is kizárja a másik vagy hiányzó
++korszakot, ha már ismert a provider aktuális korszaka. Folyamat-/karakter-/map-
++azonosság önmagában nem helyettesíti ezt. Stabil baseline-replay és pusztán UI-map
++változás megtartja a helyes cache-t; régi capture nem kerül át az új endpointon.
++
++A régi, még futva maradt Python packetforrás nem feltétlenül küldi az új mezőt.
++Ez konkrét `source_restart_required` státuszt és a GUI-ban **„forrás újraindítandó”**
++jelzést ad. Másik korszakra **„capture-korszakra vár”** látható. A helyes új minta
++után a jelzés automatikusan törlődik. A forrást/capture-t az asszisztens nem indította
++vagy indította újra. A Ymir bináris és az addon nem módosult.
++
++## Korlátok és következő kódos kapuk
++
++1. A teljes saját CREATE UnitData→PlayerData blokklánc még nincs dekódolva. Ez az
++   út a VALUES-ban kapott, ismert elrendezésű teljes/részleges slotfrissítést
++   kezeli; nem állítja, hogy minden login automatikusan teljes slotbaseline-t ad.
++2. A slotok a tagságot és a nyers storage-számlálókat adják. Questdefiníció,
++   objective ID, StorageIndex és UI-sor nem vonható össze találgatással. A
++   QuestModel aktív objective-jei/countjai ezért itt nem íródtak át.
++3. A `questlog` összesített provider-coverage PARTIAL marad teljes slottagság
++   mellett is, amíg a definíció-/objective-/consumer-paritás nincs kész.
++   Addon questmező nem lett eltávolítva; TDB-név/order nem pótol bizonyított
++   server objective/storage kapcsolatot.
++4. Full inventory/container, aura/spec/talent/CC, interruptibility/hazard,
++   történeti import-lineage és további mechanikák nyitottak. Új élő elfogadás nincs.
++
++## Ellenőrzés
++
++A sajátállapot/slot/session/policy célzott kör **117 passed**. A nagy regresszió
++**3765 passed, 2 skipped, 10 változatlan deselection, 308 modul, 143.93 s, exit 0**.
++Mind az 529 source és 617 test Python-fájl AST-parse ellenőrzése zöld.
++A két skip korábbi opcionális képfájlhiány; ez nem a teljes 616 modulos teszttár
++hibamentességének állítása. A célzott eredmény átfed a nagy körrel.
++
++A nagy regresszió
++pontos eredményét, változatlan kizárásait, AST- és hashbizonyítékát a külön
++[native-questlog-evidence](native-questlog-evidence/) checkpoint tartalmazza.
++A korábbi [provider-closure-evidence](provider-closure-evidence/) változatlan
++baseline-ként megmarad. A 203 számozott V4/Design követelménysor megőrzött.
++
++Az új UI-státusz tesztje tiszta függvénypróba, a decoder/query próbák szintetikus
++packetek. Az asszisztens nem indított WoW-ot, Ymir-t vagy FULL_AI-t, és nem küldött
++kliensinputot. A felhasználó korábbi addon-betöltési visszaigazolása továbbra is
++nyitott; a 0.9.80 telepített forrásai ettől a Python-munkától nem változtak.
+--- before/src/wowbot/agent/gui_packet_status.py
++++ after/src/wowbot/agent/gui_packet_status.py
+@@ -28,6 +28,10 @@
+     selected, runtime_pid = packet.get("selected_pid"), state.get("pid")
+     if selected is not None and runtime_pid is not None and selected != runtime_pid:
+         return "Packet: PID-eltérés | adat: nincs"
++    if packet.get('source_restart_required') or packet.get('status') == 'source_restart_required':
++        return "Packet: forrás újraindítandó | adat: nincs"
++    if packet.get('status') == 'waiting_for_current_capture_epoch':
++        return "Packet: capture-korszakra vár | adat: nincs"
+     if packet.get("status") != "listening":
+         return "Packet: indításra vár | adat: nincs"
+     received, last = packet.get("received"), packet.get("last_received_at")
+--- before/src/wowbot/agent/packet_continuity.py
++++ after/src/wowbot/agent/packet_continuity.py
+@@ -0,0 +1,53 @@
++"""Invalidate current packet projections after an explicit stream discontinuity.
++
++Old immutable observations/history stay available for diagnostics. They cannot
++survive as current state or a field baseline across a provider gap/restart.
++"""
++from .models import json_copy
++
++
++def current(model):
++    provider = getattr(model, 'session_context_provider', None)
++    if provider is None or not hasattr(provider, 'continuity_generation'):
++        return True
++    token = (provider.process.generation, provider.capture_epoch, provider.continuity_generation)
++    return (model.__dict__.get('_packet_continuity_token') == token
++            and provider.expected(provider.process.selected_pid) is not None)
++
++
++def eligible_evidence(model, entries):
++    return entries if current(model) else [e for e in entries if e.source != 'PACKET_TELEMETRY']
++
++
++def refresh(model, state=None):
++    provider = getattr(model, 'session_context_provider', None)
++    if provider is None or not hasattr(provider, 'continuity_generation'):
++        return False
++    token = (provider.process.generation, provider.capture_epoch, provider.continuity_generation)
++    if model.__dict__.get('_packet_continuity_token') == token:
++        return False
++    for key in tuple(model.__dict__):
++        if (key.startswith('_packet_') and key not in {'_packet_continuity_token', '_packet_event_ids'}
++                or key in {'_power_context', '_entity_raw_maps'}):
++            model.__dict__.pop(key, None)
++    model.__dict__['_packet_continuity_token'] = token
++    model.source_latest.pop('PACKET_TELEMETRY', None)
++    # This is eviction from current evidence, not deletion of the source trace.
++    for key, entries in tuple(model.evidence.items()):
++        retained = [e for e in entries if e.source != 'PACKET_TELEMETRY']
++        if retained:
++            entries.clear()
++            entries.extend(retained)
++        else:
++            model.evidence.pop(key, None)
++    if state is not None:
++        for key in tuple(state):
++            if key.startswith('packet_'):
++                state.pop(key, None)
++        for key in ('health','max_health','power','max_power','power_type','class_id','player_class_id',
++                    'race_id','level','orientation','player_world_position','target','movement_rooted'):
++            if key in model.addon_state:
++                state[key] = json_copy(model.addon_state[key])
++            else:
++                state.pop(key, None)
++    return True
+--- before/src/wowbot/agent/packet_quest_log.py
++++ after/src/wowbot/agent/packet_quest_log.py
+@@ -0,0 +1,89 @@
++"""Own quest-slot evidence only; QuestModel remains the quest-state owner.
++
++Membership and storage counters do not supply objective definitions, UI row
++order, reward receipts, accept actions or a reason for a quest disappearing.
++"""
++from wowbot.context_contracts import SessionContext
++from .models import json_copy
++
++FIELDS = ('quest_id', 'state_flags', 'end_time', 'objective_flags', 'enabled_objectives_mask')
++MAX_AGE = 2.
++
++
++def remember(model, body, observation, sampled, context):
++    scope = SessionContext.from_mapping(context).entity_scope()
++    record = model.__dict__.get('_packet_quest_log')
++    if record is None or record['scope'] != scope:
++        record = {'scope':scope, 'slots':{}, 'baseline_observed_at':None, 'observed_at':sampled}
++        model.__dict__['_packet_quest_log'] = record
++    for raw in body['slots']:
++        index, quest_id = raw[:2]
++        old = record['slots'].get(index)
++        if old and sampled < old['observed_at']:
++            continue
++        known_id = (old or {}).get('fields', {}).get('quest_id', {}).get('value')
++        if old is None or quest_id is not None and quest_id != known_id:
++            old = {'slot':index, 'fields':{}, 'progress':{}, 'observed_at':sampled}
++            record['slots'][index] = old
++        def fact(value):
++            return {'value':value, 'observed_at':sampled, 'observation_id':observation.observation_id}
++        for key, value in zip(FIELDS, raw[1:6]):
++            if value is not None: old['fields'][key] = fact(value)
++        for storage, value in enumerate(raw[6]):
++            if value is not None: old['progress'][str(storage)] = fact(value)
++        old['observed_at'] = sampled
++    if len(body['slots']) == 175 and all(row[1] is not None for row in body['slots']):
++        record['baseline_observed_at'] = sampled
++    record['observed_at'] = max(sampled, record['observed_at'])
++    model.add_evidence('quest_log_slots', body['slots'], observation, confidence=1., ttl=MAX_AGE)
++    provider = getattr(model, 'session_context_provider', None)
++    if provider is not None:
++        # Complete slot membership is not a complete quest definition baseline.
++        provider.observe_field_coverage('questlog', 'PARTIAL', sampled, context=context)
++
++
++def view(model, state, now, current_context, *, quest_id=None, include_slots=True):
++    from .packet_continuity import current
++    record = model.__dict__.get('_packet_quest_log')
++    result = {'membership':'UNKNOWN', 'definitions':'UNKNOWN', 'objective_alignment':'UNKNOWN',
++              'baseline_observed_at':None, 'known_slots':0, 'slots':[]}
++    if record is None or not current(model):
++        return result
++    context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
++    if (context is None or context.entity_scope() != record['scope']
++            or state.get('loading') or state.get('player_present') is False):
++        return result
++    def fresh(fact):
++        return fact is not None and 0 <= now-fact['observed_at'] <= MAX_AGE
++    ids = [slot['fields'].get('quest_id') for slot in record['slots'].values()]
++    complete = (record['baseline_observed_at'] is not None and len(ids) == 175 and all(fresh(f) for f in ids))
++    result.update(membership='COMPLETE' if complete else 'PARTIAL',
++                  baseline_observed_at=record['baseline_observed_at'],
++                  known_slots=sum(0 <= now-s['observed_at'] <= MAX_AGE for s in record['slots'].values()))
++    if not result['known_slots']:
++        result['membership'] = 'UNKNOWN'
++    if not include_slots:
++        return result
++    for slot in record['slots'].values():
++        identity = slot['fields'].get('quest_id')
++        if quest_id is not None and (not fresh(identity) or identity['value'] != quest_id):
++            continue
++        value = {'slot':slot['slot'], 'fields':{k:v for k,v in slot['fields'].items() if fresh(v)},
++                 'progress':{k:v for k,v in slot['progress'].items() if fresh(v)}}
++        if value['fields'] or value['progress']:
++            result['slots'].append(json_copy(value))
++    return result
++
++
++def project(model, state, now, current_context):
++    # Hot-loop status contains counts only, never copies all 175 slot bodies.
++    result = view(model, state, now, current_context, include_slots=False)
++    if result['membership'] == 'UNKNOWN':
++        record = model.__dict__.get('_packet_quest_log')
++        if record:
++            context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
++            if (state.get('loading') or state.get('player_present') is False
++                    or context is None or context.entity_scope() != record['scope']):
++                model.__dict__.pop('_packet_quest_log', None)
++        return
++    state['packet_quest_log'] = {k:v for k,v in result.items() if k != 'slots'}
+--- before/src/wowbot/agent/runtime_packet_source.py
++++ after/src/wowbot/agent/runtime_packet_source.py
+@@ -42,6 +42,8 @@
+         self.observations_emitted = 0
+         self.stale_event_discards = self.stale_entity_discards = self.wrong_context_discards = 0
+         self.invalid_time_discards = 0
++        self.capture_epoch_discards = 0
++        self.capture_epoch_error = None
+         self.entity_snapshot_requests = 0
+         self.entity_snapshot_request_error = None
+         self._last_snapshot_request_at = None
+@@ -156,13 +158,23 @@
+                 continue
+             if event.get("event_type") == "SESSION_BASELINE" and self.session_provider is not None:
+                 if self.session_provider.accept_baseline(event):
++                    self.capture_epoch_error = None
+                     self._configure({**self.session_provider.expected(self.pid),
+                                      "process_generation": self.session_provider.process.generation})
+                 continue
+             if self.context.get("bootstrap") is True:
+                 continue
++            if (self.session_provider is not None and self.session_provider.capture_epoch is not None
++                    and event.get('semantic_status') == 'CONFIRMED'
++                    and (event.get('provenance') or {}).get('capture_epoch') != self.session_provider.capture_epoch):
++                self.wrong_context_discards += 1
++                self.capture_epoch_discards += 1
++                self.capture_epoch_error = ('capture_epoch_missing' if not (event.get('provenance') or {}).get('capture_epoch')
++                                            else 'capture_epoch_mismatch')
++                continue
+             observations.append(self._observation(event))
+             if event.get("semantic_status") == "CONFIRMED":
++                self.capture_epoch_error = None
+                 self.last_accepted_at = sampled
+         if stale_entities:
+             self._snapshot_request_pending = True
+@@ -254,6 +266,9 @@
+             "stale_entity_discards": self.stale_entity_discards,
+             "wrong_context_discards": self.wrong_context_discards,
+             "invalid_time_discards": self.invalid_time_discards,
++            'capture_epoch_discards': self.capture_epoch_discards,
++            'capture_epoch_error': self.capture_epoch_error,
++            'source_restart_required': self.capture_epoch_error == 'capture_epoch_missing',
+             "entity_snapshot_requests": self.entity_snapshot_requests,
+             "entity_snapshot_request_error": self.entity_snapshot_request_error,
+             "entity_snapshot_request_pending": self._snapshot_request_pending,
+@@ -268,6 +283,9 @@
+             result["status"] = self.context_status
+         if self.error:
+             result["status"] = "unavailable"
++        elif self.capture_epoch_error:
++            result['status'] = ('source_restart_required' if result['source_restart_required']
++                                else 'waiting_for_current_capture_epoch')
+         if self.closed:
+             result["status"] = "closed"
+         return result
+--- before/src/wowbot/agent/world_beliefs.py
++++ after/src/wowbot/agent/world_beliefs.py
+@@ -188,7 +188,8 @@
+         return value
+ 
+     def belief(self, key: str, now: float) -> dict:
+-        entries = list(self.evidence.get(key, ()))
++        from .packet_continuity import eligible_evidence
++        entries = list(eligible_evidence(self, self.evidence.get(key, ())))
+         from wowbot.field_sources import POLICIES, FieldSourceResolver, belief_projection
+         if key in POLICIES and any(e.is_fresh(now) for e in entries):
+             return belief_projection(FieldSourceResolver().resolve(key, entries, now,
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -519,6 +519,13 @@
+                 return False
+         except (ValueError, TypeError, OverflowError):
+             return False
++        provider = getattr(model, 'session_context_provider', None)
++        if (provider is not None and provider.capture_epoch is not None
++                and safe['semantic_status'] == 'CONFIRMED'
++                and safe['provenance'].get('capture_epoch') != provider.capture_epoch):
++            return False
++        from .packet_continuity import refresh as refresh_continuity
++        refresh_continuity(model, model.state)
+         seen = model.__dict__.setdefault("_packet_event_ids", deque(maxlen=1024))
+         if safe["event_id"] in seen:
+             return False
+@@ -533,6 +540,10 @@
+         model.__dict__["_packet_status"] = {"last_event": kind, "last_sampled_at": sampled,
+             "last_received_at": obs.received_at, "semantic_verified": verified, "source": "PACKET_TELEMETRY"}
+         if verified:
++            if (kind == 'OWN_QUEST_LOG_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
++                    and same_world_map(body['world_map_id'], expected['instance_id'])):
++                from .packet_quest_log import remember as remember_quest_log
++                remember_quest_log(model, body, obs, sampled, expected)
+             if (kind == 'OWN_PROFILE_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
+                     and same_world_map(body['world_map_id'], expected['instance_id'])):
+                 from .packet_own_profile import remember as remember_profile
+@@ -722,6 +733,8 @@
+ 
+     @staticmethod
+     def project(model, state):
++        from .packet_continuity import refresh as refresh_continuity
++        refresh_continuity(model, state)
+         if (state.get("player_world_position") or {}).get("source") == "PACKET_CLIENT_MOVEMENT":
+             state["player_world_position"] = copy(model.addon_state.get("player_world_position") or {})
+             state["orientation"] = model.addon_state.get("orientation")
+@@ -768,6 +781,8 @@
+         project_profile(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_own_power import project as project_power
+         project_power(model, state, reference, lambda pid: _context(model, state, pid))
++        from .packet_quest_log import project as project_quest_log
++        project_quest_log(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_combat import project as project_combat
+         project_combat(model, state, reference, lambda pid: _context(model, state, pid))
+         _project_server_map(model, state)
+--- before/src/wowbot/agent/world_query.py
++++ after/src/wowbot/agent/world_query.py
+@@ -68,7 +68,8 @@
+ 
+     def field_resolution(self, key: str, now: float):
+         from wowbot.field_sources import FieldSourceResolver
+-        return FieldSourceResolver().resolve(key, self.model.evidence.get(key, ()), now,
++        from .packet_continuity import eligible_evidence
++        return FieldSourceResolver().resolve(key, eligible_evidence(self.model,self.model.evidence.get(key, ())), now,
+                                              context={"session_id": self.model.session_id})
+ 
+     def quest_pois(self, quest_id, now: float | None = None, *, objective_id=None, objective_index=None) -> tuple[dict, ...]:
+@@ -98,6 +99,22 @@
+         knowledge = self.model.state.get("reference_knowledge") or {}
+         return deepcopy((knowledge.get("entities") or {}).get(str(npc_id)))
+ 
++    def quest_log_slots(self, now: float, *, quest_id=None) -> dict:
++        """Own native slots; storage indices are not UI objective ordinals."""
++        from .packet_quest_log import view
++        from .world_packet_reducer import _context
++        return view(self.model, self.model.state, now,
++                    lambda pid: _context(self.model, self.model.state, pid), quest_id=quest_id)
++
++    def quest_presence(self, quest_id: int, now: float) -> dict:
++        if type(quest_id) is not int or not 0 < quest_id < 2**31:
++            raise ValueError('positive quest ID required')
++        result = self.quest_log_slots(now, quest_id=quest_id)
++        present = any(row['fields'].get('quest_id', {}).get('value') == quest_id for row in result['slots'])
++        state = ('PRESENT' if present else 'ABSENT' if result['membership'] == 'COMPLETE' else 'UNKNOWN')
++        return {'state':state, 'source':'PACKET_QUEST_LOG', 'membership':result['membership'],
++                'baseline_observed_at':result['baseline_observed_at']}
++
+     def reference_quest(self, quest_id: int) -> dict | None:
+         """Imported quest details; live progress remains in QuestModel."""
+         knowledge = self.model.state.get("reference_knowledge") or {}
+--- before/src/wowbot/field_sources.py
++++ after/src/wowbot/field_sources.py
+@@ -46,6 +46,7 @@
+     'player_class_id': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
+     'race_id': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
+     'level': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'quest_log_slots': FieldPolicy(('SERVER',), sampled=True, collection=True),
+     "entity_position": FieldPolicy(_LIVE),
+     "objective_location": FieldPolicy(_LIVE),
+     "quest_definition": FieldPolicy(_LIVE),
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -386,7 +386,9 @@
+                 "opcode_defining_build": self.manifest.game_build,
+                 "opcode_table_sha256": family.sha256,
+                 "opcode_source_revision": WPP_REVISION,
+-                "payload_layout": ("WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
++                'capture_epoch': self.capture_epoch,
++                "payload_layout": ("WPP_12_1_QUEST_LOG_REVIEWED_V1" if event_type == 'OWN_QUEST_LOG_UPDATE' else
++                                   "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+                                    "WPP_12_1_POWER_REVIEWED_V1" if event_type == 'OWN_POWER_UPDATE' else
+                                    "WPP_12_1_OWN_UNIT_REVIEWED_V2" if event_type == 'OWN_UNIT_UPDATE' else
+                                    PAYLOAD_LAYOUTS.get(name, "WPP_12_1_REVIEWED_PREFIX_V1")),
+@@ -587,6 +589,9 @@
+         if own_character_guid is not None:
+             from .context import same_player
+             if same_player(row['guid'], own_character_guid):
++                if row.get('quest_log_slots'):
++                    events.append(('OWN_QUEST_LOG_UPDATE', {'mover_guid': row['guid'],
++                        'world_map_id': struct.unpack_from('<H', data)[0], 'slots': row['quest_log_slots']}))
+                 profile = {k: row[k] for k in ('race_id', 'class_id', 'player_class_id', 'power_type', 'level') if k in row}
+                 if row['kind'] in {'VALUES', 'CREATED'} and profile:
+                     events.append(('OWN_PROFILE_UPDATE', {'mover_guid': row['guid'],
+--- before/src/wowbot/packetio/player_quest_log.py
++++ after/src/wowbot/packetio/player_quest_log.py
+@@ -0,0 +1,104 @@
++"""Reviewed 70340 PlayerData quest-slot prefix; no player/account text.
++
++Compact row: slot, QuestID, StateFlags, EndTime, ObjectiveFlags,
++EnabledObjectivesMask, 24 ObjectiveProgress storage values. None means not
++sampled in this delta; zero is a real wire value, including an empty slot.
++"""
++SLOT_COUNT = 175
++PROGRESS_COUNT = 24
++LAYOUT = 'WPP_12_1_QUEST_LOG_REVIEWED_V1'
++
++
++def _skip_guid(cursor):
++    count = cursor.u8().bit_count()+cursor.u8().bit_count()
++    cursor.take(count)  # never construct/retain account, guild or player IDs
++
++
++def _slot(cursor, index, full):
++    result = [index, None, None, None, None, None, [None]*PROGRESS_COUNT]
++    if full:
++        cursor.reset()
++        result[1], result[2] = cursor.i32(), cursor.u16()
++        result[6] = [cursor.i16() for _ in range(PROGRESS_COUNT)]
++        result[3], result[4], result[5] = cursor.i64(), cursor.u32(), cursor.u32()
++        return result
++    cursor.reset()
++    mask = cursor.bits(32) if cursor.bit() else 0
++    if (mask >> 31 or mask & 0x3e and not mask & 1
++            or mask & 0x7fffff80 and not mask & (1 << 6)):
++        raise ValueError('unsupported quest slot mask')
++    cursor.reset()
++    if mask & 1:
++        for bit, column, read in ((1, 1, 'i32'), (2, 2, 'u16'), (3, 3, 'i64'),
++                                  (4, 4, 'u32'), (5, 5, 'u32')):
++            if mask >> bit & 1:
++                result[column] = getattr(cursor, read)()
++    if mask >> 6 & 1:
++        for i in range(PROGRESS_COUNT):
++            if mask >> (7+i) & 1:
++                result[6][i] = cursor.i16()
++    return result
++
++
++def read_slots(cursor):
++    """Read through QuestLog only when every preceding changed field is known.
++
++    Dynamic maps/arrays, names, declined names and other complex blocks before
++    QuestLog deliberately make this prefix unavailable, never guessed offsets.
++    A later PlayerData/ActivePlayerData tail is outside this reviewed scope.
++    """
++    cursor.reset()
++    present = cursor.bits(11)
++    words = [cursor.bits(32) if present >> i & 1 else 0 for i in range(11)]
++    changed = lambda bit: bool(words[bit//32] >> (bit % 32) & 1)
++    full = cursor.bit()  # noPartyMemberChangesMask
++    supported = {0, 1, 2, *range(9, 25), *range(26, 32), 50, 51, 52}
++    if (not changed(53) or any(changed(i) and i not in supported for i in range(53))
++            or any(changed(i) for i in (*range(1, 3), *range(9, 25), *range(26, 32))) and not changed(0)
++            or any(changed(i) for i in (51, 52)) and not changed(50)):
++        return None
++    if changed(0):
++        for bit in (1, 2):
++            if changed(bit): cursor.bit()
++    cursor.reset()
++    if changed(0):
++        for bit in range(9, 32):
++            if not changed(bit): continue
++            if bit in (9, 10, 11, 13): _skip_guid(cursor)
++            elif bit == 12: cursor.take(8)
++            elif bit in (19, 20, 21, 22): cursor.take(1)
++            else: cursor.take(4)
++    cursor.reset()
++    if changed(50):
++        for bit in (51, 52):
++            if changed(bit): cursor.take(1)
++    rows = [_slot(cursor, i, full) for i in range(SLOT_COUNT) if changed(54+i)]
++    rows = [row for row in rows if any(v is not None for v in row[1:6])
++            or any(v is not None for v in row[6])]
++    return normalize_slots(rows)
++
++
++def normalize_slots(rows):
++    if not isinstance(rows, list) or not 1 <= len(rows) <= SLOT_COUNT:
++        raise ValueError('invalid quest slot list')
++    seen, result = set(), []
++    for row in rows:
++        if not isinstance(row, list) or len(row) != 7:
++            raise ValueError('invalid quest slot shape')
++        index = row[0]
++        if type(index) is not int or not 0 <= index < SLOT_COUNT or index in seen:
++            raise ValueError('invalid or repeated quest slot')
++        seen.add(index)
++        limits = (2**31, 2**16, 2**63, 2**32, 2**32)
++        for value, limit in zip(row[1:6], limits):
++            if value is not None and (type(value) is not int or not 0 <= value < limit):
++                raise ValueError('invalid quest slot value')
++        progress = row[6]
++        if not isinstance(progress, list) or len(progress) != PROGRESS_COUNT:
++            raise ValueError('invalid quest storage progress')
++        if any(v is not None and (type(v) is not int or not -2**15 <= v < 2**15) for v in progress):
++            raise ValueError('invalid quest counter')
++        if all(v is None for v in row[1:6]) and all(v is None for v in progress):
++            raise ValueError('empty quest slot delta')
++        result.append([*row[:6], list(progress)])
++    return result
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -442,7 +442,7 @@
+     return result
+ 
+ 
+-def _values_fields(blob: bytes, fragments: tuple[int, ...]) -> dict:
++def _values_fields(blob: bytes, fragments: tuple[int, ...], *, own_player=False) -> dict:
+     """Changed ObjectData (dynamic flags) and UnitData fields of one value update."""
+     c = _Bits(blob)
+     c.u8()                       # IsOwned
+@@ -475,10 +475,29 @@
+         if update_type & 0x1E:   # item/container/azerite data: not a creature
+             return result
+         if update_type & 0x20:   # UnitData
++            # Reaching PlayerData requires all changed UnitData bytes, not
++            # merely the useful prefix. Unknown unit tails stop that path.
++            unit_end_known = True
++            if own_player and update_type & 0x40:
++                probe = _Bits(c.data)
++                probe.offset = c.offset
++                presence = probe.bits(8)
++                masks = [probe.bits(32) if presence >> i & 1 else 0 for i in range(8)]
++                unit_end_known = not (masks[1] >> 24 or any(masks[2:]) or masks[0] & 0x38)
+             try:
+                 result.update(_values_unit(c))
+             except UpdateLayoutError:
+-                pass             # the reviewed ObjectData part stands
++                return result    # the reviewed ObjectData part stands
++            if not unit_end_known:
++                return result
++        if own_player and update_type & 0x40:  # own PlayerData only
++            from .player_quest_log import read_slots
++            try:
++                slots = read_slots(c)
++                if slots:
++                    result['quest_log_slots'] = slots
++            except ValueError:
++                pass             # no partly decoded quest slot collection
+         return result
+     return {}
+ 
+@@ -516,7 +535,8 @@
+                 from .context import same_player
+                 if own_character_guid is None or not same_player(guid, own_character_guid):
+                     continue    # no reading of another player's unit profile
+-            fields = _values_fields(blob, known) if known else {}
++            own_player = own_character_guid is not None and int(guid[:16], 16) >> 58 == 2
++            fields = _values_fields(blob, known, own_player=own_player) if known else {}
+             if fields:
+                 rows.append({"kind": "VALUES", "guid": guid, **fields})
+         elif update_type in (1, 2):
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -11,6 +11,7 @@
+     "OWN_POWER_UPDATE": {'mover_guid', 'power_type', 'raw_power'},
+     'OWN_PROFILE_UPDATE': {'mover_guid', 'world_map_id', 'sample_kind', 'race_id', 'class_id',
+                            'player_class_id', 'power_type', 'level'},
++    'OWN_QUEST_LOG_UPDATE': {'mover_guid', 'world_map_id', 'slots'},
+     "QUEST_POI_UPDATE": {"quest_id", "blobs", "capture_timestamp"},
+     "NETWORK_STREAM_CHUNK": {"sequence_start", "byte_count", "sha256"},
+     "PACKET_OPCODE_OBSERVED": {"opcode_name", "byte_count", "sha256", "connection_index", "record_number"},
+@@ -57,12 +58,13 @@
+ SCENE_EVENTS = frozenset({"SCENE_STARTED", "SCENE_ENDED", "SCENE_EVENT"})
+ CAPTURE_70575_EVENTS = SCENE_EVENTS | {"MOVEMENT_ROOT", "GOSSIP_SELECTED", "QUEST_POI_UPDATE"}
+ _LAYOUT_EVENTS = {
+-    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE'}),
++    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}),
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
+     'WPP_12_1_POWER_REVIEWED_V1': frozenset({'OWN_POWER_UPDATE'}),
+     'WPP_12_1_OWN_PROFILE_REVIEWED_V1': frozenset({'OWN_PROFILE_UPDATE'}),
++    'WPP_12_1_QUEST_LOG_REVIEWED_V1': frozenset({'OWN_QUEST_LOG_UPDATE'}),
+     SPELL_LAYOUT: CAST_EVENTS,
+     "RETAIL_70448_CAPTURE_VERIFIED_V1": ENTITY_EVENTS,
+     "RETAIL_70575_CAPTURE_VERIFIED_V1": CAPTURE_70575_EVENTS,
+@@ -70,7 +72,7 @@
+ DIAGNOSTIC_EVENTS = frozenset({"NETWORK_STREAM_CHUNK", "PACKET_OPCODE_OBSERVED"})
+ _PROVENANCE = frozenset({"producer", "container", "game_build", "locale", "semantic_ground_truth",
+     "opcode_name", "opcode_defining_build", "opcode_table_sha256", "opcode_source_revision",
+-    "payload_layout", "payload_scope", "file_offset", "transport", "opcode_name_verified_for_exact_build"})
++    "payload_layout", "payload_scope", "file_offset", "transport", "opcode_name_verified_for_exact_build", 'capture_epoch'})
+ 
+ 
+ def _safe_scalar(value):
+@@ -105,6 +107,9 @@
+     if not isinstance(body, dict) or not isinstance(provenance, dict):
+         raise ValueError("invalid packet body/provenance")
+     safe_body = {k: v for k, v in body.items() if k in _FIELDS[kind] and _safe_scalar(v)}
++    if kind == 'OWN_QUEST_LOG_UPDATE':
++        from .player_quest_log import normalize_slots
++        safe_body['slots'] = normalize_slots(body.get('slots'))
+     if kind == "QUEST_POI_UPDATE":
+         from .quest_poi import normalize_poi_blobs
+         if type(body.get("quest_id")) is not int or not 0 < body["quest_id"] < 2**31:
+@@ -171,6 +176,11 @@
+             raise ValueError('own health baseline requires both fields')
+         if safe_body.get('sample_kind') == 'CREATE' and safe_provenance.get('payload_layout') != 'WPP_12_1_OWN_UNIT_REVIEWED_V2':
+             raise ValueError('own health baseline requires reviewed create layout')
++    if kind == 'OWN_QUEST_LOG_UPDATE':
++        guid = safe_body.get('mover_guid')
++        if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
++                or event['direction'] != 'SERVER_TO_CLIENT' or 'world_map_id' not in safe_body):
++            raise ValueError('quest log requires own identity and world context')
+     if kind == 'OWN_PROFILE_UPDATE':
+         guid = safe_body.get('mover_guid')
+         if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
+@@ -264,6 +274,8 @@
+             and (event.get("event_type") != "QUEST_POI_UPDATE" or source.get("semantic_ground_truth") is True)
+             and source.get("producer") == "PktEventDecoder" and source.get("container") == "PKT_V3_1"
+             and family is not None
++            and (event.get('event_type') not in {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}
++                 or family.defining_build == 70340)
+             and source.get("opcode_defining_build") == family.defining_build
+             and source.get("opcode_table_sha256") == family.sha256
+             and event.get("event_type") in _LAYOUT_EVENTS.get(source.get("payload_layout"), ()))
+--- before/src/wowbot/session_context.py
++++ after/src/wowbot/session_context.py
+@@ -43,6 +43,7 @@
+         self.state = BaselineState.NO_BASELINE
+         self.source = "UNKNOWN"
+         self.capture_epoch = None
++        self.continuity_generation = 0
+         self._retired_epochs = []
+         self.sequence = -1
+         self.reason = "own_character_baseline_missing"
+@@ -120,6 +121,9 @@
+         else:
+             token = sha256((self.process.generation+":"+epoch+":"+guid).encode()).hexdigest()[:24]
+             session_id, ui_map, phase = "packet-session:"+token, None, None
++        if self.capture_epoch != epoch:
++            self.continuity_generation += 1
++            self._field_coverage.clear()
+         self.capture_epoch, self.sequence = epoch, sequence
+         instance = body['world_map_id']
+         self.server_world_map_id = instance
+@@ -158,10 +162,12 @@
+         self._field_coverage.clear()
+         if changed:
+             self.revision += 1
++            self.continuity_generation += 1
+ 
+     def _set(self, context, source):
+         if self.context is None or context.entity_scope() != self.context.entity_scope():
+             self._field_coverage.clear()
++            self.continuity_generation += 1
+         if context != self.context or source != self.source or self.state is not BaselineState.READY:
+             self.revision += 1
+         self.context, self.source = context, source
+@@ -200,6 +206,7 @@
+     def diagnostics(self):
+         return {"state": self.state.value, "reason": self.reason, "source": self.source,
+                 "revision": self.revision, "capture_epoch": self.capture_epoch,
++                'continuity_generation': self.continuity_generation,
+                 "sequence": self.sequence, "process_generation": self.process.generation,
+                 'local_ui_ready': self.local_ui_ready, 'server_world_map_id': self.server_world_map_id,
+                 "context": self.expected(self.process.selected_pid),
+--- before/tests/test_gui_packet_status.py
++++ after/tests/test_gui_packet_status.py
+@@ -22,6 +22,8 @@
+     ({"status": "closed"}, "leállítva"),
+     ({"selected_pid": 78}, "PID-eltérés"),
+     ({"status": "disabled"}, "indításra vár"),
++    ({"status": "source_restart_required", "source_restart_required": True}, "forrás újraindítandó"),
++    ({"status": "waiting_for_current_capture_epoch"}, "capture-korszakra vár"),
+ ])
+ def test_enable_flag_does_not_falsely_claim_active_receiver(changes, expected):
+     text = packet_status_text(state(**changes), now=10.)
+--- before/tests/test_native_quest_log_20261030.py
++++ after/tests/test_native_quest_log_20261030.py
+@@ -0,0 +1,203 @@
++"""Actual own PlayerData slot masks; membership is not a reward receipt."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.packetio.ipc import canonical, envelope
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from wowbot.packetio.player_quest_log import SLOT_COUNT, normalize_slots
++from test_own_health_packets_20261030 import RAW_ME, own_event
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_packet_codecs import packed_guid
++from test_unit_fields_20261027 import bits
++
++
++def slot(index, quest=55639, progress=None):
++    return [index, quest, 0, 0, 0, 0, progress if progress is not None else [0]*24]
++
++
++def player_data(rows, *, full=True, extra_bits=(), prefix=b''):
++    changed = {53, *(54+r[0] for r in rows), *extra_bits}
++    words = [sum(1 << (i % 32) for i in changed if i//32 == j) for j in range(11)]
++    present = sum(1 << j for j,w in enumerate(words) if w)
++    data = bits([(present, 11), *((w, 32) for w in words if w), (int(full), 1)])+prefix
++    for row in sorted(rows, key=lambda r:r[0]):
++        if full:
++            data += struct.pack('<iH24hqII', row[1], row[2], *row[6], row[3], row[4], row[5])
++        else:
++            changed_fields = [i for i,v in enumerate(row[1:6], 1) if v is not None]
++            mask = (1 if changed_fields else 0) | sum(1 << i for i in changed_fields)
++            counters = [i for i,v in enumerate(row[6]) if v is not None]
++            if counters: mask |= (1 << 6) | sum(1 << (7+i) for i in counters)
++            data += bits([(1,1),(mask,32)])
++            for i, format in enumerate(('i','H','q','I','I'), 1):
++                if row[i] is not None: data += struct.pack('<'+format, row[i])
++            for i in counters: data += struct.pack('<h', row[6][i])
++    return data
++
++
++def quest_event(rows=None, *, full=True, extra_bits=(), unit_tail=False, low=0x1234, at=10., private_prefix=b''):
++    rows = [slot(3)] if rows is None else rows
++    decoder, record = own_event()
++    prefix = b''
++    if unit_tail:
++        mask = 1 | (1 << 6) | (1 << 24)  # health plus unsupported field 56
++        prefix = bits([(2,8),(mask,32)])+struct.pack('<q', 80)+b'unknown'
++    fields = bytes((0,0,3))+struct.pack('<I', 0x60 if unit_tail else 0x40)+prefix
++    fields += player_data(rows, full=full, extra_bits=extra_bits, prefix=private_prefix)
++    block = bytes((0,))+packed_guid(low=low)+struct.pack('<I', len(fields))+fields
++    body = struct.pack('<HI',2175,1)+bytes((0,))+struct.pack('<I',len(block))+block
++    return decoder, replace(record,payload=body,timestamp=1000.+at-10.)
++
++
++def setup(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575'),9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++
++
++def send(bridge, rows=None, *, at=10., **options):
++    bridge.inbox._clock = lambda: at
++    bridge.inbox._wall_clock = lambda: 1000.+at-10.
++    decoder, record = quest_event(rows,at=at,**options)
++    event = decoder.decode_all(record)[-1]
++    assert event.event_type == 'OWN_QUEST_LOG_UPDATE'
++    deliver(bridge,event,at=at)
++    return event
++
++
++def test_full_175_slot_update_round_trips_through_build_specific_decoder_and_schema():
++    rows = [slot(i,55639 if i == 3 else 0) for i in range(SLOT_COUNT)]
++    decoder, record = quest_event(rows)
++    event = decoder.decode_all(record)[-1]
++    assert event.event_type == 'OWN_QUEST_LOG_UPDATE' and event.payload['slots'] == rows
++    assert verified_semantics(normalize_event(event.to_dict()))
++    assert event.provenance['payload_layout'] == 'WPP_12_1_QUEST_LOG_REVIEWED_V1'
++
++
++def test_partial_slot_presence_never_proves_other_quest_absent_or_completion(bridge):
++    setup(bridge)
++    send(bridge,[slot(3,progress=[2]*24)])
++    assert bridge.world.query.quest_presence(55639,10.)['state'] == 'PRESENT'
++    assert bridge.world.query.quest_presence(88719,10.)['state'] == 'UNKNOWN'
++    assert bridge.world.quest_model.records[55639].current_state == 'ACTIVE'
++    assert not any(e.event_type in {'QUEST_TURNED_IN','QUEST_ACCEPTED','QUEST_COMPLETED'} for e in bridge.world.event_records)
++    assert bridge.world.last_received == 9.1
++
++
++def test_complete_native_membership_has_owned_query_without_replacing_quest_definitions(bridge):
++    setup(bridge)
++    send(bridge,[slot(i,55639 if i == 3 else 0) for i in range(SLOT_COUNT)])
++    assert bridge.world.query.quest_presence(88719,10.)['state'] == 'ABSENT'
++    assert bridge.world.state['packet_quest_log']['membership'] == 'COMPLETE'
++    assert bridge.world.state['packet_quest_log']['definitions'] == 'UNKNOWN'
++    assert 'slots' not in bridge.world.state['packet_quest_log']
++    result = bridge.world.query.quest_log_slots(10.,quest_id=55639)
++    assert len(result['slots']) == 1
++    result['slots'][0]['fields']['quest_id']['value'] = 88719
++    assert bridge.world.query.quest_presence(55639,10.)['state'] == 'PRESENT'
++
++
++def test_counter_delta_preserves_original_identity_clock_and_cannot_use_ui_ordinal(bridge):
++    setup(bridge)
++    send(bridge)
++    progress = [None]*24
++    progress[9] = 4
++    send(bridge,[[3,None,None,None,None,None,progress]],full=False,at=10.1)
++    value = bridge.world.query.quest_log_slots(10.1,quest_id=55639)['slots'][0]
++    assert value['fields']['quest_id']['observed_at'] == 10.
++    assert value['progress']['9']['value'] == 4 and value['progress']['9']['observed_at'] == 10.1
++    assert value['progress']['8']['observed_at'] == 10.
++    assert bridge.world.quest_model.records[55639].objectives[0].current_count == 0
++
++
++def test_new_quest_in_same_slot_cannot_inherit_old_progress(bridge):
++    setup(bridge)
++    send(bridge,[slot(3,progress=[5]*24)])
++    send(bridge,[[3,88719,None,None,None,None,[None]*24]],full=False,at=10.1)
++    result = bridge.world.query.quest_log_slots(10.1,quest_id=88719)
++    assert result['slots'][0]['progress'] == {}
++    assert bridge.world.query.quest_presence(55639,10.1)['state'] == 'UNKNOWN'
++
++
++def test_zero_slot_and_older_reordered_delta_do_not_restore_removed_identity(bridge):
++    setup(bridge)
++    send(bridge)
++    send(bridge,[[3,0,None,None,None,None,[None]*24]],full=False,at=10.1)
++    send(bridge,[slot(3)],at=9.9)
++    assert bridge.world.query.quest_presence(55639,10.1)['state'] == 'UNKNOWN'
++    assert bridge.world.query.quest_log_slots(10.1)['slots'][0]['fields']['quest_id']['value'] == 0
++
++
++@pytest.mark.parametrize('change',[{'loading':True},{'phase':'elsewhere'},{'character_guid':'Player-1602-99999999'}])
++def test_slot_baseline_does_not_cross_loading_phase_or_identity(bridge,change):
++    setup(bridge)
++    send(bridge)
++    bridge.world.ingest(Observation.create(addon(game_build='70575',frame_id='next',**change),10.1))
++    assert bridge.world.query.quest_presence(55639,10.1)['state'] == 'UNKNOWN'
++    assert 'packet_quest_log' not in bridge.world.state
++
++
++def test_native_membership_expires_without_rejuvenating_slot_ids(bridge):
++    setup(bridge)
++    send(bridge,[slot(i,55639 if i == 3 else 0) for i in range(SLOT_COUNT)])
++    assert bridge.world.query.quest_presence(55639,13.)['state'] == 'UNKNOWN'
++    assert bridge.world.query.quest_presence(88719,13.)['state'] == 'UNKNOWN'
++
++
++def test_unknown_unit_tail_or_player_prefix_never_guesses_quest_offsets():
++    decoder,record = quest_event(unit_tail=True)
++    assert not any(e.event_type == 'OWN_QUEST_LOG_UPDATE' for e in decoder.decode_all(record))
++    for extra in ((0,3),(0,25),(32,36),(32,47)):
++        decoder,record = quest_event(extra_bits=extra)
++        assert len(decoder.decode_all(record)) == 1
++
++
++def test_other_player_or_unverified_login_never_calls_private_quest_reader(monkeypatch):
++    from wowbot.packetio import player_quest_log
++    def forbidden(*args): pytest.fail('unselected player quest data read')
++    monkeypatch.setattr(player_quest_log,'read_slots',forbidden)
++    decoder,record = quest_event(low=0x9999)
++    decoder.entity_fragments[f'{(2<<58)|(1602<<42):016X}{0x9999:016X}'] = (3,)
++    assert len(decoder.decode_all(record)) == 1
++    decoder,record = quest_event()
++    decoder._verified_player_guids.clear()
++    assert len(decoder.decode_all(record)) == 1
++
++
++def test_truncated_slot_collection_is_not_partly_accepted():
++    decoder,record = quest_event([slot(1),slot(2)])
++    assert len(decoder.decode_all(replace(record,payload=record.payload[:-1]))) == 1
++
++
++def test_preceding_account_and_guild_fields_are_skipped_and_never_exported():
++    private_low, private_high = 0xDEADBEEF, 3 << 58
++    prefix = packed_guid(private_low,private_high)*2+struct.pack('<Q',123456789)+packed_guid(private_low,private_high)
++    decoder,record = quest_event(extra_bits=(0,10,11,12,13),private_prefix=prefix)
++    event = decoder.decode_all(record)[-1]
++    assert event.event_type == 'OWN_QUEST_LOG_UPDATE'
++    assert set(event.payload) == {'mover_guid','world_map_id','slots'}
++    assert event.payload['slots'] == [slot(3)]
++    assert f'{private_high:016X}{private_low:016X}' not in str(event.to_dict())
++
++
++@pytest.mark.parametrize('row',[
++    [True,55639,0,0,0,0,[0]*24], [175,55639,0,0,0,0,[0]*24],
++    [1,-1,0,0,0,0,[0]*24], [1,55639,0,0,0,0,[0]*23],
++    [1,55639,0,0,0,0,[True]*24], [1,55639,0,0,0,0,[2**15]*24],
++])
++def test_invalid_slot_shapes_values_or_counters_fail_closed(row):
++    with pytest.raises(ValueError): normalize_slots([row])
++
++
++def test_duplicate_slots_rejected_and_maximum_compact_snapshot_fits_ipc(bridge):
++    with pytest.raises(ValueError): normalize_slots([slot(1),slot(1)])
++    setup(bridge)
++    worst = [[i,2**31-1,2**16-1,2**63-1,2**32-1,2**32-1,[-2**15]*24] for i in range(SLOT_COUNT)]
++    decoder,record = quest_event(worst)
++    event = decoder.decode_all(record)[-1]
++    import json
++    descriptor = json.loads(bridge.path.read_text())
++    assert len(canonical(envelope(event.to_dict(),descriptor))) < 60000
++    assert bridge.inbox.ingest_datagram(canonical(envelope(event.to_dict(),descriptor)))
+--- before/tests/test_packet_continuity_20261030.py
++++ after/tests/test_packet_continuity_20261030.py
+@@ -0,0 +1,135 @@
++"""A same-character reconnect/gap cannot retain a native field baseline."""
++from dataclasses import replace
++import json
++
++from wowbot.agent.models import Observation
++from wowbot.agent.runtime_packet_source import RuntimePacketSource
++from wowbot.agent.world import WorldModel
++from wowbot.packetio.inbox import PacketEventInbox
++from wowbot.packetio.ipc import canonical, envelope
++from wowbot.session_context import ProcessIdentity, SessionContextProvider
++from test_native_quest_log_20261030 import quest_event, slot
++from test_own_baseline_20261030 import create_payload
++from test_own_health_packets_20261030 import own_event, own_payload
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_session_bootstrap_20261029 import session_events
++
++
++def connected(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575',health=100,max_health=100),9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++    provider = SessionContextProvider(ProcessIdentity(77,'0000000000000001'))
++    provider.observe_addon(bridge.world.addon_state)
++    decoder, verification = session_events(build=70575)
++    baseline = decoder.decode_all(verification)[-1]
++    assert provider.accept_baseline(baseline.to_dict())
++    bridge.world.session_context_provider = provider
++    _, record = own_event()
++    event = decoder.decode_all(replace(record,payload=create_payload()))[-1]
++    deliver(bridge,event)
++    return provider,decoder,baseline,record
++
++
++def test_same_epoch_gap_evicts_native_baseline_even_when_identity_and_map_are_unchanged(bridge):
++    provider,decoder,baseline,record = connected(bridge)
++    assert bridge.world.state['packet_own_health']['coverage'] == 'COMPLETE'
++    old_scope = provider.context.entity_scope()
++    generation = provider.continuity_generation
++    provider.invalidate('stream_gap')
++    assert provider.accept_baseline(baseline.to_dict())
++    assert provider.context.entity_scope() == old_scope
++    assert provider.continuity_generation > generation
++    # Read-only queries stop considering old packet evidence immediately,
++    # even before the next projection has evicted its cached values.
++    assert bridge.world.query.field_resolution('health',10.).value == 100
++    assert bridge.world.belief('health',10.)['value'] == 100
++    values = decoder.decode_all(replace(record,payload=own_payload(health=60)))[-1]
++    deliver(bridge,values)
++    assert bridge.world.state['health'] == 60
++    assert bridge.world.state['packet_own_health']['coverage'] == 'PARTIAL'
++    assert provider.diagnostics()['coverage']['own_health'] == 'PARTIAL'
++    assert bridge.world.last_received == 9.1
++
++
++def test_quest_membership_is_unknown_after_gap_without_waiting_for_its_ttl(bridge):
++    provider,decoder,baseline,_ = connected(bridge)
++    _,record = quest_event([slot(i,55639 if i == 3 else 0) for i in range(175)])
++    deliver(bridge,decoder.decode_all(record)[-1])
++    assert bridge.world.query.quest_presence(88719,10.)['state'] == 'ABSENT'
++    provider.invalidate('stream_gap')
++    assert provider.accept_baseline(baseline.to_dict())
++    assert bridge.world.query.quest_presence(55639,10.)['state'] == 'UNKNOWN'
++    assert bridge.world.query.quest_presence(88719,10.)['state'] == 'UNKNOWN'
++    bridge.world._rebuild_state()
++    assert '_packet_quest_log' not in bridge.world.__dict__
++    assert 'packet_quest_log' not in bridge.world.state
++
++
++def test_ui_map_only_change_does_not_invalidate_current_native_baseline(bridge):
++    provider,_,_,_ = connected(bridge)
++    generation = provider.continuity_generation
++    provider.observe_addon({**bridge.world.addon_state,'map_id':1410})
++    assert provider.continuity_generation == generation
++    assert bridge.world.query.field_resolution('health',10.).value == 40
++
++
++def test_baseline_replay_without_gap_preserves_generation_and_field_coverage(bridge):
++    provider,_,baseline,_ = connected(bridge)
++    generation = provider.continuity_generation
++    assert provider.accept_baseline(baseline.to_dict())
++    assert provider.continuity_generation == generation
++    assert provider.diagnostics()['coverage']['own_health'] == 'COMPLETE'
++    assert bridge.world.query.field_resolution('health',10.).value == 40
++
++
++def test_reducer_also_rejects_a_foreign_epoch_after_the_adapter_boundary(bridge):
++    _,_,_,_ = connected(bridge)
++    other,record = own_event(health=60)
++    event = other.decode_all(record)[-1]
++    descriptor = json.loads(bridge.path.read_text())
++    assert bridge.inbox.ingest_datagram(canonical(envelope(event.to_dict(),descriptor)))
++    observations = bridge.adapter.observations(None,bridge.world,10.)
++    assert len(observations) == 1
++    assert not bridge.world.ingest(observations[0])
++    assert bridge.world.state['health'] == 40
++
++
++def test_other_capture_epoch_cannot_reuse_the_current_authenticated_endpoint(tmp_path):
++    provider = SessionContextProvider(ProcessIdentity(77,'0000000000000001'))
++    inbox = PacketEventInbox(77,port=0,autostart=False,clock=lambda:10.,wall_clock=lambda:1000.)
++    world = WorldModel(session_context_provider=provider)
++    adapter = RuntimePacketSource(77,tmp_path,source=inbox,session_provider=provider,wall_clock=lambda:999.)
++    try:
++        adapter.observations(None,world,10.)
++        decoder,record = session_events(build=70575)
++        baseline = decoder.decode_all(record)[-1]
++        descriptor = json.loads(adapter.path.read_text())
++        assert inbox.ingest_datagram(canonical(envelope(baseline.to_dict(),descriptor)))
++        assert adapter.observations(None,world,10.) == ()
++        other,record = own_event()
++        event = other.decode_all(record)[-1]
++        assert event.provenance['capture_epoch'] != decoder.capture_epoch
++        descriptor = json.loads(adapter.path.read_text())
++        assert inbox.ingest_datagram(canonical(envelope(event.to_dict(),descriptor)))
++        assert adapter.observations(None,world,10.) == ()
++        assert adapter.wrong_context_discards == 1
++        assert adapter.diagnostics()['capture_epoch_error'] == 'capture_epoch_mismatch'
++        old_source,missing_record = own_event(health=61)
++        missing = old_source.decode_all(missing_record)[-1]
++        missing = replace(missing,provenance={k:v for k,v in missing.provenance.items() if k != 'capture_epoch'})
++        assert inbox.ingest_datagram(canonical(envelope(missing.to_dict(),descriptor)))
++        assert adapter.observations(None,world,10.) == ()
++        assert adapter.diagnostics()['status'] == 'source_restart_required'
++        assert adapter.diagnostics()['source_restart_required']
++        diagnostic = old_source.decode(missing_record)
++        assert inbox.ingest_datagram(canonical(envelope(diagnostic.to_dict(),descriptor)))
++        assert len(adapter.observations(None,world,10.)) == 1
++        assert adapter.diagnostics()['source_restart_required']  # opaque traffic is not recovery
++        _,native = own_event()
++        current = decoder.decode_all(replace(native,payload=create_payload()))[-1]
++        assert inbox.ingest_datagram(canonical(envelope(current.to_dict(),descriptor)))
++        assert len(adapter.observations(None,world,10.)) == 1
++        assert adapter.diagnostics()['capture_epoch_error'] is None
++        assert not world.fresh(10.)
++    finally:
++        adapter.close()
+--- before/tests/test_session_bootstrap_20261029.py
++++ after/tests/test_session_bootstrap_20261029.py
+@@ -69,7 +69,8 @@
+         assert provider.context.world.ui_map_id is None and provider.context.world.phase is None
+         descriptor = json.loads(source.path.read_text())
+         assert 'bootstrap' not in descriptor['context']
+-        move = decoded()[-1]
++        # One producer owns the baseline and following movement packets.
++        move = decoder.decode_all(PktV31StreamParser().feed(pkt_bytes())[0])[-1]
+         assert inbox.ingest_datagram(canonical(envelope(move.to_dict(), descriptor)))
+         observations = source.observations(None, world, 10.)
+         assert len(observations) == 1 and world.ingest(observations[0])

@@ -49,6 +49,13 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
                 CREATE TABLE IF NOT EXISTS observations (
                     id TEXT PRIMARY KEY, session TEXT, at REAL, source TEXT, correlation TEXT, payload TEXT,
                     recorded_order INTEGER);
+                CREATE TABLE IF NOT EXISTS evidence_manifests (
+                    evidence_id TEXT PRIMARY KEY, observation_id TEXT, field TEXT,
+                    source TEXT, observed_at REAL, received_at REAL, expires_at REAL,
+                    value_sha256 TEXT, context TEXT, lineage TEXT, completeness TEXT);
+                CREATE TABLE IF NOT EXISTS task_pattern_source_roots (
+                    pattern_id TEXT NOT NULL, root_id TEXT NOT NULL, episode_id TEXT NOT NULL,
+                    PRIMARY KEY(pattern_id,root_id));
                 CREATE TABLE IF NOT EXISTS strategies (
                     context TEXT, skill TEXT, successes INTEGER DEFAULT 0, failures INTEGER DEFAULT 0,
                     PRIMARY KEY(context, skill));
@@ -123,6 +130,7 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
                 CREATE INDEX IF NOT EXISTS idx_rejection_trials ON rejection_trials(map_id,signature,at);
                 CREATE INDEX IF NOT EXISTS idx_observations_recorded_order ON observations(recorded_order);
                 CREATE INDEX IF NOT EXISTS idx_observations_at ON observations(at);
+                CREATE INDEX IF NOT EXISTS idx_evidence_manifest_observation ON evidence_manifests(observation_id);
                 CREATE INDEX IF NOT EXISTS idx_observations_source_order ON observations(source,recorded_order,id);
                 CREATE INDEX IF NOT EXISTS idx_events_session_at ON events(session,at);
                 -- consolidate()'s trim queries ORDER BY at,id / at,rowid to find
@@ -273,6 +281,8 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
                         with self._tx() as db:
                             if kind == "observations":
                                 self._insert_observations(db, rows)
+                            elif kind == 'evidence_manifests':
+                                db.executemany('INSERT OR IGNORE INTO evidence_manifests VALUES (?,?,?,?,?,?,?,?,?,?,?)', rows)
                             else:
                                 self._insert_relations(db, rows)
                         break
@@ -403,6 +413,55 @@ class AgentMemory(MemoryPatternsMixin, MemoryMaintenanceMixin, MemoryRejectionMi
                 # V4-077: cleanup-time failure must not raise (would mask
                 # the caller's own shutdown), but must not be silent either.
                 _logger.warning("sqlite connection.close() failed in AgentMemory.close()", exc_info=True)
+
+    def persist_evidence_manifests(self, entries):
+        """Small proof metadata at verification boundaries, never a new vote.
+
+        Raw packet bodies and IPC keys are not stored. The value digest lets
+        an imported/replayed wrapper refer to the same original claim.
+        """
+        import hashlib
+        rows = tuple((entry.evidence_id, entry.observation_id, entry.kind, entry.source,
+                      entry.observed_at, entry.received_at, entry.expires_at,
+                      hashlib.sha256(entry.value_json.encode()).hexdigest(), entry.context_json,
+                      canonical(entry.lineage.as_dict() if entry.lineage else None), entry.completeness.value)
+                     for entry in tuple(entries)[:16])
+        if rows:
+            if self._writer_thread is not None:
+                self._enqueue_write('evidence_manifests', rows)
+            else:
+                with self._tx() as db:
+                    db.executemany('INSERT OR IGNORE INTO evidence_manifests VALUES (?,?,?,?,?,?,?,?,?,?,?)', rows)
+        return tuple(row[0] for row in rows)
+
+    def evidence_manifests(self, observation_id):
+        self._drain_for_read('evidence_manifests')
+        with self._ro() as db:
+            rows = db.execute('SELECT evidence_id,field,source,observed_at,received_at,expires_at,value_sha256,context,lineage,completeness '
+                              'FROM evidence_manifests WHERE observation_id=? LIMIT 32', (observation_id,)).fetchall()
+        names = ('evidence_id', 'field', 'source', 'observed_at', 'received_at', 'expires_at', 'value_sha256', 'context', 'lineage', 'completeness')
+        return [{name: json.loads(value) if name in {'context', 'lineage'} else value
+                 for name, value in zip(names, row)} for row in rows]
+
+    def evidence_manifests_by_id(self, evidence_ids):
+        """Bounded verification lookup on the existing store; never payloads."""
+        ids = tuple(dict.fromkeys(evidence_ids))
+        if not ids or len(ids) > 256:
+            return {}
+        self._drain_for_read('evidence_manifests')
+        columns = ('evidence_id','observation_id','field','source','observed_at','received_at',
+                   'expires_at','value_sha256','context','lineage','completeness')
+        with self._ro() as db:
+            rows = db.execute('SELECT '+','.join(columns)+' FROM evidence_manifests WHERE evidence_id IN ('+
+                              ','.join('?' for _ in ids)+')', ids).fetchall()
+        result = {}
+        for row in rows:
+            try:
+                result[row[0]] = {key:json.loads(value) if key in {'context','lineage'} else value
+                                  for key,value in zip(columns,row)}
+            except (ValueError, TypeError):
+                continue  # damaged/legacy metadata cannot manufacture a usable proof
+        return result
 
     def observe_many(self, observations) -> None:
         """Persist one sensor boundary in one ordered SQLite transaction.

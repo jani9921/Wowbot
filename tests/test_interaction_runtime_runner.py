@@ -36,7 +36,7 @@ class Interact:
     def __init__(self, result):
         self.result = result
 
-    def resume_after_approach(self, active, state):
+    def resume_after_approach(self, active, state, *, now=None):
         return self.result
 
 

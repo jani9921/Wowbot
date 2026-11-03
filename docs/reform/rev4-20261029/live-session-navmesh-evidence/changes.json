@@ -1,0 +1,97 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "2dfde1ae296b8018c7f0247496462324544524b0da75eded07ec2885f3e46d95",
+      "after_sha256": "b9de833fa2d6318e2ac5a589c6d02f0cce755aa2ef35f207d3f7e59cd3ec14d8"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "5cf4c8c96633baf91db8d93f5fa54e2d132856b33f3803480f8826fbf8215733",
+      "after_sha256": "9a02ff960fcc862dca0139a91c6696b74507417a33b1311d551bdbca51fb711f"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "c7b08de2f432ef67754381de01d153e94e7e75b7c015ca4cad6aebd31b415e5a",
+      "after_sha256": "0e8db8d2503acee121a340fbf8987ee3f18027f83c5170aedc80fe3a9f675c18"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md",
+      "status": "MODIFIED",
+      "before_sha256": "c5371b5a73c369a7980b05d7fffecba7c499a446e1ccfadcab30c5d61dc55e12",
+      "after_sha256": "34ae6b4f4407158b83e2c7096b473e09d897408c02bdb280396d82e38703d633"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "49c84d01b1a8cd86ea9076798b3eb4c92873efc5b613607bba04ddadf7bb2723",
+      "after_sha256": "1812169a61ed6ac7543c5b8d4a2d2de9eea02da39f5d727ee247c1ea00f060c6"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md",
+      "status": "MODIFIED",
+      "before_sha256": "7a4363df09719c30939472a04c69722ab25d20343e2944ab3c3fb64de7885cda",
+      "after_sha256": "599dc292f1279aef500354d3fabbf59be25f3406530758e85115b56d251ffddc"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P2_LIVE_SESSION_NAVMESH_FIXES.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "c85b1d14211e9e0538422d7b68c9d092549395972e57777471d725250910561c"
+    },
+    {
+      "path": "src/wowbot/navigation/mmap_format.py",
+      "status": "MODIFIED",
+      "before_sha256": "218daf51fba4d84af88a5ec07e1932783409bdd0513df4d7143f9e249d81174d",
+      "after_sha256": "b0b1545cffc3f5608f44967d73b9562dbabd9d51cad4c30cfba30df43d0dc3c2"
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "status": "MODIFIED",
+      "before_sha256": "162a0c6683f15d033bcb3370872a4143211d4586d8b836bf7c7eb9e5aea833fe",
+      "after_sha256": "6a690b3d79fde079cdbb528771a45c1a1ef8390cb97e12556d23fa28660381be"
+    },
+    {
+      "path": "src/wowbot/packetio/session_bootstrap.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "9135777051b75b79cacacaa0b083c0b06f0324edb095d3ba1965bddf5def560d"
+    },
+    {
+      "path": "src/wowbot/packetio/stream_progress.py",
+      "status": "MODIFIED",
+      "before_sha256": "b9e5c745e69f0af1807371b3b7d07b2033d20d1885daeb6f74ac0022df46b336",
+      "after_sha256": "dc090b67ae9843040a2a4291b5d85faeb763f03bcf2ffe08f5981af027c3b459"
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "status": "MODIFIED",
+      "before_sha256": "af4a88716216e1af58c77f05cc6f3ea932c872f843cacc929a97e69edd6185da",
+      "after_sha256": "064128191137e7b4a0f41e708be58614a7bd5fb313edbffc85546c68254459da"
+    },
+    {
+      "path": "src/wowbot/packetio/ymir_bridge.py",
+      "status": "MODIFIED",
+      "before_sha256": "1216a8d558130f89535a6f46dc3c51f3335693b2dd459553096549b7d607e73a",
+      "after_sha256": "ce80cb40b6c47bd08ce1e85d44fcdc73b8622f0a06a99b99cd4ab80bfcd1818c"
+    },
+    {
+      "path": "tests/test_instance_session_bootstrap_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "fb125e8cb79efacc5f3df3c4bb5f0b3a6ed39fb0a702492658b87c81cd715a07"
+    },
+    {
+      "path": "tests/test_mmap_format_20261030.py",
+      "status": "MODIFIED",
+      "before_sha256": "a84e196924e84e14e4dcc9d51ff931f5aa32cffc5e004f08bf6783cf3da21d78",
+      "after_sha256": "20f5103800fa4860a02af9dc382b2f4ac398b510bf029232ae2424c778a39b42"
+    }
+  ],
+  "modified": 12,
+  "added": 3,
+  "removed": 0
+}

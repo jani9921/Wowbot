@@ -1,62 +1,13 @@
-from .models import (BearingEstimate, PixelRect, ScreenPoint, World3DObservationBatch,
-                     WorldCandidate, WorldFrameObservation, WorldSceneROI)
-from .scene import WorldSceneProfile, build_scene_roi
-from .candidates import CLASS_COLORS, CLASS_COLOR_ALIASES, detect_world_candidates
-from .tracking import WorldCandidateTracker
-from .normalization import world_frame_to_observation
-from .validation import World3DBatchValidation, World3DValidation, validate_batch, validate_fusion_observation
-from .pipeline import World3DPipeline
-from .scene_quality import SceneConditionObservation, SceneQualityAnalyzer
-from .semantic_fusion import SemanticEvidenceFusion
-from .feedback import apply_world3d_feedback
-from .profiles import World3DPerceptionProfile, resolve_world3d_profile
-from .debug_renderer import World3DDebugRenderer
-from .nameplate import attach_nameplate_observations
-from .visual_memory import VisualMemoryEntry, World3DVisualMemory
-from .traversability import TemporalTraversabilityFusion, TraversabilityConfig
-from .v2 import World3DPerceptionV2
-from .v3 import World3DPerceptionV3
-from .v4 import VisionSemanticFusion, HardExampleCollector
-from .learned_detector import (LearnedDetection, LearnedDetectorBackend,
-                               LearnedWorldDetector, UltralyticsYoloBackend,
-                               build_runtime_learned_detector,
-                               default_runtime_model_path)
-from .dataset_audit import YoloDatasetAudit, audit_yolo_dataset
-from .cue_beliefs import derive_cue_beliefs
+"""Lazy compatibility exports; structured runtime imports no detector or tracker."""
+from importlib import import_module
 
-__all__ = [
-    "PixelRect",
-    "ScreenPoint",
-    "BearingEstimate",
-    "World3DObservationBatch",
-    "WorldCandidate",
-    "WorldFrameObservation",
-    "WorldSceneROI",
-    "WorldSceneProfile",
-    "CLASS_COLORS",
-    "CLASS_COLOR_ALIASES",
-    "build_scene_roi",
-    "detect_world_candidates",
-    "WorldCandidateTracker",
-    "world_frame_to_observation",
-    "World3DValidation",
-    "World3DBatchValidation",
-    "validate_batch",
-    "validate_fusion_observation",
-    "World3DPerceptionV2",
-    "World3DPerceptionV3",
-    "VisionSemanticFusion",
-    "HardExampleCollector",
-    "World3DPipeline",
-    "TemporalTraversabilityFusion",
-    "TraversabilityConfig",
-    "LearnedDetection",
-    "LearnedDetectorBackend",
-    "LearnedWorldDetector",
-    "UltralyticsYoloBackend",
-    "build_runtime_learned_detector",
-    "default_runtime_model_path",
-    "YoloDatasetAudit",
-    "audit_yolo_dataset",
-    "derive_cue_beliefs",
-]
+_EXPORTS = {'BearingEstimate': ('.models', 'BearingEstimate'), 'PixelRect': ('.models', 'PixelRect'), 'ScreenPoint': ('.models', 'ScreenPoint'), 'World3DObservationBatch': ('.models', 'World3DObservationBatch'), 'WorldCandidate': ('.models', 'WorldCandidate'), 'WorldFrameObservation': ('.models', 'WorldFrameObservation'), 'WorldSceneROI': ('.models', 'WorldSceneROI'), 'WorldSceneProfile': ('.scene', 'WorldSceneProfile'), 'build_scene_roi': ('.scene', 'build_scene_roi'), 'CLASS_COLORS': ('.candidates', 'CLASS_COLORS'), 'CLASS_COLOR_ALIASES': ('.candidates', 'CLASS_COLOR_ALIASES'), 'detect_world_candidates': ('.candidates', 'detect_world_candidates'), 'WorldCandidateTracker': ('.tracking', 'WorldCandidateTracker'), 'world_frame_to_observation': ('.normalization', 'world_frame_to_observation'), 'World3DBatchValidation': ('.validation', 'World3DBatchValidation'), 'World3DValidation': ('.validation', 'World3DValidation'), 'validate_batch': ('.validation', 'validate_batch'), 'validate_fusion_observation': ('.validation', 'validate_fusion_observation'), 'World3DPipeline': ('.pipeline', 'World3DPipeline'), 'SceneConditionObservation': ('.scene_quality', 'SceneConditionObservation'), 'SceneQualityAnalyzer': ('.scene_quality', 'SceneQualityAnalyzer'), 'SemanticEvidenceFusion': ('.semantic_fusion', 'SemanticEvidenceFusion'), 'apply_world3d_feedback': ('.feedback', 'apply_world3d_feedback'), 'World3DPerceptionProfile': ('.profiles', 'World3DPerceptionProfile'), 'resolve_world3d_profile': ('.profiles', 'resolve_world3d_profile'), 'World3DDebugRenderer': ('.debug_renderer', 'World3DDebugRenderer'), 'attach_nameplate_observations': ('.nameplate', 'attach_nameplate_observations'), 'VisualMemoryEntry': ('.visual_memory', 'VisualMemoryEntry'), 'World3DVisualMemory': ('.visual_memory', 'World3DVisualMemory'), 'TemporalTraversabilityFusion': ('.traversability', 'TemporalTraversabilityFusion'), 'TraversabilityConfig': ('.traversability', 'TraversabilityConfig'), 'World3DPerceptionV2': ('.v2', 'World3DPerceptionV2'), 'World3DPerceptionV3': ('.v3', 'World3DPerceptionV3'), 'VisionSemanticFusion': ('.v4', 'VisionSemanticFusion'), 'HardExampleCollector': ('.v4', 'HardExampleCollector'), 'LearnedDetection': ('.learned_detector', 'LearnedDetection'), 'LearnedDetectorBackend': ('.learned_detector', 'LearnedDetectorBackend'), 'LearnedWorldDetector': ('.learned_detector', 'LearnedWorldDetector'), 'UltralyticsYoloBackend': ('.learned_detector', 'UltralyticsYoloBackend'), 'build_runtime_learned_detector': ('.learned_detector', 'build_runtime_learned_detector'), 'default_runtime_model_path': ('.learned_detector', 'default_runtime_model_path'), 'YoloDatasetAudit': ('.dataset_audit', 'YoloDatasetAudit'), 'audit_yolo_dataset': ('.dataset_audit', 'audit_yolo_dataset'), 'derive_cue_beliefs': ('.cue_beliefs', 'derive_cue_beliefs')}
+__all__ = tuple(_EXPORTS)
+
+def __getattr__(name):
+    if name not in _EXPORTS:
+        raise AttributeError(name)
+    module, attribute = _EXPORTS[name]
+    value = getattr(import_module(module, __name__), attribute)
+    globals()[name] = value
+    return value

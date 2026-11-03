@@ -112,6 +112,7 @@ class TrinityVMaps:
         self.root = Path(root)
         self._models: OrderedDict[str, tuple[Group, ...]] = OrderedDict()
         self._tiles: OrderedDict[tuple[int, int, int], tuple[Spawn, ...]] = OrderedDict()
+        self._tall: OrderedDict[tuple[int, int, int, int], tuple] = OrderedDict()
         self.max_cached_models, self.max_cached_tiles = max_cached_models, max_cached_tiles
         self.last_diagnostics: dict = {"available": self.root.is_dir()}
 
@@ -140,6 +141,61 @@ class TrinityVMaps:
         self.last_diagnostics = {"available": True, "map_id": int(map_id), "spawns": len(spawns),
                                  "surfaces": len(result)}
         return result
+
+    def surfaces_above(self, map_id: int, x: float, y: float, bottom: float) -> list[float]:
+        """``surfaces_at(..., bottom=bottom)`` for many points at one height.
+
+        Flight planning (navigation/flight_planner.py) asks this for thousands
+        of grid cells at one cruise height; scanning every spawn of a tile per
+        cell was ~0.7 ms (30 M bound checks for one 900 yd route).  Spawns that
+        cannot reach ``bottom`` are dropped once per tile and height, and the
+        X/Y bound test is one numpy comparison.
+        """
+        ix, iy = self.internal(x, y)
+        tx, ty = self.tile_of(x, y)
+        key = (int(map_id), tx, ty, math.floor(bottom))
+        tall = self._tall.get(key)
+        if tall is None:
+            spawns = tuple(spawn for spawn in self._tile(int(map_id), tx, ty)
+                           if spawn.bound_hi is None or spawn.bound_hi[2] >= key[3])
+            lo = np.array([spawn.bound_lo[:2] if spawn.bound_lo is not None else (-np.inf, -np.inf)
+                           for spawn in spawns]).reshape(-1, 2)
+            hi = np.array([spawn.bound_hi[:2] if spawn.bound_hi is not None else (np.inf, np.inf)
+                           for spawn in spawns]).reshape(-1, 2)
+            tall = self._tall[key] = (spawns, lo, hi)
+            while len(self._tall) > 4*self.max_cached_tiles:
+                self._tall.popitem(last=False)
+        else:
+            self._tall.move_to_end(key)
+        spawns, lo, hi = tall
+        if not spawns:
+            return []
+        inside = np.flatnonzero((lo[:, 0] <= ix) & (ix <= hi[:, 0]) & (lo[:, 1] <= iy) & (iy <= hi[:, 1]))
+        heights = [height for index in inside
+                   for height in self._model_hits(spawns[index], ix, iy, 2000., bottom)]
+        return sorted({round(float(h), 2) for h in heights if h >= bottom}, reverse=True)
+
+    def inside_spawn_box(self, map_id: int, x: float, y: float, z: float, margin: float = 1.) -> bool:
+        """Does a placed model's bounding box (a building, staircase, bridge,
+        rock) contain this world point?  One numpy test per tile; no rays."""
+        ix, iy = self.internal(x, y)
+        tx, ty = self.tile_of(x, y)
+        key = (int(map_id), tx, ty, "boxes")
+        boxes = self._tall.get(key)
+        if boxes is None:
+            spawns = [spawn for spawn in self._tile(int(map_id), tx, ty) if spawn.bound_lo is not None]
+            boxes = self._tall[key] = (np.array([spawn.bound_lo for spawn in spawns]).reshape(-1, 3),
+                                       np.array([spawn.bound_hi for spawn in spawns]).reshape(-1, 3))
+            while len(self._tall) > 4*self.max_cached_tiles:
+                self._tall.popitem(last=False)
+        else:
+            self._tall.move_to_end(key)
+        lo, hi = boxes
+        if not len(lo):
+            return False
+        return bool(np.any((lo[:, 0]-margin <= ix) & (ix <= hi[:, 0]+margin)
+                           & (lo[:, 1]-margin <= iy) & (iy <= hi[:, 1]+margin)
+                           & (lo[:, 2]-margin <= z) & (z <= hi[:, 2]+margin)))
 
     def _model_hits(self, spawn: Spawn, ix: float, iy: float, top: float, bottom: float) -> list[float]:
         groups = self._model(spawn.model)

@@ -1,0 +1,122 @@
+{
+  "scope": "REV4 P1-D",
+  "project": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight claude\\ai_visual_bot_midnight 1.2\\projekt",
+  "baseline_files": 1108,
+  "baseline_sha256": "66719034922dc0b4a494f556316d23a624ed96e56938914f217650981ec148a5",
+  "changes": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "operation": "modified",
+      "before_sha256": "93336c21af91567a9431da831d2850658c309929ef4dcf053f161d695632bc6a",
+      "after_sha256": "8ba7356f8d70017eefd881dd2fcb47ba758da553fd37678a1d1b6f329bd03ca6",
+      "before_bytes": 248259,
+      "after_bytes": 249844
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "operation": "modified",
+      "before_sha256": "88bf601bd93a6daf21e4820b9d6cd441b3d9938230868d158d5d6ef784b132dc",
+      "after_sha256": "eab6bb7d342645e19176157fc1da5711cd445a6c8baa52e3bf34dbf084777cbd",
+      "before_bytes": 1030123,
+      "after_bytes": 1033052
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "operation": "modified",
+      "before_sha256": "a6431c08c769e25236ac9f75cd1e2b3736a5eb2123a252a470f93bd2c29193ad",
+      "after_sha256": "166c6e5b12a1b8bc40dfe46b7ac94708de8261fffbf9725fc28cede1e87ba039",
+      "before_bytes": 20071,
+      "after_bytes": 20328
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1D_EVIDENCE_LINEAGE.md",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "730b404e4c1ab1ba1a5e0d2724644843ff50cd6a2cd79045690812eeeb6e6916",
+      "before_bytes": null,
+      "after_bytes": 8188
+    },
+    {
+      "path": "src/wowbot/agent/evidence_factory.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "54b41328c69413f3b3b738d824e12e699a11edb333895b04a98919daa8c85c8b",
+      "before_bytes": null,
+      "after_bytes": 6235
+    },
+    {
+      "path": "src/wowbot/agent/runtime_observation_phase.py",
+      "operation": "modified",
+      "before_sha256": "46f57a03198fc0ebd5b9782966004951e54d7d32aeb45a2651b433e220b45d5d",
+      "after_sha256": "862b158f49a9da313c63bc0f4212e44c48cac1052f6e25afa5beb9325d30d7d2",
+      "before_bytes": 20853,
+      "after_bytes": 20993
+    },
+    {
+      "path": "src/wowbot/agent/world_beliefs.py",
+      "operation": "modified",
+      "before_sha256": "4cfe82c807d23baa4d9f2ffc946e1105502d8066a7015340e97bbe1379866b75",
+      "after_sha256": "937a4978b1edeea268c4c3f35715ad39ba9d82642da6f52eba1918565006a31d",
+      "before_bytes": 15736,
+      "after_bytes": 15776
+    },
+    {
+      "path": "src/wowbot/agent/world_models.py",
+      "operation": "modified",
+      "before_sha256": "716b1996ba78d4c43775de79a798fbbabb6aafe163d9483e84f4bbdcce05edaf",
+      "after_sha256": "3b46d5871413d3cefdc8e92cacfc9816c31f7d526af0172c41a856a07b3cba64",
+      "before_bytes": 3113,
+      "after_bytes": 1892
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "operation": "modified",
+      "before_sha256": "f1a10f5f47b668a4f02f59b9024b84abb178a4977b8e2444d65a1cfd658a09b8",
+      "after_sha256": "15f013dfcbe3f859a3b844ca2aa54443bd3d9558dea11982b480cf769a0ac0d7",
+      "before_bytes": 43000,
+      "after_bytes": 43078
+    },
+    {
+      "path": "src/wowbot/agent/world_query.py",
+      "operation": "modified",
+      "before_sha256": "f41a8cf2328c89437fd579372f2830f64dce47eebb29b477a21ab38611a74270",
+      "after_sha256": "64ed08ae40f92ca8f9b09c3ed351db711886399abef21ad818823b96eaa593b9",
+      "before_bytes": 19458,
+      "after_bytes": 19914
+    },
+    {
+      "path": "src/wowbot/agent/world_snapshot.py",
+      "operation": "modified",
+      "before_sha256": "0fa5be6dfaf168495306b1fa88250f79107c7a44167a97b40da54856d1d0e595",
+      "after_sha256": "e38c56650e7f3d30ee2abfb80f4005f72d4a4987cb9e478715ea05ffe2913038",
+      "before_bytes": 9499,
+      "after_bytes": 9498
+    },
+    {
+      "path": "src/wowbot/evidence_contracts.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "cdaec68b41cac6915fe2521dbb3baebe2441c6a382aea597815ad65bf3249905",
+      "before_bytes": null,
+      "after_bytes": 8273
+    },
+    {
+      "path": "tests/test_evidence_contracts_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "6765e776fe4c72bd41a6d3d3d7abd933a51c2df8fed1898202d2b7d4c1b92bbd",
+      "before_bytes": null,
+      "after_bytes": 11823
+    },
+    {
+      "path": "tests/test_evidence_lineage_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "1ec81768ba7a23be121d1c6a5bf81b40cbf5eae9e9ba19a95d1003edd8465f69",
+      "before_bytes": null,
+      "after_bytes": 3111
+    }
+  ],
+  "numbered_coverage_rows_preserved": 203,
+  "artifact_files_are_separate_from_change_inventory": true
+}

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-route-feedback-20261030\\claude-focus-feedback-1-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-route-feedback-20261030\\claude-focus-feedback-1-junit.xml",
+    "tests/test_route_feedback_wip_20261030.py"
+  ]
+}

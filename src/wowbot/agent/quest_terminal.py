@@ -89,4 +89,14 @@ class QuestTerminalProcessor:
                     for objective_id in (objective_ids or (None,)):
                         tracker.record_outcome(quest_id, objective_id, strategy=strategy,
                                                objective_progressed=credit.success)
+        if goal is not None and goal.domain == "QUEST":
+            from .gossip_trials import record_trial as record_gossip_trial
+            gossip = record_gossip_trial(attempt, outcome, reason, state, now, credit,
+                                         self.quest_domain.attempt_memory)
+            if gossip is not None:
+                events.append(('QUEST_GOSSIP_TRIAL', gossip))
+            from .quest_playbooks import record_trial
+            trial = record_trial(attempt, outcome, reason, state, now, self.quest_domain.attempt_memory)
+            if trial is not None:
+                events.append(("QUEST_PLAYBOOK_TRIAL", trial))
         return QuestTerminalAssessment(quest_ids, objective_ids, credit, tuple(events))

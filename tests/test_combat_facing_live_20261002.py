@@ -59,9 +59,14 @@ def _apply(reason, live):
 def test_facing_failure_while_still_fighting_retries_at_once():
     fighting = {"is_in_combat": True, "target": {"guid": MURLOC, "attackable": True, "dead": False}}
     assert _apply("facing_failed", fighting) == 10.5
-    # Other failures, or after the fight, keep the failure manager's backoff.
-    assert _apply("spell_not_ready", fighting) == 17.
+    # Live 2026-10-21 15:24:50-58 (user: "ha az első meghal, nem csinál
+    # semmit ... és közben támadnak"): any failed fight against a live
+    # attacker is retried at once; after the fight the backoff stays.
+    assert _apply("spell_not_ready", fighting) == 10.5
+    assert _apply("identity_uncertain", fighting) == 10.5
     assert _apply("facing_failed", {"is_in_combat": False, "target": {}}) == 17.
+    dead = {"is_in_combat": True, "target": {"guid": MURLOC, "attackable": True, "dead": True}}
+    assert _apply("identity_uncertain", dead) == 17.
 
 
 def test_kill_of_a_tracked_target_leaves_a_lootable_corpse_anchor():

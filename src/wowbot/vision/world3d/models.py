@@ -2,27 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+from wowbot.coordinates import PixelRect, ScreenPoint, BearingEstimate
 
 
-@dataclass(frozen=True, slots=True)
-class PixelRect:
-    left: int
-    top: int
-    right: int
-    bottom: int
-
-    @property
-    def width(self) -> int:
-        return max(0, self.right - self.left)
-
-    @property
-    def height(self) -> int:
-        return max(0, self.bottom - self.top)
-
-    def to_dict(self, *, space: str = "SCREEN_PIXELS") -> dict[str, object]:
-        """Serialize a rectangle without ever dropping its coordinate space."""
-        return {"left": self.left, "top": self.top, "right": self.right,
-                "bottom": self.bottom, "coordinate_space": space}
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,35 +75,8 @@ class WorldFrameObservation:
                 raise ValueError("candidate confidence must be within [0,1]")
 
 
-@dataclass(frozen=True, slots=True)
-class ScreenPoint:
-    """A point with an explicit visual coordinate space.
-
-    World3D must not leak unlabelled ``x/y`` pairs to consumers.  The
-    compact dictionary representation deliberately matches the existing JSON
-    observation transport.
-    """
-    x: float
-    y: float
-    space: str
-
-    def to_dict(self) -> dict[str, object]:
-        return {"x": round(float(self.x), 6), "y": round(float(self.y), 6),
-                "coordinate_space": self.space}
 
 
-@dataclass(frozen=True, slots=True)
-class BearingEstimate:
-    """Screen-relative, not world-coordinate, bearing evidence."""
-    horizontal: float
-    vertical: float
-    confidence: float
-
-    def to_dict(self) -> dict[str, object]:
-        return {"horizontal": round(float(self.horizontal), 6),
-                "vertical": round(float(self.vertical), 6),
-                "coordinate_space": "CAMERA_RELATIVE_BEARING",
-                "confidence": round(max(0.0, min(1.0, float(self.confidence))), 4)}
 
 
 @dataclass(frozen=True, slots=True)

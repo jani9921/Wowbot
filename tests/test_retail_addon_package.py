@@ -16,7 +16,8 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     toc = (CANONICAL / "AIPlayerControllerExport.toc").read_text(encoding="utf-8")
     lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
     assert "## Interface: 120100" in toc
-    assert "## Version: 0.9.63-12.1.0" in toc
+    assert "## Version: 0.9.84-12.1.0" in toc
+    assert 'local ADDON_VERSION = "0.9.84"' in lua
     assert 'local PROTOCOL_VERSION = "AIPC5"' in lua
     assert toc.index("Transport.lua") < toc.index("AIPlayerControllerExport.lua")
     assert "local SCHEMA_VERSION = 4" in lua
@@ -24,11 +25,26 @@ def test_retail_toc_and_protocol_versions_are_explicit() -> None:
     assert "GetNumQuestChoices" in lua
     assert "C_QuestLog.IsCampaignQuest" in lua
     assert "local function readExtraAction" in lua
+    assert "local function readGossipConfirm" in lua
     assert '"EXTRAACTIONBUTTON1"' in lua
     assert "action_type = safeText(actionType" in lua
     assert "action_id = optionalNumber(actionID)" in lua
     assert 'type_source = specialItemReferenced and "QUEST_SPECIAL_ITEM_NAME_MATCH"' in lua
     assert 'item_name = safeText(specialItemName, "")' in lua
+
+
+def test_mount_capability_is_exported_from_journal_and_spellbook() -> None:
+    lua = (CANONICAL / "AIPlayerControllerExport.lua").read_text(encoding="utf-8")
+    helper = lua[lua.index("local RIDING_SPELL_IDS"):
+                 lua.index("local function headerMatch")]
+    assert "C_MountJournal.GetMountIDs" in helper
+    assert "C_MountJournal.GetMountInfoByID" in helper
+    assert "IsSpellKnownOrOverridesKnown" in helper
+    assert "has_collected_mount" in helper
+    assert "riding_capability_confirmed" in helper
+    assert 'cachedValue("mount_capability", readMountCapability)' in lua
+    assert "mount_capability = mountCapability" in lua
+    assert "dirty.mount_capability = true" in lua
 
 
 def test_quest_waypoints_export_api_world_coordinates_for_mmap_routing() -> None:

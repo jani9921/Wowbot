@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from .models import PixelRect, WorldSceneROI
 
@@ -27,14 +28,12 @@ class WorldSceneProfile:
     left_hud_width_px: int = 240
     left_hud_width_ratio: float = 0.35
     left_hud_top_ratio: float = 0.53
-    # The pixel strip's top-left island only: the legacy 512x128 strip and
-    # addon 0.9.63's 512x132 px STATE lane.  0.9.61/62 drew a ~1800 px wide
-    # lane and this was 1.0: the detector lost the whole top band (close NPC
-    # heads, "!"/"?" symbols).  The FAST lane has its own 192x336 px frame.
-    addon_hud_width_ratio: float = 0.36
-    addon_hud_width_px: int = 532
-    addon_hud_bottom_ratio: float = 0.18
-    addon_hud_bottom_px: int = 148
+    # Extra profile padding beyond the physical 0.9.64 STATE strip below.
+    # The independent FAST lane retains its 192x336 px rectangle.
+    addon_hud_width_ratio: float = 0.0
+    addon_hud_width_px: int = 0
+    addon_hud_bottom_ratio: float = 0.0
+    addon_hud_bottom_px: int = 0
     addon_fast_right_margin_px: int = 8
     addon_fast_top_px: int = 300
     addon_fast_width_px: int = 192
@@ -101,10 +100,18 @@ def build_scene_roi(width: int, height: int, profile: WorldSceneProfile | None =
     learned_top = max(0, min(top, int(cfg.learned_top_px)))
     learned_bottom = min(height, max(learned_top + 1, int(round(
         height * cfg.learned_bottom_ratio))))
+    if height >= 656:
+        # Match computePixelLayout's default minimap clearance, physical
+        # 3 px cells and 1024-byte page, with 6 px raster/capture padding.
+        columns = min(384, max(64, math.floor((width-220*height/768)/3)))
+        strip_width = 384*3 + 6
+        strip_height = math.ceil((1024+8)*4/columns)*3 + 6
+    else:
+        strip_width, strip_height = 532, 148  # unchanged narrow-window legacy
     addon_hud = PixelRect(
-        0, 0, min(width, max(int(cfg.addon_hud_width_px),
+        0, 0, min(width, max(strip_width, int(cfg.addon_hud_width_px),
                              int(round(width * cfg.addon_hud_width_ratio)))),
-        min(rect.bottom, max(int(cfg.addon_hud_bottom_px),
+        min(rect.bottom, max(strip_height, int(cfg.addon_hud_bottom_px),
                              int(round(height * cfg.addon_hud_bottom_ratio)))))
     vertical_fast = None
     if height >= cfg.addon_fast_top_px + cfg.addon_fast_height_px + 20:

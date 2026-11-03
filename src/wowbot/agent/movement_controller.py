@@ -17,6 +17,27 @@ from wowbot.navigation.progress import ProgressMonitor, ProgressPhase
 
 from .models import Command, number
 
+# User 2026-10-20 ("csináld meg mind", after reading PixelBuddy's controller,
+# which leans 40 % toward the next waypoint within 15 yd of a bend): inside a
+# route bend's window the heading leans up to this share of the way toward
+# the following waypoint, so the run curves through the bend.  The
+# navigation service grants a window only where this very law, simulated,
+# stays on walkable ground (never over the pit spiral's drop).
+CORNER_BLEND_MAX = .4
+
+
+def corner_heading(position: tuple[float, float], corner: tuple[float, float],
+                   following: tuple[float, float], window: float) -> float:
+    """Heading to ``corner``, leaning toward ``following`` inside ``window``."""
+    px, py = position
+    to_corner = math.atan2(corner[1]-py, corner[0]-px)
+    distance = math.hypot(corner[0]-px, corner[1]-py)
+    if window <= 0 or distance >= window:
+        return to_corner % math.tau
+    to_next = math.atan2(following[1]-py, following[0]-px)
+    weight = CORNER_BLEND_MAX * (1. - distance/window)
+    return (to_corner + weight*((to_next-to_corner+math.pi) % math.tau - math.pi)) % math.tau
+
 
 class MovementPhase(StrEnum):
     IDLE = "IDLE"
@@ -108,10 +129,23 @@ class ReachMovementController:
         self.overshoot_count = 0
         self.stop_start_transitions = 0
         self._last_moving_state = None
+        self.last_forward_at: float | None = None
         self.follow_missing_since: float | None = None
+        self.face_started_at: float | None = None
+        self.face_progress_at: float | None = None
+        self.face_best_error: float | None = None
+        self.face_geometry: dict | None = None
+        self._interaction_forward_pose: tuple | None = None
         # One running jump per no-progress episode (user 2026-10-02: Space
         # often clears a small obstacle).  Cleared when progress resumes.
         self.jump_attempted = False
+        self.strafe_credit = 0.
+        self.strafe_side: str | None = None
+        self.strafe_at: float | None = None
+        # Steady Flight along a FlightPlan (user 2026-10-25); None on foot.
+        self.flight = None
+        self.locomotion_phase = "GROUND"
+        self.strafe_held = False
         self.command_history: deque[tuple[float, str, float]] = deque(maxlen=240)
         self.terminal_reason: str | None = None
         # Evidence helper only. It does not own or issue movement commands;
@@ -135,12 +169,72 @@ class ReachMovementController:
                 round(float(destination["y"]), 6),
                 destination.get("coordinate_space", "NORMALIZED_MAP"))
 
-    def start(self, destination: dict, state: dict, observation_id: str, now: float) -> None:
+    # User 2026-10-20: "very choppy: it reaches a point, turns to where it
+    # wants to go, then starts again".  Each route waypoint restarted the
+    # controller, and any next-leg bearing beyond 0.58 rad stopped the run
+    # for a turn in place.  While running, a bend up to ~77 deg is taken with
+    # forward + turn held together; sharper ones still stop and turn.  No
+    # corner is cut early (the pit spiral's inside is the drop, 2026-10-06):
+    # a running turn can only swing slightly wide.
+    RUN_CARRY_SECONDS = .6
+    RUNNING_TURN_IN_PLACE = 1.35
+    RUNNING_TURN_IN_PLACE_HOLD = 1.15
+    RUNNING_TURN_MIN_YARDS = 4.
+    RUNNING_TURN_MAX_LEASE = .16
+
+    def start(self, destination: dict, state: dict, observation_id: str, now: float, *,
+              continuing: bool = False) -> None:
         key = self._key(destination)
+        if destination.get('entity_route_anchor') and destination.get('route_id'):
+            key+=('CORRIDOR',destination['route_id'],destination.get('route_waypoint_index'))
+        # Two intents may land at the same XY while requiring different air
+        # paths, heights or phases. Never retain the previous flight's index
+        # just because its final horizontal point happens to match.
+        for name in ("flight_path", "flight_plan"):
+            if destination.get(name):
+                import json
+                key += (name, json.dumps(destination[name], sort_keys=True, separators=(",", ":")))
         if key != self.destination_key:
+            last_forward = self.__dict__.get("last_forward_at")
+            scale = self.turn_duration_scale
             self.reset()
+            if (continuing and last_forward is not None
+                    and 0 <= now-last_forward <= self.RUN_CARRY_SECONDS):
+                # The next route leg of the same walk: still running.
+                self.last_forward_at = last_forward
+                self.turn_duration_scale = scale
         self.destination = dict(destination)
         self.destination_key = key
+        plan = self.destination.get("flight_plan")
+        course = self.destination.get("flight_path")
+        hover = self.destination.get("hover_point")
+        if not plan and not course and not hover:
+            self.flight = None
+        elif self.flight is None and hover and not plan and not course:
+            # A flying quest vehicle to a point in the air (2026-10-26).
+            from .hover_control import HoverControl
+            self.flight = HoverControl(hover, number(self.destination.get("stop_distance")) or 4., self.bindings,
+                                       face=self.destination.get("face_towards"),
+                                       aim=self.destination.get("aim_pitch") is True,
+                                       tab_guid=(self.destination.get("server_entity_guid")
+                                                 if self.destination.get("purpose") == "VEHICLE_ATTACK_APPROACH"
+                                                 else None))
+        elif self.flight is None and course:
+            from .skyriding_control import SkyridingControl
+            from wowbot.navigation.flight_path import FlightPath
+            self.flight = SkyridingControl(FlightPath.from_dict(course), self.bindings)
+        elif self.flight is None and self.destination.get("flight_style") == "SKYRIDING":
+            # Travel (user 2026-10-25: quest to quest): the terrain plan flown
+            # by the same Skyriding loop as the lesson rings.
+            from .skyriding_control import SkyridingControl
+            from wowbot.navigation.flight_path import FlightPath
+            from wowbot.navigation.flight_route import FlightPlan, skyriding_path
+            self.flight = SkyridingControl(
+                FlightPath.from_dict(skyriding_path(FlightPlan.from_dict(plan))), self.bindings)
+        elif self.flight is None:
+            from wowbot.navigation.flight_route import FlightPlan
+            from .flight_control import FlightControl
+            self.flight = FlightControl(FlightPlan.from_dict(plan), self.bindings)
         if self.started_at is None:
             self.started_at = now
         self.phase = MovementPhase.MOVING
@@ -182,6 +276,20 @@ class ReachMovementController:
 
     def _refresh_object_destination(self, state: dict) -> bool:
         """Update a moving object's endpoint without replacing the REACH attempt."""
+        if (self.destination or {}).get('entity_route_anchor') is True:
+            return True  # NavigationService owns the corridor; identity/facing remain live.
+        recipient = (self.destination or {}).get("interaction_recipient_guid")
+        if recipient:
+            from .packet_entity_facts import interaction_position
+            point = interaction_position(state, recipient, allow_dead=self.destination.get('allow_dead') is True)
+            if point is None:
+                return False
+            if ((self.destination or {}).get("interaction_identity_source") == "TARGET"
+                    and str((state.get("target") or {}).get("guid") or "") != str(recipient)):
+                return False
+            self.destination.update({key: point[key] for key in ("x", "y", "z", "instance_id")})
+            self.destination.update(layer_z=point["z"], z_known=True, z_source="PACKET_ENTITY")
+            return True
         if self.destination and self.destination.get("follow_group_leader"):
             group = state.get("group_state") or {}
             position = group.get("leader_position") or {}
@@ -245,11 +353,17 @@ class ReachMovementController:
         if (target_instance is not None and player_instance is not None
                 and target_instance != player_instance):
             return False
-        self.destination.update(x=x, y=y, z=number(position.get("z")) or 0.,
-                                instance_id=target_instance,
-                                coordinate_space="WORLD_YARDS")
         live_z = number(position.get("z"))
-        if "layer_z" in self.destination and live_z is not None and position.get("z_known") is not False:
+        trusted_z = (live_z is not None and position.get("z_known") is not False
+                     and position.get("source") != "UNIT_POSITION")
+        self.destination.update(x=x, y=y, instance_id=target_instance, coordinate_space="WORLD_YARDS")
+        if trusted_z:
+            self.destination["z"] = live_z
+        else:
+            self.destination.pop("z", None)
+            self.destination.pop("layer_z", None)
+            self.destination["z_known"] = False
+        if "layer_z" in self.destination and trusted_z:
             # Issue #101: a moving target's trusted height keeps the arrival
             # layer current (ramps/stairs) instead of the start-time value.
             self.destination["layer_z"] = live_z
@@ -272,6 +386,12 @@ class ReachMovementController:
         if self.destination.get("coordinate_space") == "WORLD_YARDS":
             # UnitPosition and GetPlayerFacing use the same world-axis contract.
             desired = math.atan2(dy, dx) % math.tau
+            following = self.destination.get("corner_next") or {}
+            window = number(self.destination.get("corner_blend_yards")) or 0.
+            fx, fy = number(following.get("x")), number(following.get("y"))
+            if window > 0 and fx is not None and fy is not None:
+                desired = corner_heading(pos, (self.destination["x"], self.destination["y"]),
+                                         (fx, fy), window)
             distance = math.hypot(dx, dy, self._vertical_excess(state))
         else:
             dimensions = state.get("map_dimensions") or {}
@@ -288,6 +408,77 @@ class ReachMovementController:
         current = number(state.get("orientation"))
         error = ((desired-current+math.pi) % math.tau-math.pi) if current is not None else 0.
         return distance, desired, error
+
+    # User 2026-10-14: "go there by the minimap, face it, soft target, then
+    # interact".  The client's soft-interact target is the object/NPC in
+    # front of the character; a destination with ``face_on_arrival`` turns
+    # the character toward its point before the arrival is reported.
+    FACE_ON_ARRIVAL_RADIANS = .30
+    FACE_ON_ARRIVAL_SECONDS = 2.5
+    FACE_ON_ARRIVAL_MAX_SECONDS = 8.
+    FACE_MIN_DISTANCE_YARDS = 1.
+
+    def _arrival_facing_error(self, state: dict) -> tuple[float, float] | None:
+        from wowbot.navigation.facing_geometry import assess
+        assessment=assess(self.destination or {},state,self._position(state))
+        self.face_geometry=assessment.snapshot()
+        return ((assessment.distance,assessment.error) if assessment.reason=='KNOWN' else None)
+
+    OTHER_LEVEL_YARDS = 12.
+
+    def _level_distance(self, state: dict, distance: float) -> float:
+        """Live 2026-10-26 17:22-17:23: the turn-in point at z 95, the agent
+        landed on a ledge at z 185.6 straight above; the flat test "arrived"
+        ~20 times in a row.  A known destination height more than
+        OTHER_LEVEL_YARDS away is not arrival."""
+        from .destination_distance import observed_height
+        player = state.get("player_world_position") or {}
+        z, pz = number(self.destination.get("z")), observed_height(player)
+        if pz is None and player.get("z_source") == "NAVMESH_SURFACE":
+            # Surface evidence can veto arrival on a different requested
+            # floor even when this addon page omitted the measured own Z.
+            # It is not promoted to a server measurement.
+            pz = number(player.get("z"))
+        if (self.destination.get("z_known") is True and z is not None and pz is not None
+                and abs(z-pz) > self.OTHER_LEVEL_YARDS):
+            return max(distance, abs(z-pz))
+        return distance
+
+    def _facing_after_arrival(self, state: dict, now: float) -> MovementAssessment | None:
+        destination = self.destination or {}
+        if (not destination.get("face_on_arrival")
+                or destination.get("route_waypoint_final") is False
+                or destination.get("coordinate_space") != "WORLD_YARDS"):
+            return None
+        if self._level_distance(state, 0.) > self.OTHER_LEVEL_YARDS:
+            # Straight above/below us: no bearing to face (live 16:41-16:42).
+            self.phase = MovementPhase.FAILED
+            return MovementAssessment(self.phase, True, False, "arrived_on_other_level")
+        if self.face_started_at is None:
+            self.face_started_at = now
+        geometry = self._arrival_facing_error(state)
+        face_reason=(self.face_geometry or {}).get('reason')
+        if geometry is None and face_reason in {
+                'ENTITY_UNKNOWN_OR_REMOVED','ENTITY_POSITION_UNKNOWN','SELECTED_IDENTITY_CHANGED',
+                'WORLD_UNKNOWN','WORLD_MISMATCH'}:
+            self.phase=MovementPhase.FAILED
+            return MovementAssessment(self.phase,True,False,'reach_object_identity_or_position_lost')
+        if geometry is not None and (self.face_best_error is None or abs(geometry[1]) < self.face_best_error-.05):
+            self.face_best_error = abs(geometry[1])
+            self.face_progress_at = now
+        if geometry is not None and (geometry[0] < self.FACE_MIN_DISTANCE_YARDS
+                                     or abs(geometry[1]) <= self.FACE_ON_ARRIVAL_RADIANS):
+            if self.steering_mode == "FACE_ON_ARRIVAL":
+                self.steering_mode = "STRAIGHT"
+            return None
+        if (now-self.face_started_at >= self.FACE_ON_ARRIVAL_MAX_SECONDS
+                or now-(self.face_progress_at if self.face_progress_at is not None else self.face_started_at)
+                >= self.FACE_ON_ARRIVAL_SECONDS):
+            self.phase = MovementPhase.FAILED
+            return MovementAssessment(self.phase, True, False, "facing_failed")
+        self.phase = MovementPhase.STEERING
+        self.steering_mode = "FACE_ON_ARRIVAL"
+        return MovementAssessment(self.phase, False, False, "facing_destination_after_arrival")
 
     TERMINAL_PHASES = frozenset({MovementPhase.ARRIVED, MovementPhase.FAILED,
                                  MovementPhase.SUPPORTED_STUCK})
@@ -306,6 +497,9 @@ class ReachMovementController:
             # FAST may see another fresh, jittering position before the
             # medium skill tick records this failure. Never re-arm W until an
             # explicit start(). ARRIVED retains its evidence-update behavior.
+            return MovementAssessment(self.phase, True, False, self.terminal_reason)
+        if (self.terminal_reason in {"facing_failed","reach_object_identity_or_position_lost"}
+                and self.phase is MovementPhase.FAILED):
             return MovementAssessment(self.phase, True, False, self.terminal_reason)
         assessment = self._observe_once(state, observation_id, now, commanded=commanded)
         if assessment.terminal and self.destination:
@@ -345,6 +539,8 @@ class ReachMovementController:
         if geometry is None or position is None:
             return MovementAssessment(self.phase, False, False, "position_or_orientation_missing")
         distance, _, heading_error = geometry
+        if self.flight is not None:
+            return self._observe_flight(state, observation_id, now, distance)
         position_time = self._position_sample_time(state)
         if (position_time is not None and self.last_position_time is not None
                 and position_time <= self.last_position_time and self.samples):
@@ -352,6 +548,12 @@ class ReachMovementController:
             # fresh orientation); progress/stuck evidence waits for a new
             # position measurement.
             self.last_observation_id = observation_id
+            if self.steering_mode == "FACE_ON_ARRIVAL":
+                facing = self._facing_after_arrival(state, now)
+                if facing is not None:
+                    return facing
+                self.phase = MovementPhase.ARRIVED
+                return MovementAssessment(self.phase, True, True, "reach_arrival_verified")
             return MovementAssessment(self.phase, False, False, "awaiting_fresh_position_sample")
         if position_time is not None:
             self.last_position_time = position_time
@@ -373,7 +575,7 @@ class ReachMovementController:
         arrival_evidence = self.arrival_evidence.observe(
             self.destination, state, now, distance)
         arrival = self.arrival_verifier.observe(
-            distance=distance,
+            distance=self._level_distance(state, distance),
             tolerance=tolerance,
             facts={
                 # `_geometry` is available only after the controller has a
@@ -387,6 +589,9 @@ class ReachMovementController:
             },
         )
         if arrival.arrived:
+            facing = self._facing_after_arrival(state, now)
+            if facing is not None:
+                return facing
             self.phase = MovementPhase.ARRIVED
             self.no_progress.clear()
             reason = (
@@ -577,6 +782,186 @@ class ReachMovementController:
                       for item in self.wall_samples)
         return running >= .6 * len(self.wall_samples)
 
+    # A flight crosses up to ~1300 yd and climbs first (FlightPlan.MAX_SAMPLES).
+    max_flight_seconds = 240.
+
+    def _tolerance(self) -> float:
+        tolerance = number(self.destination.get("stop_distance"))
+        if tolerance is None:
+            tolerance = number(self.destination.get("arrival_radius"))
+        if tolerance is None:
+            tolerance = (self.world_arrival_tolerance
+                         if self.destination.get("coordinate_space") == "WORLD_YARDS"
+                         else self.map_arrival_tolerance)
+        return tolerance
+
+    def _observe_flight(self, state: dict, observation_id: str, now: float,
+                        distance: float) -> MovementAssessment:
+        """Flight replaces the ground progress/stuck evidence (2D, wall
+        contact) with the FlightControl's 3D watchdog and landing check."""
+        self.last_observation_id = observation_id
+        if getattr(self.flight, "path", None) is not None:
+            verdict, reason = self.flight.assess(state, now)
+        else:
+            verdict, reason = self.flight.assess(state, distance, self._tolerance(), now)
+        self.locomotion_phase = self.flight.phase
+        partial_air = (getattr(getattr(self.flight, 'path', None), 'end_in_air', False)
+                       or getattr(getattr(self.flight, 'plan', None), 'truncated', False))
+        if verdict == "ARRIVED" and not partial_air and self._level_distance(state, 0.) > self.OTHER_LEVEL_YARDS:
+            # Live 2026-10-26 18:05:15: a Skyriding MOVE to z 188 "arrived"
+            # with the agent landed at z 259.  Not arrival: replan from here
+            # (the next flight lands on the destination's layer).
+            self.phase = MovementPhase.FAILED
+            return MovementAssessment(self.phase, True, False, "arrived_on_other_level")
+        if verdict == "ARRIVED":
+            self.phase = MovementPhase.ARRIVED
+            return MovementAssessment(self.phase, True, True, reason)
+        if verdict == "FAILED":
+            self.phase = MovementPhase.FAILED
+            return MovementAssessment(self.phase, True, False, reason)
+        if self.started_at is not None and now-self.started_at >= self.max_flight_seconds:
+            self.phase = MovementPhase.FAILED
+            return MovementAssessment(self.phase, True, False, "movement_safety_deadline")
+        self.phase = MovementPhase.MOVING
+        return MovementAssessment(self.phase, False, False, reason)
+
+    def ground_transition_required(self, state: dict, now: float) -> bool:
+        """Movement phase selection is independent of tasks and quest IDs.
+
+        Required air checkpoints must be verified before a path can finish
+        on foot. A steady-flight controller can walk after actual touchdown
+        following its CRUISE/LANDING phase. A flying mount alone never takes off.
+        """
+        from wowbot.navigation.flight_path import grounded
+        if self.flight is None or not grounded(state, now):
+            return False
+        plan = getattr(self.flight, 'plan', None)
+        if plan is not None and (plan.truncated or plan.landing.get('navmesh') is False
+                                or getattr(self.flight, 'waypoint_index', 0) < len(plan.waypoints)):
+            return False
+        contact = getattr(self.flight, 'ground_contact', None)
+        if callable(contact) and not contact(state, now):
+            return False
+        path = getattr(self.flight, "path", None)
+        if path is not None and not path.landing_on_navmesh:
+            return False      # no walkable ground there: the flight loop itself arrives
+        if path is not None:
+            return path.air_segment_complete(state, min(self.flight.index, len(path.waypoints)))
+        return self.flight.phase in {"CRUISE", "LANDING", "LANDED"}
+
+    HEIGHT_PROBE_COOLDOWN_SECONDS = 30.
+
+    def _interaction_forward_duration(self, state: dict, now: float, distance: float,
+                                      duration: float) -> float:
+        """Brake before a final interaction anchor, including between pose samples.
+
+        Vision/orientation observations can refresh a W lease while the same
+        older player coordinate is held. At 14 yd/s a 0.5 s-old point is
+        already 7 yd behind the player (live fragment turn-in 18:09:51).
+        This is only a command limit, never evidence of arrival.
+        """
+        destination = self.destination or {}
+        if (destination.get("coordinate_space") != "WORLD_YARDS"
+                or not destination.get("face_on_arrival")
+                or destination.get("route_waypoint_final") is False):
+            return duration
+        speed, moving = self._motion(state)
+        if moving is not True or speed is None or speed <= .1:
+            if distance <= self._tolerance()+8.:
+                # A held pre-movement sample still says "stopped" after W
+                # starts. Permit one short pulse, not repeated W renewals
+                # against that same old pose until the speed arrives.
+                pose = (self.destination_key, self._position_sample_time(state), self._position(state))
+                if pose == self._interaction_forward_pose:
+                    return 0.
+                self._interaction_forward_pose = pose
+                return min(duration, .1)
+            return duration
+        remaining = max(0., distance-self._tolerance())
+        if remaining > max(8., speed):
+            return duration
+        sampled = self._position_sample_time(state)
+        if moving is True and sampled is not None:
+            remaining -= speed * max(0., now-sampled)
+        if remaining <= 0.:
+            return 0.
+        # A positive gap smaller than one legal pulse still needs a step.
+        # Returning nothing on every fresh stopped-near-arrival sample can
+        # otherwise hold MOVE just outside its arrival envelope forever.
+        return min(duration, max(.04, remaining/speed))
+
+    HEIGHT_PROBE_TURN_SECONDS = .06
+
+    def prepare_position_probe(self, destination: dict, now: float) -> None:
+        """Prepare only a measurement tap; never test arrival or start walking."""
+        self.reset()
+        self.destination = dict(destination)
+        self.destination_key = self._key(destination)
+        self.started_at = now
+        self.phase = MovementPhase.NO_PROGRESS_YET
+        self.steering_mode = "ACQUIRE_POSITION"
+
+    # Live 2026-10-31 02:09-02:12 (Fargodeep Mine entrance): after one
+    # unanswered tap every MOVE in the next 30 s waited its 3 s for a server
+    # height without tapping and timed out (server_position_probe_timeout in
+    # a loop).  A timed-out wait releases the cooldown, at most this many
+    # times per cooldown window.
+    HEIGHT_PROBE_RETRIES = 3
+
+    def release_height_probe(self, now: float) -> bool:
+        retries = [at for at in self.__dict__.get("_height_probe_retries", ())
+                   if 0 <= now-at < self.HEIGHT_PROBE_COOLDOWN_SECONDS]
+        released = len(retries) < self.HEIGHT_PROBE_RETRIES
+        if released:
+            retries.append(now)
+            self.__dict__.pop("_height_probe_at", None)
+        self.__dict__["_height_probe_retries"] = retries
+        return released
+
+    def height_probe_available(self, now: float) -> bool:
+        last = self.__dict__.get("_height_probe_at")
+        return last is None or not 0 <= now-last < self.HEIGHT_PROBE_COOLDOWN_SECONDS
+
+    def position_probe_command(self, state: dict, observation_id: str, now: float):
+        if observation_id == self.last_command_observation_id:
+            return ()
+        return self._height_probe(state, observation_id, now)
+
+    def _height_probe(self, state: dict, observation_id: str, now: float,
+                      error: float = 0.) -> tuple[Command, ...]:
+        """One short turn tap for a server height before walking a 3D route.
+
+        Live 2026-10-27 16:39:18-16:39:28 (Obsidian Citadel wall): the agent
+        started with the character standing still, so the client had sent no
+        own movement packet and our height was unknown; the route was planned
+        on the courtyard floor 44 yd below until the user jumped.  A jump
+        sends CMSG_MOVE_JUMP with the server position at once.  Only while
+        the packet lane is live, at most once per 30 s.
+
+        Live 2026-10-28 10:53:42 (Obsidian Citadel, mounted): the jump was
+        skipped on the mount and the route was planned 10 yd under us; the
+        walk's first 0.12 s TURNLEFT alone brought the own movement packet
+        (z 387.6, x/y unchanged) with the next sample.  A turn tap toward the
+        heading works mounted too and moves nobody off a ledge."""
+        position = state.get("player_world_position") or {}
+        last = self.__dict__.get("_height_probe_at")
+        if (position.get("z_observed") is True or not state.get("packet_telemetry")
+                or self.destination.get("coordinate_space") != "WORLD_YARDS"
+                or not (self.destination.get("require_navmesh") or self.destination.get("z_known"))
+                or (last is not None and 0 <= now-last < self.HEIGHT_PROBE_COOLDOWN_SECONDS)
+                or (state.get("movement") or {}).get("flying") is True
+                or state.get("in_vehicle") is True or state.get("is_in_combat")):
+            return ()
+        turn = "TURNLEFT" if error >= 0 else "TURNRIGHT"
+        if self.bindings and not self.bindings.contains(turn):
+            return ()
+        self.__dict__["_height_probe_at"] = now
+        self.last_command_observation_id = observation_id
+        self.last_command_at = now
+        self.control_updates += 1
+        self.command_history.append((now, "HEIGHT_PROBE_TURN", self.HEIGHT_PROBE_TURN_SECONDS))
+        return (Command("BIND", turn, self.HEIGHT_PROBE_TURN_SECONDS),)
+
     def command(self, state: dict, observation_id: str, now: float) -> tuple[Command, ...]:
         # The agent loop can revisit the same merged observation while the
         # input scheduler is still holding its previous movement lease.  A
@@ -592,29 +977,78 @@ class ReachMovementController:
                                                MovementPhase.FAILED, MovementPhase.IDLE}:
             return ()
         distance, _, error = geometry
+        if self.flight is not None:
+            commands = (self.flight.commands(state, now) if getattr(self.flight, "path", None) is not None
+                        else self.flight.commands(state, distance, error, self._tolerance(), now))
+            self.last_command_observation_id = observation_id
+            self.last_command_at = now
+            if commands:
+                self.control_updates += 1
+                self.steering_mode = f"FLIGHT_{self.flight.phase}"
+                self.command_history.append((now, self.steering_mode, commands[0].duration))
+                if commands[0].binding == "MOVEFORWARD":
+                    self.last_forward_at = now
+                self.progress_monitor.record_command(commands[0].binding or "")
+            return commands
         if self.destination.get("follow_group_leader") or self.destination.get("follow_quest_entity"):
             maximum = number(self.destination.get("follow_max_distance"))
             if maximum is not None and distance <= maximum:
                 self.steering_mode = "FOLLOW_HOLD"
                 return ()
+        if self.steering_mode == "FACE_ON_ARRIVAL" and self.phase is MovementPhase.STEERING:
+            # Arrived: turn in place only, never forward.
+            facing = self._arrival_facing_error(state)
+            if facing is None or abs(facing[1]) <= self.FACE_ON_ARRIVAL_RADIANS:
+                return ()
+            error = facing[1]
+            turn = "TURNLEFT" if error > 0 else "TURNRIGHT"
+            if self.bindings and not self.bindings.contains(turn):
+                return ()
+            duration = max(.04, min(.12, abs(error)/self.turn_rate*.55) * self.turn_duration_scale)
+            self.strafe_held, self.strafe_credit = False, 0.
+            self.last_command_observation_id = observation_id
+            self.last_command_at = now
+            self.control_updates += 1
+            self.command_history.append((now, "FACE_ON_ARRIVAL", duration))
+            return (Command("BIND", turn, duration),)
+        probe = self._height_probe(state, observation_id, now, error)
+        if probe:
+            return probe
         absolute_error = abs(error)
         previous_mode = self.steering_mode
+        world_space = self.destination.get("coordinate_space") == "WORLD_YARDS"
+        near = world_space and distance <= 8.
+        last_forward = self.__dict__.get("last_forward_at")
+        running = last_forward is not None and 0 <= now-last_forward <= self.RUN_CARRY_SECONDS
+        intermediate = self.destination.get("route_waypoint_final") is False
+        # Close to a final point a running turn could circle it; there the
+        # former turn-in-place rule stays.
+        running_turn = (running and world_space
+                        and (distance > self.RUNNING_TURN_MIN_YARDS
+                             or (intermediate and distance > 2.5)))
         # Hysteresis prevents left/right chatter around a threshold. Large
         # errors are corrected in place before forward motion begins.
-        turn_in_place = absolute_error > (.42 if previous_mode.startswith("TURN_") else .58)
+        if running_turn:
+            turn_in_place = absolute_error > (self.RUNNING_TURN_IN_PLACE_HOLD if previous_mode.startswith("TURN_")
+                                              else self.RUNNING_TURN_IN_PLACE)
+        else:
+            turn_in_place = absolute_error > (.42 if previous_mode.startswith("TURN_") else .58)
         soft_steer = absolute_error > (.10 if previous_mode.startswith("SOFT_") else .16)
         turn = "TURNLEFT" if error > 0 else "TURNRIGHT"
         if (turn_in_place or soft_steer) and self.bindings and not self.bindings.contains(turn):
             raise ValueError(f"Hiányzó irányítási binding: {turn}")
-        world_space = self.destination.get("coordinate_space") == "WORLD_YARDS"
-        near = world_space and distance <= 8.
+        jump_guard = self.__dict__.get("jump_guard")
         if (self.phase is MovementPhase.CANDIDATE_STUCK and not self.jump_attempted
                 and not turn_in_place
                 and "MOTION_POSITION_MISMATCH" in self.evidence_sources
-                and (not self.bindings or self.bindings.contains("JUMP"))):
+                and (not self.bindings or self.bindings.contains("JUMP"))
+                # Live 2026-10-13 17:57 (user screenshot): stuck at the pit
+                # spiral's fence, the running jump cleared it into the pit.
+                and not (callable(jump_guard) and jump_guard(state))):
             # Running, yet fresh positions show no progress: try one running
             # jump before the supported-stuck recovery ladder takes over.
             self.jump_attempted = True
+            self.strafe_held, self.strafe_credit = False, 0.
             command = Command("BIND", "MOVEFORWARD", .32, simultaneous=("JUMP",))
             self.last_command_observation_id = observation_id
             self.last_command_at = now
@@ -622,6 +1056,7 @@ class ReachMovementController:
             self.command_history.append((now, "JUMP_FORWARD", .32))
             if self.forward_started_at is None:
                 self.forward_started_at = now
+            self.last_forward_at = now
             self.progress_monitor.record_command("MOVEFORWARD")
             return (command,)
         if turn_in_place:
@@ -636,7 +1071,13 @@ class ReachMovementController:
             self.phase = MovementPhase.STEERING
             self.forward_started_at = None
         elif soft_steer:
-            duration = max(.04, (.06 if near else .08) * self.turn_duration_scale)
+            if running_turn and absolute_error > .30:
+                # Bend while running: turn as long as the error needs (the
+                # turn key keeps its rate while W is held).
+                base = min(self.RUNNING_TURN_MAX_LEASE, max(.06, absolute_error/self.turn_rate*.6))
+            else:
+                base = .06 if near else .08
+            duration = max(.04, base * self.turn_duration_scale)
             command = Command("BIND", "MOVEFORWARD", duration, simultaneous=(turn,))
             self.steering_mode = "SOFT_LEFT" if error > 0 else "SOFT_RIGHT"
             if self.phase not in {MovementPhase.NO_PROGRESS_YET, MovementPhase.CANDIDATE_STUCK}:
@@ -645,18 +1086,64 @@ class ReachMovementController:
                 self.forward_started_at = now
         else:
             duration = .10 if near else .32
-            command = Command("BIND", "MOVEFORWARD", duration)
-            self.steering_mode = "STRAIGHT"
+            strafe = self._strafe_trim(error, now, world_space and running
+                                       and distance > self.STRAFE_TRIM_YARDS)
+            command = Command("BIND", "MOVEFORWARD", duration,
+                              simultaneous=(strafe,) if strafe else ())
+            self.steering_mode = {"STRAFELEFT": "STRAFE_LEFT",
+                                  "STRAFERIGHT": "STRAFE_RIGHT"}.get(strafe, "STRAIGHT")
             if self.phase not in {MovementPhase.NO_PROGRESS_YET, MovementPhase.CANDIDATE_STUCK}:
                 self.phase = MovementPhase.MOVING
             if self.forward_started_at is None:
                 self.forward_started_at = now
+        if self.steering_mode != "STRAIGHT" and not self.steering_mode.startswith("STRAFE_"):
+            # A turning lease lifts any strafe: no time budget is carried over.
+            self.strafe_held, self.strafe_credit = False, 0.
+        if command.binding == "MOVEFORWARD":
+            duration = self._interaction_forward_duration(state, now, distance, command.duration)
+            if duration <= 0.:
+                return ()  # let the old forward lease expire; await a fresh pose
+            final_interaction = (self.destination.get("face_on_arrival")
+                                 and self.destination.get("coordinate_space") == "WORLD_YARDS"
+                                 and self.destination.get("route_waypoint_final") is not False
+                                 and distance <= max(8., (self._motion(state)[0] or 0.)+self._tolerance()))
+            if duration != command.duration or final_interaction:
+                command = Command(command.kind, command.binding, duration, simultaneous=command.simultaneous,
+                                  forward_duration=duration if final_interaction else None)
         self.last_command_observation_id = observation_id
         self.last_command_at = now
+        if command.binding == "MOVEFORWARD":
+            self.last_forward_at = now
         self.control_updates += 1
         self.command_history.append((now, self.steering_mode, duration))
         self.progress_monitor.record_command(command.binding or "")
         return (command,)
+
+    # User 2026-10-20 (PixelBuddy strafes small errors instead of turning):
+    # below the soft-steer threshold the run is trimmed by strafing, so the
+    # facing and camera stay still.  W + strafe moves 45 deg off the facing;
+    # holding the strafe for |error| / 45 deg of the running time (a time
+    # budget kept across leases -- the scheduler keeps W down and lifts the
+    # strafe at the next lease without it) bends the path onto the bearing.
+    STRAFE_TRIM_MIN = .035
+    STRAFE_TRIM_YARDS = 8.
+    STRAFE_CREDIT_LIMIT = .2
+
+    def _strafe_trim(self, error: float, now: float, allowed: bool) -> str | None:
+        last = self.strafe_at
+        dt = min(.3, max(0., now-last)) if last is not None else 0.
+        side = "STRAFELEFT" if error > 0 else "STRAFERIGHT"
+        if self.strafe_held:
+            self.strafe_credit -= dt          # it was down since the last lease
+        if (not allowed or abs(error) < self.STRAFE_TRIM_MIN or side != self.strafe_side
+                or (self.bindings and not self.bindings.contains(side))):
+            self.strafe_credit = 0.
+        else:
+            self.strafe_credit = min(self.STRAFE_CREDIT_LIMIT, max(
+                -self.STRAFE_CREDIT_LIMIT, self.strafe_credit + abs(error)/(math.pi/4)*dt))
+        self.strafe_side, self.strafe_at = side, now
+        self.strafe_held = allowed and self.strafe_credit > 0 and abs(error) >= self.STRAFE_TRIM_MIN
+        return side if self.strafe_held else None
 
     def mark_recovery(self) -> None:
         self.recovery_count += 1
@@ -671,6 +1158,10 @@ class ReachMovementController:
                 error_changes.append(abs(newer.heading_error-older.heading_error))
         total_progress = sum(max(0., sample.progress) for sample in self.samples)
         return {"phase": self.phase.value, "destination": dict(self.destination) if self.destination else None,
+                "locomotion_phase": self.flight.phase if self.flight is not None else "GROUND",
+                "flight_mode": (getattr(getattr(self.flight, "path", None), "mode", "STEADY")
+                                if self.destination is not None and self.flight is not None else None),
+                "flight_waypoint_index": getattr(self.flight, "index", None),
                 "control_updates": self.control_updates, "recovery_count": self.recovery_count,
                 "steering_mode": self.steering_mode,
                 "steering_reversals": self.steering_reversals,
@@ -684,6 +1175,14 @@ class ReachMovementController:
                 "no_progress_samples": len(self.no_progress),
                 "wall_contact_samples": len(self.wall_samples),
                 "forward_started_at": self.forward_started_at,
+                "final_facing": {"started_at": self.face_started_at,
+                                 "last_progress_at": self.face_progress_at,
+                                 "best_error_radians": self.face_best_error,
+                                 "geometry": dict(self.face_geometry) if self.face_geometry else None,
+                                 "last_command_at": self.last_command_at,
+                                 "recent_commands": list(self.command_history)[-6:],
+                                 "no_progress_timeout_seconds": self.FACE_ON_ARRIVAL_SECONDS,
+                                 "total_budget_seconds": self.FACE_ON_ARRIVAL_MAX_SECONDS},
                 "no_progress_span_seconds": round(
                     self.no_progress[-1].at-self.no_progress[0].at, 4)
                     if len(self.no_progress) >= 2 else 0.,

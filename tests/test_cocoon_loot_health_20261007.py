@@ -73,7 +73,10 @@ class _Supervisor:
 def _orchestrator():
     orchestrator = PlanningOrchestrator.__new__(PlanningOrchestrator)
     orchestrator.supervisor = _Supervisor()
-    orchestrator.registry = SimpleNamespace(available=lambda proposal, world: True)
+    orchestrator.registry = SimpleNamespace(available=lambda proposal, world: True, contracts={})
+    # The resume honours a fresh failure's block (planner.blocked_until).
+    orchestrator.planner = SimpleNamespace(blocked_until={})
+    orchestrator.goals = SimpleNamespace(filter=lambda proposals, contracts, now: proposals)
     return orchestrator
 
 

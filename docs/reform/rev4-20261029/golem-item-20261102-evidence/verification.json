@@ -1,0 +1,11 @@
+{
+  "status": "OFFLINE_TESTED",
+  "passed": 419,
+  "skipped": 0,
+  "test_modules": 27,
+  "new_live_acceptance": false,
+  "live_client_input": false,
+  "catalogue_read_only": true,
+  "raw_packet_export": false,
+  "vision_changes": false
+}

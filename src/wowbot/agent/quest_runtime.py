@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from wowbot.query_ports import QuestObjectiveGeometryPort, TravelCostPort
 from wowbot.runtime import ObjectiveLocationStatus
 from .objective_locator import ObjectiveLocator
 from .next_quest_resolver import NextQuestResolver
@@ -25,6 +26,7 @@ class PrimaryQuestState:
     stage_signature: tuple = ()
     stage_revision: int = 0
     last_stage_transition: dict | None = None
+    mechanic_contract: dict | None = None
 
 
 class QuestExecutionRuntime:
@@ -35,10 +37,10 @@ class QuestExecutionRuntime:
     sole component that proposes M0 skills and the executor remains the sole
     component that sends input.
     """
-    def __init__(self, attempt_memory=None):
+    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None):
         self.primary = PrimaryQuestState()
         self.classifier = ObjectiveClassifier()
-        self.locator = ObjectiveLocator()
+        self.locator = ObjectiveLocator(travel_cost=travel_cost)
         self.next_quest_resolver = NextQuestResolver()
         from .quest_attempt_memory import QuestAttemptMemory
         self.attempt_memory = attempt_memory or QuestAttemptMemory()
@@ -68,7 +70,8 @@ class QuestExecutionRuntime:
         self.primary.location_status = None
 
     def observe(self, goal, quest_model, state: dict, now: float,
-                *, locator: ObjectiveLocator | None = None) -> PrimaryQuestState:
+                *, locator: ObjectiveLocator | None = None,
+                objective_pois: QuestObjectiveGeometryPort | None = None) -> PrimaryQuestState:
         if getattr(goal, "domain", None) != "QUEST":
             self.primary = PrimaryQuestState(status="NOT_QUEST_GOAL")
             return self.primary
@@ -189,7 +192,16 @@ class QuestExecutionRuntime:
         objective = next((item for item in ready
                           if item.objective_id == self.primary.objective_id), ready[0])
         classified = self.classifier.classify(objective.raw)
-        resolved = (locator or self.locator).locate(objective, record, state)
+        from dataclasses import asdict
+        from wowbot.quests.mechanics import MechanicResolver
+        reference = ((state.get('reference_knowledge') or {}).get('quests') or {}).get(str(record.quest_id)) or {}
+        from .quest_reference_matching import reference_objectives
+        matches = reference_objectives(record.quest_id, objective.objective_id, objective.description,
+                                       reference.get('objectives') or ())
+        self.primary.mechanic_contract = asdict(MechanicResolver().resolve(
+            record.quest_id, objective.objective_id, objective.raw, matches[0] if len(matches) == 1 else None))
+        pois = objective_pois(record.quest_id, objective, now) if objective_pois is not None else ()
+        resolved = (locator or self.locator).locate(objective, record, state, quest_pois=pois)
         self.primary.objective_id = objective.objective_id
         self.primary.objective_type = classified.canonical_kind
         self.primary.location_status = resolved.status.value

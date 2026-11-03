@@ -26,6 +26,13 @@ class QuestFailureMemory:
                        ("OBJECT_USE", "identity_uncertain"): 3.,
                        ("OBJECT_USE", "out_of_range"): 5.}
 
+    # A preempted attempt says nothing about how to do the objective.  Live
+    # 2026-10-28 15:40:05 (65793 "Escort the Wagon"): a hostile interrupted
+    # the hold beside the wagon; the 15 s WAIT_EVENT suppression left the
+    # escort with no hold proposal, the POI-search MOVE won and the agent
+    # flew to the quest-area centre.
+    PREEMPTIONS = frozenset({"interrupted", "cancelled"})
+
     def __init__(self, cooldown_seconds: float = 15.0):
         self.cooldown_seconds = float(cooldown_seconds)
         self._records: dict[tuple[str, str, str, str], QuestFailureRecord] = {}
@@ -36,7 +43,7 @@ class QuestFailureMemory:
         return str(quest_id or ""), str(objective_id or ""), str(entity or ""), str(skill or "")
 
     def record(self, *, quest_id, objective_id, target_ref, skill: str, reason: str, now: float) -> QuestFailureRecord | None:
-        if quest_id is None and objective_id is None:
+        if (quest_id is None and objective_id is None) or str(reason).lower() in self.PREEMPTIONS:
             return None
         key = self._key(quest_id, objective_id, target_ref, skill)
         cooldown = self.SHORT_COOLDOWNS.get((str(skill), str(reason).lower()), self.cooldown_seconds)

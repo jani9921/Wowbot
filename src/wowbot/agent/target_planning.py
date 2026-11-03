@@ -5,12 +5,14 @@ proposals.  It never clicks, mutates the WorldModel, or owns a target.
 """
 from __future__ import annotations
 
+from wowbot.runtime.entity_identity import identity_fields
+
 from .models import Goal, Proposal, number
 from .quest_giver_evidence import (friendly_npc_relevant, is_companion_pet, npc_objective_subjects,
                                    quest_search_allows_npc)
-from .quest_semantics import target_matches_objective, target_matches_structured_entity
+from .quest_semantics import target_matches_objective, target_matches_structured_entity, speak_target_matches
 from .tooltip_quest import creature_tooltip_open, tooltip_objectives_done
-from wowbot.vision.map_mouseover import classify_tooltip
+from wowbot.map_mouseover import classify_tooltip
 
 
 GROUND_TRUTH_MOUSEOVER_HANDOFF_PRIORITY = 72
@@ -64,8 +66,8 @@ def _dead_or_spent(world, unit: dict) -> bool:
     The FAST and STATE lanes spell the flag differently ("is_dead"/"dead"),
     so a single fallback lookup can miss it.
     """
-    if (unit.get("dead") is True or unit.get("is_dead") is True
-            or number(unit.get("health")) == 0):
+    from .tooltip_quest import known_dead_unit
+    if known_dead_unit(unit, getattr(world, "state", {})):
         return True
     guid = str(unit.get("guid") or "")
     model = getattr(world, "_model", None) or world
@@ -76,6 +78,24 @@ def _dead_or_spent(world, unit: dict) -> bool:
 
 class TargetPlanningPolicy:
     """Build target hand-off proposals from a coherent fresh cursor sample."""
+
+    # Live 2026-10-13 05:55:00: the World3D candidate list was empty for
+    # ~1 s while Bjorn was hovered next to Alaria's "!"; "no ! visible"
+    # then let the giver-pin rule select Bjorn, who had nothing to give.
+    SYMBOL_HOLD_SECONDS = 2.5
+
+    def _with_recent_symbol(self, state: dict) -> dict:
+        from .quest_giver_evidence import quest_symbol_visible
+        now = number(state.get("monotonic_time"))
+        if now is None:
+            return state
+        if quest_symbol_visible(state):
+            self.__dict__["_symbol_seen_at"] = now
+            return state
+        seen = self.__dict__.get("_symbol_seen_at")
+        if seen is not None and 0 <= now - seen <= self.SYMBOL_HOLD_SECONDS:
+            return {**state, "recent_quest_symbol_visible": True}
+        return state
 
     def propose(
         self,
@@ -88,7 +108,7 @@ class TargetPlanningPolicy:
         mouse_time: float | None,
         skip_friendly_guids: frozenset[str] = frozenset(),
     ) -> list[Proposal]:
-        state = world.state
+        state = self._with_recent_symbol(world.state)
         mouse = state.get("mouseover") or {}
         surface = (state.get("map_mouseover") or {}).get("surface")
         result: list[Proposal] = []
@@ -96,6 +116,7 @@ class TargetPlanningPolicy:
         # NPC -- a "!" over its box, or (no "!" anywhere) at an API giver spot.
         quest_search = getattr(goal, "domain", None) == "QUEST" and not state.get("active_quests")
         quest_model = getattr(world, "quest_model", None)
+        ready = quest_model.ready() if quest_model is not None else ()
         objective_types = {str(getattr(obj, "type", "") or "") for obj in
                            (quest_model.ready() if quest_model is not None else ())}
         if (surface not in {"MINIMAP", "WORLD_MAP"} and mouse.get("guid")
@@ -108,6 +129,7 @@ class TargetPlanningPolicy:
                 and str(mouse.get("guid")) not in skip_friendly_guids
                 and not is_companion_pet(mouse)
                 and (getattr(goal, "domain", None) != "QUEST"
+                     or any(speak_target_matches(obj, mouse) for obj in ready)
                      or friendly_npc_relevant(
                          state, str(mouse.get("guid")), objective_types,
                          unit_name=mouse.get("name"),
@@ -117,7 +139,7 @@ class TargetPlanningPolicy:
             if number(cursor.get("nx")) is not None and number(cursor.get("ny")) is not None:
                 result.append(Proposal.make(
                     "TARGET", "API-val azonosított mouseover NPC kijelölése",
-                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"],
+                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"], **identity_fields(mouse),
                      **_hover_box(state, str(mouse["guid"])),
                      "identity_source": mouse.get("identity_source") or "WOW_API_MOUSEOVER",
                      "ground_truth_handoff": True, "click_current_cursor": True},
@@ -139,7 +161,7 @@ class TargetPlanningPolicy:
                      or tooltip_names_active_quest(mouse, state)
                      or mouse.get("npc_id") in goal.parameters.get("target_npc_ids", [])
                      or any(target_matches_structured_entity(mouse, obj.target_entity)
-                            or target_matches_objective(mouse, {**obj.raw, "description": obj.description})
+                            or target_matches_objective(mouse, {**obj.raw, "target_entity": obj.target_entity, "description": obj.description})
                             for obj in world.quest_model.ready()))):
             relevant_units = getattr(getattr(world, "_model", None) or world, "quest_relevant_units", None)
             if isinstance(relevant_units, dict):
@@ -148,31 +170,13 @@ class TargetPlanningPolicy:
             if number(cursor.get("nx")) is not None and number(cursor.get("ny")) is not None:
                 result.append(Proposal.make(
                     "TARGET", "API-val azonosított, quest-releváns ellenséges mouseover kijelölése",
-                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"],
+                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"], **identity_fields(mouse),
                      **_hover_box(state, str(mouse["guid"])),
                      "identity_source": mouse.get("identity_source") or "WOW_API_MOUSEOVER",
                      "ground_truth_handoff": True, "click_current_cursor": True},
                     confidence=1.0, priority=GROUND_TRUTH_MOUSEOVER_HANDOFF_PRIORITY))
-        elif (surface not in {"MINIMAP", "WORLD_MAP"}
-                and not mouse.get("guid") and cursor_matches_mouseover
-                and not is_player_unit(mouse, state)
-                and (mouse.get("tooltip_data") or {}).get("is_player") is not True
-                and "(player)" not in str(mouse.get("tooltip") or "").casefold()
-                and (mouse.get("tooltip_data") or {}).get("is_unit") is True
-                and str(mouse.get("name") or (mouse.get("tooltip_data") or {}).get("unit_name") or "").strip()
-                and str(mouse.get("name") or (mouse.get("tooltip_data") or {}).get("unit_name"))
-                    != str(state.get("character_name") or "")
-                and (not quest_search or quest_search_allows_npc(state, ""))):
-            cursor = state.get("cursor_position") or {}
-            if number(cursor.get("nx")) is not None and number(cursor.get("ny")) is not None:
-                unit_name = str(mouse.get("name") or
-                                (mouse.get("tooltip_data") or {}).get("unit_name")).strip()
-                result.append(Proposal.make(
-                    "TARGET", "Strukturált unit-tooltip kijelölési próbája; GUID ellenőrzés kattintás után",
-                    {"x": cursor["nx"], "y": cursor["ny"], "expected_name": unit_name,
-                     "identity_source": "TOOLTIP_PRIMARY_DATA", "partial_identity": True,
-                     "ground_truth_handoff": True, "click_current_cursor": True},
-                    confidence=.95, priority=GROUND_TRUTH_MOUSEOVER_HANDOFF_PRIORITY-1))
+        # A structured name without a GUID remains a search hint. Do not
+        # turn it into a TARGET action and certify identity after clicking.
         if (surface not in {"MINIMAP", "WORLD_MAP"}
                 and mouse.get("guid") and mouse.get("guid") == target.get("guid")):
             mouse_role = classify_tooltip(mouse.get("tooltip"))
@@ -185,7 +189,7 @@ class TargetPlanningPolicy:
                     "TALK",
                     f"Tooltip alapján felismert {mouse_role.lower()} (3D-világ mouseover ground truth) "
                     f"[tooltip='{str(mouse.get('tooltip') or '')[:60]}' age={tooltip_age}]",
-                    {"guid": mouse["guid"], "quest_role": mouse_role, "tooltip_age": tooltip_age},
+                    {"guid": mouse["guid"], **identity_fields(mouse), "quest_role": mouse_role, "tooltip_age": tooltip_age},
                     priority=68,
                 ))
         if (state.get("vehicle_controls") and mouse.get("guid")
@@ -194,7 +198,7 @@ class TargetPlanningPolicy:
                 and not is_player_unit(mouse, state)
                 and mouse.get("dead", mouse.get("is_dead")) is not True
                 and not any(proposal.skill == "TARGET" for proposal in result)
-                and any(target_matches_objective(mouse, {**obj.raw, "description": obj.description})
+                and any(target_matches_objective(mouse, {**obj.raw, "target_entity": obj.target_entity, "description": obj.description})
                         for obj in world.quest_model.ready()
                         if str(getattr(obj, "type", "") or "").upper() in {"KILL", "KILL_NAMED"})):
             # Live 2026-10-04: the Monstrous Cadavers (ClientActor, not
@@ -204,7 +208,7 @@ class TargetPlanningPolicy:
             if number(cursor.get("nx")) is not None and number(cursor.get("ny")) is not None:
                 result.append(Proposal.make(
                     "TARGET", "Járművel: a quest-célpont nevű mouseover kijelölése",
-                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"],
+                    {"x": cursor["nx"], "y": cursor["ny"], "guid": mouse["guid"], **identity_fields(mouse),
                      **_hover_box(state, str(mouse["guid"])),
                      "identity_source": mouse.get("identity_source") or "WOW_API_MOUSEOVER",
                      "ground_truth_handoff": True, "click_current_cursor": True},

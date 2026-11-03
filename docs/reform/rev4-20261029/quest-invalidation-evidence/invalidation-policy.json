@@ -1,0 +1,14 @@
+{
+  "quest_invalidation_layout": "WPP_12_1_QUEST_LOG_INVALIDATION_V1",
+  "unknown_prefix_cannot_preserve_complete_collection": true,
+  "mask_proven_unchanged_does_not_refresh_sample_time": true,
+  "field_wise_invalidation_barriers": [
+    "questlog",
+    "inventory_roots"
+  ],
+  "older_snapshot_cannot_resurrect_invalidated_fields": true,
+  "newer_complete_snapshot_can_restore_membership": true,
+  "input_ui_authority_changed": false,
+  "native_ttls_extended": false,
+  "new_live_acceptance": false
+}

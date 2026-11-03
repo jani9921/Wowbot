@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .models import Goal, Proposal, number
 from .destination_distance import is_world_yards, world_arrived
+from .objective_choice import objective_adjustment
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,10 +41,31 @@ class ProposalRanker:
             return math.inf
         return math.hypot(x-px, y-py)
 
+    # Live 2026-10-20 17:12-17:13 (Murloc Mania): the server walk-up to a
+    # murloc already within reach but off to the side is a MOVE whose stop
+    # distance covers where we stand -- only its face_on_arrival turn is
+    # left.  Dropping it as "arrived" left nothing but WAIT for a minute.
+    FACE_LEFT_RADIANS = .30
+
+    @staticmethod
+    def facing_left_to_do(world, parameters: dict) -> bool:
+        if not parameters.get("face_on_arrival") or parameters.get("coordinate_space") != "WORLD_YARDS":
+            return False
+        position = world.state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        x, y = number(parameters.get("x")), number(parameters.get("y"))
+        facing = number(world.state.get("orientation"))
+        if None in (px, py, x, y, facing) or math.hypot(x-px, y-py) < 1.:
+            return False
+        bearing = math.atan2(y-py, x-px)
+        return abs((bearing-facing+math.pi) % math.tau - math.pi) > ProposalRanker.FACE_LEFT_RADIANS
+
     @staticmethod
     def rank(proposals: list[Proposal], *, goal: Goal, world, now: float,
              registry, memory, blocked_until: dict[str, float],
-             recent: dict[str, float], evidence: tuple[str, ...]) -> RankingResult:
+             recent: dict[str, float], evidence: tuple[str, ...],
+             objective_context: dict | None = None,
+             playbook_guidance: dict | None = None) -> RankingResult:
         selected: list[Proposal] = []
         unavailable_skills: list[str] = []
         cooling_down_skills: list[str] = []
@@ -52,7 +74,12 @@ class ProposalRanker:
             if blocked_until.get(proposal.key, 0) > now:
                 blocked_skills.append(proposal.skill)
                 continue
-            if proposal.skill == "MOVE" and world_arrived(world, proposal.parameters):
+            # An explicit hover has a 3D/facing/pitch arrival contract owned
+            # by HoverControl. XY arrival alone discarded VEHICLE_AIM at the
+            # current position, leaving a selected live mob in WAIT.
+            if (proposal.skill == "MOVE" and not proposal.parameters.get("hover_point")
+                    and world_arrived(world, proposal.parameters)
+                    and not ProposalRanker.facing_left_to_do(world, proposal.parameters)):
                 continue
             if proposal.skill in {"INSPECT", "OPEN_MAP"} and recent.get(proposal.key, 0) > now:
                 cooling_down_skills.append(proposal.skill)
@@ -124,6 +151,16 @@ class ProposalRanker:
             detail["total"] = (detail["priority"] + detail["reliability_bonus"]
                                + detail["pattern_bonus"] - detail["cost_penalty"]
                                - detail["distance_penalty"])
+            # One scale for every objective target (objective_choice): route
+            # cost with height, placed-here, counted kills, fresh quest.
+            adjustment = objective_adjustment(proposal, state, objective_context, now)
+            if adjustment is not None:
+                detail["objective"] = adjustment
+                detail["total"] += adjustment["total"]
+            playbook = (playbook_guidance or {}).get(proposal.key)
+            if playbook is not None:
+                detail["quest_playbook"] = playbook
+                detail["total"] += playbook["adjustment"]
             scores[proposal.key] = detail
             return detail["total"]
 

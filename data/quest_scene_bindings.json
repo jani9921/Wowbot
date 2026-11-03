@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "association_kind": "REVIEWED_REFERENCE_RELATION",
+  "note": "Quest-to-scene associations are reviewed reference data, not inferred live facts. Coordinates are never stored here: resolve SceneScriptPackageMember -> SceneScriptText pathID -> PathNode -> Location in the local SQLite catalog. Runtime must match the active quest, instance and objective amount before using a route.",
+  "bindings": [
+    {"quest_id": 65118, "scene_package_id": 3747, "instance_id": 2444, "checkpoint_object_id": 182800, "arrival_object_id": 182847, "evidence": "Existing user-run glide course and TDB quest objectives; local Training 1 SceneScript."},
+    {"quest_id": 65120, "scene_package_id": 3748, "instance_id": 2444, "checkpoint_object_id": 182800, "arrival_object_id": 182847, "evidence": "TDB How to Dive with Your Dragon objective data and local Training 2 SceneScript; offline reference, not live validation."},
+    {"quest_id": 65133, "scene_package_id": 3749, "instance_id": 2444, "checkpoint_object_id": 182800, "arrival_object_id": 182847, "evidence": "TDB How to Use Momentum with Your Dragon objective data and local Training 3 SceneScript; offline reference, not live validation."},
+    {"quest_id": 77345, "scene_package_id": 3978, "instance_id": 2444, "checkpoint_object_id": 182800, "arrival_object_id": 182847, "evidence": "TDB The Need For Higher Velocities: eight rings plus target; local Training 4 package points to Path 49404 with eight rings plus target. Reviewed reference association; not live validated."}
+  ]
+}

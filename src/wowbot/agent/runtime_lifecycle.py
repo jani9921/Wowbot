@@ -20,6 +20,9 @@ class RuntimeLifecycleMixin:
         if self.started:
             raise RuntimeError("A runtime csak egyszer indítható")
         self.started = True
+        self.packet_telemetry.start()
+        # Fast flight loops read the newest own movement packet themselves.
+        self.agent.packet_feedback = self.packet_telemetry.peek_own_movement
         if self.replay_bridge is not None:
             self.replay_bridge.start(agent=self.agent, metadata={
                 "pid": self.pid,
@@ -50,6 +53,19 @@ class RuntimeLifecycleMixin:
         sys.setswitchinterval(max(.0005, float(os.environ.get(
             "AIPC_GIL_SWITCH_INTERVAL", ".0005"))))
         self.thread = threading.Thread(target=self.run, name="aipc-agent", daemon=True)
+        if os.environ.get("AIPC_PARALLEL_CONTROL", "1").strip() != "0":
+            from .parallel_runtime import ParallelRuntimePump
+            self.parallel_pump = ParallelRuntimePump(self)
+            started = self.parallel_pump.start()
+            print("PARALLEL CONTROL START:", started)
+            print("SENSOR TYPE:", type(self.sensor).__name__)
+            print("HAS PEEK_LATEST:", callable(getattr(self.sensor, "peek_latest", None)))
+            if not started:
+                print("PARALLEL CONTROL UNAVAILABLE:", self.parallel_pump.snapshot(), flush=True)
+        if self.runtime_profile.visual and os.environ.get("AIPC_ASYNC_VISUAL_MEMORY", "1").strip() != "0":
+            from .visual_recognition_worker import VisualRecognitionWorker
+            self.visual_memory_worker = VisualRecognitionWorker(self.spatial.entities)
+            self.visual_memory_worker.start()
         self.thread.start()
 
     def _save_quest_npcs(self):
@@ -167,10 +183,15 @@ class RuntimeLifecycleMixin:
         self.arm_at = self.arm_deadline = self.test_deadline = None
         self.stopped.set()
         self.agent.set_mode(Mode.STOPPED)
+        if self.parallel_pump is not None:
+            self.parallel_pump.close()
+        if self.visual_memory_worker is not None:
+            self.visual_memory_worker.close()
         if hasattr(self.executor, "close"):
             self.executor.close()
         if self.thread:
             self.thread.join(timeout=2)
+        self.packet_telemetry.close()
         self.agent.navigation.close()
         self._save_ability_effects(time.monotonic(), force=True)
         creature_memory = getattr(self.agent.world, "__dict__", {}).get("quest_creature_memory")
@@ -199,6 +220,12 @@ class RuntimeLifecycleMixin:
             "input_safety": (self.executor.diagnostics()
                              if hasattr(self.executor, "diagnostics") else {}),
             "stopped_at": time.time(),
+            "packet_telemetry": self.packet_telemetry.diagnostics(),
+            "parallel_control": {
+                **self.agent.parallel_control.snapshot(time.monotonic()),
+                "pump": (self.parallel_pump.snapshot() if self.parallel_pump is not None
+                         else {"status": "not_started", "active": False}),
+            },
         }
         self.status = final_status
         self._write_status_now(final_status)

@@ -959,8 +959,9 @@ def test_loot_needs_item_or_objective_evidence():
 def test_loot_range_recovery_keeps_the_same_canonical_attempt_until_corpse_arrival():
     value, exe = agent()
     corpse = {"guid": "corpse-range", "dead": True, "attackable": True,
-              "world_position": {"x": 110., "y": 100., "z": 3., "instance_id": 2175}}
-    player = {"x": 100., "y": 100., "z": 3., "instance_id": 2175}
+              "world_position": {"x": 110., "y": 100., "z": 3., "instance_id": 2175,
+                                 "coordinate_space": "WORLD_YARDS"}}
+    player = {"x": 100., "y": 100., "z": 3., "instance_id": 2175, "coordinate_space": "WORLD_YARDS"}
     value.tick(state(1, target=corpse, loot_pending=True, player_world_position=player), 1.)
     assert value.pending and value.pending.proposal.skill == "LOOT"
     action_id = value.pending.action_id
@@ -989,6 +990,7 @@ def test_compact_fast_loot_baseline_preserves_existing_inventory():
         "frame_id": "fast:1", "transport_kind": "FAST", "telemetry_lane": "FAST_STATE",
         "fast_sequence": 1, "state_age": 0., "player_present": True,
         "target": corpse, "is_dead": False, "is_in_combat": False,
+        "soft_targets": [],  # current explicit empty recipient list, not omitted old hints
     }
     value.tick(compact, 2.)
     assert value.pending and value.pending.proposal.skill == "LOOT"
@@ -1368,8 +1370,8 @@ def test_quest_tooltip_mouseover_handoff_targets_collect_source_then_fights():
     assert value.pending.proposal.parameters["quest_ids"] == [55174]
 
 
-def test_structured_unit_tooltip_without_guid_can_be_selected_then_name_verified():
-    value, _ = agent()
+def test_structured_unit_tooltip_without_guid_remains_a_search_hint():
+    value, executor = agent()
     mouse = {
         "exists": True, "name": "Lady Jaina Proudmoore", "unit_type": "UNIT",
         "structured_unit": True, "identity_source": "TOOLTIP_PRIMARY_DATA",
@@ -1382,16 +1384,17 @@ def test_structured_unit_tooltip_without_guid_can_be_selected_then_name_verified
                      cursor_sample_time=1, mouseover_sample_time=1,
                      character_name="Test Player", world_map_open=False,
                      visual_candidates=quest_npc_boxes(.58, .60)), 1)
-    assert value.last_decision["skill"] == "TARGET"
-    assert value.pending.proposal.parameters["partial_identity"] is True
-    assert value.pending.proposal.parameters["expected_name"] == "Lady Jaina Proudmoore"
+    assert value.last_decision["skill"] != "TARGET"
+    assert not any(command.kind.startswith("CLICK") for command in executor.commands)
+    # The next sample actually supplies a selected GUID (e.g. user selection).
+    # Only this new public identity may become a committed interaction target.
 
     selected = {"guid": "Creature-0-1-2-3-156626-4", "npc_id": 156626,
                 "name": "Lady Jaina Proudmoore", "unit_type": "NPC",
                 "attackable": False, "dead": False}
     value.tick(state(2, target=selected, mouseover=False,
                      cursor_position={"nx": .58, "ny": .60}), 2)
-    assert value.last_result["outcome"] == "SUCCESS"
+    assert value.last_decision["skill"] in {"INTERACT", "TALK"}
     assert value.autonomy.commitment.target_guid == selected["guid"]
 
 

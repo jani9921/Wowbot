@@ -98,10 +98,14 @@ def test_move_to_entity_refreshes_the_same_reach_when_selected_target_moves():
     assert service.move_to_entity(live, "npc-1", "obs-1", 1.) is not None
     moved = {**live, "target": {"guid": "npc-1",
                                  "world_position": {"x": 23., "y": 16., "instance_id": 4}}}
+    request_id = service._active_request.request_id
+    assert service.owned_route_plan_pending(moved, 1.2)
+    service.resume_owned_route(moved, 1.2)  # medium owner replans the same entity goal
     assessment = service.observe(moved, "obs-2", 1.2)
     assert not assessment.terminal
     destination = service.movement_snapshot()["destination"]
     assert (destination["x"], destination["y"]) == (23., 16.)
+    assert service._active_request.request_id == request_id and service._request_started_at == 1.
 
 
 def test_move_to_entity_allows_confirmed_corpse_only_for_loot_callers():

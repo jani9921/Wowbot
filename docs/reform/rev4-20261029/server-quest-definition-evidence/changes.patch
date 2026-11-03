@@ -1,0 +1,1412 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,23 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 native quest definitions and P2 epoch lanes —
++**OFFLINE_TESTED / full baseline and consumer parity PARTIAL**. The reviewed
++whole-record quest query exposes global objective IDs and signed storage fields.
++QuestModel owns scoped, bounded observed definitions; exact ID or unique text
++binds visible objectives without inferred row order. QuestRuntime and the real
++location policy share the read-only objective POI query, selecting exact IDs
++before UI ordinals. A storage query joins exact IDs to fresh own slots without
++asserting objective completion; technical credit IDs are not physical actors.
++Current native objective relations supersede conflicting static credit IDs.
++Fast movement peek and medium ingestion share capture-epoch rejection;
++coalescing/barriers are epoch-scoped, while replayed common records share one
++evidence root. Final selected regression: **3798 passed, 2 skipped,
++10 unchanged deselections, 311 modules, exit 0**, 145.91 s pytest time.
++All 531 source and 620 test Python files parse; all 203 numbered rows below
++are unchanged. No assistant game/capture/input, no new live acceptance.
++Addon 0.9.80 and pinned Ymir are unchanged. Full own CREATE-chain, quest progress
++parity, inventory/container and other documented gates remain open. See
++[definitions and checkpoint](reform/rev4-20261029/P3_SERVER_QUEST_DEFINITIONS.md).
+ 
+ 2026-10-30 REV4 P2/P3 native quest slots and continuity — **OFFLINE_TESTED /
+ complete quest/inventory parity PARTIAL**. Reviewed own PlayerData VALUES masks
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,29 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — native quest definitions and epoch lanes (offline only)
++
++Whole-record 12.1 quest query decoding now supplies observed objective IDs,
++signed storage fields and public quest structure to QuestModel. Exact/unique
++bindings, source times and scope survive normal map changes but do not assert
++active membership, physical NPC identity, credit success or reward. The shared
++quest runtime/location policy resolves a precise native POI without combining
++it with a guessed UI ordinal. Storage counters are queryable by exact ID;
++unknown alignment/flags/conditions do not become quest completion.
++
++Fast peek and medium packet reduction reject foreign epochs; state/entity/map
++coalescing cannot discard the other producer's current sample. Delivery IDs are
++epoch-specific, common semantic record roots still count once as evidence.
++The first wide regression's projection compatibility bug is fixed; synthetic
++single-capture pressure fixtures now actually use one source epoch. No new
++exclusions. Final: **3798 passed, 2 skipped, 10 unchanged deselections**,
++311 modules, 145.91 s pytest / 148.88 s runner, exit 0. All 531 source and
++620 test Python files parse; 203 numbered requirement rows are unchanged.
++
++No assistant game/Ymir/capture/FULL_AI start/restart or client input. No new
++live acceptance. Addon 0.9.80 and pinned Ymir unchanged, user addon-load proof
++still pending. Own full CREATE-chain, native quest progress and inventory
++parity remain open. Details and immutable source checkpoint:
++[P3 server quest definitions](reform/rev4-20261029/P3_SERVER_QUEST_DEFINITIONS.md).
+ 
+ ## 2026-10-30 — native quest slots and stream continuity (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3765 passed, 2 skipped, 10 változatlan deselection, 308 modul, exit 0.
++Végső kijelölt regresszió: 3798 passed, 2 skipped, 10 változatlan deselection, 311 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -16,6 +16,11 @@
+ Saját questlog slotok és a reprodukált folytonossági cache-hiba javítása:
+ [P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A teljes questdefiníció-/objective-
+ és inventory-paritás továbbra sem teljes.
++Natív questdefiníció, exact objective–POI kötés és a gyors/közepes packet-lane
++korszakvédelme: [P3 server quest definitions](P3_SERVER_QUEST_DEFINITIONS.md).
++Rejtett UI-soroknál nincs ordinalból kitalált storage-/POI-kapcsolat; a
++technikai credit ID nem válik fizikai célazonossággá. Az addon még nem karcsúsítható
++teljesen, a saját CREATE-chain/progress/inventory paritás nyitott.
+ Új P7 packet-cast adatút és részletes határai:
+ [P7 casts / addon fix](P7_PACKET_CASTS.md).
+ P3 kiegészítésként a [saját HP-delta és field sample-time](P3_OWN_HEALTH.md) is bekötve;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -17,6 +17,10 @@
+ Elkészült a saját natív questslot-prefix és a stream-GAP utáni cache-öröklés
+ javítása is: [P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A slot nem
+ helyettesíti a questdefiníciót vagy a UI-objective igazolt storage-kapcsolatát.
++Az ezt követő [natív questdefiníció-bekötés](P3_SERVER_QUEST_DEFINITIONS.md)
++elkészült: exact/egyértelmű objective-kötés, storage-lekérdezés és közös
++runtime/helykeresési POI-query. A teljes progress/CREATE/inventory paritás
++továbbra is nyitott. Gyors és közepes packet-lane azonos korszakvédelmet használ.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -59,14 +63,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3765 passed, 2 skipped, 10 deselected; 308 modul; 143.93 s; exit 0** |
++| Végső kijelölt regresszió | **3798 passed, 2 skipped, 10 deselected; 311 modul; 145.91 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 529 source + 617 tests Python-fájl; 616 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 531 source + 620 tests Python-fájl; 619 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **308 kijelölt modul eredménye**, nem a teljes 616 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **311 kijelölt modul eredménye**, nem a teljes 619 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_SERVER_QUEST_DEFINITIONS.md
++++ after/docs/reform/rev4-20261029/P3_SERVER_QUEST_DEFINITIONS.md
+@@ -0,0 +1,127 @@
++# REV4 P3 — szerveres questdefiníció és pontos objective–POI kapcsolat
++
++2026-10-30, Europe/Budapest. A kijelölt `projekt` forrása.
++
++**OFFLINE_TESTED részadatút; a teljes packetes quest-/inventory-paritás továbbra
++is PARTIAL.** Ez a kör a korábbi natív slotolvasót egészíti ki tényleges
++queststruktúrával, és a meglévő QuestModel/WorldQuery/Planner fogyasztókat köti
++hozzá. Nem keletkezett külön quest- vagy inputvezérlő.
++
++## Dekóder és forrás
++
++A pinnelt WowPacketParser 12.1-es QueryHandlerének teljes
++`SMSG_QUERY_QUEST_INFO_RESPONSE` rekordját olvassuk. Az opcode mind a 69214-es,
++mind a 70340-es táblában `0x650016`; a már explicit ellenőrzött buildcsaládok
++érvényesek, tetszőleges új buildhez nincs fallback. A payload saját allowlistje
++`WPP_12_1_QUEST_DEFINITION_REVIEWED_V1`.
++
++- Quest ID, publikus questszöveg, típus/flag/reference mezők, start item és
++  follow-up hivatkozás; objective-enként globális ID, signed StorageIndex,
++  technikai credit ObjectID, típus, mennyiségek, flag/visibility és leírás.
++- A feltételes szövegek jelenlétét jelezzük, de nem választunk aktuális
++  szöveget ismeretlen PlayerCondition alapján. A portrait név/model nem
++  leadó-/felvevő-NPC vagy aktuális GUID bizonyítéka.
++- A teljes rekord vége ellenőrzött. Hibás hossz, érvénytelen szám, duplikált
++  objective-ID, eltérő külső/belső QuestID, ismeretlen tail vagy rossz irány
++  nem eredményez részlegesen megbízható definíciót.
++- A szerver `HasData=false` válasza UNAVAILABLE; nem üres, teljesített vagy
++  törölt quest. Chat/account/auth/session anyag nincs az allowlisten.
++
++## Egyetlen modell és fogyasztói
++
++A definíciót a QuestModel birtokolja, a WorldQuery másolatot ad róla.
++OBSERVED_REFERENCE, nem aktív questtagság, NPC-jelenlét, targetazonosság,
++interakciós jog vagy jutalomátvétel. Eredeti sample/receipt idő, observation ID,
++layout, capture-korszak és rekord-lineage tartozik hozzá; lekérdezés nem
++frissíti az idejét. Legfeljebb 128 definíció, 1800 másodperces referencia-életkor.
++
++A scope a selected PID, process lifetime, session, karakter és build. Világ- vagy
++phase-váltás önmagában nem írja át a quest struktúráját. Ismeretlen identitás,
++loading vagy stream-GAP alatt a használat szünetel. Igazolt új baseline után a
++megmaradt struktúra referencia lehet; ettől a régi progress/POI nem válik ismét
++aktuális adattá. Új karakter/session/build/lifetime nem örökli a másik scope-ot.
++
++A UI-objective kapcsolat exact globális ID-ból vagy **egyértelmű, questen belüli
++szövegegyezésből** jön létre. Rejtett sorok, üres szöveg, duplikált megnevezés
++és explicit eltérő ID esetén nincs kitalált indexkapcsolat. Azonos technikai
++objective-et két látható sorhoz sem kötünk. Új/missing/lejárt definíció törli
++a korábbi kötést; teljes STATE újraépítés után a megfelelő kötés visszaépül.
++
++Konkrét fogyasztói változások:
++
++1. A questhely-tervező és a QuestExecutionRuntime ugyanazt a read-only
++   objective-geometry query portot kapja. Pontos globális ID mellett nem szűrnek
++   még a látható sor feltételezett sorszámával is. Az elsőként látszó, de 9-es
++   natív objective-indexű célnál a valódi policy már a helyes POI-t adja tovább
++   MOVE-jelöltként. A geometry ettől nem lesz objektum-/NPC-azonosság vagy
++   közvetlen inpututasítás; a navigáció és arrival verifier kapui megmaradnak.
++2. `quest_objective_storage(quest_id, objective_id, now)` exact globális ID →
++   StorageIndex → saját friss slotminta összekötést ad. A negatív, túl nagy,
++   többértelmű storage vagy hiányzó/lejárt slot UNKNOWN. A minták saját időt és
++   bizonyítékot tartanak. Nem írjuk a tárolót UI-sorszámként a QuestModelbe,
++   és a szám önmagában nem jelenti az objective vagy a quest sikerét.
++3. A közös skill-azonossági kapu használja az új technikai objective-ID-t.
++   Aktuális natív kapcsolat mellett egy eltérő régi TDB objective-ID nem
++   igazolhatja a szereplőt. A technikai credit ObjectID nem lesz kötelező
++   fizikai NPC-/gameobject-ID. UI/server fizikai kapcsolat és normál target
++   ellenőrzés továbbra is kell.
++
++## Capture-korszak és két vezérlési ritmus
++
++A korábbi közepes ritmusú szűrés mellett a gyors movement peek is ugyanazt a
++capture-korszak ellenőrzést használja. Egy idegen worker eseménye nem módosítja
++a flight feedbacket, és nem szoríthatja ki az aktuális worker mintáját a
++coalescing tárolóból. Map/remove barriereket is csak saját korszakukon belül
++alkalmazunk. A peek nem fogyasztja el a közepes ritmus eseménysorát.
++
++Azonos rekord külön capture-korszakban külön delivery-ID-t kap; a közös
++semantic_record_id megmarad. Így az új worker kézbesítése nem vész el a dedupban,
++de ugyanaz a forrásrekord nem számít két független bizonyítéknak. A régi,
++korszak nélküli események legacy identity-képzése változatlan.
++
++A szerveres questgeometria read-only lekérdezése is elutasítja a folytonossági
++generáció előtti állapotot, még a következő projekciós kör előtt.
++
++## Ellenőrzés és checkpoint
++
++A végső kijelölt regresszió **3798 passed, 2 skipped, 10 változatlan deselection,
++311 modul, exit 0**. Pytest: 145.91 s; teljes runner: 148.88 s. Mind az 531
++forrás- és 620 teszt-Python fájl AST-ellenőrzése sikeres. A két skip hiányzó
++opcionális Garrick-detektor / Exile's Reach raster kép. A teljes teszttár
++619 testmodulja helyett a korábban kijelölt és újonnan bővített 311 futott.
++
++A célzott körök átfednek, nem összeadható független eredmények:
++
++- 142 pass: epoch/delivery/evidence-root, saját resource/profile, entity/codec.
++- 80 pass: új definíció + IPC/QuestModel/helykeresés, natív slotok, POI és gap.
++- 33 pass: friss runtime/identity bekötés és mechanic-contract kör.
++- 47 pass: a széles körben feltárt kompatibilitás/queue-pressure ágak javítása.
++
++Az első széles futásban 3794 pass mellett négy hibát találtunk. Egy tényleges
++projekciós kompatibilitási hiba volt: minimális, QuestModel nélküli modellnél az
++új query-projekció nem volt opcionális. Három queue-teszt fixture-e minden
++képkockával másik worker-korszakot állított elő, bár egyetlen capture-t modellez;
++a fixture a dekódolás előtt közös korszakot kapott. A production epoch-kapu nem
++lett lazítva, új exclusion nincs. A hibás futás eredménye is megmarad.
++
++A végső széles futás pontos parancsa, JUnitja, eredménye, a scoped baseline és
++aktuális forrás-ZIP, byte-hashek, diff, első hibás futás és a primary WPP
++forrásfájlok hash-listája a
++[checkpointban](server-quest-definition-evidence/verification.json) található.
++Ez kijelölt regresszió, nem a teljes teszttár sikerességének állítása.
++
++## Nyitott kapuk
++
++Teljes saját CREATE → UnitData → PlayerData questlog baseline; minden
++objective-típus bit-/conditional-progress és aktuális questállapot paritása;
++inventory/container baseline és fogyasztói migráció. A jelenlegi addonadatokat
++ezek elkészülte előtt nem töröltük. A follow-up/portrait/giver reference mezők
++önmagukban nem tesznek elérhetővé questet vagy aktuálissá szereplőt.
++
++P7 cast interruptibility/hazard/talent és további role-lefedettség, történeti
++import-lineage, további mechanic handlerek és élő költségkalibráció sem vált
++teljessé ettől a körtől. Mind a 203 számozott coverage-sor megmaradt.
++
++Az asszisztens nem indított játékot, Ymir-t, capture-t vagy FULL_AI-t, és nem
++küldött kliensinputot. Az addon 0.9.80 és a pinned Ymir byte-változatlan.
++Felhasználói addon-load és új élő működésigazolás továbbra is nyitott.
+--- before/src/wowbot/agent/engine.py
++++ after/src/wowbot/agent/engine.py
+@@ -366,7 +366,8 @@
+                 return self.status(now)
+             self.goals.sync_world(self.world.quest_model, now)
+             self.quest_runtime.observe(self.goal, self.world.quest_model, self.world.state, now,
+-                                       locator=self.planner.quest.objective_locator)
++                                       locator=self.planner.quest.objective_locator,
++                                       objective_pois=self.world.query.quest_objective_pois)
+             self.planner.refresh_agenda(self.goal, self.world, now,
+                                        advisor=getattr(self, "semantic_advisor", None))
+             if self.goal.status == "COMPLETED":
+--- before/src/wowbot/agent/packet_continuity.py
++++ after/src/wowbot/agent/packet_continuity.py
+@@ -4,6 +4,13 @@
+ survive as current state or a field baseline across a provider gap/restart.
+ """
+ from .models import json_copy
++
++
++def accepts_event(model, event):
++    provider = getattr(model, 'session_context_provider', None)
++    expected = getattr(provider, 'capture_epoch', None)
++    return (expected is None or event.get('semantic_status') != 'CONFIRMED'
++            or event.get('provenance', {}).get('capture_epoch') == expected)
+ 
+ 
+ def current(model):
+--- before/src/wowbot/agent/quest_location_planning.py
++++ after/src/wowbot/agent/quest_location_planning.py
+@@ -691,13 +691,7 @@
+                 return []
+         if obj.type in {"ESCORT", "FOLLOW"}:
+             return self.escort_follow.propose(obj, record, state)
+-        objective_key = str(obj.objective_id)
+-        suffix = objective_key.removeprefix(str(record.quest_id)+':')
+-        objective_index = int(suffix) if suffix.isdigit() and objective_key != suffix else None
+-        raw_objective_id = (getattr(obj, 'raw', None) or {}).get('quest_objective_id')
+-        pois = (world.query.quest_pois(record.quest_id, objective_id=raw_objective_id,
+-                                      objective_index=objective_index)
+-                if objective_index is not None or raw_objective_id is not None else ())
++        pois = world.query.quest_objective_pois(record.quest_id, obj)
+         located = self.objective_locator.locate(obj, record, self.with_player_layer(
+             world, state, navigation_queries=self.navigation_queries), quest_pois=pois)
+         map_where = point(located.coordinates) if located and located.coordinates else None
+--- before/src/wowbot/agent/quest_model.py
++++ after/src/wowbot/agent/quest_model.py
+@@ -520,6 +520,8 @@
+                 record.history.append({"at": at, "observation_id": observation_id,
+                                        "state": "ABSENT", "signature": "ABSENT"})
+         self.apply_reference_knowledge()
++        from .server_quest_definitions import apply_bindings
++        apply_bindings(self, at)
+ 
+     @staticmethod
+     def _objective(qid, index, raw, observation_id):
+--- before/src/wowbot/agent/quest_runtime.py
++++ after/src/wowbot/agent/quest_runtime.py
+@@ -3,7 +3,7 @@
+ 
+ from dataclasses import dataclass
+ 
+-from wowbot.query_ports import TravelCostPort
++from wowbot.query_ports import QuestObjectiveGeometryPort, TravelCostPort
+ from wowbot.runtime import ObjectiveLocationStatus
+ from .objective_locator import ObjectiveLocator
+ from .next_quest_resolver import NextQuestResolver
+@@ -70,7 +70,8 @@
+         self.primary.location_status = None
+ 
+     def observe(self, goal, quest_model, state: dict, now: float,
+-                *, locator: ObjectiveLocator | None = None) -> PrimaryQuestState:
++                *, locator: ObjectiveLocator | None = None,
++                objective_pois: QuestObjectiveGeometryPort | None = None) -> PrimaryQuestState:
+         if getattr(goal, "domain", None) != "QUEST":
+             self.primary = PrimaryQuestState(status="NOT_QUEST_GOAL")
+             return self.primary
+@@ -199,7 +200,8 @@
+                                        reference.get('objectives') or ())
+         self.primary.mechanic_contract = asdict(MechanicResolver().resolve(
+             record.quest_id, objective.objective_id, objective.raw, matches[0] if len(matches) == 1 else None))
+-        resolved = (locator or self.locator).locate(objective, record, state)
++        pois = objective_pois(record.quest_id, objective, now) if objective_pois is not None else ()
++        resolved = (locator or self.locator).locate(objective, record, state, quest_pois=pois)
+         self.primary.objective_id = objective.objective_id
+         self.primary.objective_type = classified.canonical_kind
+         self.primary.location_status = resolved.status.value
+--- before/src/wowbot/agent/quest_target_context.py
++++ after/src/wowbot/agent/quest_target_context.py
+@@ -24,7 +24,10 @@
+             and ui.get('npc_guid') and ui.get('npc_guid') == wanted.get('guid')):
+         return None
+     entity = (state.get('packet_entities') or {}).get(wanted.get('guid')) or {}
+-    technical = {row.get('quest_objective_id'), *(m.get('objective_id') for m in matches)}
++    binding = ((state.get('server_quest_objectives') or {}).get(str(qid)) or {}).get(str(oid)) or {}
++    native_id = binding.get('server_objective_id')
++    technical = ({native_id} if type(native_id) is int and native_id > 0 else
++                 {row.get('quest_objective_id'), *(m.get('objective_id') for m in matches)})
+     server_objective = (entity.get('info') or {}).get('quest_objective_id')
+     if type(server_objective) is int and server_objective > 0 and server_objective in technical:
+         return None
+--- before/src/wowbot/agent/runtime_packet_source.py
++++ after/src/wowbot/agent/runtime_packet_source.py
+@@ -199,7 +199,7 @@
+             "frame_id": "packet:"+event["event_id"], "packet_event": event,
+             "packet_context": self.context, "confidence": event["confidence"],
+             "provenance": {"producer": "RuntimePacketSource", "selected_pid": self.pid,
+-                "independence_group": "packet:"+event["event_id"]},
++                "independence_group": "packet-record:"+(event.get('provenance') or {}).get('semantic_record_id',event['event_id'])},
+         }, event["received_at_monotonic"], "PACKET_TELEMETRY")
+ 
+     def peek_own_movement(self, world, current) -> bool:
+--- before/src/wowbot/agent/server_quest_definitions.py
++++ after/src/wowbot/agent/server_quest_definitions.py
+@@ -0,0 +1,129 @@
++"""Observed quest structure owned by QuestModel, never quest/action state.
++
++World/phase changes do not change a quest's definition. Character/session,
++process lifetime and build changes do; a stream gap temporarily suspends its
++use. Original source times and evidence remain attached to every binding.
++"""
++from dataclasses import asdict
++
++from wowbot.context_contracts import SessionContext
++from .models import json_copy
++from .quest_reference_matching import objective_text_key
++
++MAX_AGE = 1800.
++MAX_DEFINITIONS = 128
++BINDING_KEYS = ('server_objective_id', 'server_storage_index', 'server_credit_object_id',
++                'server_raw_type', 'server_required_amount', 'server_objective_visible',
++                'server_definition_evidence', 'server_definition_sample_time')
++
++
++def scope(context, process_generation=None):
++    parsed = SessionContext.from_mapping(context)
++    return ({**asdict(parsed.identity), 'process_generation': process_generation}
++            if parsed is not None else None)
++
++
++def available(row, selected_scope, now):
++    return (row is not None and selected_scope is not None and row['scope'] == selected_scope
++            and 0 <= now-row['sample_time'] <= MAX_AGE)
++
++
++def select_context(owner, selected_scope, now):
++    previous = owner.__dict__.get('_server_definition_active_scope')
++    stored = owner.__dict__.get('_server_definition_scope')
++    if selected_scope is not None and stored != selected_scope:
++        owner.__dict__['_server_definitions'] = {}
++        owner.__dict__['_server_definition_scope'] = json_copy(selected_scope)
++    owner.__dict__['_server_definition_active_scope'] = json_copy(selected_scope)
++    if (previous != selected_scope
++            or now > owner.__dict__.get('_server_definition_expiry', float('-inf'))):
++        apply_bindings(owner, now)
++
++
++def remember(owner, kind, body, selected_scope, observation, sampled, provenance):
++    select_context(owner, selected_scope, observation.received_at)
++    rows = owner.__dict__.setdefault('_server_definitions', {})
++    key = str(body['quest_id'])
++    previous = rows.get(key)
++    if previous is not None and sampled < previous['sample_time']:
++        return
++    rows[key] = {'status': 'OBSERVED_REFERENCE' if kind == 'QUEST_DEFINITION' else 'UNAVAILABLE',
++                 'definition': json_copy(body.get('definition')), 'scope':json_copy(selected_scope),
++                 'sample_time':sampled, 'received_at':observation.received_at,
++                 'observation_id':observation.observation_id,
++                 'source':'SMSG_QUERY_QUEST_INFO_RESPONSE',
++                 'lineage':{k:provenance[k] for k in ('payload_layout','capture_epoch','semantic_record_id')
++                            if k in provenance}}
++    if len(rows) > MAX_DEFINITIONS:
++        oldest = min(rows, key=lambda q: rows[q]['sample_time'])
++        del rows[oldest]
++    apply_bindings(owner, observation.received_at)
++
++
++def view(owner, quest_id, selected_scope, now):
++    row = owner.__dict__.get('_server_definitions', {}).get(str(quest_id))
++    if not available(row, selected_scope, now):
++        return {'status':'UNKNOWN', 'quest_id':quest_id}
++    return json_copy({'quest_id':quest_id, **row})
++
++
++def _matches(objective, rows):
++    # An explicit global ID is a constraint. Its disagreement cannot be
++    # repaired with a similarly worded, different objective or a UI ordinal.
++    explicit = objective.raw.get('quest_objective_id')
++    if explicit is None and str(objective.objective_id).isdigit():
++        explicit = objective.objective_id
++    if explicit is not None:
++        return [r for r in rows if str(r['objective_id']) == str(explicit)]
++    key = objective_text_key(objective.description)
++    return [r for r in rows if key and objective_text_key(r['description']) == key]
++
++
++def apply_bindings(owner, now):
++    selected = owner.__dict__.get('_server_definition_active_scope')
++    definitions = owner.__dict__.get('_server_definitions', {})
++    expiries = [r['sample_time']+MAX_AGE for r in definitions.values() if available(r, selected, now)]
++    owner.__dict__['_server_definition_expiry'] = min(expiries, default=float('inf'))
++    for qid, record in owner.records.items():
++        definition = definitions.get(str(qid))
++        eligible = (available(definition, selected, now)
++                    and definition['status'] == 'OBSERVED_REFERENCE')
++        candidates = definition['definition']['objectives'] if eligible else ()
++        matches = [_matches(o, candidates) for o in record.objectives]
++        unique = [m[0]['objective_id'] for m in matches if len(m) == 1]
++        for objective, matched in zip(record.objectives, matches):
++            for key in BINDING_KEYS:
++                objective.raw.pop(key, None)
++            if len(matched) != 1 or unique.count(matched[0]['objective_id']) != 1:
++                continue
++            source = matched[0]
++            objective.raw.update(server_objective_id=source['objective_id'],
++                server_storage_index=source['storage_index'], server_credit_object_id=source['object_id'],
++                server_raw_type=source['raw_type'], server_required_amount=source['amount'],
++                server_objective_visible=source['visible'],
++                server_definition_evidence=definition['observation_id'],
++                server_definition_sample_time=definition['sample_time'])
++
++
++def project(model, state, now, current_context):
++    state.pop('server_quest_objectives', None)
++    owner = getattr(model, 'quest_model', None)
++    if owner is None or not owner.__dict__.get('_server_definition_scope'):
++        return
++    stored = owner.__dict__.get('_server_definition_scope')
++    provider = getattr(model, 'session_context_provider', None)
++    generation = provider.process.generation if provider is not None else None
++    context = current_context(stored['selected_pid']) if stored else None
++    if state.get('loading') or state.get('player_present') is False:
++        context = None
++    select_context(owner, scope(context, generation), now)
++    if owner.__dict__.get('_server_definition_active_scope') is None:
++        return
++    # A compact, derived identity-role view for the existing shared skill
++    # boundary. No second definition/quest-progress owner is introduced.
++    bindings = {str(qid):{o.objective_id:{k:o.raw[k] for k in BINDING_KEYS if k in o.raw}
++                         for o in record.objectives if 'server_objective_id' in o.raw}
++                for qid, record in owner.records.items() if record.current_state == 'ACTIVE'}
++    bindings = {qid:rows for qid,rows in bindings.items() if rows}
++    if bindings:
++        state['server_quest_objectives'] = bindings
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -467,6 +467,10 @@
+             or sampled is None or not math.isfinite(sampled) or not 0 <= obs.received_at-sampled <= 2.
+             or not context_matches(context, expected)):
+         return None
++    from .packet_continuity import accepts_event, refresh
++    if not accepts_event(model, safe):
++        return None
++    refresh(model, model.state)
+     return safe, expected, sampled
+ 
+ 
+@@ -519,10 +523,8 @@
+                 return False
+         except (ValueError, TypeError, OverflowError):
+             return False
+-        provider = getattr(model, 'session_context_provider', None)
+-        if (provider is not None and provider.capture_epoch is not None
+-                and safe['semantic_status'] == 'CONFIRMED'
+-                and safe['provenance'].get('capture_epoch') != provider.capture_epoch):
++        from .packet_continuity import accepts_event
++        if not accepts_event(model, safe):
+             return False
+         from .packet_continuity import refresh as refresh_continuity
+         refresh_continuity(model, model.state)
+@@ -540,6 +542,13 @@
+         model.__dict__["_packet_status"] = {"last_event": kind, "last_sampled_at": sampled,
+             "last_received_at": obs.received_at, "semantic_verified": verified, "source": "PACKET_TELEMETRY"}
+         if verified:
++            from wowbot.packetio.quest_definition import EVENTS as DEFINITION_EVENTS
++            if kind in DEFINITION_EVENTS:
++                from .server_quest_definitions import remember as remember_definition, scope as definition_scope
++                provider = model.session_context_provider
++                generation = provider.process.generation if provider is not None else None
++                remember_definition(model.quest_model, kind, body, definition_scope(expected, generation),
++                                    obs, sampled, safe['provenance'])
+             if (kind == 'OWN_QUEST_LOG_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
+                     and same_world_map(body['world_map_id'], expected['instance_id'])):
+                 from .packet_quest_log import remember as remember_quest_log
+@@ -783,6 +792,8 @@
+         project_power(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_quest_log import project as project_quest_log
+         project_quest_log(model, state, reference, lambda pid: _context(model, state, pid))
++        from .server_quest_definitions import project as project_definitions
++        project_definitions(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_combat import project as project_combat
+         project_combat(model, state, reference, lambda pid: _context(model, state, pid))
+         _project_server_map(model, state)
+--- before/src/wowbot/agent/world_query.py
++++ after/src/wowbot/agent/world_query.py
+@@ -78,6 +78,9 @@
+         A query does not turn polygons into targets or fill unknown heights.
+         """
+         from .world_packet_reducer import QUEST_POI_MAX_AGE, _context, _entity_scope
++        from .packet_continuity import current
++        if not current(self.model):
++            return ()
+         if now is None:
+             now = max(self.model.last_received,
+                       (self.model.__dict__.get('_packet_status') or {}).get('last_received_at', 0.))
+@@ -94,6 +97,23 @@
+                      if (objective_id is None or str(blob.get('objective_id')) == str(objective_id))
+                      and (objective_index is None or blob.get('objective_index') == objective_index))
+ 
++    def quest_objective_pois(self, quest_id, objective, now: float | None = None) -> tuple[dict, ...]:
++        """Exact native objective identity precedes the legacy UI-row hint."""
++        raw = getattr(objective, 'raw', None) or {}
++        native = raw.get('server_objective_id')
++        if native is not None:
++            definition = self.quest_definition(quest_id, now)
++            if (definition['status'] != 'OBSERVED_REFERENCE'
++                    or definition['observation_id'] != raw.get('server_definition_evidence')):
++                return ()
++        key = str(objective.objective_id)
++        exact = native or raw.get('quest_objective_id') or (key if key.isdigit() else None)
++        if exact is not None:
++            return self.quest_pois(quest_id, now, objective_id=exact)
++        suffix = key.removeprefix(str(quest_id)+':')
++        return (self.quest_pois(quest_id, now, objective_index=int(suffix))
++                if key != suffix and suffix.isdigit() else ())
++
+     def reference_entity(self, npc_id: int) -> dict | None:
+         """Contextual memory/reference hint, never a current target identity."""
+         knowledge = self.model.state.get("reference_knowledge") or {}
+@@ -114,6 +134,52 @@
+         state = ('PRESENT' if present else 'ABSENT' if result['membership'] == 'COMPLETE' else 'UNKNOWN')
+         return {'state':state, 'source':'PACKET_QUEST_LOG', 'membership':result['membership'],
+                 'baseline_observed_at':result['baseline_observed_at']}
++
++    def quest_definition(self, quest_id, now: float | None = None) -> dict:
++        """Observed, scoped quest structure; not an active/reward/actor fact."""
++        from .server_quest_definitions import scope, view
++        from .world_packet_reducer import _context
++        owner = self.model.quest_model
++        stored = owner.__dict__.get('_server_definition_scope')
++        context = _context(self.model, self.model.state, stored['selected_pid']) if stored else None
++        if self.model.state.get('loading') or self.model.state.get('player_present') is False:
++            context = None
++        provider = self.model.session_context_provider
++        generation = provider.process.generation if provider is not None else None
++        if now is None:
++            now = max(self.model.last_received,
++                      (self.model.__dict__.get('_packet_status') or {}).get('last_received_at', 0.))
++        return view(owner, quest_id, scope(context, generation), now)
++
++    def quest_objective_storage(self, quest_id, objective_id, now: float) -> dict:
++        """Join an exact global objective ID to its reviewed storage field.
++
++        A numeric storage sample does not assert objective/quest completion;
++        bit objectives, conditional amounts and unsupported storage remain
++        explicit unknowns rather than guessed UI-row counts.
++        """
++        unknown = {'status':'UNKNOWN', 'quest_id':quest_id, 'objective_id':objective_id}
++        definition = self.quest_definition(quest_id, now)
++        if definition['status'] != 'OBSERVED_REFERENCE':
++            return unknown
++        rows = definition['definition']['objectives']
++        matches = [r for r in rows if str(r['objective_id']) == str(objective_id)]
++        if len(matches) != 1:
++            return unknown
++        row = matches[0]
++        storage = row['storage_index']
++        if not 0 <= storage < 24 or sum(r['storage_index'] == storage for r in rows) != 1:
++            return unknown
++        slots = self.quest_log_slots(now, quest_id=quest_id)['slots']
++        if len(slots) != 1 or str(storage) not in slots[0]['progress']:
++            return unknown
++        fact = slots[0]['progress'][str(storage)]
++        return {**unknown, 'status':'OBSERVED_STORAGE', 'storage_index':storage,
++                'value':fact['value'], 'sample_time':fact['observed_at'],
++                'observation_id':fact['observation_id'], 'complete':None,
++                'definition_evidence':definition['observation_id'],
++                'definition_sample_time':definition['sample_time'],
++                'required_amount':row['amount'], 'raw_type':row['raw_type']}
+ 
+     def reference_quest(self, quest_id: int) -> dict | None:
+         """Imported quest details; live progress remains in QuestModel."""
+--- before/src/wowbot/packetio/inbox.py
++++ after/src/wowbot/packetio/inbox.py
+@@ -110,7 +110,7 @@
+                       and event['payload'].get('sample_kind') != 'CREATE'):
+                     fields = tuple(sorted(set(event['payload'])-{'mover_guid', 'world_map_id', 'sample_kind'}))
+                     key = (event['flow_id'], event['event_type'], event['payload'].get('mover_guid'),
+-                           event['payload'].get('power_type'), fields)
++                           event['payload'].get('power_type'), fields, event['provenance'].get('capture_epoch'))
+                     previous = self._states.get(key)
+                     if previous and previous['timestamp'] > event['timestamp']:
+                         raise ValueError('out_of_order_state')
+@@ -123,7 +123,8 @@
+                 elif movement:
+                     # Only the newest position per mover/server entity matters;
+                     # nearby walking mobs must not flood the discrete queue.
+-                    key = (event["flow_id"], event["payload"].get("mover_guid"), event["direction"])
++                    key = (event["flow_id"], event["payload"].get("mover_guid"), event["direction"],
++                           event['provenance'].get('capture_epoch'))
+                     previous = self._movement.get(key)
+                     if previous is not None:
+                         if previous["timestamp"] > event["timestamp"]:
+@@ -135,9 +136,10 @@
+                     self._movement[key] = event
+                 else:
+                     if event["event_type"] == "MAP_CHANGED" or event["payload"].get("teleport"):
+-                        self._movement.clear()
+-                        self._states.clear()
+-                        self._entities.clear()
++                        epoch = event['provenance'].get('capture_epoch')
++                        for mailbox in (self._movement, self._states, self._entities):
++                            obsolete = [k for k,e in mailbox.items() if e['provenance'].get('capture_epoch') == epoch]
++                            for key in obsolete: mailbox.pop(key)
+                     if len(self.queue) == self.queue.maxlen:
+                         self.dropped += 1
+                     self.queue.append(event)
+@@ -158,16 +160,17 @@
+         Caller owns _lock and has authenticated/validated the event already.
+         """
+         guid, kind = event["payload"].get("entity_guid"), event["event_type"]
+-        key = (guid, kind)
++        epoch = event['provenance'].get('capture_epoch')
++        key = (guid, kind, epoch)
+         previous = self._entities.get(key)
+         if previous is not None and previous["timestamp"] > event["timestamp"]:
+             raise ValueError("out_of_order_entity_state")
+         if kind in {"ENTITY_CREATED", "ENTITY_REMOVED"}:
+-            obsolete = [slot for slot in self._entities if slot[0] == guid]
++            obsolete = [slot for slot in self._entities if slot[0] == guid and slot[2] == epoch]
+             for slot in obsolete:
+                 self._entities.pop(slot)
+                 self.coalesced += 1
+-        elif (guid, "ENTITY_REMOVED") in self._entities:
++        elif (guid, "ENTITY_REMOVED", epoch) in self._entities:
+             self.coalesced += 1
+             return  # late position/flags cannot resurrect a removed entity
+         previous = self._entities.pop(key, None)
+--- before/src/wowbot/packetio/models.py
++++ after/src/wowbot/packetio/models.py
+@@ -106,8 +106,14 @@
+             ensure_ascii=False,
+             separators=(",", ":"),
+         )
++        encoded = identity.encode('utf-8')
++        epoch = (provenance or {}).get('capture_epoch')
++        root = hashlib.sha256(encoded).hexdigest()[:24]
++        if isinstance(epoch, str) and epoch:
++            provenance = {**provenance, 'semantic_record_id':root}
++            encoded += b'|capture_epoch:'+epoch.encode('utf-8')
+         return cls(
+-            event_id=hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24],
++            event_id=hashlib.sha256(encoded).hexdigest()[:24],
+             schema="aipc.packet-event.v1",
+             timestamp=float(timestamp),
+             received_at=time.time(),
+--- before/src/wowbot/packetio/opcodes_12_1.py
++++ after/src/wowbot/packetio/opcodes_12_1.py
+@@ -8,6 +8,7 @@
+     # Identical in both pinned 12.x tables. Payloads reviewed separately.
+     "CMSG_PLAYER_LOGIN": 0x430016,
+     "SMSG_LOGIN_VERIFY_WORLD": 0x45002F,
++    'SMSG_QUERY_QUEST_INFO_RESPONSE': 0x650016,
+     "SMSG_SPELL_START": 0x67002D,
+     "SMSG_SPELL_GO": 0x67002C,
+     "SMSG_SPELL_FAILURE": 0x670046,
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -308,6 +308,12 @@
+                 decoded = (decode_power(_Cursor(record.payload), self._verified_player_guids.get(record.connection_index))
+                            if record.direction == FlowDirection.SERVER_TO_CLIENT.value else [])
+                 return [self._semantic_event(record, name, family, kind, body) for kind, body in decoded]
++            if name == 'SMSG_QUERY_QUEST_INFO_RESPONSE':
++                from .quest_definition import decode_definition
++                if record.direction != FlowDirection.SERVER_TO_CLIENT.value:
++                    return []
++                kind, body = decode_definition(record.payload)
++                return [self._semantic_event(record, name, family, kind, body)]
+             from .spell_cast import SPELL_OPCODES, decode_spell
+             if name in SPELL_OPCODES:
+                 decoded = (decode_spell(name, _Cursor(record.payload))
+@@ -387,7 +393,8 @@
+                 "opcode_table_sha256": family.sha256,
+                 "opcode_source_revision": WPP_REVISION,
+                 'capture_epoch': self.capture_epoch,
+-                "payload_layout": ("WPP_12_1_QUEST_LOG_REVIEWED_V1" if event_type == 'OWN_QUEST_LOG_UPDATE' else
++                "payload_layout": ("WPP_12_1_QUEST_DEFINITION_REVIEWED_V1" if event_type in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'} else
++                                   "WPP_12_1_QUEST_LOG_REVIEWED_V1" if event_type == 'OWN_QUEST_LOG_UPDATE' else
+                                    "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+                                    "WPP_12_1_POWER_REVIEWED_V1" if event_type == 'OWN_POWER_UPDATE' else
+                                    "WPP_12_1_OWN_UNIT_REVIEWED_V2" if event_type == 'OWN_UNIT_UPDATE' else
+--- before/src/wowbot/packetio/quest_definition.py
++++ after/src/wowbot/packetio/quest_definition.py
+@@ -0,0 +1,139 @@
++"""Allowlisted quest definitions from the pinned 12.1 QueryHandler layout.
++
++Definitions do not assert active membership, objective progress, an actor's
++current GUID/location, or a reward receipt. No chat/account payload is read.
++"""
++import math
++
++from .update_object import _Bits
++
++LAYOUT = 'WPP_12_1_QUEST_DEFINITION_REVIEWED_V1'
++EVENTS = frozenset({'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'})
++TEXT_LIMITS = {'title':511, 'log_description':4095, 'description':4095, 'area_description':511,
++               'completion_log':2047, 'giver_portrait_name':255, 'turn_in_portrait_name':255}
++
++
++def _count(value, limit=256):
++    if not 0 <= value <= limit:
++        raise ValueError('quest definition count exceeds reviewed bound')
++    return value
++
++
++def _text(cursor, count):
++    # WPP ReadWoWString removes NUL bytes, then decodes UTF-8. Invalid UTF-8
++    # fails closed here rather than inserting replacement characters.
++    return cursor.take(count).replace(b'\0',b'').decode('utf-8')
++
++
++def decode_definition(data):
++    c = _Bits(data)
++    requested = c.i32()
++    if not 0 < requested < 2**31:
++        raise ValueError('invalid requested quest ID')
++    if not c.bit():
++        if c.offset != len(data): raise ValueError('unreviewed missing-definition tail')
++        return 'QUEST_DEFINITION_UNAVAILABLE', {'quest_id':requested}
++    quest_id = c.i32()
++    if quest_id != requested:
++        raise ValueError('quest response identity mismatch')
++    result = {'quest_id':quest_id}
++    for field in ('quest_type','quest_package_id','content_tuning_id','quest_sort_id','quest_info_id',
++                  'suggested_group_size','reward_next_quest_id'):
++        result[field] = c.i32()
++    c.take(4*6)  # XP difficulty/multiplier; money/difficulty/multiplier; bonus money
++    display_spells = _count(c.u32(),64)
++    c.take(4*7)  # reward spell/honor/kill-honor/favor/artifact XP difficulty/multiplier/category
++    result['start_item_id'] = c.i32()
++    for field in ('flags','flags_ex','flags_ex2','flags_ex3'): result[field] = c.u32()
++    c.take(4*4*4+6*3*4)   # item rewards/drops and choice-item display records
++    c.take(4*4+4*4+4*4)   # POI display, title/skill rewards and portrait model IDs
++    c.take(5*4*4+4+4*2*4) # faction and currency rewards
++    c.take(4*3)           # sounds, area group
++    result['time_allowed'] = c.i64()
++    objectives = _count(c.u32(),64)
++    result['allowable_races'] = c.u64()
++    treasure, hidden_treasure = _count(c.u32()), _count(c.u32())
++    result['expansion'] = c.i32()
++    c.take(4*2)           # managed world state, quest-session bonus
++    result['giver_creature_id'] = c.i32()
++    conditional_description, conditional_completion = _count(c.u32(),16), _count(c.u32(),16)
++    house_rooms, house_decor = _count(c.u32()), _count(c.u32())
++    c.take(display_spells*12)  # spell/player-condition/display type, Retail >=10.1
++    result['objectives'] = []
++    for order in range(objectives):
++        row = {'objective_id':c.i32(), 'raw_type':c.u32(), 'storage_index':c.i8(), 'order':order,
++               'object_id':c.i32(), 'amount':c.i32(), 'conditional_amount':c.i32(),
++               'flags':c.u32(), 'flags2':c.u32(), 'progress_bar_weight':c.f32()}
++        effects = _count(c.i32(),64)
++        row['parent_objective_id'] = c.i32()
++        c.take(effects*4)
++        c.reset()
++        size = c.bits(8)
++        row['visible'] = c.bit()
++        row['description'] = _text(c,size)
++        result['objectives'].append(row)
++    c.take(4*(treasure+hidden_treasure))
++    # Conditional text is not the current text without its player-condition
++    # result. Consume it by exact reviewed sizes; retain its existence only.
++    result['has_conditional_texts'] = bool(conditional_description+conditional_completion)
++    for _ in range(conditional_description+conditional_completion):
++        c.take(8)        # PlayerConditionID, QuestGiverCreatureID
++        c.reset()
++        c.take(c.bits(12))
++    c.take(4*(house_rooms+house_decor))
++    c.reset()
++    lengths = [c.bits(n) for n in (9,12,12,9,10,8,10,8,11)]
++    c.bit(), c.bit()    # translation and scheduler flags, not current completion
++    fields = ('title','log_description','description','area_description',None,
++              'giver_portrait_name',None,'turn_in_portrait_name','completion_log')
++    for field,size in zip(fields,lengths):
++        if field is None: c.take(size)
++        else: result[field] = _text(c,size)
++    if c.offset != len(data):
++        raise ValueError('unreviewed quest definition tail')
++    return 'QUEST_DEFINITION', {'quest_id':quest_id,'definition':normalize_definition(result)}
++
++
++def normalize_definition(value):
++    if not isinstance(value,dict): raise ValueError('quest definition object required')
++    result = {}
++    integer_limits = {'quest_id':(1,2**31), 'quest_type':(-2**31,2**31), 'quest_package_id':(-2**31,2**31),
++        'content_tuning_id':(-2**31,2**31), 'quest_sort_id':(-2**31,2**31), 'quest_info_id':(-2**31,2**31),
++        'suggested_group_size':(-1,256), 'reward_next_quest_id':(-2**31,2**31), 'start_item_id':(-2**31,2**31),
++        'flags':(0,2**32), 'flags_ex':(0,2**32), 'flags_ex2':(0,2**32), 'flags_ex3':(0,2**32),
++        'time_allowed':(-2**63,2**63), 'allowable_races':(0,2**64), 'expansion':(-1,256),
++        'giver_creature_id':(-2**31,2**31)}
++    for field,(low,high) in integer_limits.items():
++        number = value.get(field)
++        if type(number) is not int or not low <= number < high: raise ValueError('invalid quest definition number')
++        result[field] = number
++    def text(raw,limit):
++        if (not isinstance(raw,str) or len(raw.encode('utf-8')) > limit
++                or any(ord(char)<32 and char not in '\n\r\t' for char in raw)):
++            raise ValueError('invalid bounded quest text')
++        return raw
++    for field,limit in TEXT_LIMITS.items(): result[field] = text(value.get(field),limit)
++    if type(value.get('has_conditional_texts')) is not bool: raise ValueError('conditional-text flag required')
++    result['has_conditional_texts'] = value['has_conditional_texts']
++    rows = value.get('objectives')
++    if not isinstance(rows,list) or len(rows)>64: raise ValueError('invalid objective count')
++    result['objectives'], seen = [], set()
++    for order,row in enumerate(rows):
++        if not isinstance(row,dict): raise ValueError('objective object required')
++        limits = {'objective_id':(1,2**31),'raw_type':(0,2**32),'storage_index':(-128,128),
++                  'object_id':(-2**31,2**31),'amount':(-2**31,2**31),'conditional_amount':(-2**31,2**31),
++                  'flags':(0,2**32),'flags2':(0,2**32),'parent_objective_id':(-2**31,2**31)}
++        clean = {'order':order}
++        for field,(low,high) in limits.items():
++            number = row.get(field)
++            if type(number) is not int or not low <= number < high: raise ValueError('invalid objective number')
++            clean[field] = number
++        if clean['objective_id'] in seen or row.get('order') != order: raise ValueError('ambiguous objective identity/order')
++        seen.add(clean['objective_id'])
++        weight = row.get('progress_bar_weight')
++        if type(weight) not in {int,float} or not math.isfinite(weight) or abs(weight)>1e6:
++            raise ValueError('invalid objective weight')
++        if type(row.get('visible')) is not bool: raise ValueError('objective visibility required')
++        clean.update(progress_bar_weight=weight,visible=row['visible'],description=text(row.get('description'),255))
++        result['objectives'].append(clean)
++    return result
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -12,6 +12,8 @@
+     'OWN_PROFILE_UPDATE': {'mover_guid', 'world_map_id', 'sample_kind', 'race_id', 'class_id',
+                            'player_class_id', 'power_type', 'level'},
+     'OWN_QUEST_LOG_UPDATE': {'mover_guid', 'world_map_id', 'slots'},
++    'QUEST_DEFINITION': {'quest_id','definition'},
++    'QUEST_DEFINITION_UNAVAILABLE': {'quest_id'},
+     "QUEST_POI_UPDATE": {"quest_id", "blobs", "capture_timestamp"},
+     "NETWORK_STREAM_CHUNK": {"sequence_start", "byte_count", "sha256"},
+     "PACKET_OPCODE_OBSERVED": {"opcode_name", "byte_count", "sha256", "connection_index", "record_number"},
+@@ -58,13 +60,14 @@
+ SCENE_EVENTS = frozenset({"SCENE_STARTED", "SCENE_ENDED", "SCENE_EVENT"})
+ CAPTURE_70575_EVENTS = SCENE_EVENTS | {"MOVEMENT_ROOT", "GOSSIP_SELECTED", "QUEST_POI_UPDATE"}
+ _LAYOUT_EVENTS = {
+-    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}),
++    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
+     'WPP_12_1_POWER_REVIEWED_V1': frozenset({'OWN_POWER_UPDATE'}),
+     'WPP_12_1_OWN_PROFILE_REVIEWED_V1': frozenset({'OWN_PROFILE_UPDATE'}),
+     'WPP_12_1_QUEST_LOG_REVIEWED_V1': frozenset({'OWN_QUEST_LOG_UPDATE'}),
++    'WPP_12_1_QUEST_DEFINITION_REVIEWED_V1': frozenset({'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}),
+     SPELL_LAYOUT: CAST_EVENTS,
+     "RETAIL_70448_CAPTURE_VERIFIED_V1": ENTITY_EVENTS,
+     "RETAIL_70575_CAPTURE_VERIFIED_V1": CAPTURE_70575_EVENTS,
+@@ -72,7 +75,7 @@
+ DIAGNOSTIC_EVENTS = frozenset({"NETWORK_STREAM_CHUNK", "PACKET_OPCODE_OBSERVED"})
+ _PROVENANCE = frozenset({"producer", "container", "game_build", "locale", "semantic_ground_truth",
+     "opcode_name", "opcode_defining_build", "opcode_table_sha256", "opcode_source_revision",
+-    "payload_layout", "payload_scope", "file_offset", "transport", "opcode_name_verified_for_exact_build", 'capture_epoch'})
++    "payload_layout", "payload_scope", "file_offset", "transport", "opcode_name_verified_for_exact_build", 'capture_epoch', 'semantic_record_id'})
+ 
+ 
+ def _safe_scalar(value):
+@@ -107,6 +110,16 @@
+     if not isinstance(body, dict) or not isinstance(provenance, dict):
+         raise ValueError("invalid packet body/provenance")
+     safe_body = {k: v for k, v in body.items() if k in _FIELDS[kind] and _safe_scalar(v)}
++    if kind in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}:
++        if type(body.get('quest_id')) is not int or not 0 < body['quest_id'] < 2**31:
++            raise ValueError('quest definition response requires a quest ID')
++        if event.get('direction') != 'SERVER_TO_CLIENT':
++            raise ValueError('quest definitions require a server response')
++        if kind == 'QUEST_DEFINITION':
++            from .quest_definition import normalize_definition
++            safe_body['definition'] = normalize_definition(body.get('definition'))
++            if safe_body.get('quest_id') != safe_body['definition']['quest_id']:
++                raise ValueError('quest definition identity mismatch')
+     if kind == 'OWN_QUEST_LOG_UPDATE':
+         from .player_quest_log import normalize_slots
+         safe_body['slots'] = normalize_slots(body.get('slots'))
+@@ -127,6 +140,7 @@
+         "caster_guid": r"[A-Fa-f0-9]{32}", "cast_id": r"[A-Fa-f0-9]{32}",
+         "character_guid": r"Player-\d{1,5}-[A-Fa-f0-9]{1,16}", "capture_epoch": r"[a-f0-9]{32}",
+         "process_generation": r"[a-f0-9]{16}",
++        'semantic_record_id': r'[a-f0-9]{24}',
+         "target_guid": r"[A-Fa-f0-9]{32}", "summoned_by": r"[A-Fa-f0-9]{32}", "created_by": r"[A-Fa-f0-9]{32}",
+         "victim_guid": r"[A-Fa-f0-9]{32}", "entity_guid": r"[A-Fa-f0-9]{32}", "sha256": r"[a-f0-9]{64}",
+         "opcode_name": r"(?:CMSG|SMSG|MSG)_[A-Z0-9_]{1,120}",
+--- before/src/wowbot/query_ports.py
++++ after/src/wowbot/query_ports.py
+@@ -9,6 +9,13 @@
+ from collections.abc import Hashable
+ from dataclasses import dataclass
+ from typing import Any, Protocol
++
++
++class QuestObjectiveGeometryPort(Protocol):
++    """Scoped, owned geometry for one normalized objective; never an action."""
++
++    def __call__(self, quest_id: int | str, objective: Any,
++                 now: float | None = None) -> tuple[dict[str, Any], ...]: ...
+ 
+ 
+ class TravelCostPort(Protocol):
+--- before/tests/test_own_health_packets_20261030.py
++++ after/tests/test_own_health_packets_20261030.py
+@@ -25,6 +25,7 @@
+ 
+ def own_event(**changes):
+     decoder, verify = session_events(build=70575)
++    decoder.capture_epoch = 'e'*32  # coherent stream across own-state fixture calls
+     decoder.decode_all(verify)
+     decoder.entity_fragments[RAW_ME] = (3,)
+     record = PktRecord(2, 'SERVER_TO_CLIENT', verify.connection_index, 3, 1000.,
+--- before/tests/test_own_power_20261030.py
++++ after/tests/test_own_power_20261030.py
+@@ -20,6 +20,7 @@
+ 
+ def power_events(values=((1, 750),), *, build=70575, low=0x1234, verified=True, tail=b''):
+     decoder, world = session_events(build=build)
++    decoder.capture_epoch = 'e'*32  # one synthetic producer, not a restart per sample
+     if verified: decoder.decode_all(world)
+     body = packed_guid(low=low)+struct.pack('<i', len(values))
+     body += b''.join(struct.pack('<Bi', kind, raw) for kind, raw in values)+tail
+--- before/tests/test_packet_backlog_recovery_20261021.py
++++ after/tests/test_packet_backlog_recovery_20261021.py
+@@ -53,7 +53,11 @@
+ 
+ 
+ def creates():
+-    return update_events(decoder(), "SMSG_UPDATE_OBJECT", UPDATES["create_door_vehicle_creatures"])
++    source = decoder()
++    # These calls model frames of one capture, not a fresh worker per frame.
++    # Set it before decode so event IDs and their common evidence root agree.
++    source.capture_epoch = 'd'*32
++    return update_events(source, "SMSG_UPDATE_OBJECT", UPDATES["create_door_vehicle_creatures"])
+ 
+ 
+ def heartbeat(at):
+--- before/tests/test_packet_codecs.py
++++ after/tests/test_packet_codecs.py
+@@ -35,7 +35,9 @@
+ def decoded(name="CMSG_MOVE_HEARTBEAT", body=None, *, build=69587, timestamp=1000.):
+     parser = PktV31StreamParser()
+     record = parser.feed(pkt_bytes(name, body, build=build, timestamp=timestamp))[0]
+-    return PktEventDecoder(selected_pid=77, header=parser.header, manifest=OpcodeManifest.reviewed(build)).decode_all(record)
++    decoder = PktEventDecoder(selected_pid=77, header=parser.header, manifest=OpcodeManifest.reviewed(build))
++    decoder.capture_epoch = 'd'*32  # calls model frames of one synthetic worker
++    return decoder.decode_all(record)
+ 
+ 
+ @pytest.mark.parametrize("build", sorted(VERIFIED_OPCODE_BUILDS))
+--- before/tests/test_packet_entities.py
++++ after/tests/test_packet_entities.py
+@@ -57,6 +57,7 @@
+     parser, record = records(name, body, build=build, timestamp=timestamp)
+     decoder = PktEventDecoder(selected_pid=77, header=parser.header,
+                               manifest=OpcodeManifest.reviewed(build))
++    decoder.capture_epoch = 'd'*32  # frames share the synthetic worker with packet_codecs
+     return [e for e in decoder.decode_all(record) if e.semantic_status == "CONFIRMED"]
+ 
+ 
+--- before/tests/test_packet_epoch_lanes_20261030.py
++++ after/tests/test_packet_epoch_lanes_20261030.py
+@@ -0,0 +1,98 @@
++"""Producer epochs scope delivery/coalescing; common records share evidence."""
++import json
++import struct
++
++from wowbot.agent.models import Observation
++from wowbot.evidence_contracts import independent_evidence
++from wowbot.packetio.ipc import canonical, envelope
++from wowbot.packetio.pkt import OpcodeManifest, PktEventDecoder, PktV31StreamParser
++from test_packet_agent_bridge import addon, bridge
++from test_packet_codecs import pkt_bytes
++from test_packet_continuity_20261030 import connected
++from test_packet_entities import records, OMM_STOP
++
++
++def event(epoch, *, name='CMSG_MOVE_HEARTBEAT', body=None, build=69587, timestamp=1000.):
++    parser=PktV31StreamParser()
++    record=parser.feed(pkt_bytes(name,body,build=build,timestamp=timestamp))[0]
++    decoder=PktEventDecoder(selected_pid=77,header=parser.header,manifest=OpcodeManifest.reviewed(build))
++    decoder.capture_epoch=epoch
++    return decoder.decode_all(record)[-1]
++
++
++def queue(bridge, value):
++    descriptor=json.loads(bridge.path.read_text())
++    assert bridge.inbox.ingest_datagram(canonical(envelope(value.to_dict(),descriptor)))
++
++
++def test_same_record_has_separate_delivery_ids_but_one_semantic_evidence_root():
++    first,second=event('a'*32),event('b'*32)
++    assert first.event_id != second.event_id
++    assert first.provenance['semantic_record_id'] == second.provenance['semantic_record_id']
++    assert event('a'*32).event_id == first.event_id
++
++
++def test_epoch_coalescing_does_not_drop_another_workers_latest_sample(bridge):
++    for epoch in ('a'*32,'b'*32):
++        queue(bridge,event(epoch,timestamp=999.8))
++        queue(bridge,event(epoch,timestamp=999.9))
++    assert len(bridge.inbox.peek_movement()) == 2
++    rows=bridge.inbox.poll()
++    assert len(rows)==2
++    assert {r['provenance']['capture_epoch'] for r in rows} == {'a'*32,'b'*32}
++    assert all(r['timestamp']==999.9 for r in rows)
++
++
++def test_same_frame_from_two_workers_is_not_independent_support(bridge):
++    queue(bridge,event('a'*32))
++    queue(bridge,event('b'*32))
++    observations=bridge.adapter.observations(None,bridge.world,10.)
++    assert len(observations)==2
++    for value in observations: assert bridge.world.ingest(value)
++    facts=[e for e in bridge.world.evidence['player_world_position'] if e.source=='PACKET_TELEMETRY']
++    assert len(facts)==1 and len(independent_evidence(facts))==1
++    assert len([o for o in bridge.world.history if o.source=='PACKET_TELEMETRY'])==2
++
++
++def test_fast_lane_rejects_foreign_epoch_and_still_sees_current_worker(bridge):
++    provider,decoder,_,_=connected(bridge)
++    queue(bridge,event('b'*32,build=70575))
++    assert not bridge.adapter.peek_own_movement(bridge.world,10.)
++    assert '_packet_last_own' not in bridge.world.__dict__
++    bridge.inbox._clock=lambda:10.05
++    bridge.inbox._wall_clock=lambda:1000.05
++    record=PktV31StreamParser().feed(pkt_bytes(build=70575,timestamp=1000.05))[0]
++    current=decoder.decode_all(record)[-1]
++    queue(bridge,current)
++    assert bridge.adapter.peek_own_movement(bridge.world,10.05)
++    assert bridge.world.__dict__['_packet_last_own']['sampled_at']==10.05
++    assert len(bridge.inbox.poll())==2  # peek never consumes the medium lane
++    assert provider.capture_epoch==current.provenance['capture_epoch']
++
++
++def test_foreign_map_barrier_does_not_erase_current_movement(bridge):
++    queue(bridge,event('a'*32))
++    body=struct.pack('<iffffiiI',2175,1.,2.,3.,0.,0,0,0)
++    queue(bridge,event('b'*32,name='SMSG_NEW_WORLD',body=body))
++    assert len(bridge.inbox.peek_movement())==1
++    queue(bridge,event('a'*32,name='SMSG_NEW_WORLD',body=body))
++    assert bridge.inbox.peek_movement()==[]
++
++
++def test_foreign_entity_removal_is_not_a_lifecycle_barrier_for_current_worker(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70448'),9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++    parser,record=records('SMSG_ON_MONSTER_MOVE',OMM_STOP)
++    first=PktEventDecoder(selected_pid=77,header=parser.header,manifest=OpcodeManifest.reviewed(70448))
++    first.capture_epoch='a'*32
++    position=first.decode_all(record)[-1]
++    # A normalized removal from another producer cannot wipe this producer's
++    # state mailbox. The reducer will independently enforce its active epoch.
++    from wowbot.packetio.models import AgentPacketEvent
++    removed=AgentPacketEvent.create(pid=77,flow_id=position.flow_id,direction='SERVER_TO_CLIENT',
++        event_type='ENTITY_REMOVED',timestamp=1000.,semantic_status='CONFIRMED',opcode=position.opcode,
++        payload={k:v for k,v in position.payload.items() if k in {'entity_guid','entry_id'}}|{'removal':'DESTROYED'},
++        provenance={**position.provenance,'capture_epoch':'b'*32})
++    queue(bridge,position)
++    queue(bridge,removed)
++    assert len(bridge.inbox.poll())==2
+--- before/tests/test_packet_quest_definition_20261030.py
++++ after/tests/test_packet_quest_definition_20261030.py
+@@ -0,0 +1,109 @@
++"""Pinned WPP 12.1 quest-definition records, independent from UI row order."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.packetio.quest_definition import decode_definition, normalize_definition
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from test_packet_codecs import decoded
++from test_unit_fields_20261027 import bits
++
++
++def definition_bytes(*, quest_id=58915, objective_id=100040, conditional=True, title='Native test',
++                     description='Free the cocoons.', amount=7, weight=1.25, has_data=True):
++    data=struct.pack('<i',quest_id)+bytes((0x80 if has_data else 0,))
++    if not has_data: return data
++    data+=struct.pack('<i',quest_id)
++    # Quest type/package/tuning/sort/info/group/follow-up; distinct markers
++    # expose offsets accidentally borrowed from an older query layout.
++    data+=struct.pack('<7i',2,7,10,-1,5,3,58916)
++    data+=struct.pack('<ifii fi',3,1.25,123,4,1.5,50)
++    data+=struct.pack('<I',1)       # display spell count
++    data+=struct.pack('<ii f ii f i',1001,1,1.0,2,3,1.0,1)
++    data+=struct.pack('<i4I',98765,8,16,32,64)
++    data+=bytes((0x1b,0x2c,0x3d,0x04))*(16+18+12+20+1+8+3)
++    data+=struct.pack('<qIQ',900,2,0x8000000000000001)
++    data+=struct.pack('<IIiiiiIIII',1,1,9,33,44,190740,int(conditional),int(conditional),1,1)
++    data+=struct.pack('<iii',2001,99,2)  # display spell/player-condition/type
++    for order in range(2):
++        text=(description if order==0 else '').encode('utf-8')
++        data+=struct.pack('<iIbiiiIIfii',objective_id+order,2,9 if order==0 else -1,
++                          301000+order,amount,0,16,32,weight,1,0)
++        data+=struct.pack('<i',123456)  # visual effect
++        data+=bits([(len(text),8),(int(order==0),1)])+text
++    data+=struct.pack('<ii',1234,5678)   # treasure and non-displayable treasure
++    if conditional:
++        for text in (b'Conditional description',b'Conditional completion'):
++            data+=struct.pack('<ii',17,190740)+bits([(len(text),12)])+text
++    data+=struct.pack('<ii',19,23)       # house room/decor
++    strings=[title,'Visible summary','Original quest description','Area description',
++             'Giver portrait text','Portrait Giver','Turn-in portrait text','Portrait Finisher','Completion log']
++    encoded=[value.encode('utf-8') for value in strings]
++    data+=bits([(len(value),width) for value,width in zip(encoded,(9,12,12,9,10,8,10,8,11))]+[(0,1),(0,1)])
++    return data+b''.join(encoded)
++
++
++@pytest.mark.parametrize('build',[69587,70448,70575])
++def test_reviewed_query_exports_exact_objective_ids_storage_and_signed_missing_storage(build):
++    event=decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',definition_bytes(),build=build)[-1]
++    assert event.event_type=='QUEST_DEFINITION'
++    assert verified_semantics(normalize_event(event.to_dict()))
++    definition=event.payload['definition']
++    assert definition['quest_id']==58915 and definition['reward_next_quest_id']==58916
++    assert definition['start_item_id']==98765 and definition['giver_creature_id']==190740
++    assert definition['flags_ex3']==64 and definition['allowable_races']==0x8000000000000001
++    assert definition['title']=='Native test' and definition['has_conditional_texts']
++    first,hidden=definition['objectives']
++    assert (first['objective_id'],first['storage_index'],first['order'],first['amount'])==(100040,9,0,7)
++    assert first['object_id']==301000 and first['progress_bar_weight']==1.25
++    assert first['description']=='Free the cocoons.' and first['visible']
++    assert hidden['storage_index']==-1 and not hidden['visible']
++    assert 'Conditional description' not in str(definition)  # active condition is not known
++
++
++def test_no_data_response_is_not_an_empty_complete_definition():
++    kind,body=decode_definition(definition_bytes(has_data=False))
++    assert kind=='QUEST_DEFINITION_UNAVAILABLE' and body=={'quest_id':58915}
++
++
++def test_utf8_and_wpp_nul_removal_are_bounded_data():
++    _,body=decode_definition(definition_bytes(title='Küldetés',description='a\0b'))
++    assert body['definition']['title']=='Küldetés'
++    assert body['definition']['objectives'][0]['description']=='ab'
++
++
++@pytest.mark.parametrize('mutation',[
++    lambda b:b[:-1], lambda b:b+b'extra',
++    lambda b:b[:5]+struct.pack('<i',58916)+b[9:],
++])
++def test_truncated_extra_or_mismatched_quest_body_never_becomes_a_definition(mutation):
++    events=decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',mutation(definition_bytes()))
++    assert len(events)==1 and events[0].semantic_status=='UNKNOWN'
++
++
++def test_wrong_direction_and_nonfinite_weight_fail_closed():
++    from wowbot.packetio.pkt import OpcodeManifest, PktEventDecoder, PktV31StreamParser
++    from test_packet_codecs import pkt_bytes
++    parser=PktV31StreamParser()
++    record=parser.feed(pkt_bytes('SMSG_QUERY_QUEST_INFO_RESPONSE',definition_bytes()))[0]
++    decoder=PktEventDecoder(selected_pid=77,header=parser.header,manifest=OpcodeManifest.reviewed(69587))
++    assert len(decoder.decode_all(replace(record,direction='CLIENT_TO_SERVER')))==1
++    assert len(decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',definition_bytes(weight=float('nan'))))==1
++
++
++def test_unknown_fields_are_not_transported_and_objective_ids_are_unique():
++    _,body=decode_definition(definition_bytes())
++    source=body['definition']
++    assert 'raw_payload' not in normalize_definition({**source,'raw_payload':'not-a-game-field'})
++    bad={**source,'objectives':[source['objectives'][0],{**source['objectives'][1],'objective_id':100040}]}
++    with pytest.raises(ValueError): normalize_definition(bad)
++
++
++def test_wire_schema_requires_matching_quest_and_a_reviewed_definition_layout():
++    event=decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',definition_bytes())[-1].to_dict()
++    event['payload']['quest_id']=58916
++    with pytest.raises(ValueError): normalize_event(event)
++    event=decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',definition_bytes())[-1].to_dict()
++    event['provenance']['payload_layout']='WPP_12_1_REVIEWED_PREFIX_V1'
++    assert not verified_semantics(normalize_event(event))
+--- before/tests/test_server_quest_definition_20261030.py
++++ after/tests/test_server_quest_definition_20261030.py
+@@ -0,0 +1,186 @@
++"""Quest structure reaches canonical consumers without inventing quest state."""
++from types import SimpleNamespace
++import struct
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.agent.quest_location_planning import QuestLocationPlanningPolicy
++from wowbot.packetio.pkt import PktV31StreamParser
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_packet_codecs import decoded, pkt_bytes
++from test_packet_quest_definition_20261030 import definition_bytes
++from test_native_quest_log_20261030 import send, slot
++from test_packet_continuity_20261030 import connected
++
++
++def setup(bridge, *, objectives=None, **changes):
++    rows = [{'objective_id':'58915:0', 'description':'0/7 Free the cocoons.',
++             'type':'INTERACT', 'current':0, 'required':7, 'is_complete':False}]
++    bridge.world.ingest(Observation.create(addon(game_build='70575',
++        active_quests=[{'quest_id':58915, 'title':'Current quest', 'is_complete':False,
++                       'objectives': rows if objectives is None else objectives}], **changes), 9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++
++
++def definition(bridge, *, at=10., decoder=None, **options):
++    bridge.inbox._clock=lambda:at
++    bridge.inbox._wall_clock=lambda:1000.+at-10.
++    body=definition_bytes(**options)
++    if decoder is None:
++        value=decoded('SMSG_QUERY_QUEST_INFO_RESPONSE',body,build=70575,timestamp=1000.+at-10.)[-1]
++    else:
++        parser=PktV31StreamParser()
++        record=parser.feed(pkt_bytes('SMSG_QUERY_QUEST_INFO_RESPONSE',body,build=70575,
++                                    timestamp=1000.+at-10.))[0]
++        value=decoder.decode_all(record)[-1]
++    deliver(bridge,value,at=at)
++    return value
++
++
++def objective(bridge):
++    return bridge.world.quest_model.records[58915].objectives[0]
++
++
++def test_definition_does_not_create_active_quest_accept_reward_actor_or_input_liveness(bridge):
++    setup(bridge,objectives=[])
++    definition(bridge,quest_id=99999)
++    result=bridge.world.query.quest_definition(99999,10.)
++    assert result['status']=='OBSERVED_REFERENCE'
++    assert 99999 not in bridge.world.quest_model.records
++    assert not bridge.world.state.get('target') and bridge.world.last_received==9.1
++    assert not any(e.event_type in {'QUEST_ACCEPTED','QUEST_TURNED_IN','QUEST_COMPLETED'}
++                   for e in bridge.world.event_records)
++    result['definition']['objectives'][0]['object_id']=999
++    assert bridge.world.query.quest_definition(99999,10.)['definition']['objectives'][0]['object_id']==301000
++
++
++def test_exact_quest_text_binds_native_id_and_storage_without_ui_ordinal_or_actor_guess(bridge):
++    setup(bridge)
++    definition(bridge)
++    row=objective(bridge)
++    assert row.raw['server_objective_id']==100040 and row.raw['server_storage_index']==9
++    assert row.raw['server_credit_object_id']==301000
++    assert row.target_object is None and row.target_entity is None
++    assert row.current_count==0 and row.completion_state=='IN_PROGRESS'
++    assert bridge.world.quest_model.records[58915].current_state=='ACTIVE'
++    assert bridge.world.state['server_quest_objectives']['58915']['58915:0']['server_objective_id']==100040
++
++
++@pytest.mark.parametrize('rows',[
++    [{'objective_id':'58915:0','description':'','type':'INTERACT'}],
++    [{'objective_id':'58915:0','quest_objective_id':999,'description':'Free the cocoons.'}],
++    [{'objective_id':'58915:0','description':'Free the cocoons.'},
++     {'objective_id':'58915:1','description':'Free the cocoons.'}],
++])
++def test_blank_duplicate_or_explicitly_conflicting_objectives_remain_unbound(bridge,rows):
++    setup(bridge,objectives=rows)
++    definition(bridge)
++    assert all('server_objective_id' not in o.raw for o in bridge.world.quest_model.records[58915].objectives)
++    assert 'server_quest_objectives' not in bridge.world.state
++
++
++def test_explicit_global_id_can_bind_a_localized_objective_and_survives_state_refresh(bridge):
++    rows=[{'objective_id':'58915:0','quest_objective_id':100040,'description':'Szabadítsd ki őket!'}]
++    setup(bridge,objectives=rows)
++    definition(bridge)
++    assert objective(bridge).raw['server_storage_index']==9
++    bridge.world.quest_model.ingest(bridge.world.addon_state['active_quests'],'new-state',10.2)
++    assert objective(bridge).raw['server_objective_id']==100040
++
++
++def test_replaced_or_missing_definition_clears_bindings_but_never_completes_the_quest(bridge):
++    setup(bridge);definition(bridge)
++    definition(bridge,objective_id=100050,at=10.1)
++    assert objective(bridge).raw['server_objective_id']==100050
++    definition(bridge,objective_id=100040,at=10.05)
++    assert objective(bridge).raw['server_objective_id']==100050  # out-of-order old response
++    definition(bridge,has_data=False,at=10.2)
++    assert 'server_objective_id' not in objective(bridge).raw
++    assert bridge.world.query.quest_definition(58915,10.2)['status']=='UNAVAILABLE'
++    assert bridge.world.quest_model.records[58915].current_state=='ACTIVE'
++
++
++@pytest.mark.parametrize('change',[{'character_guid':'Player-1602-9999'},
++                                   {'game_build':'70448'},{'session_id':'new'}, {'loading':True}])
++def test_identity_build_session_and_loading_suspend_definition_use(bridge,change):
++    setup(bridge);definition(bridge)
++    value={**bridge.world.addon_state, **change, 'frame_id':'new-scope', 'timestamp':10.1,'monotonic_time':10.1}
++    bridge.world.ingest(Observation.create(value,10.1))
++    assert bridge.world.query.quest_definition(58915,10.1)['status']=='UNKNOWN'
++    assert 'server_objective_id' not in objective(bridge).raw
++
++
++def test_world_and_phase_changes_keep_reference_origin_but_expiry_does_not_rejuvenate_it(bridge):
++    setup(bridge);definition(bridge)
++    value={**bridge.world.addon_state, 'frame_id':'other-map', 'map_id':1410,'phase':'new-phase',
++           'player_world_position':{**bridge.world.addon_state['player_world_position'],'instance_id':2444}}
++    bridge.world.ingest(Observation.create(value,10.1))
++    result=bridge.world.query.quest_definition(58915,10.1)
++    assert result['status']=='OBSERVED_REFERENCE' and result['sample_time']==10.
++    assert bridge.world.query.quest_definition(58915,1810.1)['status']=='UNKNOWN'
++    bridge.world.ingest(Observation.create({**value,'frame_id':'later'},1810.1))
++    assert 'server_objective_id' not in objective(bridge).raw
++
++
++def test_storage_join_uses_definition_storage_nine_and_never_promotes_count_to_completion(bridge):
++    setup(bridge);definition(bridge)
++    progress=[99]*24;progress[9]=4
++    send(bridge,[slot(3,58915,progress)],at=10.1)
++    value=bridge.world.query.quest_objective_storage(58915,100040,10.1)
++    assert value['status']=='OBSERVED_STORAGE' and value['value']==4 and value['storage_index']==9
++    assert value['sample_time']==10.1 and value['definition_sample_time']==10.
++    assert value['complete'] is None and objective(bridge).current_count==0
++    assert bridge.world.query.quest_objective_storage(58915,100041,10.1)['status']=='UNKNOWN'
++    assert bridge.world.query.quest_objective_storage(58915,100040,12.2)['status']=='UNKNOWN'
++
++
++def test_real_location_policy_selects_exact_native_poi_despite_different_visible_index(bridge):
++    setup(bridge);definition(bridge)
++    # Native objective 100040 is blob/objective index 9; UI displays it first.
++    body=struct.pack('<IIiI',1,1,58915,1)
++    body+=struct.pack('<12iI',0,9,100040,0,2175,1409,0,0,0,0,0,0,1)
++    body+=struct.pack('<hhh',80,100,3)+b'\0'
++    deliver(bridge,decoded('SMSG_QUEST_POI_QUERY_RESPONSE',body,build=70575)[-1])
++    obj=objective(bridge)
++    assert len(bridge.world.query.quest_objective_pois(58915,obj,10.))==1
++    record=bridge.world.quest_model.records[58915]
++    proposals=QuestLocationPlanningPolicy().propose_objective(bridge.world,obj,record,'58915')
++    assert proposals and proposals[0].skill=='MOVE'
++    assert proposals[0].parameters['source']=='PACKET_QUEST_POI'
++    assert proposals[0].parameters['x']==80. and proposals[0].parameters['y']==100.
++    from wowbot.agent.quest_runtime import QuestExecutionRuntime
++    primary=QuestExecutionRuntime().observe(SimpleNamespace(domain='QUEST',parameters={'quest_id':58915}),
++        bridge.world.quest_model,bridge.world.state,10.,
++        objective_pois=bridge.world.query.quest_objective_pois)
++    assert primary.location_status=='SEARCH_AREA' and 'PACKET_QUEST_POI' in primary.evidence
++
++
++def test_stream_gap_suspends_reference_and_cannot_reuse_poi_before_projection(bridge):
++    provider,decoder,baseline,_=connected(bridge)
++    definition(bridge,decoder=decoder)
++    assert bridge.world.query.quest_definition(58915,10.)['status']=='OBSERVED_REFERENCE'
++    provider.invalidate('stream_gap')
++    assert bridge.world.query.quest_definition(58915,10.)['status']=='UNKNOWN'
++    assert bridge.world.query.quest_pois(58915,10.)==()
++    assert provider.accept_baseline(baseline.to_dict())
++    # Structure can remain observed reference; old progress and geometry
++    # cannot regain current-state authority with the same logical context.
++    assert bridge.world.query.quest_definition(58915,10.)['status']=='OBSERVED_REFERENCE'
++    assert bridge.world.query.quest_objective_storage(58915,100040,10.)['status']=='UNKNOWN'
++
++
++def test_current_native_objective_relation_supersedes_a_different_static_credit_id():
++    from wowbot.agent.quest_target_context import physical_target_problem
++    guid='Creature-0-1-2175-1-222-00001'
++    state={'active_quests':[{'quest_id':58915,'objectives':[{'objective_id':'58915:0',
++        'description':'Talk to the keeper','target_entity':{'npc_id':123}}]}],
++        'reference_knowledge':{'quests':{'58915':{'objectives':[{'objective_id':100039,
++            'description':'Talk to the keeper'}]}}},
++        'server_quest_objectives':{'58915':{'58915:0':{'server_objective_id':100040}}},
++        'packet_entities':{guid:{'info':{'quest_objective_id':100039}}}}
++    params={'quest_id':58915,'objective_id':'58915:0'}
++    wanted={'guid':guid,'npc_id':222}
++    assert physical_target_problem('TALK',params,wanted,state)=='QUEST_PHYSICAL_TARGET_ROLE_MISMATCH'
++    state['packet_entities'][guid]['info']['quest_objective_id']=100040
++    assert physical_target_problem('TALK',params,wanted,state) is None

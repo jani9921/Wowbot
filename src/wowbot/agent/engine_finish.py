@@ -12,6 +12,26 @@ from wowbot.runtime import FailureReason, RuntimeEvent
 class EngineFinishMixin:
     """Methods of AutonomousAgent (engine.py); moved verbatim."""
 
+    # Live 2026-10-21 11:29-12:00: one corpse-run MOVE failed 4300 times; the
+    # loop was CONFIRMED all along but only re-planned into the same MOVE.
+    # A confirmed loop that keeps repeating this long hands control back.
+    PERSISTENT_LOOP_STOP_SECONDS = 180.
+    PERSISTENT_LOOP_GAP_SECONDS = 30.
+
+    def _note_persistent_loop(self, decision, skill, now) -> None:
+        watch = self.__dict__.setdefault("_persistent_loops", {})
+        first, last = watch.get(decision.signature, (now, now))
+        if now - last > self.PERSISTENT_LOOP_GAP_SECONDS:
+            first = now
+        watch[decision.signature] = (first, now)
+        if now - first >= self.PERSISTENT_LOOP_STOP_SECONDS:
+            watch.clear()
+            # AgentRuntime switches to MANUAL after this tick (never inside
+            # _finish, which set_mode would re-enter).
+            self.__dict__["safety_stop"] = {
+                "reason": "persistent_loop_stopped", "signature": decision.signature,
+                "skill": skill, "repeats": decision.count, "seconds": round(now-first, 1)}
+
     def _finish(self, outcome, reason, now, *, typed_reason: FailureReason | None = None):
         attempt = self.pending
         if attempt is None:
@@ -37,6 +57,10 @@ class EngineFinishMixin:
             attempt.proposal, self.goal, self.world, failure_decision,
             success=outcome == Outcome.SUCCESS, now=now)
         self.last_result = terminal.result_projection
+        if attempt.proposal.skill in {"COMBAT", "DEFEND"} and outcome == Outcome.SUCCESS:
+            # Spec 31.4: this character's own fight length prices route exposure.
+            from .fight_statistics import record_fight
+            record_fight(self.world, now-attempt.started_at)
         # Record quest-object range feedback at the terminal boundary.  A
         # fast SEEK result may replace last_result before the next planning
         # tick sees a fresh addon hover and World3D box together.
@@ -59,6 +83,7 @@ class EngineFinishMixin:
         if loop_decision is not None and loop_decision.level == "CONFIRMED":
             self.planner.blocked_until[attempt.proposal.key] = now + self.retries.max_backoff_seconds
             self.autonomy.reset(now, "LOOP_CONFIRMED")
+            self._note_persistent_loop(loop_decision, attempt.proposal.skill, now)
         params = attempt.proposal.parameters
         quest_terminal = self.quest_terminal.process(
             attempt, outcome, reason, self.world.state, self.goal, now)
@@ -72,7 +97,13 @@ class EngineFinishMixin:
         self.world.verifications.append(verification)
         self._record(now, "VERIFICATION", asdict(verification))
         if self.memory:
-            self.memory.record_episode_step(self.episode_id, now, "VERIFICATION", asdict(verification))
+            identifiers = set(verification.evidence)
+            manifests = [entry for key in ('target', 'player_world_position', 'orientation', 'active_quests', 'inventory')
+                         for entry in self.world.query.evidence(key, now, include_inactive=True)
+                         if entry.observation_id in identifiers]
+            manifest_ids = self.memory.persist_evidence_manifests(manifests)
+            self.memory.record_episode_step(self.episode_id, now, "VERIFICATION",
+                {**asdict(verification), 'evidence_manifest_ids': manifest_ids})
         navigation_terminal = self.navigation_terminal.process(
             attempt, outcome, reason, normalized_failure_reason,
             attempt.baseline, self.world.state,

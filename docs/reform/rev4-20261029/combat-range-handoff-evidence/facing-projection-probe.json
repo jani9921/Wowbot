@@ -1,0 +1,24 @@
+{
+  "at": 1346152.7092977,
+  "world_timestamp": 1793376709.8397684,
+  "known_entities": 339,
+  "projected_entities": 96,
+  "expected_in_raw": true,
+  "expected_in_projection": true,
+  "expected_position": {
+    "x": -8799.6708984375,
+    "y": -204.74974060058594,
+    "z": 82.4613037109375,
+    "source": "PACKET_MONSTER_MOVE_ORIGIN",
+    "move_time_ms": 2650,
+    "destination": {
+      "x": -8804.1533203125,
+      "y": -199.89051818847656,
+      "z": 82.233154296875
+    },
+    "sampled_at": 1793376709.2407382,
+    "coordinate_space": "WORLD_YARDS"
+  },
+  "expected_removed": null,
+  "active_quest_givers": 1
+}

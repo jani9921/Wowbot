@@ -1,0 +1,447 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,19 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 own inventory root VALUES — **OFFLINE_TESTED / full
++inventory parity PARTIAL**. Reviewed ActivePlayerData InvSlots masks now
++reach the shared decoder/IPC/WorldModel query. Sparse updates merge by slot,
++preserving every original source clock and evidence; older whole snapshots
++or invalidations cannot erase newer deltas. Unknown prefixes/tails invalidate,
++contradictory duplicate item identities suppress usable membership, and a
++delta without baseline supplies only positive partial evidence. UI bag-slot,
++carried state and input authority remain unchanged. Selected regression:
++**3878 passed, 2 skipped, 10 unchanged deselections, 316 modules, exit 0**,
++147.57 s pytest. All 536 source and 625 test Python files parse; all 203
++numbered rows unchanged. Mixed ActivePlayerData, retained collections,
++warm-replay and full consumer parity remain code gaps. No game/capture/input
++or new live acceptance; addon/Ymir unchanged. See
++[root VALUES checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_ROOTS.md).
+ 
+ 2026-10-30 REV4 P3 owned item/container VALUES — **OFFLINE_TESTED / full
+ inventory parity PARTIAL**. Reviewed V2 delta masks now update quantity,
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,19 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — inventory root-slot deltas (offline only)
++
++Reviewed own ActivePlayerData InvSlots VALUES now use per-slot source clocks
++and evidence. Sparse changes merge without rejuvenating the other slots;
++invalidation barriers reject older snapshots, and conflicting item identities
++remain UNKNOWN until resolved. Native indices still do not authorize bag UI
++input or establish carried location. Mixed prefixes and retained collections
++remain incomplete.
++
++Final selected regression: **3878 passed, 2 skipped, 10 unchanged deselections**,
++316 modules, 147.57 s pytest / 150.47 s runner, exit 0. All 536 source and
++625 test Python files parse. All 203 numbered rows persist. No assistant game/
++capture/FULL_AI/input, no new live acceptance; addon/Ymir unchanged.
++[Details/checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_ROOTS.md).
+ 
+ ## 2026-10-30 — owned item/container delta clocks (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3866 passed, 2 skipped, 10 változatlan deselection, 315 modul, exit 0.
++Végső kijelölt regresszió: 3878 passed, 2 skipped, 10 változatlan deselection, 316 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -17,6 +17,8 @@
+ [elkészült](P3_NATIVE_INVENTORY.md); a teljes inventory VALUES-/UI-slot-paritás még nem.
+ A [gyakori item-/container-delták](P3_NATIVE_INVENTORY_DELTAS.md) elkészültek;
+ friss darabszám, durability és táskaslot külön órával, ismeretlen maszkra érvénytelenítés.
++A [saját Active root-slot delták](P3_NATIVE_INVENTORY_ROOTS.md) is elkészültek;
++a vegyes prefixek, retained collections és teljes carried/UI-slot paritás még nem.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -31,7 +31,9 @@
+ érvénytelenít; carried/UI-slot, retained state és teljes paritás továbbra is nyitott.
+ [A gyakori item-/container VALUES](P3_NATIVE_INVENTORY_DELTAS.md) most már
+ olvasható; a mezők külön eredetidőt tartanak, az ismeretlen maszk továbbra is
+-érvénytelenít. Active root VALUES/carried/UI-slot és teljes paritás még nyitott.
++érvénytelenít. Az [önálló Active root VALUES](P3_NATIVE_INVENTORY_ROOTS.md) is
++olvasható, slotonkénti eredetidővel és invalidation barrierrel; vegyes prefix,
++carried/UI-slot, retained collection és teljes paritás még nyitott.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -74,14 +76,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3866 passed, 2 skipped, 10 deselected; 315 modul; 164.24 s; exit 0** |
++| Végső kijelölt regresszió | **3878 passed, 2 skipped, 10 deselected; 316 modul; 147.57 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 536 source + 624 tests Python-fájl; 623 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 536 source + 625 tests Python-fájl; 624 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **315 kijelölt modul eredménye**, nem a teljes 623 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **316 kijelölt modul eredménye**, nem a teljes 624 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY_ROOTS.md
++++ after/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY_ROOTS.md
+@@ -0,0 +1,68 @@
++# REV4 P3 — saját inventory root-slot VALUES
++
++2026-10-30. A kijelölt `projekt`; részleges, offline tesztelt adatút.
++A [saját item-/container-delták](P3_NATIVE_INVENTORY_DELTAS.md) folytatása.
++Nem teljes inventory-paritás és nem új élő validáció.
++
++## Bekötés
++
++A 70340-es WPP-család ActivePlayerData 13 szavas változásmaszkjában a 163-as
++array root és a 164–268-as slotbitek alapján pontosan a változott InvSlots
++GUID-ok kerülnek a közös decoder → normalizált V2 event → IPC → WorldModel/query
++láncba. Csak a korrelált saját karakter és ismert CGObject fragment érvényes.
++A V1 layout nem állíthat VALUES mintát. Az index nem kliensoldali bag/slot.
++
++Az ActivePlayerData önálló, illetve ismert ObjectData utáni InvSlots-változása
++olvasható. Egyéb, megelőző változó mezők együttállása továbbra is explicit
++érvénytelenítés; nincs találgatott offset. Az InvSlots változását nem jelző
++maszk megőrzi a korábbi root-adat eredeti idejét, nem küld új készletmintát.
++Ismeretlen tail, hiányzó array root vagy nem-item GUID nem ad részleges hamis
++snapshotot.
++
++## Összevezetés és eredet
++
++A root-slotok külön órát és observation ID-t kapnak. A CREATE 105 mezőt ad,
++a VALUES csak a megváltozott helyeket frissíti. Egy slot változása nem írja
++felül vagy fiatalítja meg a többi 104 helyet. Késői, eltérő slothoz tartozó
++minta külön alkalmazható; régi teljes CREATE vagy érvénytelenítés nem dobja
++el a frissebb deltát. Érvénytelenítés után régi snapshot/delta nem támasztja
++fel a korábbi collectiont.
++
++A query `root_baseline_time`, `root_sample_time` és mezőnkénti
++`root_slot_evidence` adatot ad. Összevont snapshothoz nem rendel egyetlen új
++megfigyelési időt. A teljes 105 friss, konzisztens mező COMPLETE membership;
++részleges vagy öregedő adat PARTIAL/UNKNOWN. Azonos item-GUID két helyen
++ellentmondás: nincs használható root-lista, amíg igazolt áthelyezés nem oldja
++fel. Baseline nélküli delta csak a ténylegesen megfigyelt pozitív részadatot
++adja, nem igazol hiányt, darabszámot vagy hordott helyet.
++
++A forrás TTL-je és a GAP/karakter/map/phase kapuk megmaradtak. A hot status
++csak összesítő, nem másolja minden tickben a 105 helyet. Az addon inventory
++és az input/binding-authority nem változott. Nincs quest-credit/loot receipt
++következtetés pusztán slotváltozásból.
++
++## Ellenőrzés és határok
++
++A célzott root/item/container/continuity kör **46 pass**; átfed a kijelölt
++nagy regresszióval, nem összeadandó. A próbák tényleges maszk-/GUID-byteokat,
++normalizálást és hitelesített teszt-IPC-t is használnak. Mozgatás, mezőórák,
++reordering, invalidation barrier, hibás/truncated/tail adat, V1/V2 kapu,
++duplikált GUID és baseline nélküli delta külön ellenőrizve.
++
++A végső kijelölt regresszió **3878 passed, 2 skipped, 10 változatlan deselection,
++316 modul, exit 0**, pytest 147.57 s / runner 150.47 s. Az összes 536 source
++és 625 test Python-fájl AST-je érvényes. A teljes 624 testmodul közül a kijelölt
++316 futott; ez nem teljes repository-tesztfuttatási állítás.
++
++Forrás-ZIP, byte-hash, diff, pontos parancs/JUnit és primary WPP hash:
++[checkpoint](native-inventory-roots-evidence/verification.json). A korábbi
++checkpointok és mind a 203 számozott coverage-sor változatlanul megmaradnak.
++
++Nyitott kódhiány marad: vegyes ActivePlayerData prefixek teljes feldolgozása,
++unsupported ItemData dynamic tömbök, carried/bank/equipment és kliens bag-slot
++kapcsolat; folytonossággal igazolt retained collection és warm-replay;
++inventory-consumerek teljes átállása és addon-karcsúsítás. A korábbi quest-
++progress, P7 provider/role és történeti lineage hiányok ettől nem szűntek meg.
++
++Nem indult játék/capture/Ymir/FULL_AI, nem ment kliensinput. Addon és pinned
++Ymir változatlan, új LIVE_VALIDATED állítás nincs.
+--- before/src/wowbot/agent/packet_inventory.py
++++ after/src/wowbot/agent/packet_inventory.py
+@@ -14,15 +14,31 @@
+     scope = SessionContext.from_mapping(context).entity_scope()
+     record = model.__dict__.get('_packet_inventory')
+     if record is None or record['scope'] != scope:
+-        record = {'scope':scope,'items':{},'invalidated':{},'roots':None,
+-                  'roots_time':float('-inf'),'observed_at':sampled}
++        record = {'scope':scope,'items':{},'invalidated':{},'roots':{},
++                  'roots_time':float('-inf'),'root_barrier':float('-inf'),
++                  'root_baseline_time':None,'observed_at':sampled}
+         model.__dict__['_packet_inventory'] = record
+     def fact(value):
+         return {'value':json_copy(value),'observed_at':sampled,'observation_id':observation.observation_id}
+     if kind in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED'}:
+-        if sampled >= record['roots_time']:
+-            record['roots'] = fact(body['root_slots']) if kind == 'OWN_INVENTORY_ROOTS' else None
+-            record['roots_time'] = sampled
++        if sampled < record['root_barrier']:
++            return
++        if kind == 'OWN_INVENTORY_INVALIDATED' or body.get('sample_kind') == 'CREATE':
++            if sampled < record['roots_time']:
++                return  # an older whole snapshot/invalidation cannot undo a newer delta
++            record['roots'] = {}
++            record['root_baseline_time'] = None
++            if kind == 'OWN_INVENTORY_INVALIDATED':
++                record['root_barrier'] = sampled
++            else:
++                record['root_baseline_time'] = sampled
++        if kind == 'OWN_INVENTORY_ROOTS':
++            for index,item_guid in body['root_slots']:
++                key = str(index)
++                previous = record['roots'].get(key)
++                if previous is None or sampled >= previous['observed_at']:
++                    record['roots'][key] = fact(item_guid)
++        record['roots_time'] = max(sampled,record['roots_time'])
+     else:
+         guid = body['item_guid']
+         previous = record['items'].get(guid)
+@@ -65,18 +81,31 @@
+     from .packet_continuity import current
+     record = model.__dict__.get('_packet_inventory')
+     result = {'coverage':'UNKNOWN','root_membership':'UNKNOWN','root_sample_time':None,
++              'root_baseline_time':None,'root_known_slots':0,
+               'source':'PACKET_OWN_INVENTORY','known_items':0,'items':[]}
+     if not record or not current(model):return result
+     context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
+     if (context is None or context.entity_scope() != record['scope']
+             or state.get('loading') or state.get('player_present') is False):
+         return result
+-    roots = record['roots']
+-    if roots is not None and 0 <= now-roots['observed_at'] <= MAX_AGE:
+-        result.update(coverage='PARTIAL',root_membership='COMPLETE',root_sample_time=roots['observed_at'])
+-        if include_items:
+-            result['root_slots'] = json_copy(roots['value'])
+-            result['root_observation_id'] = roots['observation_id']
++    roots = {int(index):value for index,value in record['roots'].items()
++             if 0 <= now-value['observed_at'] <= MAX_AGE}
++    result['root_baseline_time'] = record['root_baseline_time']
++    if roots:
++        from wowbot.packetio.own_inventory_codec import ZERO,ROOT_COUNT
++        identities = [row['value'] for row in roots.values() if row['value'] != ZERO]
++        contradiction = len(identities) != len(set(identities))
++        result.update(coverage='PARTIAL',root_known_slots=len(roots),
++                      root_sample_time=min(row['observed_at'] for row in roots.values()),
++                      root_membership='UNKNOWN' if contradiction else
++                          'COMPLETE' if len(roots)==ROOT_COUNT else 'PARTIAL')
++        if include_items and not contradiction:
++            result['root_slots'] = [[index,roots[index]['value']] for index in sorted(roots)]
++            result['root_slot_evidence'] = {str(index):{key:row[key] for key in ('observed_at','observation_id')}
++                                            for index,row in roots.items()}
++            observations = {row['observation_id'] for row in roots.values()}
++            if len(observations)==1:
++                result['root_observation_id'] = next(iter(observations))
+     for row in record['items'].values():
+         count_clock=row['fields'].get('stack_count')
+         if count_clock is None or not 0 <= now-count_clock['observed_at'] <= MAX_AGE:continue
+--- before/src/wowbot/packetio/own_inventory_codec.py
++++ after/src/wowbot/packetio/own_inventory_codec.py
+@@ -143,8 +143,10 @@
+     if kind == 'OWN_INVENTORY_INVALIDATED':
+         return result
+     if kind == 'OWN_INVENTORY_ROOTS':
+-        if body.get('sample_kind') != 'CREATE':raise ValueError('reviewed create required')
+-        return {**result,'sample_kind':'CREATE','root_slots':normalize_guid_slots(body.get('root_slots'),ROOT_COUNT)}
++        sample=body.get('sample_kind')
++        if sample not in {'CREATE','VALUES'}:raise ValueError('reviewed root sample required')
++        return {**result,'sample_kind':sample,
++                'root_slots':normalize_guid_slots(body.get('root_slots'),ROOT_COUNT,partial=sample=='VALUES')}
+     _guid(body.get('item_guid'),item=True)
+     result['item_guid'] = body['item_guid'].upper()
+     if kind == 'OWN_ITEM_REMOVED':
+--- before/src/wowbot/packetio/own_item_delta.py
++++ after/src/wowbot/packetio/own_item_delta.py
+@@ -106,3 +106,22 @@
+     if kinds&4:result.update(_container(c))
+     if c.offset!=len(blob):raise ValueError('unreviewed item tail')
+     return result
++
++
++def read_root_slots(cursor):
++    """Read changed ActivePlayerData InvSlots without guessing other fields."""
++    mask=_mask(cursor,13)
++    roots=sum(1<<i for i in range(164,269))
++    if mask&roots and not mask>>163&1:
++        raise ValueError('unrooted inventory slot mask')
++    if not mask&roots:
++        return []  # unrelated ActivePlayerData does not change InvSlots
++    supported=1 | 1<<163 | roots  # block 0 with no changed children has no payload
++    if mask&~supported:
++        raise ValueError('unreviewed active fields precede changed inventory slots')
++    result=[]
++    for i in range(105):
++        if mask>>(164+i)&1:
++            guid=cursor.guid();_guid(guid,item=True,zero=True);result.append([i,guid])
++    if cursor.offset!=len(cursor.data):raise ValueError('unreviewed inventory slot tail')
++    return result
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -631,6 +631,9 @@
+                 if row.get('inventory_roots') is not None:
+                     events.append(('OWN_INVENTORY_ROOTS',{'mover_guid':row['guid'],'world_map_id':world_map,
+                         'sample_kind':'CREATE','root_slots':row['inventory_roots']}))
++                elif row.get('inventory_root_delta'):
++                    events.append(('OWN_INVENTORY_ROOTS',{'mover_guid':row['guid'],'world_map_id':world_map,
++                        'sample_kind':'VALUES','root_slots':row['inventory_root_delta']}))
+                 elif row.get('inventory_invalidated') or row['kind']=='CREATED':
+                     events.append(('OWN_INVENTORY_INVALIDATED',{'mover_guid':row['guid'],'world_map_id':world_map}))
+                 if row.get('quest_log_slots'):
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -489,7 +489,7 @@
+         update_type = c.u32()
+         result = {}
+         if own_player and update_type & 0x80:
+-            result['inventory_invalidated'] = True  # ActivePlayerData update not reviewed yet
++            result['inventory_invalidated'] = True  # cleared only after reviewed InvSlots handling
+         if update_type & 1:      # ObjectData
+             c.reset()
+             mask = c.bits(4)
+@@ -503,6 +503,14 @@
+                     c.f32()      # Scale
+         if update_type & 0x1E:   # item/container/azerite data: not a creature
+             return result
++        if own_player and update_type & 0x80 and not update_type & ~0x81:
++            from .own_item_delta import read_root_slots
++            try:
++                roots=read_root_slots(c)
++                result.pop('inventory_invalidated',None)
++                if roots:result['inventory_root_delta']=roots
++            except ValueError:
++                pass  # explicit invalidation, not stale root membership
+         if update_type & 0x20:   # UnitData
+             # Reaching PlayerData requires all changed UnitData bytes, not
+             # merely the useful prefix. Unknown unit tails stop that path.
+--- before/tests/test_native_inventory_roots_20261030.py
++++ after/tests/test_native_inventory_roots_20261030.py
+@@ -0,0 +1,123 @@
++"""Changed own InvSlots keep independent clocks and cannot invent bag UI."""
++import struct
++
++import pytest
++
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from wowbot.packetio.own_inventory_codec import ZERO
++from test_packet_agent_bridge import bridge
++from test_native_inventory_20261030 import (RAW_ME, ITEM, BAG, packed, events,
++    full_player_tail, create_payload, deliver_native, ready)
++from test_native_inventory_delta_20261030 import mask_bytes
++
++
++def root_payload(rows=(), *, changed=None, tail=b'', guid=RAW_ME, update_type=0x80):
++    if changed is None:
++        changed = {163, *(164+i for i, _ in rows)}
++    blob = bytes((0, 0, 3))+struct.pack('<I', update_type)+mask_bytes(changed, 13)
++    blob += b''.join(packed(value) for _, value in sorted(rows))+tail
++    block = b'\0'+packed(guid)+struct.pack('<I', len(blob))+blob
++    return struct.pack('<HI', 2175, 1)+b'\0'+struct.pack('<I', len(block))+block
++
++
++def baseline(bridge):
++    ready(bridge)
++    return deliver_native(bridge, create_payload(player_tail=full_player_tail()))
++
++
++def test_root_values_require_reviewed_v2_and_export_only_changed_slots():
++    _, values = events(root_payload([(23, ZERO), (24, ITEM)]))
++    event = next(e for e in values if e.event_type == 'OWN_INVENTORY_ROOTS').to_dict()
++    assert event['payload']['sample_kind'] == 'VALUES'
++    assert event['payload']['root_slots'] == [[23, ZERO], [24, ITEM]]
++    assert verified_semantics(normalize_event(event))
++    event['provenance']['payload_layout'] = 'WPP_12_1_OWN_INVENTORY_REVIEWED_V1'
++    with pytest.raises(ValueError):
++        normalize_event(event)
++
++
++def test_slot_move_merges_without_rejuvenating_the_other_103_slots(bridge):
++    decoder = baseline(bridge)
++    deliver_native(bridge, root_payload([(23, ZERO), (24, ITEM)]), decoder=decoder, at=10.1)
++    result = bridge.world.query.native_inventory(10.1)
++    assert result['root_membership'] == 'COMPLETE' and len(result['root_slots']) == 105
++    assert result['root_slots'][23:25] == [[23, ZERO], [24, ITEM]]
++    assert result['root_sample_time'] == result['root_baseline_time'] == 10.
++    assert result['root_slot_evidence']['24']['observed_at'] == 10.1
++    assert result['root_slot_evidence']['19']['observed_at'] == 10.
++    assert 'root_observation_id' not in result  # no single source for a merged snapshot
++    assert 'root_slots' not in bridge.world.state['packet_inventory']
++    result = bridge.world.query.native_inventory(12.05)
++    assert result['root_membership'] == 'PARTIAL'
++    assert result['root_slots'] == [[23, ZERO], [24, ITEM]]
++    assert result['root_sample_time'] == 10.1 and result['root_baseline_time'] == 10.
++    result['root_slots'][0][1] = BAG
++    assert bridge.world.query.native_inventory(12.05)['root_slots'][0][1] == ZERO
++    assert bridge.world.state['inventory']['items'][0]['bag'] == 0
++
++
++def test_unrelated_active_data_cannot_rejuvenate_or_invalidate_inventory_roots(bridge):
++    decoder = baseline(bridge)
++    # Backpack sorting flag is unrelated to InvSlots; its payload is not exported.
++    _, values = events(root_payload(changed={0, 1}, tail=b'\x80'), decoder, at=11.9)
++    assert not any(e.event_type.startswith('OWN_INVENTORY') for e in values)
++    deliver_native(bridge, root_payload(changed={0, 1}, tail=b'\x80'), decoder=decoder, at=11.9)
++    assert bridge.world.query.native_inventory(11.9)['root_sample_time'] == 10.
++    assert bridge.world.query.native_inventory(12.1)['root_membership'] == 'UNKNOWN'
++
++
++@pytest.mark.parametrize('data', [
++    root_payload([(23, ZERO)], changed={187}),  # missing array parent
++    root_payload([(23, RAW_ME)]),              # player is not an item
++    root_payload([(23, ZERO)], tail=b'unknown-tail'),
++    root_payload([(23, ITEM)], changed={0, 1, 163, 187}),  # unreviewed preceding field
++    root_payload([(23, ITEM)])[:-1],           # truncated enclosing update
++])
++def test_unreviewed_root_payload_never_produces_a_partial_false_snapshot(data):
++    _, values = events(data)
++    assert not any(e.event_type == 'OWN_INVENTORY_ROOTS' for e in values)
++
++
++def test_unknown_root_layout_is_a_barrier_against_older_snapshot_and_delta(bridge):
++    decoder = baseline(bridge)
++    bad = root_payload([(23, ZERO)], tail=b'unknown-tail')
++    deliver_native(bridge, bad, decoder=decoder, at=10.2)
++    assert bridge.world.query.native_inventory(10.2)['root_membership'] == 'UNKNOWN'
++    deliver_native(bridge, create_payload(player_tail=full_player_tail()), at=10.1)
++    deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.1)
++    assert bridge.world.query.native_inventory(10.2)['root_membership'] == 'UNKNOWN'
++    deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.3)
++    result = bridge.world.query.native_inventory(10.3)
++    assert result['root_membership'] == 'PARTIAL' and result['root_slots'] == [[24, ITEM]]
++    assert result['root_baseline_time'] is None
++
++
++def test_reordered_separate_slot_deltas_and_old_invalidation_do_not_erase_newer_facts(bridge):
++    decoder = baseline(bridge)
++    deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.2)
++    deliver_native(bridge, root_payload([(23, ZERO)]), decoder=decoder, at=10.1)
++    deliver_native(bridge, root_payload([(24, ZERO)]), decoder=decoder, at=10.1)
++    deliver_native(bridge, root_payload([(23, ZERO)], tail=b'unknown'), decoder=decoder, at=10.1)
++    result = bridge.world.query.native_inventory(10.2)
++    assert result['root_membership'] == 'COMPLETE'
++    assert result['root_slots'][23:25] == [[23, ZERO], [24, ITEM]]
++    assert result['root_slot_evidence']['23']['observed_at'] == 10.1
++    assert result['root_slot_evidence']['24']['observed_at'] == 10.2
++
++
++def test_conflicting_merged_roots_are_unknown_until_a_verified_move_resolves_them(bridge):
++    decoder = baseline(bridge)
++    deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.1)
++    result = bridge.world.query.native_inventory(10.1)
++    assert result['root_membership'] == 'UNKNOWN' and 'root_slots' not in result
++    deliver_native(bridge, root_payload([(23, ZERO)]), decoder=decoder, at=10.2)
++    assert bridge.world.query.native_inventory(10.2)['root_membership'] == 'COMPLETE'
++
++
++def test_root_delta_without_create_has_only_positive_partial_membership(bridge):
++    ready(bridge)
++    deliver_native(bridge, root_payload([(24, ITEM)]))
++    result = bridge.world.query.native_inventory(10.)
++    assert result['root_membership'] == 'PARTIAL' and result['root_baseline_time'] is None
++    assert result['root_slots'] == [[24, ITEM]] and result['items'] == []
++    assert bridge.world.query.owned_item_count(12345, 10.)['status'] == 'UNKNOWN'

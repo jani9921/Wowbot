@@ -30,6 +30,7 @@ class ActiveSkillSupervisionStep:
     next_segment_baseline: dict | None = None
     # Sent on the discrete lane next to a movement lease (CAMERA_GLANCE).
     side_commands: tuple = ()
+    preserve_navigation: bool = False
 
 
 class ActiveSkillSupervisor:
@@ -55,9 +56,16 @@ class ActiveSkillSupervisor:
     def step(self, attempt, active_state, world, *, world_observation_id: str,
              visual_observation_id: str, now: float,
              segment_baseline: dict | None = None,
-             reference_reach_interrupt: str | dict | None = None) -> ActiveSkillSupervisionStep:
+             reference_reach_interrupt: str | dict | None = None,
+             allow_route_queries: bool = True) -> ActiveSkillSupervisionStep:
         skill = attempt.proposal.skill
         state = world.state
+        route_options = {} if allow_route_queries else {'allow_route_queries':False}
+        if ((getattr(attempt.proposal, 'parameters', None) or {}).get('purpose') == 'CORPSE_RUN'
+                and state.get('is_ghost') is not True):
+            return self._verified_outcome(
+                skill, Outcome.CANCELLED, 'corpse_run_no_longer_ghost', state,
+                stop_movement=True, verifier='DEATH_STATE_TRANSITION_VERIFIER')
         if skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"}:
             return self._movement(
                 attempt, state, world.latest, world_observation_id, now,
@@ -73,17 +81,17 @@ class ActiveSkillSupervisor:
             return self._project(skill, result, state)
         if skill in {"INTERACT", "TALK"}:
             return self._interaction(active_state, state, world_observation_id,
-                                     visual_observation_id, now)
+                                     visual_observation_id, now, **route_options)
         if skill in {"COMBAT", "DEFEND"}:
-            return self._combat(active_state, state, world_observation_id, now)
+            return self._combat(active_state, state, world_observation_id, now, **route_options)
         if skill == "LOOT":
             context = active_state.skill_context.get("loot", {})
             runtime_step = (
                 self.loot_runtime.continue_approach(
-                    active_state, state, world_observation_id, now)
+                    active_state, state, world_observation_id, now, **route_options)
                 if context.get("approach_request") else
                 self.loot_runtime.step_verification(
-                    active_state, state, world_observation_id, now))
+                    active_state, state, world_observation_id, now, **route_options))
             if runtime_step.terminal_result is not None:
                 return self._project(skill, runtime_step.terminal_result, state)
             return self._runtime(runtime_step, skill, state)
@@ -91,10 +99,25 @@ class ActiveSkillSupervisor:
             result = self.m0_skills.verify(active_state, state, now)
             if result.status is SkillStatus.RUNNING and result.commands:
                 return ActiveSkillSupervisionStep(commands=tuple(result.commands),
-                                                  event_type="OBJECT_USE_CONTROL_UPDATE")
+                    event_type="OBJECT_USE_CONTROL_UPDATE",
+                    diagnostics={'post_use_motion':result.metadata['post_use_motion']}
+                    if 'post_use_motion' in result.metadata else {})
             return self._project(skill, result, state)
-        if skill in {"WAIT_EVENT", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION",
-                     "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
+        if skill == "USE_ON_TARGET":
+            result = self.m0_skills.verify(active_state, state, now)
+            if result.status is SkillStatus.RUNNING and result.commands:
+                return ActiveSkillSupervisionStep(commands=tuple(result.commands),
+                                                  event_type="ITEM_USE_CONTROL_UPDATE")
+            return self._project(skill, result, state)
+        if skill == "REST":
+            # The one food press of a rest (skills/rest.py); otherwise input-free.
+            result = self.m0_skills.verify(active_state, state, now)
+            if result.status is SkillStatus.RUNNING and result.commands:
+                return ActiveSkillSupervisionStep(commands=tuple(result.commands),
+                                                  event_type="REST_CONTROL_UPDATE")
+            return self._project(skill, result, state)
+        if skill in {"WAIT_EVENT", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION",
+                     "ASSIST", "FOLLOW_INSTRUCTION"}:
             return self._project(
                 skill, self.m0_skills.verify(active_state, state, now), state)
 
@@ -129,7 +152,13 @@ class ActiveSkillSupervisor:
                          else {"reason": str(visual_interrupt)})
             projected = self._verified_outcome(
                 attempt.proposal.skill,
-                (Outcome.CANCELLED if interrupt.get("kind") == "QUEST_ROUTE_VISUAL_CUE"
+                (Outcome.CANCELLED if interrupt.get("kind") in {
+                    "QUEST_ROUTE_VISUAL_CUE", "OBJECTIVE_UNIT_HOVERED",
+                    "QUEST_ROUTE_NPC_HOVERED", "SERVER_TURN_IN_ENTITY_AVAILABLE", "SERVER_OBJECTIVE_NPC_AVAILABLE",
+                    "SERVER_TURN_IN_INTERACTION_READY", "SERVER_QUEST_OBJECT_CHANGED",
+                    "SERVER_QUEST_OBJECT_PASSING", "QUEST_OBJECT_HOVERED",
+                    "SERVER_QUEST_OBJECT_EDGE", "RESCUE_NPC_SOFT_INTERACT",
+                    "MOUNT_FOR_LONG_ROUTE", "FLIGHT_MODE_AVAILABLE", "VEHICLE_QUEST_CONTROLS"}
                  else Outcome.SUCCESS),
                 str(interrupt.get("reason") or "visual_navigation_interrupt"), state,
                 stop_movement=True, verifier="VISUAL_INTERRUPT_VERIFIER")
@@ -155,8 +184,10 @@ class ActiveSkillSupervisor:
             values["movement_assessment"] = assessment
             values["next_segment_baseline"] = movement.next_segment_baseline
             return ActiveSkillSupervisionStep(**values)
+        from wowbot.execution.command_dispatch import flight_ability_tap
         return ActiveSkillSupervisionStep(
-            commands=tuple(movement.commands), movement_lane=True,
+            commands=tuple(movement.commands),
+            movement_lane=not flight_ability_tap(tuple(movement.commands)),
             event_type="MOVEMENT_CONTROL_UPDATE",
             movement_assessment=assessment,
             next_segment_baseline=movement.next_segment_baseline,
@@ -200,13 +231,14 @@ class ActiveSkillSupervisor:
         return ActiveSkillSupervisionStep(**values)
 
     def _interaction(self, active_state, state: dict, world_observation_id: str,
-                     visual_observation_id: str, now: float) -> ActiveSkillSupervisionStep:
+                     visual_observation_id: str, now: float, *, allow_route_queries=True) -> ActiveSkillSupervisionStep:
+        route_options = {} if allow_route_queries else {'allow_route_queries':False}
         context = active_state.skill_context.get("interaction", {})
         approach = context.get("approach_request")
         if approach:
             if approach.get("kind") == "WORLD_ENTITY":
                 return self._runtime(self.interaction_runtime.step_world_entity(
-                    active_state, state, world_observation_id, now),
+                    active_state, state, world_observation_id, now, **route_options),
                     active_state.skill_type, state)
             if approach.get("purpose") == "INTERACT":
                 return self._runtime(self.interaction_runtime.step_visual(
@@ -222,21 +254,23 @@ class ActiveSkillSupervisor:
             return self._runtime(self.interaction_runtime.step_verification(
                 active_state, state, result,
                 world_observation_id=world_observation_id,
-                visual_observation_id=visual_observation_id, now=now),
+                visual_observation_id=visual_observation_id, now=now, **route_options),
                 active_state.skill_type, state)
         return self._project(active_state.skill_type, result, state)
 
     def _combat(self, active_state, state: dict, observation_id: str,
-                now: float) -> ActiveSkillSupervisionStep:
+                now: float, *, allow_route_queries=True) -> ActiveSkillSupervisionStep:
+        from wowbot.skills.navigation_handoff import deadline
+        route_options = {} if allow_route_queries else {'allow_route_queries':False}
         context = active_state.skill_context.get("combat", {})
         if context.get("approach_request"):
             return self._runtime(self.combat_runtime.continue_approach(
-                active_state, state, observation_id, now),
+                active_state, state, observation_id, now, **route_options),
                 active_state.skill_type, state)
         result = self.m0_skills.verify(active_state, state, now)
         if result.status is SkillStatus.RUNNING:
             return self._runtime(self.combat_runtime.step_verification(
-                state, result, observation_id, now),
+                state, result, observation_id, now, deadline=deadline(active_state), **route_options),
                 active_state.skill_type, state)
         return self._project(active_state.skill_type, result, state)
 
@@ -245,14 +279,21 @@ class ActiveSkillSupervisor:
         if decision.pending:
             return ActiveSkillSupervisionStep()
         return ActiveSkillSupervisionStep(
-            terminal_outcome=(Outcome.SUCCESS if decision.success else Outcome.FAILURE),
+            terminal_outcome=(Outcome.CANCELLED if result.status is SkillStatus.CANCELLED else
+                              Outcome.SUCCESS if decision.success else Outcome.FAILURE),
             reason=decision.reason, typed_reason=decision.typed_reason,
             diagnostics={
                 "verification_method": decision.verifier,
                 "verification_evidence": list(decision.evidence),
+                **({'post_use_motion':result.metadata['post_use_motion']}
+                   if skill == 'OBJECT_USE' and 'post_use_motion' in result.metadata else {}),
             })
 
     def _runtime(self, step, skill: str, state: dict) -> ActiveSkillSupervisionStep:
+        if getattr(step, 'plan_pending', False):
+            return ActiveSkillSupervisionStep(yield_tick=True, stop_movement=True, preserve_navigation=True,
+                reason='skill_navigation_plan_pending', event_type='SKILL_NAVIGATION_PLAN_PENDING',
+                diagnostics=dict(step.diagnostics))
         result = step.terminal_result
         if result is not None:
             projected = self._project(skill, result, state)
@@ -263,6 +304,9 @@ class ActiveSkillSupervisor:
                                     or (result.reason.value.lower() if result.reason
                                         else "active_skill_runtime_failed"))
             values["stop_movement"] = bool(getattr(step, "stop_movement", False))
+            if result.metadata.get('navigation_failure'):
+                values['diagnostics'] = {**values['diagnostics'],
+                    'navigation_failure':result.metadata['navigation_failure']}
             values["dispatch_failure_terminal"] = True
             values["return_after_terminal"] = True
             return ActiveSkillSupervisionStep(**values)

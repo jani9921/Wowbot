@@ -339,6 +339,10 @@ def test_agent_starts_one_persistent_seek_instead_of_planner_camera_pulses():
     from test_agent_core import agent, state
 
     value, executor = agent()
+    # The initial no-cue discovery now queries available quest locations.
+    # Exercise the persistent visual fallback after that map stage is done.
+    value.planner.map_search_context = ("test:player-1", 1609, None)
+    value.planner.map_search_exhausted = True
     result = value.tick(state(1, world_map_open=False, visual_candidates=[]), 1.)
     assert result["pending"]["proposal"]["skill"] == "SEEK_VISUAL_CUE"
     assert executor.commands[-1].kind == "BIND"

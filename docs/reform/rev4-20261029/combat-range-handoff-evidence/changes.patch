@@ -1,0 +1,350 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,20 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P7 combat range handoff — **OFFLINE_TESTED / remaining combat
++and facing gaps PARTIAL**. User trace shows OUT_OF_RANGE only 0.14 s after
++combat start while a successful Charge was still moving; fresh melee range
++followed ~0.2 s later. A bounded original-cast-time mobility settle prevents
++that premature verdict and yields immediately to actual non-movement range.
++Selected-position absence now uses the existing exact server actor helper
++before the shared NavigationService approach. Identity/map/removal/freshness
++gates remain; no retreat to force Charge and no guessed melee range. Selected
++regression: **3999 passed, 2 skipped, 10 unchanged deselections, 323 modules,
++exit 0**, 229.76 s pytest; 553 source + 632 test Python files parse, 203 numbered
++rows unchanged. User's previous run provides live map-0 navmesh and native
++session/gap recovery evidence, not post-range-fix quest acceptance. Eleven
++facing failures and other recorded errors remain under investigation. Only
++read-only SQL was used; no assistant game/capture/input/live DB mutation.
++See [range handoff](reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md).
+ 
+ 2026-10-30 REV4 live-log regression fixes — **OFFLINE_TESTED / full migration
+ PARTIAL**. User-operated morning/afternoon runs exposed a valid signed Trinity
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,25 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — longer user run: session/navmesh observed; combat handoff fixed offline
++
++PID 7784's recorded run now has native Detour map-0 route_found and
++PACKET_BASELINE / READY with CONTIGUOUS delivery after one sequence gap.
++These are narrow user-run live data-path observations. Manual intervention
++limits are unknown; 9 kill/8 loot verifier successes are not automatically
++claimed as fully autonomous. Eleven facing failures, two dialog failures,
++two route-envelope and two range failures were preserved as unresolved.
++
++A concrete range failure occurred 0.14 s after combat start, during observed
++Charge travel, before the next melee-range sample. Bounded original-time
++mobility settling and exact server-position fallback for missing selected
++UnitPosition are offline-tested; shared navigation/identity/verification and
++input authority remain unchanged. The facing failures are not declared fixed.
++
++Selected regression: **3999 passed, 2 skipped, 10 unchanged deselections**,
++323 modules, 229.76 s pytest / 232.62 s runner, exit 0; 553 source + 632 test
++Python files parse, 203 rows persist. Read-only SQL only, no assistant client/
++capture/FULL_AI/input/live DB changes. No post-range-fix live validation.
++[Bounded trace, details/checkpoint](reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md).
+ 
+ ## 2026-10-30 — user-run logs inspected; navmesh/session fixes offline-tested
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3984 passed, 2 skipped, 10 változatlan deselection, 322 modul, exit 0.
++Végső kijelölt regresszió: 3999 passed, 2 skipped, 10 változatlan deselection, 323 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -61,6 +61,12 @@
+ bizonyíték egészíti ki; az új session nem örököl régi cache-t. A rögzített
+ capture visszaolvasása sikeres, új élő FULL_AI-elfogadás továbbra sincs.
+ 
++A hosszabb felhasználói próbában a natív session/gap-helyreállítás és a map-0
++útvonal már megjelent. Egy [Charge/range átadási hiba](P7_COMBAT_RANGE_HANDOFF.md)
++offline javítva: mozgási átmenet alatt nem zárja le 0.14 s után a harcot,
++és üres addon targetpozíció esetén a meglévő exact szerverpozíciót használja.
++A többi ráfordulási/dialog hiba nincs ettől lezárva.
++
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+ késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+@@ -102,14 +108,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3984 passed, 2 skipped, 10 deselected; 322 modul; 296.70 s; exit 0** |
++| Végső kijelölt regresszió | **3999 passed, 2 skipped, 10 deselected; 323 modul; 229.76 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 552 source + 631 tests Python-fájl; 630 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 553 source + 632 tests Python-fájl; 631 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 630 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **321 kijelölt modul eredménye**, nem a teljes 631 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md
++++ after/docs/reform/rev4-20261029/P7_COMBAT_RANGE_HANDOFF.md
+@@ -0,0 +1,77 @@
++# REV4 P7 — Charge átmenet és szerverpozíciós combat-közelítés
++
++2026-10-30. A felhasználó 17:04–17:12 közötti, PID 7784-es próbájának
++olvasási auditja. A mentett képsor a 180-as limiten 17:07:50-kor véget ért;
++a tartós AGENT_TRACE/addon observationök ezért is kellettek a folytatáshoz.
++A memory-adatbázis `mode=ro` és `query_only=ON` módban lett lekérdezve;
++nem konstruáltunk AgentMemory writert és nem módosítottuk az éles adatokat.
++
++## Élőben látható javulás, pontos határral
++
++Ebben a felhasználó által indított folyamatban már ismét elérhető a map 0
++natív Detour mesh, `route_found`, 844 tile. A provider PACKET_BASELINE / READY
++és CONTIGUOUS állapotban volt, egy rögzített sequence gap után is helyreállt.
++Ez a [MMAP/session javítás](P2_LIVE_SESSION_NAVMESH_FIXES.md) konkrét élő
++adatút-bizonyítéka, nem teljes REV4-elfogadás vagy végig autonóm quest igazolása.
++
++A 58 mentett verifikáció között 9 `target_death_verified`, 8 `loot_verified`,
++5 `quest_dialog_verified`, ugyanakkor 11 `facing_failed`, 2 `out_of_range`,
++2 `route_endpoint_outside_arrival_envelope` és 2 sikertelen quest-dialog
++szerepel. A manuális beavatkozások teljes határa nem ismert, ezért ezek
++eredményjelzések, nem automatikusan 9 autonóm kill vagy teljesített quest.
++
++## Pontosan reprodukált combat-hiba
++
++A felhasználó jelezte, hogy közelről nem használható a Charge. A mért eset
++ennél pontosabb: az addon sikeres 100-as spellt jelzett 1346193.111-kor,
++miközben a karakter még a cél felé mozgott. A COMBAT 1346193.351-nél,
++az indulása után 0.14 s-cel már `out_of_range` hibával lezárult. A következő
++0.2 s-on belül a FAST már Slam/Shield Slam `in_range=true` értéket adott.
++A Charge `in_range=false` ilyenkor helyes; nem általános harcképtelenség.
++
++Az új, tiszta `combat.mobility.settling_deadline` kizárólag megfigyelt saját
++movement-spell sikerénél enged rövid átmenetet. A meglévő Charge metaadat
++0.8 s-os maximumot ad, az **eredeti cast idejétől**. Újabb frame nem
++hosszabbítja meg. Ezalatt nincs új Charge, vak előrelépés vagy sikervisszajelzés.
++Amint egy tényleges nem-movement támadás hatótávja jó, a közös rotáció
++azonnal folytatódik. Lejárt/hiányzó/jövőbeli siker, másik vagy halott target,
++ismeretlen spell/metaadat nem generál ilyen várakozást.
++
++A második konkrét hiba: `_world_approach_request` csak a selected target
++`world_position` mezőjét nézte. A friss Retail megfigyelésben ez `false`,
++miközben az exact GUID-hoz a szerver-entitáslista adta a pozíciót. Így a
++combat nem is kérte a már működő NavigationService-et, hanem range failure
++lett. Most ugyanazt az exact-GUID / azonos instance / nem eltávolított /
++élő actor pozíciós helperét használja, amelyet a canonical `move_to_entity`
++már fogyaszt. Nincs NPC-ID-alapú csere, képi koordinátagyártás vagy második
++mozgás-owner. Az addon selected identity/freshness és a navmesh kapuja megmarad.
++
++Közeli, melee `in_range=true` targetnél a rotáció Charge nélkül is támad;
++a meglévő erőforrás- és autoattack fallback megmaradt. Nem állítunk teljes
++új melee/ranged profilrendszert vagy minden minimum-range spell kezelését.
++
++## Ellenőrzés és még nyitott hibák
++
++A célzott kör **101 pass**. Pontos korrelált Charge/FAST átmenet, eredeti
++cast-óra szerinti lejárat, azonnali melee-folytatás, szerverpozíciós shared
++közelítés, rossz GUID/map/eltávolítás és hiányzó adatok negatív ágai szerepelnek.
++
++Végső kijelölt regresszió: **3999 passed, 2 skipped, 10 változatlan
++deselection, 323 modul, exit 0**, pytest 229.76 s / runner 232.62 s.
++A teljes teszttárra vagy élő játékmenetre ez nem teljeskörű állítás.
++
++[Forrás/diff/parancs/JUnit/bounded trace checkpoint](combat-range-handoff-evidence/verification.json).
++A rövid capture-probe és SQLite-kivonat nem visz át nyers packetet, chatet,
++auth-/kulcsanyagot vagy a teljes éles adatbázist a checkpointba.
++
++A 11 ráfordulási hiba gyökérokának vizsgálata még tart; azokat ez a javítás
++nem nyilvánítja megoldottnak. A vizsgált egyedi cél a szerver raw és 96 elemre
++korlátozott projectionben is szerepelt; önmagában a projection-limit nem
++bizonyított ok. Route/face diagnostics és mozgó célhoz tartozó final-arrival
++következetesség további ellenőrzést igényel. A két dialog failure oka sincs
++ettől igazolva.
++
++Az asszisztens nem indított WoW/Ymir/capture/FULL_AI-t, nem küldött inputot.
++A mobility/range javítás után nincs új felhasználói live validation. A Ymir
++EXE, az addon és az input-authority kapui nem változtak. Retained collection,
++provider parity és a nagy Combat/Travel/Quest felelősségbontás továbbra nyitott.
+--- before/src/wowbot/combat/ability/catalog.py
++++ after/src/wowbot/combat/ability/catalog.py
+@@ -14,6 +14,7 @@
+     100: {
+         "min_range": 8.0, "max_range": 25.0, "cooldown_ms": 20000,
+         "combat_priority": 60.0, "tags": ("OFFENSIVE", "MOVEMENT"),
++        "movement_settle_seconds": .8,
+     },
+     23922: {
+         "min_range": 0.0, "max_range": 5.0, "cooldown_ms": 9000,
+--- before/src/wowbot/combat/mobility.py
++++ after/src/wowbot/combat/mobility.py
+@@ -0,0 +1,29 @@
++"""Bounded observation settling after a confirmed own movement ability.
++
++This only defers an out-of-range verdict; it grants no cast or movement
++permission and never infers melee range from an ability's success.
++"""
++from wowbot.value_helpers import number
++
++
++def settling_deadline(state, actions, expected_guid, now):
++    target=state.get('target') or {}
++    if (not expected_guid or target.get('guid')!=expected_guid
++            or target.get('attackable',target.get('is_attackable')) is not True
++            or target.get('dead',target.get('is_dead')) is True):
++        return None
++    spell=state.get('combat_last_spell_id')
++    sampled=number(state.get('combat_last_cast_at'))
++    current=number(now)
++    if sampled is None or current is None or not 0<=current-sampled<1.:
++        return None
++    if any(a.get('is_harmful') is True and a.get('in_range') is True
++           and 'MOVEMENT' not in a.get('tags',()) for a in actions):
++        return None  # actual melee/ranged readiness wins immediately
++    action=next((a for a in actions if a.get('id',a.get('spell_id'))==spell),None)
++    if action is None or 'MOVEMENT' not in action.get('tags',()):
++        return None
++    seconds=number(action.get('movement_settle_seconds'))
++    if seconds is None or not 0<seconds<=1. or current>=sampled+seconds:
++        return None
++    return sampled+seconds
+--- before/src/wowbot/skills/combat.py
++++ after/src/wowbot/skills/combat.py
+@@ -557,6 +557,15 @@
+         uses = context.setdefault("ability_uses", {})
+         action = self._choose_action(world_state, uses=uses, now=now, context=context)
+         if action is None:
++            from wowbot.combat.mobility import settling_deadline
++            deadline=settling_deadline(world_state,self.ability_rules.actionbar(world_state),
++                                       context.get('expected_guid'),now)
++            if deadline is not None:
++                # A successful Charge can precede its actual arrival/range
++                # update. Keep this attempt; do not start walking or fail it
++                # during that short, original-cast-time-bounded transition.
++                return SkillResult(SkillStatus.RUNNING,
++                                   metadata={'mobility_settling_until':deadline})
+             auto_attack = self._auto_attack_fallback(state, world_state, now)
+             if auto_attack is not None:
+                 return auto_attack
+@@ -967,6 +976,9 @@
+                 or target.get("dead", target.get("is_dead"))
+                 or target.get("attackable", target.get("is_attackable")) is not True):
+             return None
++        if not position:
++            from wowbot.agent.packet_entity_facts import interaction_position
++            position=interaction_position(world_state,expected_guid) or {}
+         if None in {number(player.get("x")), number(player.get("y")),
+                     number(position.get("x")), number(position.get("y"))}:
+             return None
+--- before/tests/test_combat_range_handoff_20261030.py
++++ after/tests/test_combat_range_handoff_20261030.py
+@@ -0,0 +1,102 @@
++"""Recorded Charge transition and server-only positioning through shared combat."""
++from copy import deepcopy
++
++import pytest
++
++from wowbot.combat.mobility import settling_deadline
++from wowbot.navigation.service import NavigationService
++from wowbot.runtime import SkillStatus
++from wowbot.skills.combat import CombatSkill
++from test_m0_combat_loot_skills import active
++
++GUID='Creature-0-1469-0-29720-50039-000064C1B0'
++
++
++def state(at=10., *, melee=False, charge=False):
++    return {'session_id':'range-test','monotonic_time':at,'target_sample_time':at,
++        'orientation':0.,'power':30,'health':100,'max_health':100,'is_in_combat':True,
++        'target':{'guid':GUID,'attackable':True,'dead':False,'world_position':False},
++        'player_world_position':{'x':0.,'y':0.,'z':10.,'instance_id':0,'coordinate_space':'WORLD_YARDS',
++                                 'sample_time':at,'z_known':True},
++        'packet_entities':{GUID:{'guid':GUID,'kind':'CREATURE','map_id':0,'entry_id':50039,
++            'position':{'x':7.,'y':0.,'z':10.,'age':0.,'source':'PACKET_CREATE_MOVEMENT'}}},
++        'actionbar':[
++            {'id':1464,'kind':'spell','action':'ACTIONBUTTON1','is_harmful':True,
++             'is_usable':True,'in_range':melee,'cooldown_remaining':0,'min_range':0,'max_range':0},
++            {'id':100,'kind':'spell','action':'ACTIONBUTTON2','is_harmful':True,
++             'is_usable':True,'in_range':charge,'cooldown_remaining':0,'min_range':8,'max_range':25},
++            {'id':23922,'kind':'spell','action':'ACTIONBUTTON3','is_harmful':True,
++             'is_usable':True,'in_range':melee,'cooldown_remaining':0,'min_range':0,'max_range':0}]}
++
++
++def test_range_gap_uses_exact_server_position_when_retail_selected_position_is_absent():
++    world=state();skill=CombatSkill();running=active('COMBAT',{'guid':GUID},world,deadline=30.)
++    result=skill.begin(running,world,10.)
++    assert result.status is SkillStatus.RUNNING and result.commands==()
++    request=result.metadata['approach_request']
++    assert request=={'kind':'WORLD_COMBAT','expected_guid':GUID,'stop_distance':3.5}
++    destination=NavigationService().move_to_entity(world,request['expected_guid'],'o',10.,
++                                                    stop_distance=request['stop_distance'])
++    assert destination['server_entity_guid']==GUID and destination['interaction_recipient_guid']==GUID
++    assert (destination['x'],destination['y'],destination['z'])==(7.,0.,10.)
++    assert destination['require_navmesh'] is True and destination['interaction_identity_source']=='TARGET'
++    assert running.local_retry_count==1
++
++
++def test_successful_charge_does_not_fail_or_issue_walk_while_its_range_update_is_in_flight():
++    world=state(10.24);world.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    skill=CombatSkill();running=active('COMBAT',{'guid':GUID},world,deadline=30.)
++    result=skill.begin(running,world,10.24)
++    assert result.status is SkillStatus.RUNNING and result.commands==()
++    assert result.metadata=={'mobility_settling_until':10.8}
++    assert running.local_retry_count==0 and not running.skill_context['combat'].get('approach_request')
++    # Like the recorded run, the next range transition is actual evidence,
++    # not a new plan or a guessed Charge success => target-dead result.
++    arrived=state(10.45,melee=True)
++    arrived.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    result=skill.verify(running,arrived,10.45)
++    assert result.status is SkillStatus.RUNNING
++    assert [c.binding for c in result.commands]==['ACTIONBUTTON3']
++    assert running.local_retry_count==0
++
++
++def test_charge_settle_expires_from_original_cast_time_and_then_uses_canonical_approach():
++    world=state(10.24);world.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    skill=CombatSkill();running=active('COMBAT',{'guid':GUID},world,deadline=30.)
++    skill.begin(running,world,10.24)
++    late=state(10.9);late.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    result=skill.verify(running,late,10.9)
++    assert result.status is SkillStatus.RUNNING and 'approach_request' in result.metadata
++    assert 'mobility_settling_until' not in result.metadata and running.local_retry_count==1
++
++
++@pytest.mark.parametrize('change',['wrong-target','removed','wrong-map','no-position','foreign-key'])
++def test_server_fallback_cannot_bypass_identity_removal_or_world(change):
++    world=state()
++    if change=='wrong-target':world['target']['guid']='other'
++    elif change=='removed':world['packet_entities'][GUID]['removed']=True
++    elif change=='wrong-map':world['packet_entities'][GUID]['map_id']=1
++    elif change=='no-position':world['packet_entities'][GUID].pop('position')
++    else:world['packet_entities']={'another-key':world['packet_entities'][GUID]}
++    assert CombatSkill._world_approach_request(world,GUID) is None
++
++
++@pytest.mark.parametrize('change',['no-success','old-success','future-clock','wrong-target','dead','no-metadata'])
++def test_mobility_settling_is_not_a_generic_wait_or_range_permission(change):
++    world=state(10.2);world.update(combat_last_spell_id=100,combat_last_cast_at=10.)
++    actions=CombatSkill().ability_rules.actionbar(world)
++    if change=='no-success':world.pop('combat_last_cast_at')
++    elif change=='old-success':world['combat_last_cast_at']=8.
++    elif change=='future-clock':world['combat_last_cast_at']=11.
++    elif change=='wrong-target':world['target']['guid']='other'
++    elif change=='dead':world['target']['dead']=True
++    else:actions=[{**a,'movement_settle_seconds':None} for a in actions]
++    assert settling_deadline(world,actions,GUID,10.2) is None
++
++
++def test_a_near_target_uses_melee_without_requiring_charge_to_be_in_range():
++    world=state(melee=True,charge=False);skill=CombatSkill()
++    running=active('COMBAT',{'guid':GUID},world,deadline=30.)
++    result=skill.begin(running,world,10.)
++    assert result.commands[0].binding=='ACTIONBUTTON3'
++    assert 'approach_request' not in result.metadata

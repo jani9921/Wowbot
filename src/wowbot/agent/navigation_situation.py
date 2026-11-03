@@ -40,6 +40,14 @@ class NavigationSituationPolicy:
             return proposal
 
         state = world.state
+        if state.get("is_dead") or state.get("is_ghost"):
+            # A corpse run uses canonical pathing and its bounded obstacle
+            # recovery, not a living quest's entrance/map search. The engine
+            # explicitly admits only DEATH_RECOVERY / CORPSE_RUN while dead.
+            if state.get("is_ghost") and proposal.parameters.get("purpose") == "CORPSE_RUN":
+                return proposal
+            return Proposal.make("WAIT", "Halál: csak igazolt halál-helyreállítás engedélyezett",
+                                 {"waiting_for": ["DEATH_RECOVERY"]}, priority=200)
         context = navigation.current_navigation_context(state)
         contextual = self._with_context(proposal, context)
 
@@ -67,6 +75,17 @@ class NavigationSituationPolicy:
                 "local_map_context_differs", "floor_interior_map_appears",
                 "cave_entrance_cue", "target_above_or_below", "portal_cue",
                 "transport_cue", "entrance_icon_cue"}))
+        if (contextual.parameters.get("require_navmesh") is True
+                and contextual.parameters.get("transition_required") is not True
+                and not signals.get("repeated_local_route_blockage")
+                and not any(signals.get(key) for key in {
+                    "portal_cue", "transport_cue", "local_map_context_differs"})):
+            # Live 2026-10-13 05:57 (Who Lurks in the Pit): inside the cave
+            # (CAVE/MULTI_FLOOR context) every MOVE to the cocoons became an
+            # entrance search -> OPEN_MAP -> WAIT for a minute at 0/5.  The
+            # mmap route already connects the floors; a transition search is
+            # only needed once that route has actually failed.
+            return contextual
         if quest_region_arrival_without_transition_evidence:
             # A quest objective/turn-in POI becoming close while no unit is
             # selected means "search this local area", not "there must be an
@@ -76,6 +95,12 @@ class NavigationSituationPolicy:
             return contextual
         transition = navigation.resolve_transition(signals)
         if not transition.supported:
+            return contextual
+        from .server_mode import server_mode_selected
+        if server_mode_selected(state):
+            # Server mode (user 2026-10-21 16:10): no entrance search on the
+            # screen and no map relocalisation; the navmesh route and its
+            # stuck recovery go on.
             return contextual
 
         # A bounded transition search already failed.  Do not repeat the same

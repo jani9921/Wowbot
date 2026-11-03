@@ -68,6 +68,7 @@ class FailureManager:
         FailureReason.PATH_BLOCKED: "LOCAL_NAVIGATION_RECOVERY",
         FailureReason.NO_ROUTE: "GLOBAL_ROUTE_RECOVERY",
         FailureReason.ARRIVAL_NOT_CONFIRMED: "NAVIGATION_REVERIFY",
+        FailureReason.POSITION_UNCERTAIN: "REOBSERVE_POSITION",
         FailureReason.OUT_OF_RANGE: "REAPPROACH_TARGET",
         FailureReason.FACING_FAILED: "REFACE_TARGET",
         FailureReason.FACING_WRONG_WAY: "REFACE_TARGET",
@@ -86,6 +87,14 @@ class FailureManager:
         FailureReason.EXECUTOR_FAILURE: "SAFE_STOP",
         FailureReason.INPUT_FAILURE: "SAFE_STOP",
         FailureReason.INTERNAL_ERROR: "SAFE_STOP",
+        FailureReason.WRONG_FLOOR: "LAYER_RESOLVE_AND_REPLAN",
+        FailureReason.MISSING_BINDING: "ASK_USER_FOR_BINDING",
+        FailureReason.MECHANIC_UNKNOWN: "OBJECTIVE_PROBES_OR_ASK_USER",
+        FailureReason.PHASE_MISMATCH: "QUEST_RECOVERY",
+        FailureReason.WAITING_SERVER_STATE: "WAIT_FOR_SERVER_EVENT",
+        FailureReason.SCENE_NOT_RESOLVED: "QUEST_RECOVERY",
+        FailureReason.SPELL_NO_EFFECT: "REAPPROACH_TARGET",
+        FailureReason.LOCATION_UNKNOWN: "SEARCH_REGION",
     }
 
     def __init__(self, retries: RetryPolicy | None = None,

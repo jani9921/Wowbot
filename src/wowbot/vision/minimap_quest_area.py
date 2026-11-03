@@ -81,20 +81,5 @@ def detect_quest_area(rgb: np.ndarray, center: tuple[float, float], radius: floa
             "outline_pixels": int(mask.sum()), "area_pixels": int(area.sum())}
 
 
-def offsets_to_world(offsets, *, player_x: float, player_y: float, view_radius_yards: float,
-                     rotate: bool = False, facing: float | None = None) -> list[tuple[float, float]]:
-    """Minimap offsets -> WORLD_YARDS (x = north, y = west; facing 0 = +x).
-
-    North-up minimap: screen up is north (+x) and screen left is west (+y).
-    A rotating minimap puts the player's facing up instead.
-    """
-    import math
-    heading = float(facing) if rotate and facing is not None else 0.
-    forward = (math.cos(heading), math.sin(heading))
-    right = (math.sin(heading), -math.cos(heading))
-    result = []
-    for dx, dy in offsets:
-        up, across = -float(dy)*view_radius_yards, float(dx)*view_radius_yards
-        result.append((player_x + up*forward[0] + across*right[0],
-                       player_y + up*forward[1] + across*right[1]))
-    return result
+# Pure geometry, shared with the server path (REV4 2026-10-31).
+from wowbot.coordinates import offsets_to_world  # noqa: E402,F401

@@ -20,7 +20,7 @@ class SkillVerificationMixin:
         # See commands(): SkillRegistry is intentionally no longer a second
         # authority for quest-dialog semantics.  The engine has a canonical
         # typed path through QuestDialogSkill.
-        if attempt.proposal.skill in {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "OBJECT_USE", "USE", "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
+        if attempt.proposal.skill in {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION", "OBJECT_USE", "USE", "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
             return Outcome.FAILURE, "canonical_quest_dialog_skill_required"
         if not world.latest or world.latest.observation_id == attempt.observation_id:
             # observation_id is content-addressed. A fresh re-read of identical
@@ -142,6 +142,8 @@ class SkillVerificationMixin:
                                      if getattr(command, "kind", None) == "HOVER"
                                      and command.x is not None and command.y is not None),
                                     (params["x"], params["y"]))
+            following = getattr(attempt, "pointer_follow", None) or {}
+            probe_x, probe_y = following.get("point") or (probe_x, probe_y)
             at_probe = x is not None and y is not None and math.hypot(x-probe_x, y-probe_y) <= .015
             # A fresh mouseover GUID is addon-confirmed identity and needs no cursor
             # corroboration (cursor_position is null whenever WoW is in mouse-look
@@ -149,25 +151,25 @@ class SkillVerificationMixin:
             # requiring at_probe when cursor telemetry is available.
             success = identity or (at_probe and (world_tooltip or tooltip))
             sample = number(after.get("mouseover_sample_time"))
+            if following and (sample is None or sample < following["started_at"]):
+                success = False             # a pre-follow tooltip cannot identify this moving probe
             if (not success and at_probe and not mouse.get("guid")
                     and not (mouse.get("tooltip_text") or mouse.get("tooltip"))
                     and not map_mouse.get("tooltip")
-                    and sample is not None and sample >= attempt.started_at + INSPECT_EMPTY_HOVER_SECONDS):
+                    and sample is not None and sample >= max(
+                        attempt.started_at, following.get("sent_at", attempt.started_at)) + INSPECT_EMPTY_HOVER_SECONDS):
                 # The pointer is on the probe and a sample taken well after
                 # the hover names nothing: answer now instead of waiting out
                 # the 5 s contract (live 2026-10-05: 49 empty INSPECTs, 5.6 s
                 # each).  WoW names a unit under the pointer the next frame.
                 return Outcome.FAILURE, "expected_observation_missing"
         elif name == "TARGET":
-            guid = attempt.proposal.parameters.get("guid")
-            expected_name = str(attempt.proposal.parameters.get("expected_name") or "").casefold().strip()
-            selected_name = str(target.get("name") or "").casefold().strip()
-            success = (target.get("guid") == guid if guid else
-                       bool(target) and target != old_target
-                       and bool(target.get("guid"))
-                       and (not expected_name or selected_name == expected_name))
+            from wowbot.runtime.entity_identity import check_entity_identity
+            from wowbot.runtime.skill_identity import expected_identity
+            wanted = expected_identity(attempt.proposal.parameters)
+            success = bool(check_entity_identity(wanted, target))
         elif name == "ACQUIRE_TARGET":
-            success = target.get("attackable", target.get("is_attackable")) is True
+            return Outcome.FAILURE, "identity_uncertain"
         elif name == "APPROACH_TARGET":
             if old_target.get("guid") != target.get("guid"):
                 return Outcome.CANCELLED, "target_identity_changed"
@@ -245,13 +247,29 @@ class SkillVerificationMixin:
             cooldown_started = (number(after_action.get("cooldown_remaining")) or 0.) > .1
             progressed = (bool(objective_progress(params.get("quest_ids")))
                           or bool(digest_progress(params.get("quest_ids"))))
+            if params.get("require_objective_progress"):
+                from wowbot.verification.quest import QuestProgressVerifier
+                verified = QuestProgressVerifier().evaluate(
+                    before, after, quest_ids=params.get("quest_ids") or (),
+                    objective_ids=params.get("objective_ids") or ())
+                # A cast is not proof of the named objective's credit.
+                # Wait for the per-objective snapshot before another button.
+                return ((Outcome.SUCCESS, "vehicle_objective_progress_verified") if verified.success
+                        else (Outcome.FAILURE, "quest_credit_not_received") if now >= attempt.deadline
+                        else (Outcome.PENDING, "awaiting_vehicle_objective_credit"))
             moved = forward_displacement(before, after)
             lunged = bool(moved and moved[0] >= DASH_MIN_YARDS and moved[0] >= .7*moved[1])
             settled = now-attempt.started_at >= .9 or now >= attempt.deadline
             success = progressed or lunged or ((cast or cooldown_started) and settled)
             if success:
+                # What the vehicle itself cast after the press: a scripted
+                # button's real effect (Trample 305556 -> 321627 CHARGE_DEST).
+                follow_ups = [(event.get("payload") or {}).get("spell_id") for event in events
+                              if event.get("event_type") == "SPELLCAST_SUCCEEDED"
+                              and (event.get("payload") or {}).get("unit") in {"vehicle", "pet"}]
                 learn_effect(world.__dict__.setdefault("vehicle_ability_effects", {}),
-                             spell_id, before, after, hit=progressed)
+                             spell_id, before, after, hit=progressed, follow_ups=follow_ups,
+                             target=params.get("guid"))
         elif name == "MOUNT":
             success = after.get("is_mounted") is True
         elif name == "DISMOUNT":
@@ -366,7 +384,13 @@ class SkillVerificationMixin:
             old_pos, pos = before.get("position") or {}, after.get("position") or {}
             if all(number(p.get(k)) is not None for p in (old_pos, pos) for k in ("x", "y")) and before.get("map_id") == after.get("map_id"):
                 moved = math.hypot(pos["x"] - old_pos["x"], pos["y"] - old_pos["y"]) > .00008
-                if name == "RECOVER":
+                if name == "RECOVER" and attempt.proposal.parameters.get("recovery_step") == "DESCEND":
+                    old_z = number((before.get("player_world_position") or {}).get("z"))
+                    z = number((after.get("player_world_position") or {}).get("z"))
+                    success = ((old_z is not None and z is not None and old_z-z >= .5)
+                               or (after.get("movement") or {}).get("flying") is False
+                               and (before.get("movement") or {}).get("flying") is True)
+                elif name == "RECOVER":
                     success = moved
                 else:
                     p = attempt.proposal.parameters

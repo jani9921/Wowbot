@@ -83,9 +83,14 @@ def test_combat_starts_auto_attack_when_melee_ability_lacks_rage():
 
     started = skill.begin(runtime, initial, 1.)
     assert started.commands == (started.commands[0],)
-    assert started.commands[0].kind == "CLICK"
-    assert started.commands[0].button == "RIGHT"
+    assert started.commands[0].kind == "HOVER"
     assert started.metadata["auto_attack_fallback"] is True
+    hovered = {**initial, "monotonic_time": 1.2, "mouseover_sample_time": 1.2,
+               "cursor_sample_time": 1.2, "mouseover": {"guid": "mob-1"},
+               "cursor_position": {"nx": .52, "ny": .48}}
+    attack = skill.verify(runtime, hovered, 1.2)
+    assert attack.commands[0].kind == "CLICK_CURRENT_CURSOR"
+    assert attack.commands[0].button == "RIGHT"
 
     # Once rage/usable telemetry changes, the same committed combat skill
     # proceeds to Slam rather than repeatedly right-clicking or retrying Charge.

@@ -1,0 +1,510 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,19 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 own CREATE quest membership — **OFFLINE_TESTED / full
++quest-progress and inventory parity PARTIAL**. Reviewed UnitData remainder and
++PlayerData prefix now supply the selected own character's initial 175 QuestLog
++slots to the existing canonical owner. Conditional Owner/Empath/UnitAll fields
++are consumed by exact layout, account/name data skipped, wrong actors ignored.
++V2/sample_kind=CREATE requires all complete slots; V1/partial data cannot claim
++a create baseline. Fresh membership can establish absence, never quest success;
++two-second sample freshness and continuity gates remain. Selected regression:
++**3838 passed, 2 skipped, 10 unchanged deselections, 313 modules, exit 0**,
++172.52 s pytest. All 533 source and 622 test Python files parse; all 203
++numbered rows remain unchanged. Addon/Ymir unchanged, no client/capture/input,
++no new live acceptance. Remaining PlayerData/ActivePlayerData, persistent native
++state and progress/inventory parity are not declared complete. See
++[own CREATE checkpoint](reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md).
+ 
+ 2026-10-30 REV4 P1-E binary format follow-up — **OFFLINE_TESTED**.
+ Python and native MMAP loaders share checked Trinity v16 / Detour v7 map/tile
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,20 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — selected own CREATE quest membership (offline only)
++
++The initial native 175-slot QuestLog now reaches the same WorldModel/query owner
++as VALUES deltas, after the exact conditional UnitData remainder and PlayerData
++prefix. V2/create coverage requires every slot; foreign/private fields and
++unreviewed/truncated blocks cannot establish membership. Membership is not
++quest success or native inventory/progress parity. Original sample times and
++existing freshness/continuity gates remain.
++
++Final selected regression: **3838 passed, 2 skipped, 10 unchanged deselections**,
++313 modules, 172.52 s pytest / 175.53 s runner, exit 0. All 533 source and
++622 test Python files parse, 203 numbered rows unchanged. Addon/Ymir unchanged;
++no game/capture/FULL_AI/input, no new live acceptance. Persistent native quest
++state, remaining own PlayerData/ActivePlayerData and inventory parity remain
++open. [Evidence/checkpoint](reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md).
+ 
+ ## 2026-10-30 — MMAP/Detour format failures (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,12 +5,14 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3815 passed, 2 skipped, 10 változatlan deselection, 312 modul, exit 0.
++Végső kijelölt regresszió: 3838 passed, 2 skipped, 10 változatlan deselection, 313 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+ a javított 0.9.80 telepítve, user-reload és sikeres betöltés visszaigazolása még nyitott.
+ Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
++Saját CREATE kezdeti questslotok [bekötve](P3_OWN_CREATE_QUESTLOG.md); inventory,
++tartós natív állapot és teljes objective-progress továbbra is külön nyitott kapu.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -23,6 +23,9 @@
+ továbbra is nyitott. Gyors és közepes packet-lane azonos korszakvédelmet használ.
+ Közös Python/natív [MMAP/Detour formátumellenőrzés](P1E_MMAP_FORMATS.md) is
+ elkészült; hibás adat és verzióeltérés nem lesz bizonyított NO_ROUTE.
++Saját CREATE → UnitData remainder → PlayerData QuestLog prefix is bekötve:
++[kezdeti 175 questslot](P3_OWN_CREATE_QUESTLOG.md). A fennmaradó own-player/
++inventory és tartós natív progress-paritás továbbra is nyitott.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -65,14 +68,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3815 passed, 2 skipped, 10 deselected; 312 modul; 135.62 s; exit 0** |
++| Végső kijelölt regresszió | **3838 passed, 2 skipped, 10 deselected; 313 modul; 172.52 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 532 source + 621 tests Python-fájl; 620 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 533 source + 622 tests Python-fájl; 621 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **312 kijelölt modul eredménye**, nem a teljes 620 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **313 kijelölt modul eredménye**, nem a teljes 621 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md
++++ after/docs/reform/rev4-20261029/P3_OWN_CREATE_QUESTLOG.md
+@@ -0,0 +1,66 @@
++# REV4 P3 — saját CREATE rekordból származó kezdeti questslotok
++
++2026-10-30. A kijelölt `projekt`; **OFFLINE_TESTED részadatút**.
++
++A natív QuestLog olvasó eddig a saját PlayerData VALUES változásait kezelte.
++Belépéskor a teljes slotlista a CREATE rekordban érkezhet; a következő VALUES
++csak egyetlen változást tartalmazhat. Most a korrelált saját karakter
++UnitData CREATE-jának fennmaradó része is pontosan bejárható a PlayerData
++QuestLog-prefixéig. Az adat ugyanabba a WorldModel-tárolóba és read-only querybe
++kerül; külön questmodell vagy inputút nem jött létre.
++
++## Prefix és jogosultság
++
++A pinnelt WPP `UpdateFieldsHandler1215` 70340-es családjának mezősorrendje az
++alap. Owner/Empath/UnitAll függő mezők, dinamikus spell/effect/channel tömbök,
++opcionális assistadat és a PlayerData saját prefixe szerint olvasunk. Nincs
++fix bájtugrás az ismeretlen blokkokon át. A tömbök bounded méretűek.
++
++- A selected own GUID-ot továbbra is azonos kapcsolatú, szerverrel igazolt
++  login korrelálja. Másik karakter vagy nem igazolt login nem hívja meg az
++  új saját prefixolvasót. A támogatott buildcsalád nem bővült találgatással.
++- QuestLog CREATE csak explicit PartyMember mezőlefedettségnél olvasható a
++  protokoll szerint; hiányzó flag nem jelent üres questlistát.
++- Account/guild/duel/pet/assist azonosítók és névbájtok méret szerint átugorva,
++  nem jutnak a normalizált eseménybe. Csak a saját GUID/world és numerikus
++  questslotok kerülnek az allowlistre.
++- Az új `WPP_12_1_QUEST_LOG_REVIEWED_V2` layout és `sample_kind=CREATE` együtt
++  engedi a kezdeti slotmintát. A korábbi V1 layout nem állíthat CREATE-baseline-t.
++  Mind a 175 teljes, egyedi slot kell; részleges delta nem címkézhető át.
++- Csonka/hibás remainder vagy slotkollekció nem ad részleges kezdeti listát.
++  A tőle függetlenül érvényes HP/profil-prefix megmaradhat saját bizonyítékként.
++
++## Fogyasztás és határok
++
++A WorldQuery ugyanazt a `quest_log_slots` / `quest_presence` szerződést használja.
++A teljes, friss tagság az adott mintában hiányzó QuestID-t ABSENT-ként jelezheti;
++lejárt/részleges vagy megszakadt kontextusban ez UNKNOWN. A státusz megőrzi,
++hogy CREATE vagy VALUES alapozta meg a listát. Régebbi, sorrenden kívüli teljes
++minta nem viszi vissza a baseline óráját. A tárolás nem fiatalítja meg a régi
++slotidentitást vagy számlálót.
++
++A jelenlegi konzervatív kétmásodperces slot-/mezőfrissességi kapu megmaradt.
++Ez **nem folyamatosan igazolt teljes questállapot**: a megtartott natív állapot
++és streamfolytonosság további migrációs feladat. CREATE-tagság nem bizonyít
++questfelvételt, teljesítést, leadást vagy UI-objective sorrendet. A későbbi
++PlayerData/ActivePlayerData részekből inventory/profil/talent baseline-t ez a
++prefix nem állít. Az addont ezek előtt nem karcsúsítjuk.
++
++## Ellenőrzés
++
++Célzott körök: 60, majd a V2/UnitAll/folytonosság-kiegészítéssel 71 pass;
++átfedő eredmények. A végső körben a további részleges-CREATE elutasítás is fut.
++
++Végső kijelölt regresszió: **3838 passed, 2 skipped, 10 változatlan deselection,
++313 modul, exit 0**, pytest 172.52 s / runner 175.53 s. Az új tesztmodul benne
++van; a korábbi kizáráslista nem változott. Ez nem a teljes teszttár zöldségének
++vagy élő questteljesítésnek az állítása.
++
++Ellenőrzött: Owner/Empath/UnitAll kombinációk, üres/nemüres dinamikus mezők és
++assistnév, csonka lista, hiányzó jogosultsági flag, másik karakter, V1/V2 layout,
++részleges delta átminősítésének tiltása, valós helyi IPC → canonical query.
++
++[Forrás-ZIP, diff, hash, parancs és JUnit](own-create-questlog-evidence/verification.json).
++Korábbi checkpoint és a 203 számozott requirement-sor megmaradt. Addon/Ymir
++byte-változatlan. Nincs asszisztensi játék/capture/FULL_AI indítás vagy input,
++és nincs új LIVE_VALIDATED állítás.
+--- before/src/wowbot/agent/packet_quest_log.py
++++ after/src/wowbot/agent/packet_quest_log.py
+@@ -14,7 +14,8 @@
+     scope = SessionContext.from_mapping(context).entity_scope()
+     record = model.__dict__.get('_packet_quest_log')
+     if record is None or record['scope'] != scope:
+-        record = {'scope':scope, 'slots':{}, 'baseline_observed_at':None, 'observed_at':sampled}
++        record = {'scope':scope, 'slots':{}, 'baseline_observed_at':None,
++                  'baseline_sample_kind':None, 'observed_at':sampled}
+         model.__dict__['_packet_quest_log'] = record
+     for raw in body['slots']:
+         index, quest_id = raw[:2]
+@@ -32,8 +33,10 @@
+         for storage, value in enumerate(raw[6]):
+             if value is not None: old['progress'][str(storage)] = fact(value)
+         old['observed_at'] = sampled
+-    if len(body['slots']) == 175 and all(row[1] is not None for row in body['slots']):
++    if (len(body['slots']) == 175 and all(row[1] is not None for row in body['slots'])
++            and sampled >= (record['baseline_observed_at'] if record['baseline_observed_at'] is not None else float('-inf'))):
+         record['baseline_observed_at'] = sampled
++        record['baseline_sample_kind'] = body.get('sample_kind') or 'VALUES'
+     record['observed_at'] = max(sampled, record['observed_at'])
+     model.add_evidence('quest_log_slots', body['slots'], observation, confidence=1., ttl=MAX_AGE)
+     provider = getattr(model, 'session_context_provider', None)
+@@ -46,7 +49,7 @@
+     from .packet_continuity import current
+     record = model.__dict__.get('_packet_quest_log')
+     result = {'membership':'UNKNOWN', 'definitions':'UNKNOWN', 'objective_alignment':'UNKNOWN',
+-              'baseline_observed_at':None, 'known_slots':0, 'slots':[]}
++              'baseline_observed_at':None, 'baseline_sample_kind':None, 'known_slots':0, 'slots':[]}
+     if record is None or not current(model):
+         return result
+     context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
+@@ -59,6 +62,7 @@
+     complete = (record['baseline_observed_at'] is not None and len(ids) == 175 and all(fresh(f) for f in ids))
+     result.update(membership='COMPLETE' if complete else 'PARTIAL',
+                   baseline_observed_at=record['baseline_observed_at'],
++                  baseline_sample_kind=record['baseline_sample_kind'],
+                   known_slots=sum(0 <= now-s['observed_at'] <= MAX_AGE for s in record['slots'].values()))
+     if not result['known_slots']:
+         result['membership'] = 'UNKNOWN'
+--- before/src/wowbot/packetio/own_create_quest_log.py
++++ after/src/wowbot/packetio/own_create_quest_log.py
+@@ -0,0 +1,72 @@
++"""Selected-own CREATE continuation: UnitData remainder -> PlayerData QuestLog.
++
++Reviewed against WPP UpdateFieldsHandler1215 (70340 family). Only numeric quest
++slots are returned; account/guild/player names and GUIDs are skipped by size.
++The later PlayerData/ActivePlayerData blocks are outside this prefix's scope.
++"""
++from .player_quest_log import SLOT_COUNT, _skip_guid, _slot, normalize_slots
++
++OWNER, PARTY_MEMBER, UNIT_ALL, EMPATH = 1, 2, 4, 8
++
++
++def _count(cursor, limit=512):
++    value = cursor.u32()
++    if value > limit:
++        raise ValueError('unsupported own create array size')
++    return value
++
++
++def _skip_unit_remainder(cursor, flags):
++    # UnitData immediately after CombatReach; no fixed guessed jump across
++    # conditional owner/empath fields or dynamic collection bodies.
++    cursor.take(4+4+1+4*4)  # DisplayScale, family/type, native/mount appearances
++    if flags & (OWNER | EMPATH):
++        cursor.take(4*4)    # min/max main/offhand damage
++    cursor.take(4+4*4)      # StandState/pet/vis/anim; pet number/name/XP/next XP
++    cursor.take(4*9)        # seven cast/haste/time modifiers, created spell/emote
++    if flags & OWNER:
++        cursor.take(5*4*4)  # stats and their positive/negative/support buffs
++    if flags & (OWNER | EMPATH):
++        cursor.take(7*4)    # resistances
++    if flags & OWNER:
++        cursor.take(7*2*4)  # resistance/mana cost modifiers
++    cursor.take(4)          # BaseMana
++    if flags & OWNER:
++        cursor.take(4)      # BaseHealth
++    cursor.take(4)          # sheath/PvP/pet/shapeshift bytes
++    if flags & OWNER:
++        cursor.take(18*4)   # attack/ranged power, lifesteal, ranged damage/cost
++    cursor.take(2*4+14*4)   # max-health/hover modifiers, item/pet/interact/taxi IDs
++    _skip_guid(cursor)      # GuildGUID: never construct/export it
++    passive, effects, channels = _count(cursor), _count(cursor), _count(cursor)
++    cursor.take(9*4)        # flight/glide/drive, max-health modifiers, silence/area/ranges
++    _skip_guid(cursor)      # NameplateAttachToGUID
++    cursor.take(passive*8+effects*4)
++    for _ in range(channels):
++        _skip_guid(cursor)
++    cursor.reset()
++    cursor.bit()            # Field_314
++    if cursor.bit():        # optional UnitAssistActionData, contains player text
++        cursor.reset()
++        cursor.take(1+4)    # type and realm; skipped, not observed identity
++        size = cursor.bits(6)
++        cursor.take(size)   # player name bytes are never decoded/exported
++
++
++def read_create_slots(cursor, flags):
++    """Continue only a verified own UnitData prefix, never another player."""
++    if flags & ~0x0f or not flags & PARTY_MEMBER:
++        return None
++    _skip_unit_remainder(cursor, flags)
++    cursor.reset()
++    # PlayerData before QuestLog. Its cosmetic arrays occur later: only
++    # their bounded counts are here. No account/guild/player ID is retained.
++    for _ in range(3):
++        _skip_guid(cursor)  # duel arbiter, WoW account, battle.net account
++    cursor.take(8)          # GuildClubMemberID
++    _skip_guid(cursor)      # LootTargetGUID
++    cursor.take(5*4)        # flags, flagsEx, guild rank/delete/level
++    _count(cursor,256)      # Customizations count; body follows much later
++    _count(cursor,256)      # RandomCustomizations count
++    cursor.take(6+2*4)      # party/sex/inebriation/title/faction, duel/guild time
++    return normalize_slots([_slot(cursor, index, True) for index in range(SLOT_COUNT)])
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -394,7 +394,8 @@
+                 "opcode_source_revision": WPP_REVISION,
+                 'capture_epoch': self.capture_epoch,
+                 "payload_layout": ("WPP_12_1_QUEST_DEFINITION_REVIEWED_V1" if event_type in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'} else
+-                                   "WPP_12_1_QUEST_LOG_REVIEWED_V1" if event_type == 'OWN_QUEST_LOG_UPDATE' else
++                                   ("WPP_12_1_QUEST_LOG_REVIEWED_V2" if payload.get('sample_kind') == 'CREATE'
++                                    else "WPP_12_1_QUEST_LOG_REVIEWED_V1") if event_type == 'OWN_QUEST_LOG_UPDATE' else
+                                    "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+                                    "WPP_12_1_POWER_REVIEWED_V1" if event_type == 'OWN_POWER_UPDATE' else
+                                    "WPP_12_1_OWN_UNIT_REVIEWED_V2" if event_type == 'OWN_UNIT_UPDATE' else
+@@ -598,7 +599,8 @@
+             if same_player(row['guid'], own_character_guid):
+                 if row.get('quest_log_slots'):
+                     events.append(('OWN_QUEST_LOG_UPDATE', {'mover_guid': row['guid'],
+-                        'world_map_id': struct.unpack_from('<H', data)[0], 'slots': row['quest_log_slots']}))
++                        'world_map_id': struct.unpack_from('<H', data)[0], 'slots': row['quest_log_slots'],
++                        **({'sample_kind':'CREATE'} if row['kind'] == 'CREATED' else {})}))
+                 profile = {k: row[k] for k in ('race_id', 'class_id', 'player_class_id', 'power_type', 'level') if k in row}
+                 if row['kind'] in {'VALUES', 'CREATED'} and profile:
+                     events.append(('OWN_PROFILE_UPDATE', {'mover_guid': row['guid'],
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -359,6 +359,14 @@
+             result["npc_flags"] = c.u32() | (c.u32() << 32)
+             try:
+                 result.update(_unit_tail(c, field_flags))
++                if own_player and object_type in {6, 7}:
++                    from .own_create_quest_log import read_create_slots
++                    try:
++                        slots = read_create_slots(c, field_flags)
++                        if slots:
++                            result['quest_log_slots'] = slots
++                    except ValueError:
++                        pass    # reviewed HP/profile prefix remains; no partial slot list
+             except UpdateLayoutError:
+                 pass             # the reviewed prefix stands; no guessed unit facts
+         elif object_type == 8:
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -11,7 +11,7 @@
+     "OWN_POWER_UPDATE": {'mover_guid', 'power_type', 'raw_power'},
+     'OWN_PROFILE_UPDATE': {'mover_guid', 'world_map_id', 'sample_kind', 'race_id', 'class_id',
+                            'player_class_id', 'power_type', 'level'},
+-    'OWN_QUEST_LOG_UPDATE': {'mover_guid', 'world_map_id', 'slots'},
++    'OWN_QUEST_LOG_UPDATE': {'mover_guid', 'world_map_id', 'slots', 'sample_kind'},
+     'QUEST_DEFINITION': {'quest_id','definition'},
+     'QUEST_DEFINITION_UNAVAILABLE': {'quest_id'},
+     "QUEST_POI_UPDATE": {"quest_id", "blobs", "capture_timestamp"},
+@@ -67,6 +67,7 @@
+     'WPP_12_1_POWER_REVIEWED_V1': frozenset({'OWN_POWER_UPDATE'}),
+     'WPP_12_1_OWN_PROFILE_REVIEWED_V1': frozenset({'OWN_PROFILE_UPDATE'}),
+     'WPP_12_1_QUEST_LOG_REVIEWED_V1': frozenset({'OWN_QUEST_LOG_UPDATE'}),
++    'WPP_12_1_QUEST_LOG_REVIEWED_V2': frozenset({'OWN_QUEST_LOG_UPDATE'}),
+     'WPP_12_1_QUEST_DEFINITION_REVIEWED_V1': frozenset({'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}),
+     SPELL_LAYOUT: CAST_EVENTS,
+     "RETAIL_70448_CAPTURE_VERIFIED_V1": ENTITY_EVENTS,
+@@ -195,6 +196,16 @@
+         if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
+                 or event['direction'] != 'SERVER_TO_CLIENT' or 'world_map_id' not in safe_body):
+             raise ValueError('quest log requires own identity and world context')
++        if safe_body.get('sample_kind') not in {None,'CREATE','VALUES'}:
++            raise ValueError('invalid quest slot sample kind')
++        if (safe_body.get('sample_kind') == 'CREATE'
++                and safe_provenance.get('payload_layout') != 'WPP_12_1_QUEST_LOG_REVIEWED_V2'):
++            raise ValueError('quest create baseline requires reviewed create layout')
++        if safe_body.get('sample_kind') == 'CREATE':
++            slots = safe_body['slots']
++            if (len(slots) != 175 or any(any(v is None for v in row[1:6])
++                    or any(v is None for v in row[6]) for row in slots)):
++                raise ValueError('quest create baseline requires every complete slot')
+     if kind == 'OWN_PROFILE_UPDATE':
+         guid = safe_body.get('mover_guid')
+         if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
+--- before/tests/test_own_create_quest_log_20261030.py
++++ after/tests/test_own_create_quest_log_20261030.py
+@@ -0,0 +1,133 @@
++"""Cold own CREATE produces numeric slots without account/player text export."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.packetio.update_object import decode_update_object
++from wowbot.packetio.validation import verified_semantics
++from test_packet_agent_bridge import addon, bridge, deliver
++from wowbot.agent.models import Observation
++from test_packet_codecs import packed_guid
++from test_unit_fields_20261027 import bits, unit_tail_bytes
++from test_own_health_packets_20261030 import RAW_ME, own_event
++from test_native_quest_log_20261030 import slot
++
++PRIVATE=packed_guid(low=0xDEADBEEF,high=3<<58)
++
++
++def remainder(flags, *, dynamic=True, assist=True):
++    # Serialize each WPP field group, with nonzero landmarks around variable
++    # bodies. The public fixture ends at CombatReach; this is its continuation.
++    value=struct.pack('<fiBifii',1.,7,0,123,1.,456,789)
++    if flags & 9:value+=struct.pack('<4f',1.,2.,3.,4.)
++    value+=struct.pack('<4B4I',0,1,2,3,1234,1235,1236,1237)
++    value+=struct.pack('<7f2i',1.,1.,1.,1.,1.,1.,1.,4321,10)
++    if flags & 1:value+=struct.pack('<20i',*range(20))
++    if flags & 9:value+=struct.pack('<7i',*range(7))
++    if flags & 1:value+=struct.pack('<14i',*range(14))
++    value+=struct.pack('<i',100)
++    if flags & 1:value+=struct.pack('<i',500)
++    value+=struct.pack('<4B',1,2,3,4)
++    if flags & 1:value+=struct.pack('<18i',*range(18))
++    value+=struct.pack('<2f14i',1.,2.,*range(100,114))+PRIVATE
++    counts=(2,1,1) if dynamic else (0,0,0)
++    value+=struct.pack('<3I',*counts)+struct.pack('<9i',*range(700,709))+PRIVATE
++    if dynamic:value+=struct.pack('<4i',30,31,32,33)+struct.pack('<i',44)+PRIVATE
++    value+=bits([(1,1),(int(assist),1)])
++    if assist:
++        text=b'PRIVATE_NAME_SENTINEL'
++        value+=struct.pack('<BI',1,777)+bits([(len(text),6)])+text
++    return value
++
++
++def player_prefix(rows):
++    value=PRIVATE*3+struct.pack('<Q',123456789)+PRIVATE
++    value+=struct.pack('<5I',1,2,3,4,5)+struct.pack('<2I',3,2)
++    value+=struct.pack('<6B2I',1,2,3,4,5,6,77,88)
++    for row in rows:
++        value+=struct.pack('<iH24hqII',row[1],row[2],*row[6],row[3],row[4],row[5])
++    return value
++
++
++def create_payload(rows=None, *, flags=3, low=0x1234, dynamic=True, assist=True, truncated=0):
++    rows=[slot(i,55639 if i==3 else 0) for i in range(175)] if rows is None else rows
++    movement=bits([(int(i in {4,7,16}),1) for i in range(21)])
++    movement+=struct.pack('<IffffB',0,1.,2.,3.,0.,0)
++    fields=bytes((flags,3,255,1))+struct.pack('<iIfiII',0,0,1.,0,0,0)
++    prefix=unit_tail_bytes(health=40,max_health=100,owner=bool(flags&1),unit_all=bool(flags&4),
++                           identity=bytes((1,1,1,0,0,1)))
++    fields+=prefix+remainder(flags,dynamic=dynamic,assist=assist)+player_prefix(rows)
++    if truncated:fields=fields[:-truncated]
++    block=bytes((2,))+packed_guid(low=low)+bytes((7,))+movement+struct.pack('<I',len(fields))+fields
++    return struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
++
++
++@pytest.mark.parametrize('flags',[2,3,6,7,10,11,14,15])
++@pytest.mark.parametrize('optional',[False,True])
++def test_own_create_reaches_full_slot_baseline_across_conditional_unit_fields(flags,optional):
++    rows=decode_update_object(create_payload(flags=flags,dynamic=optional,assist=optional),{},
++                              own_character_guid='Player-1602-00001234')
++    assert len(rows)==1 and len(rows[0]['quest_log_slots'])==175
++    assert rows[0]['quest_log_slots'][3]==slot(3)
++    assert 'PRIVATE_NAME_SENTINEL' not in str(rows)
++    assert 'DEADBEEF' not in str(rows)
++
++
++@pytest.mark.parametrize('cut',[1,70,175*70])
++def test_incomplete_create_slots_do_not_become_partial_baseline(cut):
++    decoder,record=own_event()
++    events=decoder.decode_all(replace(record,payload=create_payload(truncated=cut)))
++    assert not any(e.event_type=='OWN_QUEST_LOG_UPDATE' for e in events)
++    assert any(e.event_type=='OWN_UNIT_UPDATE' for e in events)  # valid independent prefix remains
++
++
++def test_only_selected_own_and_explicit_party_coverage_can_read_slot_prefix(monkeypatch):
++    from wowbot.packetio import own_create_quest_log
++    decoder,record=own_event()
++    for flags in (0,1,0x83):
++        events=decoder.decode_all(replace(record,payload=create_payload(flags=flags)))
++        assert not any(e.event_type=='OWN_QUEST_LOG_UPDATE' for e in events)
++    def forbidden(*args):pytest.fail('another player private prefix was read')
++    monkeypatch.setattr(own_create_quest_log,'read_create_slots',forbidden)
++    assert not any(e.event_type=='OWN_QUEST_LOG_UPDATE' for e in
++        decoder.decode_all(replace(record,payload=create_payload(low=0x9999))))
++
++
++def test_cold_create_baseline_reaches_same_canonical_slots_and_never_accepts_or_completes_quests(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575'),9.1))
++    bridge.adapter.observations(None,bridge.world,10.)
++    decoder,record=own_event()
++    event=next(e for e in decoder.decode_all(replace(record,payload=create_payload()))
++               if e.event_type=='OWN_QUEST_LOG_UPDATE')
++    assert verified_semantics(event.to_dict()) and event.payload['mover_guid']==RAW_ME
++    assert set(event.payload)=={'mover_guid','world_map_id','slots','sample_kind'}
++    assert event.payload['sample_kind']=='CREATE'
++    assert event.provenance['payload_layout']=='WPP_12_1_QUEST_LOG_REVIEWED_V2'
++    deliver(bridge,event)
++    assert bridge.world.query.quest_presence(55639,10.)['state']=='PRESENT'
++    assert bridge.world.query.quest_presence(99999,10.)['state']=='ABSENT'
++    assert bridge.world.state['packet_quest_log']['membership']=='COMPLETE'
++    assert bridge.world.state['packet_quest_log']['baseline_sample_kind']=='CREATE'
++    assert bridge.world.quest_model.records[55639].current_state=='ACTIVE'
++    assert not any(e.event_type in {'QUEST_ACCEPTED','QUEST_COMPLETED','QUEST_TURNED_IN'}
++                   for e in bridge.world.event_records)
++    assert bridge.world.last_received==9.1
++
++
++def test_old_values_only_layout_cannot_assert_a_create_baseline():
++    from wowbot.packetio.validation import normalize_event
++    decoder,record=own_event()
++    value=next(e for e in decoder.decode_all(replace(record,payload=create_payload()))
++               if e.event_type=='OWN_QUEST_LOG_UPDATE').to_dict()
++    value['provenance']['payload_layout']='WPP_12_1_QUEST_LOG_REVIEWED_V1'
++    with pytest.raises(ValueError):normalize_event(value)
++
++
++def test_partial_values_cannot_be_relabelled_as_full_create():
++    from wowbot.packetio.validation import normalize_event
++    decoder,record=own_event()
++    value=next(e for e in decoder.decode_all(replace(record,payload=create_payload()))
++               if e.event_type=='OWN_QUEST_LOG_UPDATE').to_dict()
++    value['payload']['slots']=value['payload']['slots'][:1]
++    with pytest.raises(ValueError):normalize_event(value)
+--- before/tests/test_unit_fields_20261027.py
++++ after/tests/test_unit_fields_20261027.py
+@@ -35,7 +35,8 @@
+ TARGET = player_raw(1402, 0x0B578799)
+ 
+ 
+-def unit_tail_bytes(*, target=TARGET, health=102625, max_health=120736, reach=7., owner=False, identity=bytes(6)):
++def unit_tail_bytes(*, target=TARGET, health=102625, max_health=120736, reach=7., owner=False,
++                    unit_all=False, identity=bytes(6)):
+     b = struct.pack("<III", 0, 0, 0) + struct.pack("<I", 0) + struct.pack("<Ii", 0, 0)
+     b += ZERO*2                        # Charm, Summon
+     if owner: b += ZERO                 # Critter
+@@ -47,7 +48,7 @@
+     b += struct.pack("<iiiII", 0, 0, 0, 0, 0)      # ChannelData
+     b += struct.pack("<bI", 0, 0) + identity + struct.pack("<I", 0)
+     b += struct.pack("<q", health) + bytes(8*10)
+-    if owner: b += bytes(8*10)           # owner regen fields
++    if owner or unit_all: b += bytes(8*10)  # owner/unit-all regen fields
+     b += struct.pack("<q", max_health)
+     b += struct.pack("<i", 70) + bytes(4*5) + bytes([0]) + struct.pack("<i", 14)
+     for _ in range(3):

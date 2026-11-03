@@ -13,6 +13,11 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
                                  tick_ms: float, backend) -> dict:
     """Project diagnostics after Agent.tick; never plan or dispatch input."""
     performance = runtime.agent.performance_monitor
+    pump = getattr(runtime, "parallel_pump", None)
+    result.setdefault("parallel_control", {})["pump"] = (
+        pump.snapshot() if pump is not None else {"status": "not_started", "active": False})
+    packet_source = getattr(runtime, "packet_telemetry", None)
+    result["packet_telemetry"] = (packet_source.diagnostics() if packet_source is not None else {"status": "disabled"})
     result["reference_catalog"] = runtime.spatial.reference.diagnostics()
     sensor_diagnostics = getattr(runtime.sensor, "diagnostics", {})
     performance.observe_latency("capture_poll", sensor_diagnostics.get("poll_ms"))
@@ -56,17 +61,19 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
 
     result["spawn_reference"] = runtime.spatial.spawn_reference(
         runtime.agent.world.state)
-    if runtime.sensor.frame:
+    # One read: the sensor thread can clear ``frame`` between a test and an
+    # index (live 2026-10-14 20:16:27: TypeError, FULL_AI fell to MANUAL).
+    frame = runtime.sensor.frame
+    if frame and runtime.vision_dataset is not None:
         runtime.vision_dataset.consider(
-            runtime.sensor.frame[0], runtime.sensor.frame[1],
-            runtime.sensor.frame[2], runtime.agent.world.state, current)
-    result["vision_dataset"] = runtime.vision_dataset.diagnostics()
+            frame[0], frame[1], frame[2], runtime.agent.world.state, current)
+    result["vision_dataset"] = (runtime.vision_dataset.diagnostics() if runtime.vision_dataset is not None
+                                else {'status': 'disabled'})
     map_dataset = getattr(runtime, "map_marker_dataset", None)
     if map_dataset is not None:
-        if runtime.sensor.frame:
+        if frame:
             map_dataset.consider(
-                runtime.sensor.frame[0], runtime.sensor.frame[1],
-                runtime.sensor.frame[2], runtime.agent.world.state, current)
+                frame[0], frame[1], frame[2], runtime.agent.world.state, current)
         result["map_marker_dataset"] = map_dataset.diagnostics()
     if ((runtime.test_deadline is not None
          or runtime.test_dialog_grace_deadline is not None)
@@ -97,6 +104,7 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
                                      and current >= runtime.arm_at),
         arm_blockers=list(runtime._arm_blockers),
         foreground_suspended=runtime._foreground_suspended,
+        foreground_loss=getattr(runtime, "foreground_loss", None),
         foreground_grace_remaining=(
             max(0., 15.-(current-runtime._not_foreground_since))
             if runtime._not_foreground_since is not None else None),
@@ -113,8 +121,10 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
             "status_write": round(runtime._status_write_ms, 2)},
         loop_rates={
             "fast_control_hz": runtime._runtime_rate.hz(current),
+            "runtime_poll_hz": runtime._runtime_rate.hz(current),
             "movement_fast_consumer_hz": runtime._fast_control_consumed_rate.hz(current),
             "control_target_hz": runtime.control_hz,
+            "parallel_control_hz": runtime.agent.parallel_control.snapshot(current)["control_hz"],
             "addon_payload_hz": runtime._payload_rate.hz(current),
             "addon_fast_state_hz": runtime._fast_payload_rate.hz(current),
             "consumed_fast_state_hz": runtime._fast_payload_rate.hz(current),
@@ -137,6 +147,8 @@ def finalize_runtime_diagnostics(runtime, result: dict, *, current: float,
     runtime.live_capture.consider(runtime.sensor.frame, result, current)
     result["live_capture"] = runtime.live_capture.diagnostics()
     runtime.status = result
+    if getattr(runtime, "visual_memory_worker", None) is not None:
+        result["visual_memory_worker"] = runtime.visual_memory_worker.snapshot()
     if current-runtime.last_write >= .5:
         runtime.last_write = current
         runtime._publish_status(result)

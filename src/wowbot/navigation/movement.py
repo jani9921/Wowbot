@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .models import MovementIntent
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 
 
 class MovementController(Protocol):

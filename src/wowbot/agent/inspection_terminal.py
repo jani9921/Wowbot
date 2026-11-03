@@ -26,6 +26,7 @@ class InspectionTerminalProcessor:
         cursor = state.get("cursor_position") or {}
         cursor_x, cursor_y = number(cursor.get("nx")), number(cursor.get("ny"))
         marker_x, marker_y = number(marker.get("x")), number(marker.get("y"))
+        marker_x, marker_y = (getattr(attempt, "pointer_follow", None) or {}).get("point") or (marker_x, marker_y)
         cursor_distance = (math.hypot(cursor_x-marker_x, cursor_y-marker_y)
                            if None not in (cursor_x, cursor_y, marker_x, marker_y) else None)
         at_probe = cursor_distance is not None and cursor_distance <= .02

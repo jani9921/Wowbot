@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from wowbot.vision.local_world import LocalEntity, LocalWorldModel
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 
 
 @dataclass(frozen=True, slots=True)

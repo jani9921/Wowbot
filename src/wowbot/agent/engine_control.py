@@ -10,6 +10,7 @@ import uuid
 from .models import Goal, Mode, Observation, Outcome
 from .engine_runtime_projection import movement_assessment_event, pending_autonomy_events
 from .fast_movement_lane import advance_fast_movement
+from .pointer_tracking import follow_pointer
 from .session_transition import handle_session_change
 from wowbot.runtime import FailureReason
 from wowbot.execution import DispatchLane
@@ -20,6 +21,50 @@ MOVEMENT_SKILLS = {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"}
 
 class EngineControlMixin:
     """Methods of AutonomousAgent (engine.py); moved verbatim."""
+
+    def _active_target_pointer(self, state: dict, now: float):
+        """Return (mouse_owned, pointer) for the one active skill's target."""
+        if self.pending is None:
+            return False, None
+        from .server_mode import server_mode_selected
+        if server_mode_selected(state):
+            return True, None
+        active = self.active_skill.state
+        context = active.skill_context if active is not None else {}
+        controller = context.get("visual_approach_controller")
+        search = context.get("search_controller")
+        if controller is None and search is not None:
+            controller = search.servo
+        if controller is not None:
+            return True, controller.follow_pointer_command(state, now)
+        skill = self.pending.proposal.skill
+        nested = (context.get("interaction") if skill in {"INTERACT", "TALK"}
+                  else context.get("loot") if skill == "LOOT" else None) or {}
+        if skill not in MOVEMENT_SKILLS | {"INSPECT", "COMBAT", "DEFEND"} and not nested.get("approach_request"):
+            return False, None
+        parameters = self.pending.proposal.parameters
+        if skill == "INSPECT" and (parameters.get("source") != "WORLD3D" or any(
+                parameters.get(key) for key in ("camera_pan", "map_zoom_in", "map_step_out"))):
+            return False, None
+        destination = parameters.get("destination")
+        destination = destination if isinstance(destination, dict) else {}
+        guid = (parameters.get("guid") or parameters.get("target_guid") or destination.get("target_guid")
+                or nested.get("expected_guid") or nested.get("corpse_guid"))
+        track_id = parameters.get("track_id") or nested.get("track_id")
+        if not guid and not track_id:
+            return False, None
+        if state.get("is_in_combat") and skill not in {"COMBAT", "DEFEND"}:
+            return True, None
+        target = state.get("target") or {}
+        if guid and not (skill == "LOOT" and track_id):
+            if str(target.get("guid") or "") != str(guid):
+                return True, None
+            screen = target.get("screen_position") or {}
+            track_id = target.get("visual_track_id") or screen.get("track_id") or track_id
+        if not track_id:
+            return True, None
+        command = follow_pointer(self.pending.pointer_follow, state, track_id, now)
+        return True, command
 
     def set_goal(self, text: str, now: float, parameters: dict | None = None):
         if self.memory and self.episode_id:
@@ -34,10 +79,11 @@ class EngineControlMixin:
         self.failures.clear()
         self.failure_manager.reset()
         self.planner.blocked_until.clear()
+        self.planner.agenda.reset()
         # Same session and map: the player's own floor stays valid evidence.
         self.navigation.reset(keep_floor=True)
-        self.visual_approach_skill.reset_diagnostics()
-        self.search_skill.reset_diagnostics()
+        self.visual_approach_skill.reset_diagnostics() if self.visual_approach_skill is not None else None
+        self.search_skill.reset_diagnostics() if self.search_skill is not None else None
         self.camera.reset()
         self.autonomy.reset(now, "GOAL_REPLACED")
         self._movement_segment_baseline = None
@@ -69,12 +115,16 @@ class EngineControlMixin:
         self.current_plan = None
         self.episode_id = None
 
-    def set_mode(self, mode: Mode):
+    def set_mode(self, mode: Mode, *, reason=None):
         # Cancellation does not wait for the planner lock or a held key pulse.
         self.mode = Mode(mode)
         self.generation += 1
         self.passive_wait.reset(f"mode_{self.mode.value.lower()}")
         if self.mode != Mode.FULL_AI:
+            parallel = getattr(self, "parallel_control", None)
+            if parallel is not None:
+                parallel.terminal = None
+                parallel.arbiter.revoke_all(time.monotonic(), "mode_changed")
             self.supervisor.clear_resume("mode_changed")
             # Manual/STOP is an explicit user boundary. A prior autonomous
             # recovery may not silently resume its old reach after the user
@@ -82,9 +132,12 @@ class EngineControlMixin:
             self._recovery_resume = None
             self._recovery_resume_ready = False
             self.executor.stop()
+            if self.memory and self.episode_id and reason != 'goal_completed':
+                self.memory.record_episode_step(self.episode_id, time.monotonic(), 'MANUAL_BOUNDARY',
+                                                {'mode': self.mode.value, 'reason': reason or 'mode_changed'})
             self.navigation.cancel_movement()
-            self.visual_approach_skill.reset_diagnostics()
-            self.search_skill.reset_diagnostics()
+            self.visual_approach_skill.reset_diagnostics() if self.visual_approach_skill is not None else None
+            self.search_skill.reset_diagnostics() if self.search_skill is not None else None
             self.camera.reset()
             self.autonomy.reset(reason="MODE_CHANGED")
             self._movement_segment_baseline = None
@@ -183,13 +236,22 @@ class EngineControlMixin:
             stop_movement = getattr(self.executor, "stop_movement", None)
             if stop_movement:
                 stop_movement()
-            self.navigation.cancel_movement()
+            if not supervision.preserve_navigation:
+                self.navigation.cancel_movement()
+        navigation_failure = supervision.diagnostics.get('navigation_failure')
+        if navigation_failure and self.pending is not None:
+            self._record(now, 'SKILL_NAVIGATION_FAILURE_DETAIL', {
+                'action_id':self.pending.action_id, 'skill':self.pending.proposal.skill,
+                **navigation_failure})
         if supervision.terminal_outcome is not None:
             self._finish(
                 supervision.terminal_outcome,
                 supervision.reason or "active_skill_supervision_failed",
                 now, typed_reason=supervision.typed_reason)
-            return supervision.return_after_terminal
+            # _finish can latch anti-loop evidence for the attempt just
+            # finalized. Do not start its replacement in this same tick:
+            # next tick's Supervisor would cancel that innocent new attempt.
+            return supervision.return_after_terminal or self.supervisor.loop_replan_pending
         if supervision.yield_tick:
             return True
         commands = supervision.commands
@@ -201,8 +263,11 @@ class EngineControlMixin:
             self.command_dispatcher.dispatch(
                 commands, lane, correlation_id=self.pending.action_id)
             if supervision.side_commands:
+                side_commands = tuple(command for command in supervision.side_commands
+                                      if command.kind != "CAMERA_GLANCE"
+                                      or not self.parallel_control.owns_attention())
                 self.command_dispatcher.dispatch(
-                    supervision.side_commands, DispatchLane.DISCRETE,
+                    side_commands, DispatchLane.DISCRETE,
                     correlation_id=self.pending.action_id)
             if supervision.camera_action:
                 gesture = next(command for command in commands

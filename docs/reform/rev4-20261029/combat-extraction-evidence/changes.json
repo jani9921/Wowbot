@@ -1,0 +1,205 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "afab912b2049fd6da7070699a877260967832b6e8b09c1ba7e9d98c887040c06",
+      "after_sha256": "5b927fd3c3def428db96d7955f002a924bf90c9ab443200b874ac6cd61c21d5d"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "5fc8c4b593cad1b5b3b1e6fa22dc84a6c1495fd119869acd69e08981e4f1537f",
+      "after_sha256": "ee99c6d83488a92454ff77dc32c6621383081cb0fb83626dc289c618a3253c16"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "854259e3c9c31472b62abd65c352158f59e35aff77cc8ede597b59498254362d",
+      "after_sha256": "7068547b6716b1a4777e3358803015b9f363d57a27c784cacfded2a0e2c759fd"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/MIGRATION_SUPPLEMENT_REVIEW.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "c40730326fe2ce04c406a5243ecfa9ea4264f9876ac9043048a68f1b09e38184"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "4a71f5174ad1867d4fd59537a5507c0c8fd88933404fc6313ee05f0e8e7e11ac",
+      "after_sha256": "f933cea07db463e7e4de66f16c1e1684cf185ad47c02ca85fea27d200bf730c3"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P7_COMBAT_EXTRACTION.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "d0f1dada5fe8afd641543b27842654d03f2acc9ca540d60d9cb15cc31c4c1ca0"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/input/SRC_MIGRACIOS_TERV_20261029_HU.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "d4c7136232748c71e03400e0ed97fadec40f55189b1d2d9132831dde5310c1e4"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/supplement-manifest.json",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "98075eb05f77386333b3de1be8ca6c38885fb5fd1cf542bdc13136e7f5288215"
+    },
+    {
+      "path": "src/wowbot/agent/combat_controller.py",
+      "status": "MODIFIED",
+      "before_sha256": "3cbb7d8137787656e1a0a328ba9666961dd5f73ba6068bee5b81b9a7a67edf6f",
+      "after_sha256": "1d1a90656ee01ca780d616782a9998d456faebdacc8f85864a265bcf7b311301"
+    },
+    {
+      "path": "src/wowbot/agent/models.py",
+      "status": "MODIFIED",
+      "before_sha256": "5d236cd8bf261cf4bca0217e6f6864f4e336779fd840b7f633d0e33c94cf708f",
+      "after_sha256": "67c7f273185c0fcf0083ae505e1785f5fb480b6f0f6fb011554d34f9eb4d34e3"
+    },
+    {
+      "path": "src/wowbot/agent/reasoner.py",
+      "status": "MODIFIED",
+      "before_sha256": "e4e79b637b245882edd8c7f24e5bec306f7587183581b971b22df30fb7d85b12",
+      "after_sha256": "cac9b2869ea13adeb23b03b34511f862e627b41e9c23b3ba9d3e6fdce9852555"
+    },
+    {
+      "path": "src/wowbot/agent/skills.py",
+      "status": "MODIFIED",
+      "before_sha256": "225a071a62d98a8f6d8f855faf1096a589465ee73b9b3a299cf287d381e0d881",
+      "after_sha256": "3ab0069792d057c5bfa79631b25fc4e019a84af88e9a6848ad6badc409d19914"
+    },
+    {
+      "path": "src/wowbot/agent/target_manager.py",
+      "status": "MODIFIED",
+      "before_sha256": "767339e1542bba66ae382f0f46e13c7e0d9228826e5f39cf9b7e6f602fce5ddb",
+      "after_sha256": "875ff67301d2eeaeb2d27e0c7577d98c3cbbd3dceb384953a37cf6154aecb5a2"
+    },
+    {
+      "path": "src/wowbot/agent/world_state_projection.py",
+      "status": "MODIFIED",
+      "before_sha256": "434e5b005206e7df0feac8b2bbaf0f26c3369b79b3db62b8297a193a2777a244",
+      "after_sha256": "bb1e07c3f95ec7960f21f90a544570ffa64919ca66a4c49ade5064b8f87b0a35"
+    },
+    {
+      "path": "src/wowbot/combat/__init__.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406"
+    },
+    {
+      "path": "src/wowbot/combat/ability/__init__.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406"
+    },
+    {
+      "path": "src/wowbot/combat/ability/catalog.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "3236848321c659714b3c9dfa5cdf1714347709601150091b4c7b696b085ddf18"
+    },
+    {
+      "path": "src/wowbot/combat/ability/contracts.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "6f133589e2f76fdce94b86e2192d8d800269a4db989a2c44d38bbc74158f3115"
+    },
+    {
+      "path": "src/wowbot/combat/ability/evaluator.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "8d29225469e183e234521cafe217c38db91a89572e345dbf33e10f0e5c7b2645"
+    },
+    {
+      "path": "src/wowbot/combat/arbitrator.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "ea2348ccdaa3fb878cc7772826dadde953e9bae20cab5c2339c0cab228830b0d"
+    },
+    {
+      "path": "src/wowbot/combat/contracts.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "a15d29335f29f7d60b6a122cfe634bdff8dc363deec0eac255ad95ed4f57142c"
+    },
+    {
+      "path": "src/wowbot/combat/target/__init__.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "e8b6f5e26d02d1fa51e36bc9222b2ff2576830400c92e7173a7a80e977e8e406"
+    },
+    {
+      "path": "src/wowbot/combat/target/facing.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "9431c95125970a5a1b0707c0f3b3a193936ac97864a33ce8a64613fcabaed4a6"
+    },
+    {
+      "path": "src/wowbot/combat/target/system.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "3782b34a31f80d4bd393493462c8325357cb54036f8850608ec49e7d6c325cce"
+    },
+    {
+      "path": "src/wowbot/combat_contracts.py",
+      "status": "MODIFIED",
+      "before_sha256": "ed8868446e9f85f6eb3770230d693430b6d213d9ac2ec255cd18343005b6dccd",
+      "after_sha256": "34e61a126456d87eaac76af521e861324d904248bf4b1d1e27e0f371b5114c13"
+    },
+    {
+      "path": "src/wowbot/entity_identity.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "60ea7ca96c37627e480353b17dae58ce12f218a1186ac8b92ad5269c29df7ddd"
+    },
+    {
+      "path": "src/wowbot/runtime/entity_identity.py",
+      "status": "MODIFIED",
+      "before_sha256": "60ea7ca96c37627e480353b17dae58ce12f218a1186ac8b92ad5269c29df7ddd",
+      "after_sha256": "1fcc541ce65b8ad64c37260dd2f48d1eadf52c6a638c38699d7e71d0f5c5d36c"
+    },
+    {
+      "path": "src/wowbot/skills/__init__.py",
+      "status": "MODIFIED",
+      "before_sha256": "b2c3bd0af5a5b166273bda5cbec7efa6977083f96d0e8e80cc4ba255de0e1b56",
+      "after_sha256": "9bbf8093ef5317b2e5ee5998dcf05a91369e53f2b1c67e86b3e23618838d0330"
+    },
+    {
+      "path": "src/wowbot/skills/ability_rules.py",
+      "status": "MODIFIED",
+      "before_sha256": "c387330369760f12861346153c39a60c3bca10e26376e73e743542cd2e128116",
+      "after_sha256": "d839b6d518fec9b1b360536661dd83e4d1e7c179c8ba356494d5f3b7ff5b5c13"
+    },
+    {
+      "path": "src/wowbot/skills/combat.py",
+      "status": "MODIFIED",
+      "before_sha256": "e867ce7e18478cb7bfa16e39a9ffbbe1cb5869936721ea542f7c1ed78be3bfcb",
+      "after_sha256": "6b6c3a30c99a50a51d4cdc29dd0989531cd27b7fa3c1142dd45830ce0bcfa913"
+    },
+    {
+      "path": "src/wowbot/skills/combat_ability_catalog.py",
+      "status": "MODIFIED",
+      "before_sha256": "3236848321c659714b3c9dfa5cdf1714347709601150091b4c7b696b085ddf18",
+      "after_sha256": "de25f8bc519478abf8e1f865289b549366cc666ccdfca30416233fea9af3dfe4"
+    },
+    {
+      "path": "src/wowbot/value_helpers.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "713ff2ebee355a1c3f83a81c2827ff8fa0e7b0efe44d50e317d3123909f83ec1"
+    },
+    {
+      "path": "tests/test_combat_package_boundary_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "858f286f252da15cbe39e32eb57b8c20596552bf6705baab4f9f1130127aaa9d"
+    }
+  ],
+  "modified": 16,
+  "added": 17,
+  "removed": 0
+}

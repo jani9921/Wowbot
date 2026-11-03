@@ -1,0 +1,12 @@
+{
+  "actual_user_run_logs_inspected": true,
+  "exact_signed_capacity_only": true,
+  "other_format_checks_preserved": true,
+  "cross_connection_requires_exact_own_create_proof": true,
+  "same_file_relogin_resets_epoch_and_caches": true,
+  "input_authority_unchanged": true,
+  "raw_payload_or_auth_exported": false,
+  "native_field_ttl_extended": false,
+  "new_live_acceptance": false,
+  "assistant_started_capture_or_client": false
+}

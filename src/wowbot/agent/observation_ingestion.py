@@ -13,7 +13,7 @@ from .models import Observation
 # SQLite for more than half of all profiler samples.
 EPHEMERAL_OBSERVATION_SOURCES = frozenset({
     "WORLD3D", "WORLD3D_LOCAL_VIEW", "UI_CV", "MINIMAP_CV", "WORLD_MAP_CV",
-    "CROSS_VIEW", "CAMERA_CONTROL",
+    "CROSS_VIEW", "CAMERA_CONTROL", "PACKET_TELEMETRY", 'PACKET_PROGRESS',
     # Immutable reference data and learned identities already live in their
     # own databases. Never serialize their joined projection on every tick.
     "REFERENCE_MEMORY",

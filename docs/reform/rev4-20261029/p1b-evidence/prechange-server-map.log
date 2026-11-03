@@ -1,0 +1,25 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_phase_transition_invalidates_server_map_even_without_any_entity _____
+
+bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x0000026E39845E80>, inbox=<wowbot.packetio.inbox.PacketEvent...l_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-prechange-map/test_phase_transition_invalida0/packet_endpoint.json'))
+
+    def test_phase_transition_invalidates_server_map_even_without_any_entity(bridge):
+        position = {**addon()["player_world_position"], "instance_id": 2444}
+        state = addon(frame_id="cosmetic:world", player_world_position=position)
+        bridge.world.ingest(Observation.create(state, 9.1))
+        bridge.adapter.observations(None, bridge.world, 10.)
+        body = struct.pack("<iffffiiI", 2534, 1., 2., 3., 1.5, -1, 2, 7)
+        deliver(bridge, decoded("SMSG_NEW_WORLD", body)[-1])
+>       assert bridge.world.state["packet_server_map"]["map_id"] == 2534
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'packet_server_map'
+
+tests\test_server_map_scope_baseline.py:13: KeyError
+=========================== short test summary info ===========================
+FAILED tests/test_server_map_scope_baseline.py::test_phase_transition_invalidates_server_map_even_without_any_entity
+1 failed in 1.01s
+Exception ignored in: <function Console.__del__ at 0x0000026E395BCC20>
+Traceback (most recent call last):
+  File "C:\Users\<user>\AppData\Roaming\Python\Python313\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-live-regression-20261030\\live-geometry-test-1-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-live-regression-20261030\\live-geometry-test-1-junit.xml",
+    "tests/test_mmap_format_20261030.py",
+    "tests/test_mmap_navmesh.py",
+    "tests/test_geometry_query_contracts_20261029.py",
+    "tests/test_path_geometry.py",
+    "tests/test_turnin_mmap_routing.py",
+    "tests/test_world_geometry_maps.py"
+  ]
+}

@@ -63,14 +63,7 @@ def canonical(value: Any) -> str:
         return json.dumps(_json_safe(value), sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
-def number(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        result = float(value)
-        return result if math.isfinite(result) else None
-    except (TypeError, ValueError):
-        return None
+from wowbot.value_helpers import number  # compatibility export of the shared function
 
 
 def words(value: str) -> str:
@@ -213,6 +206,19 @@ class Proposal:
             # instead of ever backing off to let a different candidate (or
             # OPEN_MAP) win. Same fix shape as the INSPECT case above.
             identity = canonical({"track_id": self.parameters["track_id"]})
+        elif self.skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"}:
+            params = self.parameters
+            # Navigation annotations explain an intent; they do not create a
+            # fresh retry budget after its adapted/physical version fails.
+            # Keep actual coordinates, GUIDs, map/floor and safety contracts.
+            for name in ("navigation_context", "navigation_context_confidence",
+                         "navigation_context_evidence", "route_expectation",
+                         "_resume_token", "_resume_after_recovery"):
+                params.pop(name, None)
+            if (params.get("instance_id") is not None
+                    and params.get("world_map_id") == params["instance_id"]):
+                params.pop("world_map_id", None)   # duplicate same-instance alias
+            identity = canonical(params)
         return hashlib.sha256((self.skill + identity).encode()).hexdigest()[:16]
 
 
@@ -266,6 +272,7 @@ class Command:
     y: float | None = None
     button: str = "LEFT"
     simultaneous: tuple[str, ...] = ()
+    forward_duration: float | None = None  # optional shorter translation lease; scheduler watchdog still bounds it
 
 
 @dataclass
@@ -377,6 +384,7 @@ class Attempt:
     commands: tuple[Command, ...]
     prediction: Prediction
     plan_id: str | None = None
+    pointer_follow: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         # Diagnostic serialization only; verifiers use the live `baseline`

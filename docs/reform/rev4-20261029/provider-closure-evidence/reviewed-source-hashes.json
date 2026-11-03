@@ -1,0 +1,21 @@
+{
+  "dbd_revision": "12ce70d5fef13370f0edf08889f01c05321d2e28",
+  "wpp_files": [
+    {
+      "path": "WowPacketParser/Enums/Version/V12_1_0_69214/Opcodes.cs",
+      "sha256": "bbef16b719126ebbdd8172f7437a159fc596e73143e88a550aa1c7b7097d7776"
+    },
+    {
+      "path": "WowPacketParser/Enums/Version/V12_1_5_70340/Opcodes.cs",
+      "sha256": "4f7486b1aea2499f2ad26f0e646f6a98fadf22afe4d4ca6c769a32e31ed44c09"
+    },
+    {
+      "path": "WowPacketParserModule.V12_0_0_65390/Parsers/UpdateFieldsHandler1215.cs",
+      "sha256": "a628276266a46838fa8f1383fe8507dafb5ac78d10479c9fc70c0cd3cf4590b2"
+    },
+    {
+      "path": "WowPacketParserModule.V6_0_2_19033/Parsers/CharacterHandler.cs",
+      "sha256": "e7bc1d5840f82b5e0a330eab3e4305cb6ca116a5134fd306b66c2347aadc6caf"
+    }
+  ]
+}

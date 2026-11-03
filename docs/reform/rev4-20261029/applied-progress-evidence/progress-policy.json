@@ -1,0 +1,15 @@
+{
+  "schema": "aipc.packet-progress.v1",
+  "transport": "authenticated sequenced local IPC v2 control, not game semantic event",
+  "record_time_restamped": false,
+  "verified_own_connection_required": true,
+  "collection_application_chain_checked": true,
+  "old_generation_rejected": true,
+  "codec_failure_invalidates_native_fields": true,
+  "rotation_resets_decoder_and_replay": true,
+  "extends_native_ttl": false,
+  "grants_input_authority": false,
+  "full_retained_state": false,
+  "new_live_acceptance": false,
+  "live_game_or_capture_started": false
+}

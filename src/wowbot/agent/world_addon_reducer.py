@@ -18,23 +18,27 @@ if TYPE_CHECKING:
 class WorldAddonReducer:
     FAST_KEYS = frozenset({
         "timestamp", "monotonic_time", "map_id", "map_context", "position",
-        "player_world_position", "orientation", "health", "max_health",
-        "is_dead", "is_ghost", "is_in_combat", "is_mounted", "is_casting",
+        "player_world_position", "orientation", "health", "max_health", "health_sample_time",
+        'power', 'max_power', 'power_type', 'power_sample_time',
+        "is_dead", "is_ghost", "is_in_combat", "is_mounted", "is_casting", "is_channeling",
         "in_vehicle", "has_vehicle_ui", "on_taxi",
         "movement", "player_present", "ui_error", "ui_error_at", "ui_error_sequence",
         "ui_error_code", "input_blocked", "loading",
         "target", "current_target", "target_is_attackable", "target_is_dead",
         "target_sample_time", "mouseover", "mouseover_sample_time",
-        "soft_targets",
+        "soft_targets", "soft_targets_sample_time",
+        "quest_item_target",
         "cursor_position", "cursor_sample_time", "map_mouseover",
         "map_mouseover_sample_time", "state_age", "state_sequence",
         "state_sample_time", "state_encoding", "transport_session",
         "transport_kind", "telemetry_lane", "fast_sequence", "fast_received_at",
         "protocol_version", "telemetry_source", "session_id", "frame_id",
-        "quest_digest", "accepted_quest_ids", "quest_state_revision",
-        "quest_ui_open", "quest_ui_action", "quest_ui_x", "quest_ui_y",
-        "quest_ui_quest_id", "quest_ui_gossip_option", "extra_action", "bags_open", "world_map_open",
-        "actionbar_fast", "combat_last_spell_id", "combat_last_cast_at",
+        "quest_digest", "accepted_quest_ids", "quest_state_revision", "quest_turn_in_receipts",
+        "quest_ui_open", "gossip_open", "quest_ui_action", "quest_ui_x", "quest_ui_y",
+        "quest_ui_quest_id", "quest_ui_gossip_option", "quest_ui_fast_evidence",
+        "quest_ui_npc_guid",
+        "extra_action", "bags_open", "world_map_open",
+        "actionbar_fast", "actionbar_context", "combat_last_spell_id", "combat_last_cast_at", "combat_hint",
     })
 
     @staticmethod
@@ -51,25 +55,43 @@ class WorldAddonReducer:
     SAMPLE_TIME_KEYS = (("mouseover", "mouseover_sample_time"),
                         ("map_mouseover", "map_mouseover_sample_time"),
                         ("cursor_position", "cursor_sample_time"),
-                        ("target", "target_sample_time"))
+                        ("target", "target_sample_time"),
+                        ("soft_targets", "soft_targets_sample_time"))
+
+    @staticmethod
+    def packet_sample_time(state: dict):
+        return (state.get("monotonic_time") if state.get("transport_kind") == "FAST"
+                else state.get("state_sample_time", state.get("monotonic_time")))
 
     @classmethod
     def _stamp_unit_samples(cls, state: dict) -> None:
-        """The addon's compact FAST fallbacks carry mouseover/target from the
-        packet's own sample but omit the per-field sample time.  Without it
-        the merged state would pair the new GUID with an older sample time
-        (issue #88: hover confirmation must see a post-hover sample)."""
-        sampled = state.get("monotonic_time")
-        if sampled is None:
-            return
+        """Pair identity and cursor with their original packet sample.
+
+        Both compact FAST and paged STATE can omit per-field times. STATE's
+        own sample may precede the transport/control clock; receipt time must
+        never make that old hover fresh. Explicit per-field times win.
+        """
+        sampled = cls.packet_sample_time(state)
         for key, time_key in cls.SAMPLE_TIME_KEYS:
-            if state.get(key) and state.get(time_key) is None:
+            if key in state and time_key not in state:
                 state[time_key] = sampled
+        # Coordinates have their own measurement clock. A bounded FAST can
+        # confirm the same GUID without measuring its position again.
+        units = [state.get("target"), state.get("mouseover"), *(state.get("soft_targets") or ())]
+        for unit in units:
+            if not isinstance(unit, dict):
+                continue
+            position = unit.get("world_position")
+            if isinstance(position, dict):
+                position.setdefault("sample_time", sampled)
+                position.setdefault("z_known", False)
 
     def apply(self, model: "WorldModel", observation: Observation, previous: dict,
               *, defer_rebuild: bool = False) -> bool:
         model.latest = observation
-        state = observation.payload
+        # Observation.payload is immutable evidence, including its content
+        # fingerprint. Sample/identity projections must never mutate it.
+        state = deepcopy(observation.payload)
         self._mark_player_units(state)
         if state.get("transport_kind") == "FAST":
             return self._apply_fast(model, state, observation,
@@ -117,6 +139,12 @@ class WorldAddonReducer:
         fast_delta = deepcopy({key: value for key, value in state.items()
                                if key in self.FAST_KEYS})
         self._stamp_unit_samples(fast_delta)
+        if "soft_targets" not in fast_delta:
+            # Omitted candidate hints are unknown, not a fresh confirmation of
+            # the old F7 recipient. The next full/FAST sample can restore them.
+            fast_delta.update(soft_targets=[], soft_targets_sample_time=None)
+        if "quest_item_target" not in fast_delta:
+            fast_delta["quest_item_target"] = None
         # FAST owns current dialog visibility. The bulky full snapshot can be
         # several seconds older and its nested quest_ui object otherwise stays
         # truthy even after FAST explicitly reports the frame closed. Keep the
@@ -126,13 +154,14 @@ class WorldAddonReducer:
             if fast_delta.get("quest_ui_open") is not True:
                 quest_ui.update({
                     "open": False, "action": "", "x": 0, "y": 0,
-                    "quest_id": 0, "gossip_option": None,
+                    "quest_id": 0, "gossip_option": None, "gossip_options": None,
                     "entries": [], "reward_choices": [],
                     "reward_selected_index": 0,
+                    "npc_guid": None,
                 })
             else:
                 quest_ui["open"] = True
-                for suffix in ("action", "x", "y", "quest_id", "gossip_option"):
+                for suffix in ("action", "x", "y", "quest_id", "gossip_option", "npc_guid"):
                     value = fast_delta.get(f"quest_ui_{suffix}")
                     if value is not None:
                         quest_ui[suffix] = value
@@ -150,6 +179,16 @@ class WorldAddonReducer:
                                if value is not None})
                 fast_delta[unit_key] = merged
         model.addon_state.update(fast_delta)
+        self._health_evidence(model, fast_delta, observation)
+        self._power_evidence(model, fast_delta, observation)
+        self._profile_evidence(model, fast_delta, observation)
+        coverage = model.addon_state.get('collection_coverage')
+        if (isinstance(coverage, dict) and coverage.get('quest_revision') is not None
+                and model.addon_state.get('quest_state_revision') != coverage['quest_revision']):
+            coverage = {**coverage, 'active_quests': 'PARTIAL'}
+            model.addon_state['collection_coverage'] = coverage
+            fast_delta['collection_coverage'] = coverage
+        self._apply_turn_in_receipts(model, state, observation)
         vehicle = (model.addon_state.get("in_vehicle"), model.addon_state.get("on_taxi"))
         if (("in_vehicle" in fast_delta or "on_taxi" in fast_delta)
                 and model.__dict__.get("_quest_ingest_vehicle") not in (None, vehicle)):
@@ -201,6 +240,14 @@ class WorldAddonReducer:
 
     def _apply_full(self, model: "WorldModel", previous: dict, state: dict,
                     observation: Observation) -> bool:
+        self._stamp_unit_samples(state)
+        self._health_evidence(model, state, observation)
+        self._power_evidence(model, state, observation)
+        self._profile_evidence(model, state, observation)
+        from .collection_coverage import prepare_collections
+        if isinstance(state.get('inventory'), dict):
+            state['inventory']['sample_time'] = self.packet_sample_time(state)
+        incoming_quests, complete_quest_list = prepare_collections(state, model.addon_state)
         # Nameplates are sampled only in the paged/full lane.  Stamp every
         # row at ingestion so a later FAST target update can use an exact-GUID
         # plate briefly without pretending that the old screen pixel is new.
@@ -208,7 +255,7 @@ class WorldAddonReducer:
         for plate in state.get("nameplates") or ():
             if isinstance(plate, dict) and plate.get("sample_time") is None:
                 plate["sample_time"] = sampled_at
-        model.addon_state = deepcopy(state)
+        model.addon_state = state
         model._rebuild_state()
         model.last_received = observation.received_at
         model.history.append(observation)
@@ -244,7 +291,7 @@ class WorldAddonReducer:
             {**quest, "description": texts[str(quest.get("quest_id"))].get("description")}
             if isinstance(quest, dict) and not quest.get("description")
             and (texts.get(str(quest.get("quest_id"))) or {}).get("description") else quest
-            for quest in state.get("active_quests", [])]
+            for quest in incoming_quests]
         from .quest_model import remount_quests
         self._note_quest_stage_completions(model, state.get("active_quests", []), observation.received_at)
         self._note_vehicle_transition(model, state.get("in_vehicle"), observation.received_at)
@@ -252,9 +299,15 @@ class WorldAddonReducer:
                                 skip_quest_ids=model.__dict__.get("scripted_dismount_quests") or ())
         model.__dict__["_quest_ingest_source"] = quests
         model.__dict__["_quest_ingest_vehicle"] = (state.get("in_vehicle"), state.get("on_taxi"))
-        model.quest_model.ingest(quests, observation.observation_id, observation.received_at)
-        model.quest_model.resolve_hypotheses(
-            model.entity_memory, as_of=observation.received_at, max_age=30 * 86400)
+        model.quest_model.ingest(quests, observation.observation_id, observation.received_at,
+                                 complete=complete_quest_list)
+        from .server_mode import server_mode_selected
+        if not server_mode_selected(model.state):
+            # Server mode (user 2026-10-25): TDB spawns and server entities
+            # place objectives; these EntityMemory scans per full state only
+            # blocked the medium tick (live 17:28: ~31 % of its samples).
+            model.quest_model.resolve_hypotheses(
+                model.entity_memory, as_of=observation.received_at, max_age=30 * 86400)
         for quest in state.get("active_quests", []):
             if quest.get("quest_id") is not None:
                 model.link(
@@ -269,6 +322,7 @@ class WorldAddonReducer:
         model._update_belief_lifecycle(observation, evidence_keys)
         model._evaluate_world_predictions(observation)
         model._event_reducer.apply(model, state, observation)
+        self._apply_turn_in_receipts(model, state, observation)
         # Newly ingested corpse events must be visible in the same tick.
         model._rebuild_state()
         model._entity_reducer.apply(model, state, observation)
@@ -282,3 +336,65 @@ class WorldAddonReducer:
             model.event_records.append(EventRecord.create(event, observation))
         model._ui_reducer.apply(model, previous, state, observation)
         return model._accepted(observation)
+
+    @staticmethod
+    def _profile_evidence(model, state, observation):
+        from .models import number
+        sample, control = number(WorldAddonReducer.packet_sample_time(state)), number(state.get('monotonic_time'))
+        if any(k in state for k in ('monotonic_time', 'state_sample_time')) and (sample is None or control is None):
+            return
+        age = control-sample if sample is not None and control is not None else 0.
+        if not 0 <= age <= 30.:
+            return
+        for key in ('race_id', 'class_id', 'player_class_id', 'level'):
+            value = state.get(key)
+            if type(value) is int and 0 < value < 256:
+                model.add_evidence(key, value, observation, ttl=2., observed_at=observation.received_at-age)
+
+    @staticmethod
+    def _health_evidence(model, state, observation):
+        from .models import number
+        age = 0.
+        if 'health_sample_time' in state:
+            sample, control = number(state['health_sample_time']), number(state.get('monotonic_time'))
+            if sample is None or control is None or not 0 <= control-sample <= 30.:
+                return
+            age = control-sample  # difference within the addon clock, not clock conversion
+        for key in ('health', 'max_health'):
+            value = number(state.get(key))
+            if value is not None and value >= 0 and (key != 'max_health' or value > 0):
+                model.add_evidence(key, value, observation, ttl=2., observed_at=observation.received_at-age)
+
+    @staticmethod
+    def _power_evidence(model, state, observation):
+        from .models import number
+        kind = state.get('power_type')
+        if type(kind) is not int or not 0 <= kind <= 255:
+            return
+        age = 0.
+        if 'power_sample_time' in state:
+            sample, control = number(state['power_sample_time']), number(state.get('monotonic_time'))
+            if sample is None or control is None or not 0 <= control-sample <= 30.:
+                return
+            age = control-sample
+        observed = observation.received_at-age
+        model.add_evidence('power_type', kind, observation, ttl=2., observed_at=observed)
+        for key in ('power', 'max_power'):
+            value = number(state.get(key))
+            if value is not None:
+                model.add_evidence(key, value, observation, ttl=2., observed_at=observed)
+                model.add_evidence(('resource_power:' if key == 'power' else 'resource_max_power:')+str(kind),
+                                   value, observation, ttl=2., observed_at=observed)
+
+    @staticmethod
+    def _apply_turn_in_receipts(model: "WorldModel", state: dict, observation: Observation) -> None:
+        from .quest_receipts import turn_in_receipts
+        events = [{"event_type": "QUEST_TURNED_IN", "sequence": row["sequence"],
+                   "timestamp": observation.timestamp, "source": "WOW_EVENT_RECEIPT",
+                   "payload": {"quest_id": row["quest_id"]}}
+                  for row in turn_in_receipts(state)]
+        if events:
+            # Reuse the one event reducer and its session/sequence dedupe.
+            # This also feeds the quest model/agenda when the eight-event UI
+            # history has already been overwritten by hover/movement events.
+            model._event_reducer.apply(model, {"events": events}, observation)

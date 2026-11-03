@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import re
 from typing import Mapping
 
-from wowbot.vision.models import MapPoint, WorldPosition
+from wowbot.coordinates import MapPoint, WorldPosition
 
 
 @dataclass(frozen=True, slots=True)

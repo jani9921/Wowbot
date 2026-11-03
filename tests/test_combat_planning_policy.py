@@ -428,7 +428,7 @@ def test_cook_on_the_campfire_is_an_object_use_not_more_hunting():
         {"raw_type": "item", "type": "COLLECT", "is_complete": False,
          "description": "0/1 Cook the meat on the campfire", "current": 0, "required": 1}]}]
     world = _world(active_quests=quest, cursor_position={"nx": .45, "ny": .55},
-                   mouseover={"tooltip": "Campfire", "name": "Campfire"})
+                   mouseover={"tooltip": "Campfire", "name": "Campfire", "object_id": 77})
     proposals = Planner(SkillRegistry()).candidates(
         Goal.parse("Questelj", 1.), world, 1.)
     use = [p for p in proposals if p.skill == "OBJECT_USE"]
@@ -483,7 +483,8 @@ def test_campfire_name_comes_from_the_mouseover_change_event():
                    mouseover={"quest_related": True, "quest_id": 55174}, events=[event],
                    event_sequence=3354)
     proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1.), world, 1.)
-    assert any(p.skill == "OBJECT_USE" for p in proposals)
+    # Historical name-only event is a search hint, never live ID proof.
+    assert not any(p.skill == "OBJECT_USE" for p in proposals)
 
 
 def test_late_campfire_event_names_the_object_under_a_still_cursor():
@@ -507,11 +508,18 @@ def test_late_campfire_event_names_the_object_under_a_still_cursor():
     use = [p for p in __import__("wowbot.agent.planner", fromlist=["Planner"]).Planner(
         __import__("wowbot.agent.skills", fromlist=["SkillRegistry"]).SkillRegistry()).candidates(
         Goal.parse("Questelj", 3.), world, 3.) if p.skill == "OBJECT_USE"]
+    assert not use  # no public ID/GUID in this historical event/sample
+    # A later synthetic live ID sample can authorize use without borrowing
+    # the old event's missing ID or pretending the event was newly measured.
+    world.state["mouseover"] = {"object_id": 77, "name": "Campfire",
+        "tooltip": event["payload"]["tooltip"], "quest_related": True, "quest_id": 55174}
+    use = [p for p in __import__("wowbot.agent.planner", fromlist=["Planner"]).Planner(
+        __import__("wowbot.agent.skills", fromlist=["SkillRegistry"]).SkillRegistry()).candidates(
+        Goal.parse("Questelj", 3.), world, 3.) if p.skill == "OBJECT_USE"]
     assert use
     state = active("OBJECT_USE", use[0].parameters, world.state, deadline=100)
     skill = ObjectUseSkill()
-    hovered = skill.begin(state, world.state)
-    assert [c.kind for c in hovered.commands] == ["HOVER"]
+    assert [c.kind for c in skill.begin(state, world.state).commands] == ["HOVER"]
     fresh = {**world.state, "monotonic_time": 3.3,
              "cursor_sample_time": 3.3, "mouseover_sample_time": 3.3}
     clicked = skill.verify(state, fresh, 3.3)

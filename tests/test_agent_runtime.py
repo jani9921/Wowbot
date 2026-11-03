@@ -127,6 +127,37 @@ def test_runtime_starts_manual_and_publishes_exact_cache(tmp_path):
         runtime.close()
 
 
+def test_live_medium_refreshes_decision_clock_after_projection_without_restamping_samples(tmp_path, monkeypatch):
+    import wowbot.agent.runtime as runtime_module
+    sensor, executor = Sensor(), RecordingExecutor()
+    runtime = AgentRuntime(42, binding_file(tmp_path), tmp_path / "output",
+                           sensor=sensor, executor=executor, vision=False)
+    clock = [time.monotonic()]
+    sampled = clock[0]
+    build = runtime_module.build_runtime_observations
+    tick = runtime.agent.tick
+    decisions = []
+    def slow_projection(*args, **kwargs):
+        result = build(*args, **kwargs)
+        clock[0] += .25
+        return result
+    def record_tick(payload, at, supplemental=()):
+        decisions.append((at, payload["monotonic_time"]))
+        return tick(payload, at, supplemental)
+    monkeypatch.setattr(runtime_module, "build_runtime_observations", slow_projection)
+    monkeypatch.setattr(runtime_module.time, "monotonic", lambda: clock[0])
+    runtime.agent.tick = record_tick
+    runtime.started = True
+    try:
+        sensor.payload = state(sampled)
+        runtime.step(sampled)
+        assert decisions == [(sampled+.25, sampled)]
+        assert runtime.agent.world.state["monotonic_time"] == sampled
+        assert not executor.commands
+    finally:
+        runtime.close()
+
+
 def test_runtime_wires_explicit_learned_model_into_canonical_world3d_pipeline(
         tmp_path, monkeypatch):
     cache = binding_file(tmp_path)

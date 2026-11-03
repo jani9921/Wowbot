@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "modules": 335,
+  "added_modules": [
+    "tests/test_pre_pull_regeneration_20261031.py",
+    "tests/test_preempted_quest_attempt_20261031.py",
+    "tests/test_retained_native_collections_20261031.py",
+    "tests/test_route_feedback_wip_20261030.py",
+    "tests/test_server_imports_no_vision_20261031.py",
+    "tests/test_server_no_hover_acquisition_20261031.py",
+    "tests/test_server_no_visual_proposals_20261030.py",
+    "tests/test_service_combat_split_20261031.py",
+    "tests/test_shared_coordinate_values_20261030.py"
+  ],
+  "elapsed_seconds": 192.04873589985073
+}

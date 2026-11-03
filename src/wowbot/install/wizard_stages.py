@@ -298,7 +298,9 @@ class WizardStagesMixin:
         """
         status = checks.ollama_status(PROJECT)
         model = status["model"]
-        if not model or (status["running"] and status["model_present"]):
+        escalation = status.get("escalation_model")
+        if not model or (status["running"] and status["model_present"]
+                         and status.get("escalation_present", True)):
             done(True)
             return
         if ask and not messagebox.askyesno(
@@ -306,7 +308,8 @@ class WizardStagesMixin:
                 "Telepítsem a helyi MI-t a bonyolultabb questek szövegéhez?\n"
                 f"- Ollama {'(már telepítve)' if status['installed'] else '(winget, kb. 1 GB)'}\n"
                 f"- modell: {model} (kb. 2,5 GB letöltés)\n"
-                "A telepítéssel elfogadod az Ollama licencét. Nélküle is fut az agent."):
+                + (f"- gondolkodó modell a kétes esetekre: {escalation} (kb. 2,5 GB)\n" if escalation else "")
+                + "A telepítéssel elfogadod az Ollama licencét. Nélküle is fut az agent."):
             self.write("Helyi MI kihagyva (nem kötelező).")
             done(True)
             return
@@ -320,13 +323,15 @@ class WizardStagesMixin:
             if executable is None:
                 skipped("az ollama.exe nem található")
                 return
-            self._run_stage([[str(executable), "pull", model]], PROJECT, f"MI modell letöltése ({model})",
+            commands = [[str(executable), "pull", name] for name in (model, escalation) if name]
+            self._run_stage(commands, PROJECT, f"MI modell letöltése ({', '.join(c[2] for c in commands)})",
                             lambda ok: done(True) if ok else skipped("a modell letöltése nem sikerült"))
 
         def serving(ready) -> None:
             if ready is not True:
                 skipped("az Ollama szerver nem indult el")
-            elif checks.ollama_status(PROJECT)["model_present"]:
+            elif (lambda now: now["model_present"] and now.get("escalation_present", True))(
+                    checks.ollama_status(PROJECT)):
                 done(True)
             else:
                 pull()

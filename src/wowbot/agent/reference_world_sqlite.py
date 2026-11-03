@@ -124,6 +124,25 @@ class WorldSqliteReference:
                     f'SELECT * FROM {table} WHERE quest=?', (quest_id,)))
         return sorted(result, key=lambda row: -build_number(row['verified_build']))
 
+    @lru_cache(maxsize=128)
+    def quest_scripts(self, quest_id):
+        """Explicit TDB script references, on demand; never client instructions.
+
+        Trinity SmartScriptMgr.h: source_type=5 is QUEST; event 19/20
+        explicitly names an accepted/rewarded quest in event_param1. Zero
+        means any quest and must not be rebound to the requested one.
+        Related NPC combat scripts are not treated as quest-owned scripts.
+        """
+        if 'smart_scripts' not in self.tables:
+            return ()
+        rows = self.rows('''SELECT * FROM smart_scripts WHERE
+            (source_type=5 AND entryorguid=?) OR
+            (event_type IN (19,20) AND event_param1=? AND event_param1>0)
+            ORDER BY source_type,entryorguid,id LIMIT 257''', (quest_id, quest_id))
+        return tuple({'relation': 'QUEST_SCRIPT' if r['source_type']==5 else 'QUEST_EVENT',
+                      'source': 'TDB_REFERENCE', 'execution_supported': False,
+                      'projection_truncated': len(rows)>256, 'record': r} for r in rows[:256])
+
     def spawn(self, row):
         return {"spawn_id": row["guid"], "npc_id": row["id"], "world_map_id": row["map"],
                 "x": row["position_x"], "y": row["position_y"], "z": row["position_z"],
@@ -201,8 +220,16 @@ class WorldSqliteReference:
                 "allowable_races": q.get("AllowableRaces"), "verified_build": q.get('VerifiedBuild'), "template": q,
                 "objectives": [{"objective_id": o["ID"], "order": o["Order"], "raw_type": o["Type"],
                     "credit_object_id": o["ObjectID"], "amount": o["Amount"], "description": o.get("Description"),
+                    # P8.4 COLLECT_CONTAINER: bag containers whose loot holds the item.
+                    "container_items": ([r["Entry"] for r in self.rows(
+                        "SELECT DISTINCT Entry FROM item_loot_template WHERE Item=? ORDER BY Entry LIMIT 8",
+                        (o["ObjectID"],))] if o["Type"] == 1 and "item_loot_template" in self.tables else []),
                     "storage_index": o.get('StorageIndex'), "parent_objective_id": o.get('ParentObjectiveID'),
                     "verified_build": o.get('VerifiedBuild'), "metadata": o} for o in objectives],
                 "quest_roles": self.roles(quest_id=quest_id), "object_roles": self.object_roles(quest_id), "pois": pois,
                 "poi_catalogue_count": len(metadata), "poi_superseded_count": len(metadata)-len(selected),
+                # P8.4 ARRIVE: exploration triggers (client DB2 AreaTrigger IDs).
+                "area_triggers": ([r["id"] for r in self.rows(
+                    "SELECT id FROM areatrigger_involvedrelation WHERE quest=? ORDER BY id", (quest_id,))]
+                    if "areatrigger_involvedrelation" in self.tables else []),
                 "details": list(self.records("WORLD", "quest_template_addon", quest_id)), **self.hint()}

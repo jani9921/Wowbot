@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "native/recastnavigation/Detour/Include/DetourNavMesh.h",
+      "sha256": "3d4e4238321dd17160bdcd8b4f8a21abcef95d43c0b9fd426edbfcf3cd76a7ba"
+    },
+    {
+      "path": "native/recastnavigation/Detour/Source/DetourNavMesh.cpp",
+      "sha256": "60a84b1b986bd0e1c6911e057cac21747b9a647f4d7cfc5388dd77236331df06"
+    }
+  ],
+  "scope": "Trinity MMAP v16 and Detour v7 map/tile headers and section sizes",
+  "static_primary_source": {
+    "url": "https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/common/mmaps_common/MMapDefines.h",
+    "source_commit": "f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf",
+    "sha256": "e86fd069b147fde3aa91041b7bfac6c4fd111850bef8221b49a8833af1ffc51b",
+    "review": "MMAP v16 wrapper/order and map parameter/offmesh layouts; no runtime auto-update"
+  },
+  "live_validated": false
+}

@@ -1,0 +1,974 @@
+--- a/src/wowbot/agent/fast_movement_lane.py
++++ b/src/wowbot/agent/fast_movement_lane.py
+@@ -87,6 +87,10 @@
+         feedback(agent.world, now)
+     WorldPacketReducer.project_flight_feedback(agent.world, state, now)
+     WorldPacketReducer.project_own_navigation(agent.world, state, now)
++    feedback_pending=getattr(agent.navigation,'route_feedback_pending',None)
++    if callable(feedback_pending) and feedback_pending():
++        agent.command_dispatcher.stop_movement()
++        return {'consumed':False,'force_medium':True,'reason':'movement_route_plan_pending'}
+     position_plan = getattr(agent.navigation, 'position_plan_pending', None)
+     if callable(position_plan) and position_plan(state, now):
+         agent.command_dispatcher.stop_movement()
+--- a/src/wowbot/agent/movement_controller.py
++++ b/src/wowbot/agent/movement_controller.py
+@@ -185,6 +185,8 @@
+     def start(self, destination: dict, state: dict, observation_id: str, now: float, *,
+               continuing: bool = False) -> None:
+         key = self._key(destination)
++        if destination.get('entity_route_anchor') and destination.get('route_id'):
++            key+=('CORRIDOR',destination['route_id'],destination.get('route_waypoint_index'))
+         # Two intents may land at the same XY while requiring different air
+         # paths, heights or phases. Never retain the previous flight's index
+         # just because its final horizontal point happens to match.
+--- a/src/wowbot/agent/navigation.py
++++ b/src/wowbot/agent/navigation.py
+@@ -8,7 +8,7 @@
+ import math
+ from wowbot.navigation.graph import NavGraph, NavGraphNode
+ from wowbot.navigation.planner import RoutePlanner, NoRouteError
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ from .models import number
+ from .models import canonical
+ import hashlib
+--- a/src/wowbot/agent/navigation_terminal.py
++++ b/src/wowbot/agent/navigation_terminal.py
+@@ -64,6 +64,7 @@
+                     'phase':movement.get('phase'),'steering_mode':movement.get('steering_mode'),
+                     'final_facing':movement.get('final_facing'),'latest_sample':movement.get('latest_sample'),
+                     'position_acquisition':movement.get('position_acquisition'),
++                    'route_feedback':movement.get('route_feedback'),
+                     'control_updates':movement.get('control_updates')}))
+             if skill in ENTITY_SKILLS and failure_reason in REACHABILITY_FAILURES:
+                 self.navigation.report_entity_failure(guid, failure_reason.value, now)
+--- a/src/wowbot/agent/parallel_control.py
++++ b/src/wowbot/agent/parallel_control.py
+@@ -53,6 +53,7 @@
+                 and attempt.action_id == self._last_action
+                 and self.last_reason not in {"movement_ground_approach_pending", "movement_position_acquired_pending",
+                                              'skill_navigation_plan_pending'}
++                and self.last_reason!='movement_route_plan_pending'
+                 # The medium caller may have sampled its clock just before
+                 # this fast update. A newer control sample is not stale.
+                 and now < attempt.deadline and self._last_control_at >= now-.25)
+@@ -230,7 +231,8 @@
+                                  PRIORITY["LOCOMOTION"], now, ttl=.10)
+             result = advance_fast_movement(agent, payload, now, MOVEMENT, state_override=state,
+                                            steer_pointer=False)
+-            if result.get("reason") in {"movement_ground_approach_pending", "movement_position_acquired_pending"}:
++            if result.get("reason") in {"movement_ground_approach_pending", "movement_position_acquired_pending",
++                                        'movement_route_plan_pending'}:
+                 # Let the medium FSM own the route replan on this same MOVE.
+                 self._last_control_at = -1e9
+             if result.get("terminal"):
+--- a/src/wowbot/coordinates.py
++++ b/src/wowbot/coordinates.py
+@@ -52,3 +52,19 @@
+                 "coordinate_space": "CAMERA_RELATIVE_BEARING",
+                 "confidence": round(max(0.0, min(1.0, float(self.confidence))), 4)}
+ 
++
++# Plain world/map values used by navigation and the server path; they lived in
++# wowbot.vision.models until REV4 (2026-10-30).  That module re-exports these
++# very classes, so isinstance checks and existing imports stay valid.
++@dataclass(frozen=True, slots=True)
++class MapPoint:
++    x: float
++    y: float
++
++
++@dataclass(frozen=True, slots=True)
++class WorldPosition:
++    x: float
++    y: float
++    z: float = 0.0
++
+--- a/src/wowbot/navigation/arrival.py
++++ b/src/wowbot/navigation/arrival.py
+@@ -4,7 +4,7 @@
+ from enum import StrEnum
+ import math
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ from .models import ArrivalCondition
+ 
+ 
+--- a/src/wowbot/navigation/engine.py
++++ b/src/wowbot/navigation/engine.py
+@@ -3,7 +3,8 @@
+ from dataclasses import dataclass
+ import time
+ 
+-from wowbot.vision.models import NavigationVisionObservation, WorldPosition
++from wowbot.coordinates import WorldPosition
++from wowbot.vision.models import NavigationVisionObservation
+ from .arrival import ArrivalVerifier
+ from .graph import NavGraph
+ from .local import LocalNavigator
+--- a/src/wowbot/navigation/entity_goal.py
++++ b/src/wowbot/navigation/entity_goal.py
+@@ -2,6 +2,7 @@
+ from wowbot.value_helpers import number
+ from wowbot.runtime.entity_identity import check_entity_identity
+ from wowbot.runtime.skill_identity import sample_fresh
++import math
+ 
+ 
+ def resolve(destination, state, now):
+@@ -34,3 +35,23 @@
+         result.pop('z', None);result.pop('layer_z', None)
+         result['z_known'] = False
+     return result
++
++
++# The smallest stop circle the controller can settle in: one minimum forward
++# pulse mounted is ~0.56 yd, so a tighter circle would be overshot back and forth.
++ANCHOR_TOLERANCE_FLOOR = .5
++
++
++def anchor_tolerance(destination, anchor, desired_range):
++    """A projected endpoint must not add a second interaction-radius margin.
++
++    Within ``desired_range - offset`` of the anchor the target is within
++    ``desired_range`` (triangle inequality).  An anchor farther off than that
++    can only be reached, never brought into the band: ANCHOR_TOLERANCE_FLOOR."""
++    x,y = number(anchor.get('x')),number(anchor.get('y'))
++    tx,ty = number(destination.get('x')),number(destination.get('y'))
++    if None in (x,y,tx,ty):
++        return desired_range
++    z,tz = number(anchor.get('z')),number(destination.get('z'))
++    vertical = z-tz if None not in (z,tz) and destination.get('z_known') is True else 0.
++    return max(ANCHOR_TOLERANCE_FLOOR,float(desired_range)-math.hypot(x-tx,y-ty,vertical))
+--- a/src/wowbot/navigation/exile_reach_seed.py
++++ b/src/wowbot/navigation/exile_reach_seed.py
+@@ -1,6 +1,6 @@
+ from __future__ import annotations
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ from .graph import NavGraph, NavGraphNode
+ 
+ # First calibrated exemplar only. Coordinates are normalized map-space (0..1),
+--- a/src/wowbot/navigation/graph.py
++++ b/src/wowbot/navigation/graph.py
+@@ -4,7 +4,7 @@
+ import math
+ from typing import Iterable
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/src/wowbot/navigation/graph_builder.py
++++ b/src/wowbot/navigation/graph_builder.py
+@@ -2,7 +2,8 @@
+ 
+ from collections import defaultdict
+ import math
+-from wowbot.vision.models import FeatureType, MapPoint, NavigationVisionObservation
++from wowbot.coordinates import MapPoint
++from wowbot.vision.models import FeatureType, NavigationVisionObservation
+ from .graph import NavGraph, NavGraphNode
+ 
+ 
+@@ -45,7 +46,7 @@
+ 
+     @staticmethod
+     def _to_world(point: MapPoint, width: int, height: int):
+-        from wowbot.vision.models import WorldPosition
++        from wowbot.coordinates import WorldPosition
+         return WorldPosition(point.x / max(width, 1), point.y / max(height, 1), 0.0)
+ 
+ 
+--- a/src/wowbot/navigation/graph_localization.py
++++ b/src/wowbot/navigation/graph_localization.py
+@@ -3,7 +3,7 @@
+ from dataclasses import dataclass
+ import math
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ from .graph import NavGraph, NavGraphEdge
+ 
+ 
+--- a/src/wowbot/navigation/local.py
++++ b/src/wowbot/navigation/local.py
+@@ -4,7 +4,8 @@
+ import math
+ from typing import Optional
+ 
+-from wowbot.vision.models import MinimapObservation, WorldObservation, WorldPosition
++from wowbot.coordinates import WorldPosition
++from wowbot.vision.models import MinimapObservation, WorldObservation
+ from .models import MovementIntent, MovementMode
+ 
+ 
+--- a/src/wowbot/navigation/local_world_bridge.py
++++ b/src/wowbot/navigation/local_world_bridge.py
+@@ -4,7 +4,7 @@
+ from typing import Any
+ 
+ from wowbot.vision.local_world import LocalEntity, LocalWorldModel
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/src/wowbot/navigation/models.py
++++ b/src/wowbot/navigation/models.py
+@@ -4,7 +4,7 @@
+ from enum import StrEnum
+ from typing import Optional
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ 
+ 
+ class DestinationKind(StrEnum):
+--- a/src/wowbot/navigation/movement.py
++++ b/src/wowbot/navigation/movement.py
+@@ -4,7 +4,7 @@
+ from typing import Protocol
+ 
+ from .models import MovementIntent
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ 
+ 
+ class MovementController(Protocol):
+--- a/src/wowbot/navigation/planner.py
++++ b/src/wowbot/navigation/planner.py
+@@ -4,7 +4,7 @@
+ import heapq
+ from typing import Optional
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ from .graph import NavGraph, NavGraphNode
+ from .learning import LearningPolicy
+ 
+--- a/src/wowbot/navigation/progress.py
++++ b/src/wowbot/navigation/progress.py
+@@ -13,7 +13,7 @@
+ from types import MappingProxyType
+ from typing import Mapping
+ 
+-from wowbot.vision.models import WorldPosition
++from wowbot.coordinates import WorldPosition
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/src/wowbot/navigation/service.py
++++ b/src/wowbot/navigation/service.py
+@@ -7,6 +7,7 @@
+ 
+ from dataclasses import replace
+ import math
++import time
+ from pathlib import Path
+ from typing import Any
+ 
+@@ -85,6 +86,9 @@
+         self._position_trace: dict | None = None
+         self._deferred_request: NavigationRequest | None = None
+         self._deferred_scope: tuple | None = None
++        self._planning_clock = time.perf_counter
++        self._route_feedback = None
++        self._route_feedback_trace = None
+         self._active_route: GlobalRoute | None = None
+         self._active_corridor: PathCorridor | None = None
+         self._latest_local_plan: LocalMotionPlan | None = None
+@@ -134,6 +138,7 @@
+         self._position_wait = None
+         self._position_trace = None
+         self._deferred_request = self._deferred_scope = None
++        self._route_feedback = self._route_feedback_trace = None
+         self._active_route = None
+         self._active_corridor = None
+         self._latest_local_plan = None
+@@ -157,6 +162,7 @@
+ 
+     def cancel_movement(self) -> None:
+         self._deferred_request = self._deferred_scope = None
++        self._route_feedback = None
+         if self._position_wait is not None and self._position_trace is not None:
+             self._position_trace['phase'] = 'CANCELLED'
+         self.trip.cancel('navigation_cancelled')
+@@ -226,6 +232,15 @@
+ 
+     def start_request(self, request: NavigationRequest, state: dict, now: float, *,
+                       continuing: bool = False) -> None:
++        started = self._planning_clock()
++        self._route_feedback = None
++        if self._route_feedback_trace and self._route_feedback_trace['request_id']!=request.request_id:
++            self._route_feedback_trace=None
++        self._start_request(request, state, now, continuing=continuing)
++        self._require_post_plan_feedback(state, now, self._planning_clock()-started)
++
++    def _start_request(self, request: NavigationRequest, state: dict, now: float, *,
++                       continuing: bool = False) -> None:
+         """Accept one typed request and delegate all control to the existing controller."""
+         self._deferred_request = self._deferred_scope = None
+         self.trip.start(request, now, continuing=continuing)
+@@ -343,10 +358,6 @@
+             return
+         self._route_failure_reason = None
+         destination = self._current_route_destination()
+-        if request.arrival.radius is not None and destination.get("route_waypoint_final"):
+-            destination["arrival_radius"] = request.arrival.radius
+-        if request.arrival.desired_range is not None and destination.get("route_waypoint_final"):
+-            destination["stop_distance"] = request.arrival.desired_range
+         self.start(destination, state, request.correlation_id, now, continuing=continuing)
+ 
+     # Live 2026-10-04 00:41: Detour's first corner lay 1.1 yd from the player.
+@@ -691,6 +702,11 @@
+                 destination["arrival_radius"] = request.arrival.radius
+             if request.arrival.desired_range is not None:
+                 destination["stop_distance"] = request.arrival.desired_range
++            if request.destination.get('entity_goal') is True:
++                from .entity_goal import anchor_tolerance
++                desired=self._interaction_band(request)
++                tolerance=anchor_tolerance(request.destination,anchor,desired)
++                destination.update(stop_distance=tolerance,arrival_radius=tolerance)
+         return destination
+ 
+     @staticmethod
+@@ -785,6 +801,13 @@
+ 
+     def local_plan(self, state: dict, *, now: float,
+                    observation_id: str | None = None) -> LocalMotionPlan | None:
++        started=self._planning_clock()
++        result=self._local_plan(state,now=now,observation_id=observation_id)
++        self._require_post_plan_feedback(state,now,self._planning_clock()-started)
++        return result
++
++    def _local_plan(self, state: dict, *, now: float,
++                    observation_id: str | None = None) -> LocalMotionPlan | None:
+         """Refresh a read-only local plan for the current route/corridor.
+ 
+         This is deliberately called by the navigation owner.  The returned
+@@ -793,7 +816,7 @@
+         infer a fake world-space detour from screen pixels.
+         """
+         if (self._active_request is None or self._route_failure_reason
+-                or self._position_wait is not None or self._deferred_request is not None):
++                or self._position_wait is not None or self._deferred_request is not None or self._route_feedback is not None):
+             return None
+         state = self._state_with_navmesh_surface(state)
+         self._danger.observe_hostiles(state, now)
+@@ -1005,16 +1028,26 @@
+     POSITION_ACQUISITION_SECONDS = 3.
+ 
+     def owned_route_plan_pending(self, state, now):
+-        if self._deferred_request is not None or self.position_plan_pending(state, now):
++        if self._route_feedback is not None or self._deferred_request is not None or self.position_plan_pending(state, now):
+             return True
+         request = self._active_request
+         if request is None or request.destination.get('entity_goal') is not True or self._route_failure_reason:
+             return False
+         from .entity_goal import resolve
+         point = resolve(request.destination, state, now)
+-        return bool(point is not None and math.hypot(point['x']-request.destination['x'],
++        if point is None:
++            return False
++        changed=math.hypot(point['x']-request.destination['x'],
+             point['y']-request.destination['y'], (number(point.get('z')) or 0.)-
+-            (number(request.destination.get('z')) or 0.)) > 2.)
++            (number(request.destination.get('z')) or 0.))
++        if changed>2.:
++            return True
++        if changed>.05 and self._movement.phase is MovementPhase.ARRIVED:
++            player=state.get('player_world_position') or {}
++            px,py=number(player.get('x')),number(player.get('y'))
++            radius=self._interaction_band(request)
++            return None not in (px,py) and math.hypot(point['x']-px,point['y']-py)>radius
++        return False
+ 
+     def resume_owned_route(self, state, now, *, allow_route_queries=True):
+         """The same owned subflow yields heavy planning from FAST to medium."""
+@@ -1022,6 +1055,22 @@
+             self._route_failure_reason = 'movement_safety_deadline'
+             self._deferred_request = self._deferred_scope = None
+             return True
++        if self._route_feedback is not None:
++            feedback=self._route_feedback
++            status=feedback.assess(state,self._active_request.destination,now)
++            if status=='WAITING':
++                return False
++            if status=='REPLAN' and not allow_route_queries:
++                return False
++            self._route_feedback_trace={**feedback.snapshot(),'status':status,'resolved_at':now}
++            self._route_feedback=None
++            if status not in {'READY','REPLAN'}:
++                self._route_failure_reason=status
++                return True
++            if status=='REPLAN':
++                from .position_acquisition import scope
++                self._deferred_request=self._active_request
++                self._deferred_scope=scope(state)
+         pending = self.owned_route_plan_pending(state, now)
+         if pending and not allow_route_queries:
+             return False
+@@ -1054,9 +1103,29 @@
+ 
+     def _owned_route_expired(self, now):
+         request = self._active_request
+-        return bool(request is not None and request.destination.get('entity_goal') is True
++        return bool(request is not None and request.timeout is not None
+             and self._request_started_at is not None
+             and now-self._request_started_at >= (request.timeout or self.max_reach_seconds))
++
++    def _interaction_band(self, request):
++        """The request's own positive range/radius; 0/None are not a band."""
++        for value in (request.arrival.desired_range, request.arrival.radius):
++            value = number(value)
++            if value is not None and value > 0:
++                return value
++        return self._movement.world_arrival_tolerance
++
++    SLOW_PLAN_SECONDS = .6
++
++    def _require_post_plan_feedback(self,state,now,elapsed):
++        if (elapsed<=self.SLOW_PLAN_SECONDS or self._active_request is None
++                or self._route_failure_reason or self._movement.destination is None):
++            return
++        from .route_feedback import RouteFeedback,feedback_scope,position
++        request=self._active_request
++        self._route_feedback=RouteFeedback(request.request_id,now+elapsed,elapsed,
++            position(state,request.destination),feedback_scope(state))
++        self._route_feedback_trace={**self._route_feedback.snapshot(),'status':'WAITING'}
+ 
+     def _position_wait_status(self, state: dict, now: float) -> str | None:
+         if self._position_wait is None:
+@@ -1094,8 +1163,11 @@
+         if self._owned_route_expired(now):
+             self._route_failure_reason = 'movement_safety_deadline'
+         if self._route_failure_reason in {'server_position_probe_context_changed', 'movement_safety_deadline',
+-                                          'navigation_plan_interrupted'}:
++                                          'navigation_plan_interrupted','post_plan_feedback_context_changed',
++                                          'post_plan_feedback_interrupted','post_plan_feedback_timeout'}:
+             return MovementAssessment(MovementPhase.FAILED, True, False, self._route_failure_reason)
++        if self._route_feedback is not None:
++            return MovementAssessment(MovementPhase.NO_PROGRESS_YET,False,False,'awaiting_post_plan_feedback')
+         if not self._entity_route_identity_matches(state, now):
+             self._route_failure_reason = "target_identity_changed"
+             self._movement.reset()
+@@ -1448,6 +1520,8 @@
+             return commands
+         state = self._state_with_navmesh_surface(state)
+         self.local_plan(state, now=now, observation_id=observation_id)
++        if self._route_feedback is not None:
++            return ()
+         return self._movement.command(state, observation_id, now)
+ 
+     def _airborne_route(self) -> bool:
+@@ -1594,6 +1668,7 @@
+         snapshot["route_danger_revision"] = self._route_danger_revision
+         snapshot["route_failure_reason"] = self._route_failure_reason
+         snapshot['owned_route_plan_pending'] = self._deferred_request is not None
++        snapshot['route_feedback'] = self._route_feedback_snapshot()
+         snapshot['position_acquisition'] = self._position_acquisition_snapshot()
+         snapshot["player_surface_projection"] = (dict(self._latest_surface_projection)
+                                                    if self._latest_surface_projection else None)
+@@ -1632,7 +1707,16 @@
+                 'proposed_probe': dict(trace['proposed_probe']) if trace.get('proposed_probe') else None}
+ 
+     def movement_snapshot(self) -> dict[str, Any]:
+-        return {**self._movement.snapshot(), 'position_acquisition': self._position_acquisition_snapshot()}
++        return {**self._movement.snapshot(), 'position_acquisition': self._position_acquisition_snapshot(),
++                'route_feedback':self._route_feedback_snapshot()}
++
++    def _route_feedback_snapshot(self):
++        if self._route_feedback_trace is None:
++            return None
++        return {**self._route_feedback_trace,'active':self._route_feedback is not None}
++
++    def route_feedback_pending(self):
++        return self._route_feedback is not None
+ 
+     # Own-layer tracking (design doc §4.3).  Live 2026-10-05 12:55: after a
+     # spider fight halfway down Hrun's pit the new route started from the
+--- a/src/wowbot/navigation/spatial_context.py
++++ b/src/wowbot/navigation/spatial_context.py
+@@ -4,7 +4,8 @@
+ from typing import Any
+ 
+ from wowbot.navigation.local_world_bridge import NavigationLocalWorldView
+-from wowbot.vision.models import MapPoint, MarkerObservation, NavigationVisionObservation
++from wowbot.coordinates import MapPoint
++from wowbot.vision.models import MarkerObservation, NavigationVisionObservation
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/src/wowbot/navigation/world_context.py
++++ b/src/wowbot/navigation/world_context.py
+@@ -4,7 +4,7 @@
+ import re
+ from typing import Mapping
+ 
+-from wowbot.vision.models import MapPoint, WorldPosition
++from wowbot.coordinates import MapPoint, WorldPosition
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/src/wowbot/runtime/contracts.py
++++ b/src/wowbot/runtime/contracts.py
+@@ -149,6 +149,10 @@
+         return FailureReason.TELEMETRY_STALE
+     if normalized == "SERVER_POSITION_PROBE_TIMEOUT":
+         return FailureReason.POSITION_UNCERTAIN
++    if normalized=='POST_PLAN_FEEDBACK_TIMEOUT':
++        return FailureReason.STALE_OBSERVATION
++    if normalized=='POST_PLAN_FEEDBACK_CONTEXT_CHANGED':
++        return FailureReason.WRONG_MAP_CONTEXT
+     if normalized == "SERVER_POSITION_PROBE_CONTEXT_CHANGED":
+         return FailureReason.WRONG_MAP_CONTEXT
+     if normalized in {'TARGET_IDENTITY_CHANGED', 'REACH_OBJECT_IDENTITY_OR_POSITION_LOST'}:
+--- a/src/wowbot/skills/movement.py
++++ b/src/wowbot/skills/movement.py
+@@ -22,7 +22,9 @@
+ 
+     def step(self, attempt, world_state: dict, observation_id: str, now: float,
+              segment_baseline: dict | None) -> MovementStep:
+-        resume_position = getattr(self.navigation, 'resume_position_request', None)
++        resume_position = getattr(self.navigation, 'resume_owned_route', None)
++        if not callable(resume_position):
++            resume_position = getattr(self.navigation, 'resume_position_request', None)
+         if callable(resume_position):
+             resume_position(world_state, now)
+         assessment = self.navigation.observe(world_state, observation_id, now, commanded=True)
+--- a/src/wowbot/skills/navigation_handoff.py
++++ b/src/wowbot/skills/navigation_handoff.py
+@@ -38,4 +38,4 @@
+ def failure_detail(navigation, assessment):
+     movement = navigation.movement_snapshot()
+     return {'reason':assessment.reason, **{key:movement.get(key) for key in
+-        ('phase','steering_mode','final_facing','latest_sample','control_updates','position_acquisition')}}
++        ('phase','steering_mode','final_facing','latest_sample','control_updates','position_acquisition','route_feedback')}}
+--- a/src/wowbot/vision/models.py
++++ b/src/wowbot/vision/models.py
+@@ -16,17 +16,8 @@
+     ZONE_BOUNDARY = "ZONE_BOUNDARY"
+ 
+ 
+-@dataclass(frozen=True, slots=True)
+-class MapPoint: 
+-    x: float
+-    y: float
+-
+-
+-@dataclass(frozen=True, slots=True)
+-class WorldPosition:
+-    x: float
+-    y: float
+-    z: float = 0.0
++# Moved to the shared coordinate contract (REV4, 2026-10-30); re-exported.
++from wowbot.coordinates import MapPoint, WorldPosition  # noqa: E402,F401
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+--- a/tests/test_packet_launchers.py
++++ b/tests/test_packet_launchers.py
+@@ -10,3 +10,27 @@
+     assert text.index("call config\\local_env.bat") < text.index(setting) < text.index("tools\\run_agent.py --gui")
+     commands = [line.strip() for line in text.splitlines() if not line.strip().startswith("rem ")]
+     assert not any("wow_auto_start" in line or "run_packet_sidecar" in line or "--full-ai" in line for line in commands)
++
++
++@pytest.mark.parametrize("name", ["START_AGENT.bat", "START_AGENT_DXGI.bat"])
++def test_production_gui_launchers_state_the_server_profile(name):
++    text = (Path(__file__).resolve().parents[1]/name).read_text(encoding="utf-8").lower()
++    assert 'if not defined aipc_runtime_profile set "aipc_runtime_profile=server"' in text
++    assert text.index('set "aipc_runtime_profile=server"') < text.index("tools\\run_agent.py --gui")
++
++
++def test_unattended_start_resolves_the_server_profile_with_packets(monkeypatch):
++    import sys
++    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
++    from tools.wow_auto_start import agent_environment
++    from wowbot.runtime_profile import RuntimeProfile
++    for key in ("AIPC_RUNTIME_PROFILE", "AIPC_PACKET_TELEMETRY", "AIPC_SERVER_MODE"):
++        monkeypatch.delenv(key, raising=False)
++    env = agent_environment()
++    assert env["AIPC_RUNTIME_PROFILE"] == "SERVER" and env["AIPC_PACKET_TELEMETRY"] == "1"
++    for key, value in env.items():
++        if key.startswith("AIPC_"):
++            monkeypatch.setenv(key, value)
++    assert RuntimeProfile.resolve() is RuntimeProfile.SERVER
++    monkeypatch.setenv("AIPC_RUNTIME_PROFILE", "LEGACY_VISION")         # an explicit user choice stays
++    assert agent_environment()["AIPC_RUNTIME_PROFILE"] == "LEGACY_VISION"
+--- a/tests/test_uniform_entity_identity_20261016.py
++++ b/tests/test_uniform_entity_identity_20261016.py
+@@ -289,7 +289,8 @@
+     from types import SimpleNamespace
+     from wowbot.navigation.service import NavigationService
+     navigation = NavigationService()
+-    navigation._active_request = SimpleNamespace(destination={"target_guid": GUID, "npc_id": 156626})
++    # A typed NavigationRequest always carries ``timeout`` (None: no explicit budget).
++    navigation._active_request = SimpleNamespace(destination={"target_guid": GUID, "npc_id": 156626}, timeout=None)
+     # Intermediate destination lacks target_guid to retain the corridor path.
+     navigation._movement.destination = {"route_waypoint_final": False, "x": 1., "y": 2.}
+     assert navigation._entity_route_identity_matches(scene(target={"guid": GUID, "npc_id": 156626,
+--- a/src/wowbot/navigation/route_feedback.py
++++ b/src/wowbot/navigation/route_feedback.py
+@@ -0,0 +1,64 @@
++"""Immutable post-query feedback prerequisite; NavigationService owns the wait."""
++from dataclasses import asdict, dataclass
++import math
++
++from wowbot.value_helpers import number
++from .position_acquisition import scope
++
++
++def feedback_scope(state):
++    legacy_map=state.get('map_id') if (state.get('player_world_position') or {}).get('instance_id') is None else None
++    return (*scope(state),legacy_map,bool(state.get('is_dead')),bool(state.get('is_ghost')),bool(state.get('in_vehicle')))
++
++
++def position(state, destination):
++    point=(state.get('player_world_position') if destination.get('coordinate_space')=='WORLD_YARDS'
++           else state.get('position')) or {}
++    x,y=number(point.get('x')),number(point.get('y'))
++    if None in (x,y):
++        return None
++    if destination.get('coordinate_space')=='WORLD_YARDS':
++        z=number(point.get('observed_z'))
++        z=z if z is not None else number(point.get('z')) if point.get('z_observed') is True else None
++        return (x,y,z)
++    return (x,y)
++
++
++@dataclass(frozen=True,slots=True)
++class RouteFeedback:
++    request_id: str
++    earliest_sample: float
++    elapsed_seconds: float
++    original_position: tuple | None
++    context: tuple
++    wait_seconds: float = 2.
++
++    def assess(self,state,destination,now):
++        if feedback_scope(state)!=self.context:
++            return 'post_plan_feedback_context_changed'
++        if state.get('loading') or state.get('input_blocked') or state.get('player_present') is False:
++            return 'post_plan_feedback_interrupted'
++        if now-self.earliest_sample>=self.wait_seconds:
++            return 'post_plan_feedback_timeout'
++        world=destination.get('coordinate_space')=='WORLD_YARDS'
++        point=(state.get('player_world_position') if world else state.get('position')) or {}
++        # A world position must carry its own measurement time: a newer merged
++        # state repeating an old position is not post-plan feedback.
++        sampled=number(point.get('sample_time') if world else point.get('sample_time',state.get('monotonic_time')))
++        current=position(state,destination)
++        if sampled is None or sampled<self.earliest_sample or sampled>now or current is None:
++            return 'WAITING'
++        if self.original_position is not None:
++            vertical=0.
++            if len(current)==3 and len(self.original_position)==3:
++                if current[2] is not None and self.original_position[2] is None:
++                    return 'REPLAN'
++                if current[2] is not None and self.original_position[2] is not None:
++                    vertical=current[2]-self.original_position[2]
++            threshold=2. if destination.get('coordinate_space')=='WORLD_YARDS' else .003
++            if math.hypot(current[0]-self.original_position[0],current[1]-self.original_position[1],vertical)>threshold:
++                return 'REPLAN'
++        return 'READY'
++
++    def snapshot(self):
++        return asdict(self)
+--- a/tests/test_route_feedback_wip_20261030.py
++++ b/tests/test_route_feedback_wip_20261030.py
+@@ -0,0 +1,255 @@
++"""REV4 route-feedback WIP (handoff 2026-10-30 §5): after a slow route or
++local-plan query no movement command may come from the frame the query was
++computed on; a measurement taken after the query must arrive first."""
++from copy import deepcopy
++from dataclasses import replace
++from types import SimpleNamespace
++
++from wowbot.agent.fast_movement_lane import advance_fast_movement
++from wowbot.agent.models import Mode, Proposal
++from wowbot.navigation.contracts import ArrivalEnvelope, GlobalRoute, NavigationRequest
++from wowbot.navigation.entity_goal import ANCHOR_TOLERANCE_FLOOR, anchor_tolerance
++from wowbot.navigation.route_feedback import RouteFeedback, feedback_scope, position
++from wowbot.navigation.service import NavigationService
++from wowbot.runtime import FailureReason, failure_reason_from_legacy
++from wowbot.skills.movement import MovementSkillRunner
++
++WORLD = {'coordinate_space': 'WORLD_YARDS'}
++
++
++def measured(at=10., *, sample=None, x=0., y=0., z=100., **extra):
++    return {'session_id': 'feedback-test', 'character_guid': 'Player-1', 'map_id': 2022,
++            'monotonic_time': at, 'orientation': 0., 'player_present': True,
++            'movement': {'flying': False, 'falling': False, 'moving': False},
++            'packet_telemetry': {'selected_pid': 123, 'last_received_at': at},
++            'player_world_position': {'x': x, 'y': y, 'z': z, 'z_known': True, 'z_observed': True,
++                                      'z_source': 'PACKET_CLIENT_MOVEMENT_HELD', 'instance_id': 2444,
++                                      'coordinate_space': 'WORLD_YARDS',
++                                      'sample_time': at if sample is None else sample},
++            **extra}
++
++
++def request(timeout=20., **extra):
++    return NavigationRequest('feedback-route', 'source-observation', 'MOVE_TO_LOCATION',
++                             {'x': 20., 'y': 0., 'z': 100., 'z_known': True, 'instance_id': 2444,
++                              'require_navmesh': True, 'coordinate_space': 'WORLD_YARDS', **extra},
++                             arrival=ArrivalEnvelope(radius=2.), timeout=timeout)
++
++
++def configured(monkeypatch):
++    nav = NavigationService(navmesh=False)
++    plans = []
++
++    def plan(req, state, now, **kwargs):
++        plans.append(deepcopy(state['player_world_position']))
++        return GlobalRoute('r', ({**state['player_world_position'], 'z_known': True}, dict(req.destination)),
++                           (), 20., 1., now, now+30.)
++    monkeypatch.setattr(nav._global_planner, 'plan', plan)
++    nav._planning_clock = lambda: 0.               # warm, instant queries unless a test says otherwise
++    return nav, plans
++
++
++def slow(nav, seconds):
++    """The next query measures ``seconds`` of planning, later ones are instant."""
++    values = iter((0., seconds))
++    nav._planning_clock = lambda: next(values, seconds)
++
++
++def slow_start(monkeypatch, seconds=.7, at=10., req=None):
++    nav, plans = configured(monkeypatch)
++    slow(nav, seconds)
++    nav.start_request(req or request(), measured(at), at)
++    return nav, plans
++
++
++# ---- the feedback prerequisite itself ------------------------------------
++
++def test_feedback_needs_a_sample_measured_after_the_query():
++    state = measured(10.)
++    feedback = RouteFeedback('r', 10.7, .7, position(state, WORLD), feedback_scope(state))
++    assert feedback.assess(measured(10.6), WORLD, 10.6) == 'WAITING'
++    assert feedback.assess(measured(10.9, sample=10.), WORLD, 10.9) == 'WAITING'   # relabelled old frame
++    relabelled = measured(10.9)
++    relabelled['player_world_position'].pop('sample_time')
++    assert feedback.assess(relabelled, WORLD, 10.9) == 'WAITING'                   # merged-state time only
++    assert feedback.assess(measured(10.8), WORLD, 10.8) == 'READY'
++    assert feedback.assess(measured(10.8, sample=11.), WORLD, 10.8) == 'WAITING'   # not from the future
++
++
++def test_feedback_replans_after_a_real_move_or_a_newly_known_height():
++    state = measured(10.)
++    feedback = RouteFeedback('r', 10.7, .7, position(state, WORLD), feedback_scope(state))
++    assert feedback.assess(measured(10.8, x=2.), WORLD, 10.8) == 'READY'           # exactly 2 yd stays
++    assert feedback.assess(measured(10.8, x=2.01), WORLD, 10.8) == 'REPLAN'
++    assert feedback.assess(measured(10.8, z=103.), WORLD, 10.8) == 'REPLAN'        # observed Z changed
++    unknown = measured(10.)
++    unknown['player_world_position'].update(z=None, z_observed=False, z_known=False)
++    blind = RouteFeedback('r', 10.7, .7, position(unknown, WORLD), feedback_scope(unknown))
++    assert blind.assess(measured(10.8), WORLD, 10.8) == 'REPLAN'                   # height now known
++    zero = RouteFeedback('r', 10.7, .7, position(measured(10., z=0.), WORLD), feedback_scope(measured(10.)))
++    assert zero.assess(measured(10.8, z=0.), WORLD, 10.8) == 'READY'               # a real Z=0 is a height
++
++
++def test_feedback_fails_on_scope_interruption_and_after_two_seconds():
++    state = measured(10.)
++    feedback = RouteFeedback('r', 10.7, .7, position(state, WORLD), feedback_scope(state))
++    moved_map = measured(10.8)
++    moved_map['player_world_position']['instance_id'] = 0
++    for changed in (moved_map, measured(10.8, is_dead=True), measured(10.8, is_ghost=True),
++                    measured(10.8, in_vehicle=True)):
++        assert feedback.assess(changed, WORLD, 10.8) == 'post_plan_feedback_context_changed'
++    for blocked in (measured(10.8, loading=True), measured(10.8, input_blocked=True),
++                    measured(10.8, player_present=False)):
++        assert feedback.assess(blocked, WORLD, 10.8) == 'post_plan_feedback_interrupted'
++    assert feedback.assess(measured(12.7, sample=10.), WORLD, 12.7) == 'post_plan_feedback_timeout'
++    assert failure_reason_from_legacy('post_plan_feedback_timeout') is FailureReason.STALE_OBSERVATION
++    assert failure_reason_from_legacy('post_plan_feedback_context_changed') is FailureReason.WRONG_MAP_CONTEXT
++
++
++# ---- NavigationService integration ---------------------------------------
++
++def test_a_slow_route_query_issues_no_command_from_its_own_frame(monkeypatch):
++    nav, plans = slow_start(monkeypatch)
++    assert len(plans) == 1 and nav.route_feedback_pending()
++    assert nav.command(measured(10.), 'same-frame', 10.) == ()
++    assessment = nav.observe(measured(10.), 'same-frame', 10.)
++    assert not assessment.terminal and assessment.reason == 'awaiting_post_plan_feedback'
++    trace = nav.movement_snapshot()['route_feedback']
++    assert trace['status'] == 'WAITING' and trace['active'] is True and trace['earliest_sample'] == 10.7
++    assert nav.command(measured(10.9, sample=10.), 'relabelled', 10.9) == ()
++    assert nav.resume_owned_route(measured(10.9, sample=10.), 10.9) is False      # still waiting
++    assert nav.resume_owned_route(measured(10.8), 10.8) is True
++    assert not nav.route_feedback_pending() and len(plans) == 1                   # READY: no re-query
++    assert nav.command(measured(10.8), 'fresh', 10.8) != ()
++    assert nav.movement_snapshot()['route_feedback']['status'] == 'READY'
++
++
++def test_warm_queries_do_not_stop_and_the_threshold_is_exclusive(monkeypatch):
++    for seconds, pending in ((.5, False), (.6, False), (.61, True)):
++        nav, _ = slow_start(monkeypatch, seconds)
++        assert nav.route_feedback_pending() is pending, seconds
++    nav, _ = slow_start(monkeypatch, .5)
++    assert nav.command(measured(10.), 'warm', 10.) != ()
++
++
++def test_a_slow_local_replan_also_waits_for_feedback(monkeypatch):
++    nav, _ = configured(monkeypatch)
++    nav.start_request(request(), measured(10.), 10.)
++    assert not nav.route_feedback_pending()
++    slow(nav, .8)
++    assert nav.command(measured(10.2), 'slow-local', 10.2) == ()
++    assert nav.route_feedback_pending()
++    assert nav.local_plan(measured(10.3), now=10.3) is None                       # no plan from the old frame
++
++
++def test_a_moved_player_replans_the_same_trip_without_a_new_budget(monkeypatch):
++    nav, plans = slow_start(monkeypatch)
++    started = nav._request_started_at
++    attempt = SimpleNamespace(proposal=Proposal.make('MOVE', 'test', request().destination))
++    MovementSkillRunner(nav).step(attempt, measured(11., x=3.), 'medium-moved', 11., None)
++    assert len(plans) == 2 and plans[1]['x'] == 3.
++    assert nav._request_started_at == started == 10. and nav.trip.started_at == 10.
++    assert nav.movement_snapshot()['route_feedback']['status'] == 'REPLAN'
++
++
++def test_the_original_deadline_is_not_extended_by_the_wait(monkeypatch):
++    nav, _ = slow_start(monkeypatch, req=request(timeout=1.))
++    assert nav.resume_owned_route(measured(11.1, sample=10.), 11.1) is True
++    result = nav.observe(measured(11.1, sample=10.), 'late', 11.1)
++    assert result.terminal and not result.success and result.reason == 'movement_safety_deadline'
++
++
++def test_feedback_timeout_and_context_change_fail_the_move(monkeypatch):
++    nav, _ = slow_start(monkeypatch)
++    assert nav.resume_owned_route(measured(12.8, sample=10.), 12.8) is True
++    result = nav.observe(measured(12.8, sample=10.), 'timeout', 12.8)
++    assert result.terminal and result.reason == 'post_plan_feedback_timeout'
++    nav, _ = slow_start(monkeypatch)
++    away = measured(10.8)
++    away['player_world_position']['instance_id'] = 0
++    nav.resume_owned_route(away, 10.8)
++    assert nav.observe(away, 'scope', 10.8).reason == 'post_plan_feedback_context_changed'
++
++
++def test_cancel_and_reset_drop_the_wait_and_a_late_sample_revives_nothing(monkeypatch):
++    nav, plans = slow_start(monkeypatch)
++    nav.cancel_movement()
++    assert not nav.route_feedback_pending()
++    nav.resume_owned_route(measured(10.8), 10.8)
++    assert len(plans) == 1
++    nav, _ = slow_start(monkeypatch)
++    nav.reset()
++    assert not nav.route_feedback_pending() and nav.movement_snapshot()['route_feedback'] is None
++
++
++def test_fast_lane_releases_the_lease_and_hands_the_wait_to_medium(monkeypatch):
++    nav, plans = slow_start(monkeypatch)
++    current, stops = measured(10.8), []
++    agent = SimpleNamespace(mode=Mode.FULL_AI, pending=SimpleNamespace(proposal=Proposal.make('MOVE', 'test')),
++                            navigation=nav, world=SimpleNamespace(state=deepcopy(current),
++                                                                 session_id=current['session_id'],
++                                                                 last_received=10.8),
++                            command_dispatcher=SimpleNamespace(stop_movement=lambda: stops.append(True)))
++    result = advance_fast_movement(agent, current, 10.8, {'MOVE'}, state_override=current)
++    assert result == {'consumed': False, 'force_medium': True, 'reason': 'movement_route_plan_pending'}
++    assert stops and len(plans) == 1 and nav.route_feedback_pending()            # FAST queried nothing
++
++
++# ---- projected endpoint, corridor identity, moving target ---------------
++
++def test_a_projected_endpoint_keeps_the_target_within_the_interaction_band():
++    target = {'x': 10., 'y': 0., 'z': 0., 'z_known': True}
++    assert anchor_tolerance(target, {'x': 7., 'y': 0., 'z': 0.}, 3.5) == .5        # 3 yd off: .5 left
++    assert anchor_tolerance(target, {'x': 10., 'y': 0., 'z': 0.}, 3.5) == 3.5      # on the target
++    assert anchor_tolerance(target, {'x': 4., 'y': 0., 'z': 0.}, 3.5) == ANCHOR_TOLERANCE_FLOOR
++    assert anchor_tolerance(target, {'x': 10., 'y': 0., 'z': 2.}, 3.5) == 1.5      # known Z=0 counts
++    unknown = {**target, 'z_known': False}
++    assert anchor_tolerance(unknown, {'x': 10., 'y': 0., 'z': 2.}, 3.5) == 3.5     # unknown Z adds nothing
++    assert anchor_tolerance({'x': None, 'y': 0.}, {'x': 1., 'y': 0.}, 3.5) == 3.5
++
++
++def test_zero_or_missing_ranges_fall_back_to_the_controller_tolerance():
++    nav = NavigationService(navmesh=False)
++    band = nav._interaction_band
++    assert band(request()) == 2.
++    assert band(replace(request(), arrival=ArrivalEnvelope(radius=0., desired_range=0.))) == \
++        nav._movement.world_arrival_tolerance
++    assert band(replace(request(), arrival=ArrivalEnvelope(radius=1., desired_range=0.))) == 1.
++    assert band(replace(request(), arrival=ArrivalEnvelope(desired_range=3.))) == 3.
++
++
++def test_a_new_corridor_waypoint_does_not_inherit_the_old_arrival_proof():
++    nav = NavigationService(navmesh=False)
++    movement, resets = nav._movement, []
++    original = movement.reset
++    movement.reset = lambda: (resets.append(True), original())[1]
++
++    def leg(route_id, index, *, anchor=True):
++        before = len(resets)
++        movement.start({'x': 5., 'y': 0., 'coordinate_space': 'WORLD_YARDS', 'instance_id': 2444,
++                        'entity_route_anchor': anchor, 'route_id': route_id,
++                        'route_waypoint_index': index}, measured(10.), 'o', 10.)
++        return len(resets) > before                            # arrival/progress evidence cleared
++    leg('route:a', 1)
++    assert leg('route:a', 1) is False                          # the same leg keeps its evidence
++    assert leg('route:a', 2) is True and leg('route:b', 2) is True
++    leg('route:c', 1, anchor=False)
++    assert leg('route:d', 1, anchor=False) is False            # plain MOVE legs: XY identity only
++
++
++def test_a_small_target_move_after_arrival_replans_only_when_the_band_is_left():
++    from wowbot.agent.movement_controller import MovementPhase
++    from test_domain_navigation_handoff_20261030 import GUID, navigation, world
++    nav, _ = navigation()
++    nav._planning_clock = lambda: 0.
++    destination = nav.move_to_entity(world(), GUID, 'reach-edge', 10., stop_distance=3.5)
++    assert destination is not None and not nav.owned_route_plan_pending(world(10.1), 10.1)
++    nav._movement.phase = MovementPhase.ARRIVED
++    near = world(10.2)
++    near['player_world_position']['x'] = 12.                # 3 yd from the actor
++    near['packet_entities'][GUID]['position']['x'] = 15.4   # 0.4 yd: still in the band
++    assert nav.owned_route_plan_pending(near, 10.2) is False
++    near['packet_entities'][GUID]['position']['x'] = 16.   # 1 yd, but now 4 yd away
++    assert nav.owned_route_plan_pending(near, 10.3) is True
++    nav._movement.phase = MovementPhase.MOVING              # walking: the 2 yd rule alone
++    assert nav.owned_route_plan_pending(near, 10.4) is False
+--- a/tests/test_shared_coordinate_values_20261030.py
++++ b/tests/test_shared_coordinate_values_20261030.py
+@@ -0,0 +1,31 @@
++"""REV4 visual retirement step 1 (user 2026-10-30): plain world/map values live
++in the shared coordinate contract, so navigation and the server path no longer
++import them from the vision package."""
++import ast
++from pathlib import Path
++
++from wowbot.coordinates import MapPoint, WorldPosition
++
++SRC = Path(__file__).resolve().parents[1] / "src"
++PLAIN = {"WorldPosition", "MapPoint"}
++# Legacy visual dataset tooling that is itself retired with the vision package.
++LEGACY_VISUAL = {"wowbot/agent/map_marker_dataset.py"}
++
++
++def test_the_vision_module_re_exports_the_very_same_classes():
++    from wowbot.vision import models
++    assert models.WorldPosition is WorldPosition and models.MapPoint is MapPoint
++    assert WorldPosition(1., 2.) == models.WorldPosition(1., 2., 0.)
++
++
++def test_no_module_outside_vision_takes_plain_values_from_the_vision_package():
++    offenders = []
++    for path in SRC.rglob("*.py"):
++        relative = path.relative_to(SRC).as_posix()
++        if relative.startswith("wowbot/vision/") or relative in LEGACY_VISUAL:
++            continue
++        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
++            if (isinstance(node, ast.ImportFrom) and (node.module or "").startswith("wowbot.vision")
++                    and PLAIN & {alias.name for alias in node.names}):
++                offenders.append(relative)
++    assert offenders == []

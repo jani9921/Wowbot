@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from wowbot.runtime import SkillResult, SkillStatus, failure_reason_from_legacy
+from .navigation_handoff import prepare, start_options, failure_detail, deadline
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class InteractionRuntimeStep:
     diagnostics: dict = field(default_factory=dict)
     stop_movement: bool = False
     set_segment_baseline: bool = False
+    plan_pending: bool = False
 
 
 class InteractionRuntimeRunner:
@@ -26,24 +28,32 @@ class InteractionRuntimeRunner:
         self.visual_approach_skill = visual_approach_skill
 
     def step_world_entity(self, active_state, world_state: dict,
-                          observation_id: str, now: float) -> InteractionRuntimeStep:
+                          observation_id: str, now: float, *, allow_route_queries=True) -> InteractionRuntimeStep:
+        preparation = prepare(self.navigation, active_state, world_state, now,
+                              allow_route_queries=allow_route_queries)
+        if preparation.terminal:
+            return InteractionRuntimeStep(stop_movement=True, terminal_result=preparation.terminal)
+        if preparation.pending:
+            return InteractionRuntimeStep(stop_movement=True, plan_pending=True)
         assessment = self.navigation.observe(
             world_state, observation_id, now, commanded=True)
         if assessment.terminal:
+            detail = failure_detail(self.navigation, assessment) if not assessment.success else None
+            movement = self.navigation.movement_snapshot()
             self.navigation.cancel_movement()
             if not assessment.success:
-                return InteractionRuntimeStep(terminal_result=SkillResult(
+                return InteractionRuntimeStep(stop_movement=True, terminal_result=SkillResult(
                     SkillStatus.FAILURE,
                     reason=failure_reason_from_legacy(assessment.reason),
                     retryable=True, replan_required=True,
-                    metadata={"legacy_reason": assessment.reason}))
-            resumed = self.interact_skill.resume_after_approach(active_state, world_state)
+                    metadata={"legacy_reason": assessment.reason, 'navigation_failure':detail}))
+            resumed = self.interact_skill.resume_after_approach(active_state, world_state, now=now)
             if resumed.status is not SkillStatus.RUNNING:
-                return InteractionRuntimeStep(terminal_result=resumed)
+                return InteractionRuntimeStep(stop_movement=True, terminal_result=resumed)
             return InteractionRuntimeStep(
                 commands=tuple(resumed.commands), movement_lane=False,
                 event_type="INTERACT_APPROACH_ARRIVED",
-                diagnostics={"movement": self.navigation.movement_snapshot()})
+                diagnostics={"movement": movement}, stop_movement=True)
         commands = tuple(self.navigation.command(world_state, observation_id, now))
         return InteractionRuntimeStep(
             commands=commands, movement_lane=True,
@@ -53,14 +63,15 @@ class InteractionRuntimeRunner:
     def step_visual(self, active_state, world_state: dict,
                     observation_id: str, now: float) -> InteractionRuntimeStep:
         if self.visual_approach_skill is None:
-            raise RuntimeError("Visual approach skill is not configured")
+            return InteractionRuntimeStep(terminal_result=SkillResult(
+                SkillStatus.FAILURE, replan_required=True, metadata={'reason': 'visual_capability_disabled'}))
         approach = self.visual_approach_skill.observe(
             active_state, world_state, observation_id, now)
         if approach.status is not SkillStatus.RUNNING:
             if approach.status is not SkillStatus.SUCCESS:
                 return InteractionRuntimeStep(
                     terminal_result=approach, stop_movement=True)
-            resumed = self.interact_skill.resume_after_approach(active_state, world_state)
+            resumed = self.interact_skill.resume_after_approach(active_state, world_state, now=now)
             if resumed.status is not SkillStatus.RUNNING:
                 return InteractionRuntimeStep(
                     terminal_result=resumed, stop_movement=True)
@@ -78,11 +89,20 @@ class InteractionRuntimeRunner:
             diagnostics={"visual_approach": self.visual_approach_skill.snapshot(active_state)})
 
     def start_approach(self, active_state, world_state: dict, observation_id: str,
-                       now: float, request: dict) -> InteractionRuntimeStep:
+                       now: float, request: dict, *, allow_route_queries=True) -> InteractionRuntimeStep:
+        end = deadline(active_state)
+        if end is not None and now >= end:
+            from wowbot.runtime import FailureReason
+            self.navigation.cancel_movement()
+            return InteractionRuntimeStep(stop_movement=True, terminal_result=SkillResult(
+                SkillStatus.FAILURE,FailureReason.TIMEOUT,retryable=True,replan_required=True))
         if request.get("kind") == "WORLD_ENTITY":
+            recipient = ({"recipient": "SOFT_INTERACT"}
+                         if request.get("recipient") == "SOFT_INTERACT" else {})
             destination = self.navigation.move_to_entity(
                 world_state, request.get("expected_guid"), observation_id, now,
-                stop_distance=request.get("stop_distance", 4.5))
+                stop_distance=request.get("stop_distance", 4.5), **recipient,
+                **start_options(active_state, allow_route_queries=allow_route_queries))
             if destination is None:
                 from wowbot.runtime import FailureReason
                 return InteractionRuntimeStep(terminal_result=SkillResult(
@@ -92,13 +112,15 @@ class InteractionRuntimeRunner:
             return InteractionRuntimeStep(
                 commands=tuple(self.navigation.command(world_state, observation_id, now)),
                 movement_lane=True, event_type="INTERACT_APPROACH_STARTED",
-                diagnostics={"destination": destination}, set_segment_baseline=True)
+                diagnostics={"destination": destination}, set_segment_baseline=True,
+                stop_movement=not allow_route_queries, plan_pending=not allow_route_queries)
         if self.visual_approach_skill is None:
-            raise RuntimeError("Visual approach skill is not configured")
+            return InteractionRuntimeStep(terminal_result=SkillResult(
+                SkillStatus.FAILURE, replan_required=True, metadata={'reason': 'visual_capability_disabled'}))
         started = self.visual_approach_skill.begin(
             active_state, world_state, observation_id, now, parameters=request)
         if started.status is SkillStatus.SUCCESS:
-            resumed = self.interact_skill.resume_after_approach(active_state, world_state)
+            resumed = self.interact_skill.resume_after_approach(active_state, world_state, now=now)
             if resumed.status is not SkillStatus.RUNNING:
                 return InteractionRuntimeStep(terminal_result=resumed)
             return InteractionRuntimeStep(
@@ -116,12 +138,13 @@ class InteractionRuntimeRunner:
 
     def step_verification(self, active_state, world_state: dict, result: SkillResult,
                           *, world_observation_id: str, visual_observation_id: str,
-                          now: float) -> InteractionRuntimeStep:
+                          now: float, allow_route_queries=True) -> InteractionRuntimeStep:
         request = result.metadata.get("approach_request")
         if request:
             observation_id = (world_observation_id if request.get("kind") == "WORLD_ENTITY"
                               else visual_observation_id)
-            return self.start_approach(active_state, world_state, observation_id, now, request)
+            return self.start_approach(active_state, world_state, observation_id, now, request,
+                                       allow_route_queries=allow_route_queries)
         face_request = result.metadata.get("local_face_request")
         if face_request:
             faced = self.navigation.face_entity(

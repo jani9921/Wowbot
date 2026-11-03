@@ -5,6 +5,7 @@
 részletes megfigyelések a 2026-10-06-i élő tesztek pillanatképét őrzik; nem
 helyettesítik az issue-k aktuális státuszát. Forrás:
 [docs/LIVE_VALIDATION.md](docs/LIVE_VALIDATION.md) és [BUGFIXES.md](BUGFIXES.md).
+Építési lépcsők és kapuk: [docs/AGENT_MILESTONES.md](docs/AGENT_MILESTONES.md).
 
 ## Képességterületi GitHub-mérföldkövek
 
@@ -40,7 +41,27 @@ elfogadási feltétel kell; a részletes futási bizonyíték továbbra is a
 
 ## ⚠️ Nyitott (2026-10-12)
 
-### 🧪 Kész, de élőben még nem igazolt (2026-10-11/12)
+### 🧪 Kész, de élőben még nem igazolt (2026-10-11/12/13)
+- **Elakadt közelítés (2026-10-13):**
+  - ha 3 s alatt nem halad 0,8 yd-ot, leáll, és előbb ugrik, aztán oldalaz;
+  - leadás után a megnyílt ablak a „közel van” bizonyíték.
+- **Kijelölt ismert felvevő (2026-10-13):** megszólítja, nem megy tovább a következő „!”-hez. Alariánál élőben már működött (05:55).
+- **Gubók többszintes zónában (2026-10-14):**
+  - a TDB-helyválasztás a navmesh-ből feloldott játékos-magassággal rangsorol;
+  - többszintű gubóknál nincs külön TDB-spawn MOVE, a floor walk viszi le útvonal-sorrendben, a pötty és a látott gubó elsőbbséget kap;
+  - a gubók 25 yd-os körzete zónán belülnek számít (nem mászik vissza a peremre);
+  - a kanyarnál megakadt köztes útpontot 2 s után átlépi, ha a következő szakasz járható;
+  - a szakadék-igazítás nem fordítja vissza az útvonalat;
+  - a saját szinten 25 yd-on belüli TDB-gubóhoz előbb odamegy (2,5 yd), csak ott kattint; másik szinten lévő látott gubó nem állítja meg a bejárást;
+  - a megtalált gubón egér-lock: a kurzor követi a dobozt (futás közben is), combat elengedi; a forduláskompenzáció 90°-os látószöggel számol (közelítés, élőben ellenőrizni);
+  - odaérve szembefordul (pötty, gubó TDB-helye, quest-adó); a gubó TDB-helyén, vele szemben, NPC/hulla soft target nélkül F7-tel nyitja (a felhasználó kézi próbája szerint ez működik; az addon a gubót soft targetként nem kapja meg);
+  - 4/5 gubó élőben (2026-10-14 20:24); az 5.-nél a sárga pötty szintválasztása és a lefelé nyíl kezelése javítva, élőben még nem igazolt;
+  - látható objektíva-pötty mellett nincs vak zóna-bejárás; a kattintás előtti leállítás nem tiltja le a gubót.
+- **Gödör-perem és gubók (2026-10-13):**
+  - a bejárás nem választ cellát a gödör fölött;
+  - egy gubó-credit után nem mászik vissza a peremen lévő POI-hoz;
+  - a felvevő melletti, ismerten nem felvevő NPC-t (Bjorn) nem jelöli ki.
+- **Kint nincs föld alatti szint (2026-10-13):** védelem a gödörbe esés ellen. A pontos okot nem sikerült bizonyítani; a `z_player` mező a következő esetnél megmutatja.
 - **Esés-kezelés:** rövid lelépés/ugrás (2 s alatt) nem állítja le a MOVE-ot; a veszélyzóna nem blokkol, ha a
   karakter ugyanazon a szinten benne áll.
 - **NPC-ablakok:** két quest egy ablakban (a sorok már nem vesznek el); leadás után ugyanannak az NPC-nek
@@ -61,11 +82,25 @@ elfogadási feltétel kell; a részletes futási bizonyíték továbbra is a
   élőben mérve.
 
 ### Nyitott, nem javított
+- **Leesés a spirálról (2026-10-13):**
+  - javítva (offline): az útvonal elhúzódik a szakadéktól, a helyreállítás és az ugrás nem lép a szakadék felé, esés után újratervez;
+  - élőben még nem igazolt;
+  - a gödör alján az egér alatti gubó kihagyásának oka (lásd lent) továbbra is nyitott.
+- **A gödör alján az egér alatti gubót nem használta (17:44:35):**
+  - az azonosítás egyezett, mégsem lett OBJECT_USE javaslat;
+  - az objektum-folyamat belső tiltásai (közelítés folyamatban / „túl messze”) nincsenek naplózva.
+- **Fel/le nyilas MOVE `fall_hazard_on_route`** (2026-10-13 17:22): háromszor elbukott ugyanarra a pontra (a gödör fölötti szint); nincs kivizsgálva.
+- **Hamis „megérkezett” 40 yd-ra a TDB-spawntól (2026-10-14 13:33:33):** nincs kivizsgálva; a gödörben ez a MOVE már nem indul.
+- **Apró (2–5 px) „ugyanazon szint” pöttyök a minimapon (2026-10-14):** 36 minta egy futásban (a valódiak 17–24 px); zaj vagy a nyíl alatti pötty, nincs kivizsgálva.
+- **Bjorn kijelölése a quest elfogadása után (2026-10-13 06:09):**
+  - a 2 Hz-es telemetriából nem reprodukálható;
+  - gyanú: Alaria „!”-e a szomszédos Bjorn dobozához társult;
+  - a látás jelöltlistája időnként ~1 s-ig üres, ennek oka nincs meg.
 - **Lassú NPC-megközelítés:** Richternél az első megszólítás „túl messze”, utána közelítés; a megállási pont
   (VISUAL_APPROACH) és az INSPECT-hover pontosságára nincs valódi felvételből vágott teszt (a telemetria
   ~1,5 Hz-es).
 - **Felesleges újra-megszólítás** quest elfogadása után (pl. Jaina 15:46:59), kb. 1 s veszteség.
-- **SEEK körbe-körbe MOVE közben:** a sok TDB-ből jövő MOVE mind kap „Támogatott útvonal-átmenet” SEEK-et.
+- **SEEK körbe-körbe MOVE közben:** részben javítva 2026-10-13: a navmesh-es MOVE (pl. barlangban a gubókhoz) már csak útvonal-hiba után kap átjárókeresést. A navmesh nélküli MOVE-ok még kaphatnak.
 - **Leadás/felvétel közben felesleges INSPECT:** a munkapéldány kész quest leadási pontjától 20 yd-on belül
   az INSPECT-et 100-as prioritásra emeli (`visual_inspection_planning._near_completed_turnin`); élőben
   ellenőrizni, ha marad, visszavenni.

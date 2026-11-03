@@ -1,0 +1,2083 @@
+--- before/data/client_power_types.json
++++ after/data/client_power_types.json
+@@ -0,0 +1,157 @@
++{
++  "schema": "aipc.power-reference.v1",
++  "source_sha256": "0674639fc2a69e87c7d2f2b46178a1dc8ed86b0d6cf48d97cfda059814d96703",
++  "definition_sha256": "7ad0174a351fae5b7d896874b6e5ecc3694954ade3fac71f78e7ea757218422a",
++  "layout_hash": "14BBEEA1",
++  "schema_label": "WOWSTATIC_12_1_0_68914",
++  "live_build_verified": false,
++  "rows": [
++    {
++      "id": 1,
++      "power_type": 0,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "MANA"
++    },
++    {
++      "id": 2,
++      "power_type": 1,
++      "display_modifier": 10,
++      "minimum_raw": 0,
++      "token": "RAGE"
++    },
++    {
++      "id": 3,
++      "power_type": 2,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "FOCUS"
++    },
++    {
++      "id": 4,
++      "power_type": 3,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ENERGY"
++    },
++    {
++      "id": 5,
++      "power_type": 4,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "COMBO_POINTS"
++    },
++    {
++      "id": 6,
++      "power_type": 5,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "RUNES"
++    },
++    {
++      "id": 7,
++      "power_type": 6,
++      "display_modifier": 10,
++      "minimum_raw": 0,
++      "token": "RUNIC_POWER"
++    },
++    {
++      "id": 8,
++      "power_type": 7,
++      "display_modifier": 10,
++      "minimum_raw": 0,
++      "token": "SOUL_SHARDS"
++    },
++    {
++      "id": 9,
++      "power_type": 8,
++      "display_modifier": 10,
++      "minimum_raw": 0,
++      "token": "LUNAR_POWER"
++    },
++    {
++      "id": 10,
++      "power_type": 9,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "HOLY_POWER"
++    },
++    {
++      "id": 12,
++      "power_type": 10,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ALTERNATE"
++    },
++    {
++      "id": 13,
++      "power_type": 11,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "MAELSTROM"
++    },
++    {
++      "id": 14,
++      "power_type": 12,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "CHI"
++    },
++    {
++      "id": 19,
++      "power_type": 13,
++      "display_modifier": 100,
++      "minimum_raw": 0,
++      "token": "INSANITY"
++    },
++    {
++      "id": 16,
++      "power_type": 16,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ARCANE_CHARGES"
++    },
++    {
++      "id": 17,
++      "power_type": 17,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "FURY"
++    },
++    {
++      "id": 18,
++      "power_type": 18,
++      "display_modifier": 10,
++      "minimum_raw": 0,
++      "token": "PAIN"
++    },
++    {
++      "id": 130,
++      "power_type": 19,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ESSENCE"
++    },
++    {
++      "id": 143,
++      "power_type": 23,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ALTERNATE"
++    },
++    {
++      "id": 144,
++      "power_type": 24,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ALTERNATE"
++    },
++    {
++      "id": 142,
++      "power_type": 25,
++      "display_modifier": 1,
++      "minimum_raw": 0,
++      "token": "ALTERNATE"
++    }
++  ]
++}
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,23 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3/P4 provider closure — **OFFLINE_TESTED / full parity PARTIAL**.
++Own HP CREATE baseline now accompanies VALUES deltas. Selected-own power packets
++use a verified 21-row DB2 DisplayModifier reference and resource-type scoped
++amount/max evidence. A type change cannot reuse another resource's amount or
++maximum. The reviewed own profile prefix supplies numeric race/class/player-class,
++level and DisplayPower to the same resolver and CharacterProfile; unknown
++specialization/talents/role are not invented. Other player create/values profiles
++are not read. State coalescing preserves CREATE and discrete events, and separates
++partial field sets. Real PixelSensor/grid/reassembly/buffer/runtime ingestion of
++synthetic BGRA STATE/FAST works with detector/tracker imports forbidden; only the
++OS pixel source is replaced. This is not live GDI/DXGI or quest acceptance.
++Selected regression: **3736 passed, 2 skipped, 10 unchanged deselections,
++306 modules, exit 0**; focused overlapping group 92 passed. All 526 source and
++615 test Python files parse. The small reference is included by both current
++export modes. Addon remains 0.9.80, Ymir hash is unchanged. No assistant game,
++capture or input operation. Earlier approximate percentages are superseded by
++explicit closed/open gates; all 203 numbered rows below remain unchanged.
++See [P3/P4 provider checkpoint](reform/rev4-20261029/P3_PROVIDER_CLOSURE.md).
+ 
+ 2026-10-30 REV4 P3 follow-up — selected own-player HP deltas and sample age:
+ **OFFLINE_TESTED / full field migration PARTIAL**. The existing reviewed
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,35 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — own HP baseline, power/profile and pixeltransport (offline only)
++
++Selected-own CREATE HP/max-HP now establish an HP-only baseline; VALUES use the
++same field policy. Actual power packets, DB2 DisplayModifier conversion and
++typed amount/max evidence reach ability-cost decisions. Own UnitData's numeric
++race/class/player-class/level/DisplayPower prefix reaches CharacterProfile.
++Resource switching cannot relabel old rage/mana amounts or maxima. Missing
++numeric data stays unknown, static MaxBasePower is not used as the actual max.
++Profile/HP/power receipts grant no addon UI or input liveness. Scope/loading,
++original sample age and complete-versus-partial metadata remain explicit.
++
++Full SERVER AgentRuntime receives synthetic BGRA through production sensor
++selection, PixelSensor, grid decoder, page assembler, buffering and WorldModel.
++Torch/Ultralytics/OpenCV and detector/tracker imports are forbidden in a clean
++subprocess; only the OS pixel source and input sink are substitutes. This closes
++the previous whole-fake-sensor test gap, not the real Windows/live-client gate.
++
++Final selected regression: **3736 passed, 2 skipped, 10 unchanged deselections**,
++306 modules, 137.48 seconds, exit 0. Focused overlapping group: 92 passed.
++All 526 source and 615 test Python files parse; 203 numbered requirements are
++unchanged. A new mailbox fixture initially retained an old content ID while
++changing its payload; replay rejection worked. The fixture now rebuilds the ID,
++without relaxing the production gate. Power reference exports in both modes.
++
++Addon packages remain identical at 0.9.80; no additional installation or client
++input. User /reload/pixelstrip confirmation remains pending. Ymir hash is unchanged.
++Full questlog/inventory/own-state parity, interruptibility/hazards/talents/roles,
++historical lineage and live calibration remain incomplete. The broad percentage
++estimate is replaced by concrete gate tracking. See
++[provider checkpoint and evidence](reform/rev4-20261029/P3_PROVIDER_CLOSURE.md).
+ 
+ ## 2026-10-30 — own HP / FAST-STATE sample-age parity (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,12 +5,15 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3682 passed, 2 skipped, 10 változatlan deselection, 303 modul, exit 0.
++Végső kijelölt regresszió: 3736 passed, 2 skipped, 10 változatlan deselection, 306 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+ a javított 0.9.80 telepítve, user-reload és sikeres betöltés visszaigazolása még nyitott.
+-Kódoldali készültség: kb. 70% becslés; új P7 packet-cast adatút és részletes határai:
++Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
++A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
++SERVER pixeltransport-próba elkészült: [P3/P4 provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
++Új P7 packet-cast adatút és részletes határai:
+ [P7 casts / addon fix](P7_PACKET_CASTS.md).
+ P3 kiegészítésként a [saját HP-delta és field sample-time](P3_OWN_HEALTH.md) is bekötve;
+ a teljes own-player/questlog/inventory baseline nincs teljesnek jelölve.
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -12,12 +12,15 @@
+ Az asszisztens nem indított játékot/capture-t és nem küldött inputot; a felhasználó elindította a játékot.
+ Öt NPC cast-opcode adatútja is bekötve, a hiányzó interruptibility/hazard adatok UNKNOWN állapotúak.
+ Részletek és források: [P7 packet casts és addonhiba](P7_PACKET_CASTS.md).
+-Kódoldali migrációs készültség: **kb. 70%, becslés**, nem live-elfogadási arány.
++Az általános százalékbecslést felváltotta a konkrét provider-/elfogadásikapu-nyilvántartás:
++[saját HP-baseline, resource/profile adatút és valódi pixeltransport-próba](P3_PROVIDER_CLOSURE.md).
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+ késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+-sem COMPLETE. Részletek: [saját HP és forrásidő](P3_OWN_HEALTH.md).
++sem COMPLETE. A következő körben a saját HP **CREATE-baseline-ja**, típusos
++resource- és profil-prefix is elkészült; ez még nem teljes own-player-paritás.
++Részletek: [saját HP és forrásidő](P3_OWN_HEALTH.md), [provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
+ 
+ ## 1. Fázisonkénti eredmény
+ 
+@@ -26,7 +29,7 @@
+ | P1-E — geometria | A GeometryResult megkülönbözteti a kész/részleges/nincs út/hiányzó adat/verzióhiba/hibás bemenet állapotokat. A WorldGeometryService, GlobalNavigator és walk-cost query ezt fogyasztja. A typed READY válaszra is érvényes a koordináta-, költség- és mapellenőrzés; legacy total_cost kompatibilis. | Ismeretlen revision UNKNOWN marad. A bináris MMAP parser minden régi tile-hibája még nem ad külön verzióhiba-diagnózist. VMAP függőleges felszín nem bizonyít vízszintes LOS-t. |
+ | P2 — session | A SessionContextProvider kezeli a selected PID-et, dokumentált OS-folyamat-élettartamot/buildet, karakter-GUID-ot, capture-korszakot, world/mapot és baseline/gap állapotot. A korrelált normalizált login-baseline addon nélkül is létrehozza az identitást. A RuntimePacketSource és WorldPacketReducer ugyanazt fogyasztja. | Az OS-metadata és új login-packet útvonal offline tesztelt, élőben újrapróbálandó. A baseline saját identitás/map, nem teljes questlog/inventory/HP. Ezekre megjelölt addon-migrációs forrás marad. |
+ | P3 — authority/teljesség | A FieldSourceResolver mezőnként választ és kezeli az ellentmondást. A packet objective-POI teljes geometriája külön scoped queryn olvasható. A quest/inventory producer és fogyasztók COMPLETE/PARTIAL/UNKNOWN lefedettséget kezelnek; FAST quest-revision nem igazol régi STATE-listát. | Nincs találgatott teljes packet questlog-/inventory-/own-health baseline. A teljes consumer-paritás és az addon mezőnkénti karcsúsítása nem zárható le. Ebben a körben addonmező nem lett törölve. |
+-| P4 — server runtime | A SERVER profil nem konstruál Search/VisualApproach skillt, perceptiont, detektort, trackert, vizuális adatgyűjtőt vagy recognition-workert. A közös koordináták külön modulban vannak. A teljes SERVER AgentRuntime-konstruktor/status/close importtiltó subprocess-próbán átmegy. | A konstruktorpróba hamis szenzort és inputmentes executort használ. A valódi Windows pixeltransport és támogatott élő szerveres lánc külön live-kapu. Detektorok explicit legacy profilban elérhetők. |
++| P4 — server runtime | A SERVER profil nem konstruál Search/VisualApproach skillt, perceptiont, detektort, trackert, vizuális adatgyűjtőt vagy recognition-workert. A közös koordináták külön modulban vannak. Teljes konstruktor/status/close és a valódi PixelSensor/dekóder/reassembly/buffer → WorldModel STATE/FAST lánc importtiltó subprocess-próbán átmegy. | A képet adó OS hívás szintetikus BGRA-forrás, az executor inputmentes. A tényleges Windows GDI/DXGI és élő szerveres lánc külön live-kapu. Detektorok explicit legacy profilban elérhetők. |
+ | P5 — Travel | Az immutable TravelRequest tartja az eredeti célt a horizon/landing/ground folytatásokon át. A TripPlan/TripLeg/TransitionSystem/TripExecutor a meglévő NavigationService fölött követ. Érkezéshez friss, helyes map/XY, ismert cél esetén helyes szint, szükség szerint touchdown/facing kell. A zónakeresési hop LEG_COMPLETE, nem végső célérkezés. | A tényleges mozgási/mount/flight átmeneteket a meglévő kontrollerek végzik. A teljes vegyes út és barlang/tető/leesés próba még nincs újravalidálva. |
+ | P6 — idő/kockázat | A RouteScore külön ETA-, harc-, átmenet-, bizonytalanság- és várható recovery-másodperceket ad. Automatikus repülés mellett csak bizonyított MMAP-korridor versenyez gyalogos alternatívaként. A DangerMap megtartja az eredetet, sample-időt, mapot és Z-t. | Speed/fight/transition értékek deklarált becslések, nem élőn illesztett paraméterek. Régi/másik szintű hostile nem lesz friss harci költség. DangerMap-pontszám nem másodperc. |
+ | P7 — Combat | Tényleges karakter/actionbar adatokból CharacterProfile készül. A meglévő AbilityRuleEngine/CombatSkill CombatArbitratorral választ a már jogosult képességek között. Exact GUID/cast/spell, frissesség, interruptible, deadline és actual bar/binding számít; kritikus túlélés előre kerülhet. Profilváltás nem örökít régi lokális cooldown-becslést. | Teljes enemy-cast/hazard/CC/talent packet-provider és minden class/spec/tank/healer/PvP szerep nincs megvalósítva. Ismeretlen cast nem jogosít megszakításra; természetes castvég nem interrupt-siker. Első live-kapu a használt solo karakterprofil. |
+@@ -53,21 +56,21 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3682 passed, 2 skipped, 10 deselected; 303 modul; 131.29 s; exit 0** |
+-| Új határjavítások célzott köre | **102 passed, 25.88 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 522 source + 612 tests Python-fájl; 611 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Végső kijelölt regresszió | **3736 passed, 2 skipped, 10 deselected; 306 modul; 137.48 s; exit 0** |
++| Sajátállapot/policy/combat/pixeltransport célzott kör | **92 passed, 4.63 s**, átfed a végső körrel; nem összeadandó |
++| Teljes Python AST | 526 source + 615 tests Python-fájl; 614 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **303 kijelölt modul eredménye**, nem a teljes 611 modulos teszttár hibamentességének állítása. Az új 13 tesztmodul mind benne van.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **306 kijelölt modul eredménye**, nem a teljes 614 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+-Három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload:
++Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+ | Verzió | Mediánok mediánja | p95-ek mediánja |
+ |---|---:|---:|
+ | P1-D baseline | 0.91175 ms | 1.66820 ms |
+-| Jelenlegi P1-E–P9, NPC cast- és HP-projectionnel | 1.14520 ms | 2.34480 ms |
++| Korábbi P1-E–P9, NPC cast- és HP-projectionnel | 1.14520 ms | 2.34480 ms |
+ 
+ Növekmény kb. 0.23345 ms medián és 0.67660 ms p95. Nem élő FPS-mérés, nem route-speed/fight kalibráció, nem a SERVER profil teljes játékmenet alatti gyorsulásának állítása. A korábbi mérési körök külön megmaradtak.
+ 
+--- before/docs/reform/rev4-20261029/P3_OWN_HEALTH.md
++++ after/docs/reform/rev4-20261029/P3_OWN_HEALTH.md
+@@ -1,6 +1,6 @@
+ # P3 — saját HP és mezőnkénti mintaidő, 2026-10-30
+ 
+-**Részleges saját UnitData provider, offline tesztelt.** Nem teljes own-player/questlog/inventory baseline, nem új input-authority, és nincs új élő elfogadás.
++**Részleges saját UnitData provider, offline tesztelt.** Saját HP CREATE-baseline és VALUES delta; nem teljes own-player/questlog/inventory baseline, nem új input-authority, és nincs új élő elfogadás. Aktuális kiegészítés és evidence: [P3/P4 provider-kör](P3_PROVIDER_CLOSURE.md).
+ 
+ ## Bekötött adat
+ 
+@@ -8,9 +8,9 @@
+ 
+ A decoder a saját GUID-ot csak a kiválasztott folyamat korrelált CMSG_PLAYER_LOGIN + SMSG_LOGIN_VERIFY_WORLD baseline-ja után fogadja el, ugyanazon kapcsolaton. Login intent önmagában nem elég. Az own ág a kifejezetten kezelt 70340-es opcode-családra korlátozott; közeli/egyéb buildhez nincs fallback. Új login törli az előző megerősítést.
+ 
+-Az **OWN_UNIT_UPDATE** csak mover GUID-ot, world map ID-t, HP-t és/vagy max HP-t visz tovább. Más játékos GUID-jából, ismeretlen fragmentből és a saját PlayerData/ActivePlayerData más mezőiből nem lesz ilyen esemény. Sem pozíció-, sem questlog-, sem inventoryteljességet nem állít.
++Az **OWN_UNIT_UPDATE** csak mover GUID-ot, world map ID-t, CREATE/VALUES mintatípust, HP-t és/vagy max HP-t visz tovább. A saját CREATE ismert owner-függő UnitData-prefixéből együtt érkező HP és max HP kezdeti HP-baseline-t ad. Más játékos GUID-jából, ismeretlen fragmentből és a saját PlayerData/ActivePlayerData más mezőiből nem lesz ilyen esemény. Sem pozíció-, sem questlog-, sem inventoryteljességet nem állít.
+ 
+-A schema külön WPP_12_1_OWN_UNIT_REVIEWED_V1 eredetcímkét ad. Ez nem a korábbi, NPC-ken élőben validált layoutcímke átnevezése saját karakterre. A reducer ismét ellenőrzi a selected PID/session/build és exact own GUID határt, a mapot és frissességet. Másik karakter vagy map adata nem cserélheti le a saját HP-t.
++A schema külön WPP_12_1_OWN_UNIT_REVIEWED_V2 eredetcímkét ad; a korábbi V1 csak delta-kompatibilis. V1 címkével CREATE nem állíthat baseline-t. Ez nem a korábbi, NPC-ken élőben validált layoutcímke átnevezése saját karakterre. A reducer ismét ellenőrzi a selected PID/session/build és exact own GUID határt, a mapot és frissességet. Másik karakter vagy map adata nem cserélheti le a saját HP-t.
+ 
+ ## Egyetlen mezőfeloldó
+ 
+@@ -24,9 +24,9 @@
+ 
+ ## Korlátok
+ 
+-- A provider jelenleg értékváltozásokat olvas, nem teljes saját player-create baseline-t. Kezdetben hiányozhat valamelyik HP-mező; a jelölt lefedettség PARTIAL.
+-- A referencia- és HP-tények frissessége különbözik a saját session/UI/input authoritytól. A session provider teljes own-health coverage jelzője ettől még nem válik automatikusan COMPLETE-té.
+-- Questlog, inventory, power/resource mapping, aura/talent és egyéb ActivePlayerData még nem teljes packet-paritás. A megjelölt addonforrás szükséges marad; mező nem lett eltávolítva.
++- A provider az ismert saját CREATE és VALUES prefixet olvassa. Igazolt CREATE HP-párra az own_health baseline COMPLETE; kezdeti, csak delta adatra PARTIAL. Ez nem a teljes saját PlayerData/ActivePlayerData baseline-ja.
++- A referencia- és HP-tények frissessége különbözik a saját session/UI/input authoritytól. A baseline meglétének metadata-ja nem frissíti a HP mintaidejét; scope/loading váltás törli.
++- Questlog, inventory, aura/talent és egyéb ActivePlayerData még nem teljes packet-paritás. Power/resource egységek és saját profil-prefix már külön bekötve, részletes határaik a provider-kiegészítésben. A megjelölt addonforrás szükséges marad; mező nem lett eltávolítva.
+ - Az élő user-runban külön ellenőrizendő: saját HP-esés, gyógyulás, újabb FAST és régi STATE egymásra futása, map/sessionváltás és capture újraindítás. A tesztvektor és hitelesített localhost lánc nem élő combatbizonyíték.
+ 
+-A célzott kör a meglévő packet-, cast-, field-policy-, session-, addon-coverage és saját HP-esetekkel együtt 112 pass. Ezek a teljes regresszióval átfednek, nem összeadandók.
++A korábbi delta-only checkpoint célzott köre 112 pass volt. Az aktuális provider-kör eredménye és mentése a [provider-kiegészítésben](P3_PROVIDER_CLOSURE.md) szerepel; az egymást átfedő körök nem összeadandók.
+--- before/docs/reform/rev4-20261029/P3_PROVIDER_CLOSURE.md
++++ after/docs/reform/rev4-20261029/P3_PROVIDER_CLOSURE.md
+@@ -0,0 +1,94 @@
++# REV4 P3/P4 — saját állapot és a pixeltransport ellenőrzése
++
++2026-10-30, Europe/Budapest. Munkamappa: a kijelölt `projekt`.
++
++**A lent felsorolt adatútak offline teszteltek. A teljes P3 mezőparitás még PARTIAL.**
++Az eddigi általános „kb. 70%” becslés helyett konkrét lezárt és nyitott kapuk szerepelnek.
++Nem történt új élő quest-/combat-/utazásvalidáció vagy asszisztensi kliensinput.
++
++## Ebben a körben elkészült
++
++| Adatút | Bekötött működés | Határ |
++|---|---|---|
++| Saját HP kezdeti állapota | A korrelált saját GUID CREATE UnitData-blokkjából HP és max HP érkezik; a VALUES delta ugyanazt a közös mezőfeloldót használja. A feltételes owner/critter/regen mezők sorrendje kezelt. | A COMPLETE jelző a saját **HP-baseline-ra** vonatkozik; nem teljes saját karakter-/quest-/inventory-baseline. A mintakor külön érvényesül. |
++| Saját erőforrás | A `SMSG_POWER_UPDATE` saját GUID/type/raw-value mezői bekerülnek a WorldModelbe, majd a meglévő ability-költségvizsgálatba. | Csak igazolt saját login, exact buildcsalád és közös selected-PID/session authority mellett. Nincs új input-authority. |
++| Erőforrás-egységek | A tényleges PowerType.db2 21 rekordjának DisplayModifier értéke számolja a kijelzett értéket. Például 750 nyers rage = 75 rage. | Nem egyetlen kitalált osztó vonatkozik minden típusra. Ismeretlen skálázás raw-only marad; MaxBasePower nem aktuális max power. |
++| Saját profil prefixe | A UnitData `Race`, `ClassId`, `PlayerClassId`, `DisplayPower`, `Level` mezői külön `OWN_PROFILE_UPDATE` eseményen érkeznek. A CharacterProfile a pozitív PlayerClassId-t részesíti előnyben. | Nincs talent/spec/role találgatás. A két class ID külön tény, nincs hardcoded névlista. Ismeretlen class/race/level nulla nem válik ismert állapottá. |
++| Típusváltás | A mennyiség és a maximum is resource-type szerinti evidence-kulcsot kap. Típusváltás után régi rage/mana mennyiség vagy maximum nem címkéződik át. | Hiányzó típushelyes mennyiség/max `None`, nem 0 és nem másik erőforrás értéke. A maximum továbbra is tényleges mintából kell. |
++| Gyakori frissítések | A fogadó azonos flow/GUID/típus/megváltozott-mezők szerint összevonja a saját state-deltákat. | CREATE baseline és diszkrét quest/cast esemény megmarad. Eltérő partial mezőhalmazokat nem olvaszt hamis közös mintaidővé. Movement peek nem kap HP/power mintát. |
++| SERVER pixeltransport | A teljes AgentRuntime a valódi PixelSensor → grid-dekóder → PacketAssembler → BufferedPixelSensor/SensorHub → WorldModel úton fogad szintetikus BGRA STATE/FAST képeket. | Csak az OS képszolgáltató helyettesített; a szenzor/dekóder/reducer nem. A Windows GDI/DXGI és valódi játék megjelenítése továbbra is live-kapu. |
++
++Minden profil-/HP-/erőforrás-fogyasztó ugyanazt a FieldSourceResolvert használja:
++újabb addonadat megelőzhet régebbi packetet, azonos mintán a szerver erősebb.
++Késve befejezett STATE megtartja eredeti mintakorát. Másik GUID/map/phase/capture-korszak,
++loading és lejárat nem örökít régi packetmezőt. A saját UnitData-prefix csak a kiválasztott,
++szerver által visszaigazolt karakterre olvasható; más játékos create/values profilja kimarad.
++
++## Forrás és egységek
++
++A PowerType és ChrClassesXPowerTypes táblát a meglévő DBCD.IO exportáló külön
++tesztpéldánya dekódolta, a pinnelt WoWDBDefs `12ce70d5fef13370f0edf08889f01c05321d2e28`
++definícióival. Az erőforráshoz csak a PowerType enum és DisplayModifier használatos;
++a class-tábla sorrendjéből nem lett találgatott UnitData Power[] index.
++
++- PowerType: 21 rekord, layout `14BBEEA1`, DB2 SHA-256
++  `0674639fc2a69e87c7d2f2b46178a1dc8ed86b0d6cf48d97cfda059814d96703`.
++- DBD SHA-256: `7ad0174a351fae5b7d896874b6e5ecc3694954ade3fac71f78e7ea757218422a`.
++- ChrClassesXPowerTypes: 82 exportált rekord, layout `70DA1F8C`; vizsgálati evidence,
++  nem közvetlen runtime slot-mapping.
++- A kis runtime-katalógus: `data/client_power_types.json`; a létrehozó eszköz
++  ellenőrzi a DB2/DBD/export hashét, layoutját, sorait és az enumok egyediségét.
++  A közös loader cache-elt, hiányzó/hibás formátumot UNKNOWN-ként kezel.
++- A statikus schema-label `WOWSTATIC_12_1_0_68914`, **nem élő buildvalidáció**.
++  A katalóguson `live_build_verified=false` marad.
++- Mind a költöztető, mind a GitHub-export fájllistája tartalmazza a kis katalógust.
++  A meglévő nagy SQLite-katalógusokat ez a munka nem módosította.
++
++A packet opcode a két ellenőrzött családban különbözik: POWER_UPDATE 69214 esetén
++`0x45017E`, 70340 esetén `0x45017D`. A byte PowerType az int32 Power **előtt** van.
++A saját UnitData új prefixe csak a vizsgált 70340-es családra engedélyezett.
++Nem kapta meg automatikusan az NPC-ken korábban élőben validált címkét:
++`WPP_12_1_OWN_UNIT_REVIEWED_V2`, `WPP_12_1_POWER_REVIEWED_V1` és
++`WPP_12_1_OWN_PROFILE_REVIEWED_V1` az offline vizsgált scope-ot jelölik.
++
++## Ellenőrzés és checkpoint
++
++A célzott sajátállapot-/policy-/combat-/pixeltransport-kör **92 passed**.
++Ez átfed a nagy regresszióval, nem hozzáadandó. A mailbox első új tesztjének
++fixture-e payloadmódosítás után a régi content-ID-t tartotta meg; az inbox ezt
++helyesen replayként elutasította. A fixture most a tényleges új tartalomból
++képez új azonosítót, a replaykapu nem gyengült.
++
++Végső kijelölt regresszió: **3736 passed, 2 skipped, 10 változatlan deselection;
++306 modul; 137.48 s; exit 0**. A két skip változatlan opcionális képfájlhiány.
++Ez nem a teljes 614 modulos teszttár hibamentességének állítása.
++Mind az **526 source és 615 test Python-fájl** AST-parse ellenőrzése zöld;
++614 test_*.py és egy helper van a tests fán.
++
++A végső regresszió, parancs, változatlan tíz kizárás, JUnit, export-ellenőrzés,
++AST és hashek a [provider-closure-evidence](provider-closure-evidence/) könyvtárban.
++A mentés a kör előtti scoped baseline-t külön megtartja, nem írja felül a korábbi
++P1-E–P9 checkpointot. A 203 számozott V4/Design követelménysor változatlan.
++
++Az addon marad **0.9.80-12.1.0 / Interface 120100**; nincs új addonmásolás vagy
++geometriaváltás ebben a körben. A két csomag byte-ra azonos. A Ymir-példány hash-e
++változatlan, a programot az asszisztens nem indította el.
++
++## Még nyitott kódos kapuk
++
++1. Teljes packet questlog/questdefiníció és inventory/container baseline, minden
++   fogyasztó paritása; a saját állapot további mezői, tényleges resource-max,
++   aura/spec/talent/CC. Addonmező ebből a körből nem került eltávolításra.
++2. Enemy interruptibility/channel/delay/hazard provider és a támogatott role-ok
++   bővítése. Az öt korábbi cast-opcode nem vált ettől teljes combatrendszerré.
++3. Történeti SQLite/TDB/import lineage, további nem támogatott questhandlerek és
++   a geometriai hibák teljes verziódiagnosztikája.
++4. A valódi Windows pixeltransport, travel/combat/quest élő kapui és a tényleges
++   út-/harc-/recovery-idő kalibrálása. Ezekhez a felhasználó futtat élő próbát.
++
++## Következő felhasználói live-próba szempontjai
++
++Saját HP-esés/gyógyulás, resource-fogyasztás/töltés, resource-type váltás;
++session/loading/map/GUI újraindítás. A packet HP/profile/resource nem tartja
++frissnek az addon UI-ját vagy a kliensinput-jogosultságot. A már telepített addon
++sikeres `/reload`/pixelstrip-betöltése még felhasználói visszaigazolást igényel.
+--- before/src/adapters/telemetry_packets.py
++++ after/src/adapters/telemetry_packets.py
+@@ -108,6 +108,8 @@
+ def _stamp_health_sample(value):
+     if ('health' in value or 'max_health' in value) and value.get('monotonic_time') is not None:
+         value.setdefault('health_sample_time', value['monotonic_time'])
++    if any(k in value for k in ('power', 'max_power', 'power_type')) and value.get('monotonic_time') is not None:
++        value.setdefault('power_sample_time', value['monotonic_time'])
+ 
+ 
+ def normalize(value: dict) -> dict:
+--- before/src/wowbot/agent/packet_own_health.py
++++ after/src/wowbot/agent/packet_own_health.py
+@@ -5,8 +5,17 @@
+ 
+ def remember(model, body, observation, sampled, context):
+     scope = SessionContext.from_mapping(context).entity_scope()
++    baseline = body.get('sample_kind') == 'CREATE' and {'health', 'max_health'}.issubset(body)
++    if baseline:
++        model.__dict__['_packet_health_baseline'] = {'scope': scope, 'observed_at': sampled}
++    baseline_record = model.__dict__.get('_packet_health_baseline') or {}
++    baseline = baseline_record.get('scope') == scope
+     model.__dict__['_packet_own_health'] = {'scope': scope, 'observed_at': sampled,
++                                           'baseline_complete': baseline,
+                                            'fields': [k for k in ('health', 'max_health') if k in body]}
++    provider = getattr(model, 'session_context_provider', None)
++    if provider is not None:
++        provider.observe_field_coverage('own_health', 'COMPLETE' if baseline else 'PARTIAL', sampled, context=context)
+     for key in ('health', 'max_health'):
+         if key in body:
+             model.add_evidence(key, body[key], observation, confidence=1., ttl=2.)
+@@ -14,12 +23,19 @@
+ 
+ def project(model, state, now, current_context):
+     record = model.__dict__.get('_packet_own_health')
++    baseline = model.__dict__.get('_packet_health_baseline')
++    scope = (record or baseline or {}).get('scope')
++    if scope is None:
++        return
++    context = SessionContext.from_mapping(current_context(scope['selected_pid']))
++    if (context is None or context.entity_scope() != scope
++            or state.get('loading') or state.get('player_present') is False):
++        model.__dict__.pop('_packet_own_health', None)
++        model.__dict__.pop('_packet_health_baseline', None)
++        return
+     if not record:
+         return
+-    context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
+-    if (context is None or context.entity_scope() != record['scope']
+-            or not 0 <= now-record['observed_at'] <= 2.
+-            or state.get('loading') or state.get('player_present') is False):
++    if not 0 <= now-record['observed_at'] <= 2.:
+         model.__dict__.pop('_packet_own_health', None)
+         return
+     selected = {}
+@@ -28,5 +44,7 @@
+         if result.state == 'KNOWN' and number(result.value) is not None:
+             state[key] = result.value
+             selected[key] = result.diagnostic()
+-    state['packet_own_health'] = {'coverage': 'PARTIAL', 'observed_at': record['observed_at'],
++    state['packet_own_health'] = {'coverage': 'COMPLETE' if record.get('baseline_complete') else 'PARTIAL',
++                                 'observed_at': record['observed_at'],
++                                 'baseline_observed_at': (model.__dict__.get('_packet_health_baseline') or {}).get('observed_at'),
+                                  'selected_fields': selected}
+--- before/src/wowbot/agent/packet_own_power.py
++++ after/src/wowbot/agent/packet_own_power.py
+@@ -0,0 +1,45 @@
++"""Own resources use DB2 display units and isolated per-type evidence."""
++from wowbot.character_resources import display_power, resource_reference
++from wowbot.context_contracts import SessionContext
++
++
++def remember(model, body, observation, sampled, context):
++    scope = SessionContext.from_mapping(context).entity_scope()
++    if model.__dict__.get('_power_context') != scope:
++        model.__dict__['_packet_powers'] = {}
++        model.__dict__['_power_context'] = scope
++    kind = body['power_type']
++    profile = resource_reference(kind)
++    value = display_power(body['raw_power'], profile)
++    records = model.__dict__.setdefault('_packet_powers', {})
++    if sampled < records.get(kind, {}).get('observed_at', float('-inf')):
++        return
++    records[kind] = {'power_type': kind, 'raw_value': body['raw_power'], 'value': value,
++                     'observed_at': sampled, 'display_modifier': profile['display_modifier'] if profile else None,
++                     'reference_sha256': profile['source_sha256'] if profile else None}
++    while len(records) > 32:
++        records.pop(next(iter(records)))
++    if value is not None:
++        model.add_evidence('resource_power:'+str(kind), value, observation, confidence=1., ttl=2.)
++
++
++def project(model, state, now, current_context):
++    scope = model.__dict__.get('_power_context') or (model.__dict__.get('_packet_own_profile') or {}).get('scope')
++    if scope is None:
++        return
++    context = SessionContext.from_mapping(current_context(scope['selected_pid']))
++    if (context is None or context.entity_scope() != scope or state.get('loading')
++            or state.get('player_present') is False):
++        model.__dict__.pop('_packet_powers', None)
++        model.__dict__.pop('_power_context', None)
++        return
++    rows = {str(k): dict(v) for k, v in (model.__dict__.get('_packet_powers') or {}).items()
++            if 0 <= now-v['observed_at'] <= 2.}
++    active = model.query.field_resolution('power_type', now)
++    kind = active.value if active.state == 'KNOWN' and type(active.value) is int else None
++    for key, prefix in (('power', 'resource_power:'), ('max_power', 'resource_max_power:')):
++        selected = model.query.field_resolution(prefix+str(kind), now) if kind is not None else None
++        state[key] = selected.value if selected is not None and selected.state == 'KNOWN' else None
++    # Neither MaxBasePower nor another resource's newest value is the
++    # current primary resource maximum. Actual max stays an explicit source.
++    state['packet_own_resources'] = {'coverage': 'PARTIAL', 'active_power_type': kind, 'values': rows}
+--- before/src/wowbot/agent/packet_own_profile.py
++++ after/src/wowbot/agent/packet_own_profile.py
+@@ -0,0 +1,34 @@
++"""Reviewed own UnitData profile fields, using the common field resolver."""
++from wowbot.context_contracts import SessionContext
++
++
++FIELDS = ('race_id', 'class_id', 'player_class_id', 'level', 'power_type')
++
++
++def remember(model, body, observation, sampled, context):
++    scope = SessionContext.from_mapping(context).entity_scope()
++    model.__dict__['_packet_own_profile'] = {'scope': scope, 'observed_at': sampled}
++    for key in FIELDS:
++        if key in body and (key == 'power_type' or body[key] > 0):
++            # A type enum of zero is mana. A zero class/race/level is unknown.
++            model.add_evidence(key, body[key], observation, confidence=1., ttl=2.)
++
++
++def project(model, state, now, current_context):
++    record = model.__dict__.get('_packet_own_profile')
++    if record is None:
++        return
++    context = SessionContext.from_mapping(current_context(record['scope']['selected_pid']))
++    if (context is None or context.entity_scope() != record['scope']
++            or state.get('loading') or state.get('player_present') is False
++            or not 0 <= now-record['observed_at'] <= 2.):
++        model.__dict__.pop('_packet_own_profile', None)
++        return
++    selected = {}
++    for key in FIELDS:
++        result = model.query.field_resolution(key, now)
++        if result.state == 'KNOWN':
++            state[key] = result.value
++            selected[key] = result.diagnostic()
++    # This is a known prefix, not specialization/talent/role or a full baseline.
++    state['packet_own_profile'] = {'coverage': 'PARTIAL', 'selected_fields': selected}
+--- before/src/wowbot/agent/world_addon_reducer.py
++++ after/src/wowbot/agent/world_addon_reducer.py
+@@ -19,6 +19,7 @@
+     FAST_KEYS = frozenset({
+         "timestamp", "monotonic_time", "map_id", "map_context", "position",
+         "player_world_position", "orientation", "health", "max_health", "health_sample_time",
++        'power', 'max_power', 'power_type', 'power_sample_time',
+         "is_dead", "is_ghost", "is_in_combat", "is_mounted", "is_casting", "is_channeling",
+         "in_vehicle", "has_vehicle_ui", "on_taxi",
+         "movement", "player_present", "ui_error", "ui_error_at", "ui_error_sequence",
+@@ -179,6 +180,8 @@
+                 fast_delta[unit_key] = merged
+         model.addon_state.update(fast_delta)
+         self._health_evidence(model, fast_delta, observation)
++        self._power_evidence(model, fast_delta, observation)
++        self._profile_evidence(model, fast_delta, observation)
+         coverage = model.addon_state.get('collection_coverage')
+         if (isinstance(coverage, dict) and coverage.get('quest_revision') is not None
+                 and model.addon_state.get('quest_state_revision') != coverage['quest_revision']):
+@@ -239,6 +242,8 @@
+                     observation: Observation) -> bool:
+         self._stamp_unit_samples(state)
+         self._health_evidence(model, state, observation)
++        self._power_evidence(model, state, observation)
++        self._profile_evidence(model, state, observation)
+         from .collection_coverage import prepare_collections
+         if isinstance(state.get('inventory'), dict):
+             state['inventory']['sample_time'] = self.packet_sample_time(state)
+@@ -333,6 +338,20 @@
+         return model._accepted(observation)
+ 
+     @staticmethod
++    def _profile_evidence(model, state, observation):
++        from .models import number
++        sample, control = number(WorldAddonReducer.packet_sample_time(state)), number(state.get('monotonic_time'))
++        if any(k in state for k in ('monotonic_time', 'state_sample_time')) and (sample is None or control is None):
++            return
++        age = control-sample if sample is not None and control is not None else 0.
++        if not 0 <= age <= 30.:
++            return
++        for key in ('race_id', 'class_id', 'player_class_id', 'level'):
++            value = state.get(key)
++            if type(value) is int and 0 < value < 256:
++                model.add_evidence(key, value, observation, ttl=2., observed_at=observation.received_at-age)
++
++    @staticmethod
+     def _health_evidence(model, state, observation):
+         from .models import number
+         age = 0.
+@@ -347,6 +366,27 @@
+                 model.add_evidence(key, value, observation, ttl=2., observed_at=observation.received_at-age)
+ 
+     @staticmethod
++    def _power_evidence(model, state, observation):
++        from .models import number
++        kind = state.get('power_type')
++        if type(kind) is not int or not 0 <= kind <= 255:
++            return
++        age = 0.
++        if 'power_sample_time' in state:
++            sample, control = number(state['power_sample_time']), number(state.get('monotonic_time'))
++            if sample is None or control is None or not 0 <= control-sample <= 30.:
++                return
++            age = control-sample
++        observed = observation.received_at-age
++        model.add_evidence('power_type', kind, observation, ttl=2., observed_at=observed)
++        for key in ('power', 'max_power'):
++            value = number(state.get(key))
++            if value is not None:
++                model.add_evidence(key, value, observation, ttl=2., observed_at=observed)
++                model.add_evidence(('resource_power:' if key == 'power' else 'resource_max_power:')+str(kind),
++                                   value, observation, ttl=2., observed_at=observed)
++
++    @staticmethod
+     def _apply_turn_in_receipts(model: "WorldModel", state: dict, observation: Observation) -> None:
+         from .quest_receipts import turn_in_receipts
+         events = [{"event_type": "QUEST_TURNED_IN", "sequence": row["sequence"],
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -533,6 +533,13 @@
+         model.__dict__["_packet_status"] = {"last_event": kind, "last_sampled_at": sampled,
+             "last_received_at": obs.received_at, "semantic_verified": verified, "source": "PACKET_TELEMETRY"}
+         if verified:
++            if (kind == 'OWN_PROFILE_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
++                    and same_world_map(body['world_map_id'], expected['instance_id'])):
++                from .packet_own_profile import remember as remember_profile
++                remember_profile(model, body, obs, sampled, expected)
++            if kind == 'OWN_POWER_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid']):
++                from .packet_own_power import remember as remember_power
++                remember_power(model, body, obs, sampled, expected)
+             if kind == 'MAP_CHANGED' and model.session_context_provider is not None:
+                 model.session_context_provider.advance_world(event)
+                 expected = model.session_context_provider.expected(safe['selected_pid'])
+@@ -757,6 +764,10 @@
+         _project_entities(model, state, reference)
+         from .packet_own_health import project as project_health
+         project_health(model, state, reference, lambda pid: _context(model, state, pid))
++        from .packet_own_profile import project as project_profile
++        project_profile(model, state, reference, lambda pid: _context(model, state, pid))
++        from .packet_own_power import project as project_power
++        project_power(model, state, reference, lambda pid: _context(model, state, pid))
+         from .packet_combat import project as project_combat
+         project_combat(model, state, reference, lambda pid: _context(model, state, pid))
+         _project_server_map(model, state)
+--- before/src/wowbot/character_resources.py
++++ after/src/wowbot/character_resources.py
+@@ -0,0 +1,42 @@
++"""One static DB2 unit conversion, shared by query and combat consumers."""
++from functools import lru_cache
++import json
++from pathlib import Path
++import re
++
++
++@lru_cache(maxsize=4)
++def _references(path):
++    try:
++        data = json.loads(Path(path).read_text(encoding='utf-8'))
++        if (not isinstance(data, dict) or data.get('schema') != 'aipc.power-reference.v1'
++                or not re.fullmatch('[a-f0-9]{64}', str(data.get('source_sha256', '')))
++                or not re.fullmatch('[a-f0-9]{64}', str(data.get('definition_sha256', '')))):
++            return {}
++        rows = {}
++        for value in data['rows']:
++            kind, divisor = value['power_type'], value['display_modifier']
++            if (type(kind) is not int or not 0 <= kind <= 255 or kind in rows
++                    or type(divisor) is not int or not 0 < divisor <= 100_000
++                    or type(value['minimum_raw']) is not int):
++                return {}
++            rows[kind] = {**value, 'source_sha256': data['source_sha256'],
++                          'definition_sha256': data['definition_sha256'],
++                          'layout_hash': data.get('layout_hash'), 'live_build_verified': False}
++        return rows
++    except (OSError, ValueError, TypeError, KeyError):
++        return {}
++
++
++def resource_reference(power_type, path=None):
++    if type(power_type) is not int:
++        return None
++    source = Path(path) if path is not None else Path(__file__).resolve().parents[2]/'data/client_power_types.json'
++    row = _references(str(source)).get(power_type)
++    return dict(row) if row else None
++
++
++def display_power(raw, reference):
++    if type(raw) is not int or reference is None or raw < reference['minimum_raw']:
++        return None
++    return raw/reference['display_modifier']
+--- before/src/wowbot/combat_contracts.py
++++ after/src/wowbot/combat_contracts.py
+@@ -31,11 +31,13 @@
+                  'RANGED' if any(r >= 20. for r in ranges) else 'MELEE' if ranges else 'UNKNOWN')
+         spec = state.get('specialization_id', state.get('spec_id'))
+         spec = spec if type(spec) is int and spec > 0 else None
+-        owner = (state.get('session_id'), state.get('character_guid'), state.get('class'), spec,
+-                 state.get('form'), state.get('in_vehicle'), bar)
++        class_id = next((state[k] for k in ('player_class_id', 'class_id')
++                         if type(state.get(k)) is int and state[k] > 0), state.get('class'))
++        owner = (state.get('session_id'), state.get('character_guid'), class_id, spec,
++                 state.get('form'), state.get('in_vehicle'), state.get('power_type'), bar)
+         revision = hashlib.sha256(json.dumps(owner, sort_keys=True, default=str).encode()).hexdigest()[:20]
+         role = state.get('role') if state.get('role') in {'TANK', 'HEALER', 'DAMAGE'} else 'UNKNOWN'
+-        return cls(state.get('character_guid'), state.get('class'), spec, role, style,
++        return cls(state.get('character_guid'), class_id, spec, role, style,
+                    state.get('form'), state.get('power_type'), bar, revision,
+                    tuple(a.get('id', a.get('spell_id')) for a in actions
+                          if type(a.get('id', a.get('spell_id'))) is int and a.get('kind') == 'spell'))
+--- before/src/wowbot/field_sources.py
++++ after/src/wowbot/field_sources.py
+@@ -40,6 +40,12 @@
+     "health": FieldPolicy(("SERVER", "ADDON_STATE"), sampled=True),
+     "max_health": FieldPolicy(("SERVER", "ADDON_STATE"), sampled=True),
+     "power": FieldPolicy(("SERVER", "ADDON_STATE"), sampled=True),
++    'power_type': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'max_power': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'class_id': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'player_class_id': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'race_id': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
++    'level': FieldPolicy(('SERVER', 'ADDON_STATE'), sampled=True),
+     "entity_position": FieldPolicy(_LIVE),
+     "objective_location": FieldPolicy(_LIVE),
+     "quest_definition": FieldPolicy(_LIVE),
+@@ -86,6 +92,10 @@
+ class FieldSourceResolver:
+     def resolve(self, key: str, evidence: Iterable[Evidence], now: float, *, context=None) -> FieldResolution:
+         policy = POLICIES.get(key)
++        if policy is None and isinstance(key, str) and key.startswith(('resource_power:', 'resource_max_power:')):
++            prefix, kind = key.split(':', 1)
++            if kind.isascii() and kind.isdigit() and 0 <= int(kind) <= 255:
++                policy = POLICIES['max_power' if prefix == 'resource_max_power' else 'power']
+         if policy is None:
+             return FieldResolution(FieldResolutionState.UNKNOWN, reason="unregistered_field")
+         eligible = []
+--- before/src/wowbot/packetio/inbox.py
++++ after/src/wowbot/packetio/inbox.py
+@@ -34,6 +34,7 @@
+         self._wall_clock, self._clock = wall_clock, clock
+         self.queue = deque(maxlen=max_queue)
+         self._movement = {}
++        self._states = {}
+         self._entities = {}
+         self._stale_counts = [0, 0]
+         self._lock = threading.Lock()
+@@ -54,6 +55,7 @@
+             if context != self._descriptor["context"]:
+                 self.queue.clear()
+                 self._movement.clear()
++                self._states.clear()
+                 self._entities.clear()
+                 self._stale_counts[:] = [0, 0]
+                 self._seen.clear()
+@@ -104,6 +106,20 @@
+                 from .validation import ENTITY_EVENTS
+                 if event["event_type"] in ENTITY_EVENTS:
+                     self._queue_entity(event)
++                elif (event['event_type'] == 'OWN_POWER_UPDATE' or event['event_type'] in {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE'}
++                      and event['payload'].get('sample_kind') != 'CREATE'):
++                    fields = tuple(sorted(set(event['payload'])-{'mover_guid', 'world_map_id', 'sample_kind'}))
++                    key = (event['flow_id'], event['event_type'], event['payload'].get('mover_guid'),
++                           event['payload'].get('power_type'), fields)
++                    previous = self._states.get(key)
++                    if previous and previous['timestamp'] > event['timestamp']:
++                        raise ValueError('out_of_order_state')
++                    if previous:
++                        self.coalesced += 1
++                    if len(self._states) >= 256 and key not in self._states:
++                        self._states.pop(next(iter(self._states)))
++                        self.dropped += 1
++                    self._states[key] = event
+                 elif movement:
+                     # Only the newest position per mover/server entity matters;
+                     # nearby walking mobs must not flood the discrete queue.
+@@ -120,6 +136,7 @@
+                 else:
+                     if event["event_type"] == "MAP_CHANGED" or event["payload"].get("teleport"):
+                         self._movement.clear()
++                        self._states.clear()
+                         self._entities.clear()
+                     if len(self.queue) == self.queue.maxlen:
+                         self.dropped += 1
+@@ -177,13 +194,15 @@
+                 return False
+             self.queue = deque((e for e in self.queue if fresh(e)), maxlen=self.queue.maxlen)
+             self._movement = {k: e for k, e in self._movement.items() if fresh(e)}
++            self._states = {k: e for k, e in self._states.items() if fresh(e)}
+             self._entities = {k: e for k, e in self._entities.items() if fresh(e)}
+-            events = sorted([*self.queue, *self._movement.values(), *self._entities.values()],
++            events = sorted([*self.queue, *self._movement.values(), *self._entities.values(), *self._states.values()],
+                             key=lambda e: e["receive_sequence"])
+             output = events[:limit]
+             consumed = {event["event_id"] for event in output}
+             self.queue = deque((e for e in self.queue if e["event_id"] not in consumed), maxlen=self.queue.maxlen)
+             self._movement = {k: e for k, e in self._movement.items() if e["event_id"] not in consumed}
++            self._states = {k: e for k, e in self._states.items() if e['event_id'] not in consumed}
+             self._entities = {k: e for k, e in self._entities.items() if e["event_id"] not in consumed}
+             return output
+ 
+@@ -209,7 +228,8 @@
+             return {"status": "listening" if self._descriptor["context"] else "waiting_for_addon_context",
+                 "selected_pid": self.selected_pid, "received": self.received, "rejected": self.rejected,
+                 "duplicates": self.duplicates, "dropped": self.dropped, "coalesced": self.coalesced,
+-                "queued": len(self.queue)+len(self._movement)+len(self._entities),
++                "queued": len(self.queue)+len(self._movement)+len(self._entities)+len(self._states),
++                'queued_states': len(self._states),
+                 "queued_entities": len(self._entities), "last_received_at": self.last_received_at,
+                 "last_error": self.last_error}
+ 
+--- before/src/wowbot/packetio/opcodes_12_1.py
++++ after/src/wowbot/packetio/opcodes_12_1.py
+@@ -128,7 +128,10 @@
+ # never compared with V12_1_0_69214, so they stay outside the shared subset
+ # above. Payload layouts were checked against a real 70448 Ymir capture.
+ FAMILY_OPCODES = {
++    69214: {'SMSG_POWER_UPDATE': 0x45017E},
+     70340: {
++        # WPP-reviewed only; differs from 12.1.0. No live validation inherited.
++        'SMSG_POWER_UPDATE': 0x45017D,
+         "SMSG_ON_MONSTER_MOVE": 0x5E0002,
+         "SMSG_QUEST_GIVER_STATUS": 0x65001B,
+         "SMSG_QUEST_GIVER_STATUS_MULTIPLE": 0x650011,
+--- before/src/wowbot/packetio/own_power.py
++++ after/src/wowbot/packetio/own_power.py
+@@ -0,0 +1,27 @@
++"""Retail POWER_UPDATE uses an explicit power enum, never an array-slot guess."""
++from .context import same_player
++
++
++POWER_LAYOUT = 'WPP_12_1_POWER_REVIEWED_V1'
++
++
++def decode_power(cursor, own_character_guid):
++    if own_character_guid is None:
++        return []
++    guid = cursor.packed_guid128()
++    if not same_player(guid, own_character_guid):
++        return []
++    count = cursor.i32()
++    if not 0 <= count <= 32:
++        raise ValueError('unreviewed power count')
++    values = {}
++    for _ in range(count):
++        # WPP V6 CharacterHandler: since TWW the byte enum precedes int32.
++        kind, raw = cursor.u8(), cursor.i32()
++        if kind in values and values[kind] != raw:
++            raise ValueError('conflicting same-record power type')
++        values[kind] = raw
++    if cursor.offset != len(cursor.data):
++        raise ValueError('unreviewed power record tail')
++    return [('OWN_POWER_UPDATE', {'mover_guid': guid, 'power_type': kind, 'raw_power': raw})
++            for kind, raw in values.items()]
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -303,6 +303,11 @@
+         try:
+             if name in {"CMSG_PLAYER_LOGIN", "SMSG_LOGIN_VERIFY_WORLD"}:
+                 return self._session_events(record, name, family)
++            if name == 'SMSG_POWER_UPDATE':
++                from .own_power import decode_power
++                decoded = (decode_power(_Cursor(record.payload), self._verified_player_guids.get(record.connection_index))
++                           if record.direction == FlowDirection.SERVER_TO_CLIENT.value else [])
++                return [self._semantic_event(record, name, family, kind, body) for kind, body in decoded]
+             from .spell_cast import SPELL_OPCODES, decode_spell
+             if name in SPELL_OPCODES:
+                 decoded = (decode_spell(name, _Cursor(record.payload))
+@@ -381,7 +386,9 @@
+                 "opcode_defining_build": self.manifest.game_build,
+                 "opcode_table_sha256": family.sha256,
+                 "opcode_source_revision": WPP_REVISION,
+-                "payload_layout": ("WPP_12_1_OWN_UNIT_REVIEWED_V1" if event_type == 'OWN_UNIT_UPDATE' else
++                "payload_layout": ("WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
++                                   "WPP_12_1_POWER_REVIEWED_V1" if event_type == 'OWN_POWER_UPDATE' else
++                                   "WPP_12_1_OWN_UNIT_REVIEWED_V2" if event_type == 'OWN_UNIT_UPDATE' else
+                                    PAYLOAD_LAYOUTS.get(name, "WPP_12_1_REVIEWED_PREFIX_V1")),
+                 "payload_scope": "REVIEWED_FIELDS_ONLY_NOT_FULL_RECORD",
+                 "semantic_ground_truth": True,
+@@ -576,14 +583,20 @@
+ def _decode_update_object(data: bytes, fragments: dict, *, own_character_guid=None) -> list[tuple[str, dict]]:
+     """Public entities, plus health deltas of the correlated own login only."""
+     events = []
+-    for row in decode_update_object(data, fragments):
++    for row in decode_update_object(data, fragments, own_character_guid=own_character_guid):
+         if own_character_guid is not None:
+             from .context import same_player
+             if same_player(row['guid'], own_character_guid):
++                profile = {k: row[k] for k in ('race_id', 'class_id', 'player_class_id', 'power_type', 'level') if k in row}
++                if row['kind'] in {'VALUES', 'CREATED'} and profile:
++                    events.append(('OWN_PROFILE_UPDATE', {'mover_guid': row['guid'],
++                        'world_map_id': struct.unpack_from('<H', data)[0],
++                        'sample_kind': 'CREATE' if row['kind'] == 'CREATED' else 'VALUES', **profile}))
+                 health = {k: row[k] for k in ('health', 'max_health') if k in row}
+-                if row['kind'] == 'VALUES' and health:
++                if row['kind'] in {'VALUES', 'CREATED'} and health:
+                     events.append(('OWN_UNIT_UPDATE', {'mover_guid': row['guid'],
+-                        'world_map_id': struct.unpack_from('<H', data)[0], **health}))
++                        'world_map_id': struct.unpack_from('<H', data)[0],
++                        'sample_kind': 'CREATE' if row['kind'] == 'CREATED' else 'VALUES', **health}))
+                 continue  # never export own private PlayerData/ActivePlayerData
+         entity = entity_guid_kind(row["guid"])
+         if entity is None:
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -298,7 +298,9 @@
+     c.take(4+4+4+4+4)            # ChannelData: SpellID, SpellVisual (2), StartTimeMs, Duration
+     c.i8()                       # SpellEmpowerStage
+     c.u32()                      # SummonedByHomeRealm
+-    c.take(6)                    # Race, ClassId, PlayerClassId, Sex, CreatureType, DisplayPower
++    race, class_id, player_class = c.u8(), c.u8(), c.u8()
++    c.take(2)                    # Sex, CreatureType: not exported
++    power_type = c.u8()          # DisplayPower is an enum, not a Power[] slot
+     c.u32()                      # OverrideDisplayPowerID
+     health = c.i64()
+     c.take(8*10)                 # Power, MaxPower
+@@ -328,13 +330,14 @@
+     result = {"health": health, "max_health": max_health, "level": level, "faction_template": faction,
+               "unit_flags": unit_flags, "unit_flags2": unit_flags2, "unit_flags3": unit_flags3,
+               "bounding_radius": round(bounding, 3), "combat_reach": round(reach, 3)}
++    result.update(race_id=race, class_id=class_id, player_class_id=player_class, power_type=power_type)
+     for key, value in (("target_guid", target), ("summoned_by", summoned_by), ("created_by", created_by)):
+         if value != _GUID_ZERO:
+             result[key] = value
+     return result
+ 
+ 
+-def _create_fields(blob: bytes, object_type: int) -> dict:
++def _create_fields(blob: bytes, object_type: int, *, own_player=False) -> dict:
+     """ObjectData plus the leading UnitData/GameObjectData fields we use."""
+     c = _Bits(blob)
+     field_flags = c.u8()         # FieldFlags
+@@ -350,7 +353,7 @@
+         c.reset()
+         result.update(entry_id=c.i32(), dynamic_flags=c.u32())
+         c.f32()                  # Scale
+-        if object_type == 5:
++        if object_type == 5 or own_player and object_type in {6, 7}:
+             c.reset()
+             c.i32()              # DisplayID
+             result["npc_flags"] = c.u32() | (c.u32() << 32)
+@@ -382,8 +385,8 @@
+     (16, None, "guid"), (17, None, "guid"), (18, "summoned_by", "guid"), (19, "created_by", "guid"),
+     (20, None, "guid"), (21, None, "guid"), (22, "target_guid", "guid"), (23, None, "guid"),
+     (24, None, "u64"), (25, None, "guid"), (26, None, "guid"), (27, None, "channel"), (28, None, "i8"),
+-    (29, None, "u32"), (30, None, "u8"), (31, None, "u8"),
+-    (33, None, "u8"), (34, None, "u8"), (35, None, "u8"), (36, None, "u8"), (37, None, "u32"),
++    (29, None, "u32"), (30, "race_id", "u8"), (31, "class_id", "u8"),
++    (33, "player_class_id", "u8"), (34, None, "u8"), (35, None, "u8"), (36, "power_type", "u8"), (37, None, "u32"),
+     (38, "health", "i64"), (39, "max_health", "i64"), (40, "level", "i32"), (41, None, "i32"),
+     (42, None, "i32"), (43, None, "i32"), (44, None, "i32"), (45, None, "i32"), (46, None, "u8"),
+     (47, "faction_template", "i32"), (48, "unit_flags", "u32"), (49, "unit_flags2", "u32"),
+@@ -484,7 +487,7 @@
+     return _values_fields(blob, fragments).get("dynamic_flags")
+ 
+ 
+-def decode_update_object(data: bytes, fragments_by_guid: dict) -> list[dict]:
++def decode_update_object(data: bytes, fragments_by_guid: dict, *, own_character_guid=None) -> list[dict]:
+     """All objects of one record, or UpdateLayoutError for the whole record."""
+     c = _Bits(data)
+     map_id = c.u16()
+@@ -509,6 +512,10 @@
+         if update_type == 0:
+             blob = c.take(_bounded(c.u32(), len(data), "values size"))
+             known = pending.get(guid, fragments_by_guid.get(guid))
++            if int(guid[:16], 16) >> 58 == 2:
++                from .context import same_player
++                if own_character_guid is None or not same_player(guid, own_character_guid):
++                    continue    # no reading of another player's unit profile
+             fields = _values_fields(blob, known) if known else {}
+             if fields:
+                 rows.append({"kind": "VALUES", "guid": guid, **fields})
+@@ -516,7 +523,9 @@
+             object_type = c.u8()
+             movement = _movement_block(c)
+             blob = c.take(_bounded(c.u32(), len(data), "create fields size"))
+-            fields = _create_fields(blob, object_type)
++            from .context import same_player
++            own_player = own_character_guid is not None and same_player(guid, own_character_guid)
++            fields = _create_fields(blob, object_type, own_player=own_player)
+             pending[guid] = fields["fragments"]
+             rows.append({"kind": "CREATED", "guid": guid, "object_type": object_type,
+                          "map_id": map_id, **movement, **fields})
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -7,7 +7,10 @@
+ 
+ _FIELDS = {
+     "SESSION_BASELINE": {"character_guid", "capture_epoch", "sequence", "world_map_id", "process_generation"},
+-    "OWN_UNIT_UPDATE": {"mover_guid", "world_map_id", "health", "max_health"},
++    "OWN_UNIT_UPDATE": {"mover_guid", "world_map_id", "health", "max_health", "sample_kind"},
++    "OWN_POWER_UPDATE": {'mover_guid', 'power_type', 'raw_power'},
++    'OWN_PROFILE_UPDATE': {'mover_guid', 'world_map_id', 'sample_kind', 'race_id', 'class_id',
++                           'player_class_id', 'power_type', 'level'},
+     "QUEST_POI_UPDATE": {"quest_id", "blobs", "capture_timestamp"},
+     "NETWORK_STREAM_CHUNK": {"sequence_start", "byte_count", "sha256"},
+     "PACKET_OPCODE_OBSERVED": {"opcode_name", "byte_count", "sha256", "connection_index", "record_number"},
+@@ -54,9 +57,12 @@
+ SCENE_EVENTS = frozenset({"SCENE_STARTED", "SCENE_ENDED", "SCENE_EVENT"})
+ CAPTURE_70575_EVENTS = SCENE_EVENTS | {"MOVEMENT_ROOT", "GOSSIP_SELECTED", "QUEST_POI_UPDATE"}
+ _LAYOUT_EVENTS = {
+-    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE"}),
++    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE'}),
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
++    "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
++    'WPP_12_1_POWER_REVIEWED_V1': frozenset({'OWN_POWER_UPDATE'}),
++    'WPP_12_1_OWN_PROFILE_REVIEWED_V1': frozenset({'OWN_PROFILE_UPDATE'}),
+     SPELL_LAYOUT: CAST_EVENTS,
+     "RETAIL_70448_CAPTURE_VERIFIED_V1": ENTITY_EVENTS,
+     "RETAIL_70575_CAPTURE_VERIFIED_V1": CAPTURE_70575_EVENTS,
+@@ -128,6 +134,7 @@
+         "payload_layout": set(_LAYOUT_EVENTS),
+         "payload_scope": {"REVIEWED_FIELDS_ONLY_NOT_FULL_RECORD", "SANDBOX_TEST_ONLY"},
+         "object_kind": {"UNIT", "GAMEOBJECT"}, "position_source": {"MOVEMENT", "STATIONARY"},
++        "sample_kind": {'CREATE', 'VALUES'},
+         "removal": {"DESTROYED", "OUT_OF_RANGE"}, "scene_event": {"CHECKPOINT", "RACE_COMPLETE"}}
+     for values in (safe_body, safe_provenance):
+         for key, value in values.items():
+@@ -160,6 +167,28 @@
+                 or not {'health', 'max_health'} & safe_body.keys()
+                 or ('health' in safe_body and 'max_health' in safe_body and safe_body['health'] > safe_body['max_health'])):
+             raise ValueError('own player unit delta requires health and context')
++        if safe_body.get('sample_kind') == 'CREATE' and not {'health', 'max_health'}.issubset(safe_body):
++            raise ValueError('own health baseline requires both fields')
++        if safe_body.get('sample_kind') == 'CREATE' and safe_provenance.get('payload_layout') != 'WPP_12_1_OWN_UNIT_REVIEWED_V2':
++            raise ValueError('own health baseline requires reviewed create layout')
++    if kind == 'OWN_PROFILE_UPDATE':
++        guid = safe_body.get('mover_guid')
++        if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
++                or event['direction'] != 'SERVER_TO_CLIENT' or 'world_map_id' not in safe_body
++                or safe_body.get('sample_kind') not in {'CREATE', 'VALUES'}
++                or not {'race_id', 'class_id', 'player_class_id', 'power_type', 'level'} & safe_body.keys()):
++            raise ValueError('own profile requires identity, context and reviewed fields')
++        for key in ('race_id', 'class_id', 'player_class_id', 'power_type'):
++            if key in safe_body and (type(safe_body[key]) is not int or not 0 <= safe_body[key] <= 255):
++                raise ValueError('invalid own profile enum')
++    if kind == 'OWN_POWER_UPDATE':
++        guid = safe_body.get('mover_guid')
++        if (set(safe_body) != _FIELDS[kind] or not isinstance(guid, str)
++                or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
++                or event['direction'] != 'SERVER_TO_CLIENT'
++                or type(safe_body.get('power_type')) is not int or not 0 <= safe_body['power_type'] <= 255
++                or type(safe_body.get('raw_power')) is not int or not -2**31 <= safe_body['raw_power'] < 2**31):
++            raise ValueError('invalid own power update')
+     if kind in CAST_EVENTS:
+         guid = safe_body.get('caster_guid')
+         required = ({'caster_guid', 'spell_id', 'interrupt_spell_id'} if kind == 'SPELL_INTERRUPT_OBSERVED'
+--- before/src/wowbot/quests/client_supplement.py
++++ after/src/wowbot/quests/client_supplement.py
+@@ -58,6 +58,11 @@
+ 
+ 
+ class ClientSupplement:
++    @staticmethod
++    def power_type(identifier):
++        from wowbot.character_resources import resource_reference
++        return resource_reference(identifier)
++
+     def __init__(self, path=None):
+         self.path = Path(path or default_supplement_path()).resolve()
+ 
+--- before/src/wowbot/session_context.py
++++ after/src/wowbot/session_context.py
+@@ -51,6 +51,7 @@
+         self.server_world_map_id = None
+         self.local_ui_ready = False
+         self.last_world_change_at = None
++        self._field_coverage = {}
+ 
+     def observe_addon(self, state: Mapping) -> None:
+         from .packetio.context import evaluate_addon_context
+@@ -154,10 +155,13 @@
+         changed = self.state != state or self.reason != reason
+         self.state, self.reason = state, reason
+         self.local_ui_ready = False
++        self._field_coverage.clear()
+         if changed:
+             self.revision += 1
+ 
+     def _set(self, context, source):
++        if self.context is None or context.entity_scope() != self.context.entity_scope():
++            self._field_coverage.clear()
+         if context != self.context or source != self.source or self.state is not BaselineState.READY:
+             self.revision += 1
+         self.context, self.source = context, source
+@@ -177,11 +181,29 @@
+             return {**payload, "session_id": expected["session_id"]}
+         return payload
+ 
++    def observe_field_coverage(self, field, completeness, sampled_at, *, context):
++        """Baseline metadata only; WorldModel continues to own every value."""
++        import math
++        incoming = SessionContext.from_mapping(context)
++        if (field not in {'own_health', 'questlog', 'inventory'}
++                or completeness not in {'COMPLETE', 'PARTIAL', 'UNKNOWN'}
++                or self.state is not BaselineState.READY or incoming is None
++                or self.context is None or incoming.entity_scope() != self.context.entity_scope()
++                or type(sampled_at) not in {int, float} or not math.isfinite(sampled_at)):
++            return False
++        previous = self._field_coverage.get(field)
++        if previous and sampled_at < previous['observed_at']:
++            return False
++        self._field_coverage[field] = {'completeness': completeness, 'observed_at': sampled_at}
++        return True
++
+     def diagnostics(self):
+         return {"state": self.state.value, "reason": self.reason, "source": self.source,
+                 "revision": self.revision, "capture_epoch": self.capture_epoch,
+                 "sequence": self.sequence, "process_generation": self.process.generation,
+                 'local_ui_ready': self.local_ui_ready, 'server_world_map_id': self.server_world_map_id,
+                 "context": self.expected(self.process.selected_pid),
+-                "coverage": {"own_identity": self.state.value, "questlog": "UNKNOWN",
+-                             "inventory": "UNKNOWN", "own_health": "UNKNOWN"}}
++                'coverage_samples': {key: dict(value) for key, value in self._field_coverage.items()},
++                "coverage": {"own_identity": self.state.value, **{
++                    key: self._field_coverage.get(key, {}).get('completeness', 'UNKNOWN')
++                    for key in ('questlog', 'inventory', 'own_health')}}}
+--- before/tests/test_own_baseline_20261030.py
++++ after/tests/test_own_baseline_20261030.py
+@@ -0,0 +1,93 @@
++"""Own UnitData create baseline: conditional owner fields and no other players."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.packetio.pkt import _decode_update_object
++from wowbot.packetio.validation import normalize_event
++from wowbot.session_context import ProcessIdentity, SessionContextProvider
++from test_own_health_packets_20261030 import RAW_ME, own_event
++from test_packet_codecs import packed_guid
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_unit_fields_20261027 import unit_tail_bytes, bits
++
++
++def create_payload(*, low=0x1234, object_type=7, owner=True):
++    # ThisIsYou, Stationary, PlayerCreateData, with neither scenes nor runes.
++    flags = [(int(i in {4, 7, 16}), 1) for i in range(21)]
++    movement = bits(flags)+struct.pack('<IffffB', 0, 1., 2., 3., 0., 0)
++    fields = bytes((int(owner), 3, 255, 1))+struct.pack('<iIfiII', 0, 0, 1., 0, 0, 0)
++    fields += unit_tail_bytes(health=40, max_health=100, owner=owner, identity=bytes((1, 1, 1, 0, 0, 1)))
++    block = bytes((2,))+packed_guid(low=low)+bytes((object_type,))+movement+struct.pack('<I', len(fields))+fields
++    return struct.pack('<HI', 2175, 1)+bytes((0,))+struct.pack('<I', len(block))+block
++
++
++@pytest.mark.parametrize('kind', [6, 7])
++@pytest.mark.parametrize('owner', [False, True])
++def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
++    rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
++    assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
++                      'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
++                      'power_type': 1, 'level': 70})
++    assert rows[1:] == [('OWN_UNIT_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
++                    'sample_kind': 'CREATE', 'health': 40, 'max_health': 100})]
++
++
++def test_other_player_create_never_reads_or_forwards_private_unit_prefix(monkeypatch):
++    from wowbot.packetio import update_object
++    def forbidden(*args): pytest.fail('other player unit fields were read')
++    monkeypatch.setattr(update_object, '_unit_tail', forbidden)
++    assert _decode_update_object(create_payload(low=0x9999), {}, own_character_guid='Player-1602-00001234') == []
++    assert _decode_update_object(create_payload(), {}) == []
++
++
++def test_corrupt_or_partial_own_create_never_claims_complete():
++    decoder, record = own_event()
++    for body in (create_payload()[:-1], create_payload()+b'unknown'):
++        assert len(decoder.decode_all(replace(record, payload=body))) == 1
++    event = decoder.decode_all(replace(record, payload=create_payload()))[-1].to_dict()
++    event['provenance']['payload_layout'] = 'WPP_12_1_OWN_UNIT_REVIEWED_V1'
++    with pytest.raises(ValueError): normalize_event(event)
++
++
++def test_baseline_metadata_does_not_grant_input_liveness_or_need_a_health_change(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575', health=100, max_health=100), 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++    decoder, record = own_event()
++    deliver(bridge, decoder.decode_all(replace(record, payload=create_payload()))[-1])
++    assert bridge.world.state['health'] == 40
++    assert bridge.world.state['packet_own_health']['coverage'] == 'COMPLETE'
++    assert bridge.world.last_received == 9.1
++
++
++def test_coverage_scope_rejects_other_identity_resets_on_phase_but_not_ui_map():
++    provider = SessionContextProvider(ProcessIdentity(77, '0000000000000001'))
++    state = addon(game_build='70575')
++    provider.observe_addon(state)
++    context = provider.expected(77)
++    assert not provider.observe_field_coverage('own_health', 'COMPLETE', 10., context={**context, 'selected_pid': 78})
++    assert provider.observe_field_coverage('own_health', 'COMPLETE', 10., context=context)
++    revision = provider.revision
++    assert provider.diagnostics()['coverage']['own_health'] == 'COMPLETE'
++    assert provider.revision == revision
++    provider.observe_addon({**state, 'map_id': 1410})
++    assert provider.diagnostics()['coverage']['own_health'] == 'COMPLETE'
++    provider.observe_addon({**state, 'phase': 'new-phase'})
++    assert provider.diagnostics()['coverage']['own_health'] == 'UNKNOWN'
++
++
++def test_loading_clears_baseline_even_after_short_lived_health_cache_expired(bridge):
++    from wowbot.agent.packet_own_health import project
++    from wowbot.packetio.context import addon_context
++    bridge.world.ingest(Observation.create(addon(game_build='70575', health=100, max_health=100), 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++    decoder, record = own_event()
++    deliver(bridge, decoder.decode_all(replace(record, payload=create_payload()))[-1])
++    context = addon_context(bridge.world.addon_state, 77)
++    project(bridge.world, {}, 15., lambda pid: context)
++    assert '_packet_own_health' not in bridge.world.__dict__
++    assert '_packet_health_baseline' in bridge.world.__dict__
++    project(bridge.world, {'loading': True}, 16., lambda pid: None)
++    assert '_packet_health_baseline' not in bridge.world.__dict__
+--- before/tests/test_own_health_packets_20261030.py
++++ after/tests/test_own_health_packets_20261030.py
+@@ -37,7 +37,8 @@
+     assert _decode_update_object(data, {RAW_ME: (3,)}) == []
+     assert _decode_update_object(data, {RAW_ME: (3,)}, own_character_guid='Player-1602-99999999') == []
+     rows = _decode_update_object(data, {RAW_ME: (3,)}, own_character_guid='Player-1602-00001234')
+-    assert rows == [('OWN_UNIT_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175, 'health': 40, 'max_health': 100})]
++    assert rows == [('OWN_UNIT_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
++                                       'sample_kind': 'VALUES', 'health': 40, 'max_health': 100})]
+ 
+ 
+ def test_decoder_requires_server_verified_login_not_just_intent_and_known_fragments():
+@@ -45,7 +46,7 @@
+     event = decoder.decode_all(record)[-1]
+     assert event.event_type == 'OWN_UNIT_UPDATE'
+     assert verified_semantics(normalize_event(event.to_dict()))
+-    assert event.provenance['payload_layout'] == 'WPP_12_1_OWN_UNIT_REVIEWED_V1'
++    assert event.provenance['payload_layout'] == 'WPP_12_1_OWN_UNIT_REVIEWED_V2'
+     decoder._verified_player_guids.clear()
+     assert len(decoder.decode_all(record)) == 1
+ 
+--- before/tests/test_own_power_20261030.py
++++ after/tests/test_own_power_20261030.py
+@@ -0,0 +1,165 @@
++"""Build-specific own power packets, verified display units and resource isolation."""
++from dataclasses import replace
++import json
++import struct
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.character_resources import display_power, resource_reference
++from wowbot.packetio.builds import opcode_family
++from wowbot.packetio.ipc import canonical, envelope
++from wowbot.packetio.opcodes_12_1 import FAMILY_OPCODES
++from wowbot.packetio.pkt import PktRecord
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from wowbot.skills.ability_rules import AbilityRuleEngine
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_packet_codecs import packed_guid, decoded
++from test_session_bootstrap_20261029 import session_events
++
++
++def power_events(values=((1, 750),), *, build=70575, low=0x1234, verified=True, tail=b''):
++    decoder, world = session_events(build=build)
++    if verified: decoder.decode_all(world)
++    body = packed_guid(low=low)+struct.pack('<i', len(values))
++    body += b''.join(struct.pack('<Bi', kind, raw) for kind, raw in values)+tail
++    record = PktRecord(2, 'SERVER_TO_CLIENT', world.connection_index, 3, 1000.,
++                       FAMILY_OPCODES[opcode_family(build).defining_build]['SMSG_POWER_UPDATE'], body, b'', 0)
++    return decoder, record
++
++
++@pytest.mark.parametrize('build,opcode', [(69587, 0x45017E), (70448, 0x45017D), (70575, 0x45017D)])
++def test_exact_build_family_exports_own_power_type_before_raw_value(build, opcode):
++    decoder, record = power_events(build=build)
++    event = decoder.decode_all(record)[-1]
++    assert event.opcode == opcode and event.event_type == 'OWN_POWER_UPDATE'
++    assert event.payload['power_type'] == 1 and event.payload['raw_power'] == 750
++    assert verified_semantics(normalize_event(event.to_dict()))
++
++
++@pytest.mark.parametrize('options', [{'low': 0x9999}, {'verified': False}, {'tail': b'extra'}])
++def test_no_other_player_intent_only_or_unreviewed_tail_becomes_own_power(options):
++    decoder, record = power_events(**options)
++    assert len(decoder.decode_all(record)) == 1
++
++
++def test_wrong_direction_truncated_count_and_duplicate_conflict_fail_closed():
++    decoder, record = power_events()
++    assert len(decoder.decode_all(replace(record, direction='CLIENT_TO_SERVER'))) == 1
++    assert len(decoder.decode_all(replace(record, payload=record.payload[:-1]))) == 1
++    decoder, record = power_events(((1, 100), (1, 200)))
++    assert len(decoder.decode_all(record)) == 1
++
++
++@pytest.mark.parametrize('kind,raw,expected', [(0, 1500, 1500), (1, 750, 75), (3, 75, 75),
++                                             (6, 500, 50), (7, 30, 3), (13, 7500, 75)])
++def test_resource_units_come_from_decoded_db2_not_a_global_divisor(kind, raw, expected):
++    profile = resource_reference(kind)
++    assert display_power(raw, profile) == expected
++    assert len(profile['source_sha256']) == 64 and not profile['live_build_verified']
++
++
++def setup_power(bridge, *, kind=1, value=7, maximum=150):
++    bridge.world.ingest(Observation.create(addon(game_build='70575', power_type=kind,
++        power=value, max_power=maximum, power_sample_time=9.), 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++
++
++def test_power_reaches_combat_in_display_units_without_inventing_current_maximum(bridge):
++    setup_power(bridge)
++    decoder, record = power_events()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.state['power'] == 75
++    assert bridge.world.state['max_power'] == 150  # not static MaxBasePower=1000
++    assert bridge.world.last_received == 9.1
++    action = {'id': 123, 'kind': 'spell', 'action': '1', 'is_usable': True,
++              'cooldown_remaining': 0., 'resource_cost': 80}
++    engine = AbilityRuleEngine()
++    ability = engine.definition(action)
++    assert engine.runtime_state(action, bridge.world.state, ability).resource_available_belief == 0.
++
++
++def test_secondary_resource_never_overwrites_primary_and_type_change_does_not_mix_values(bridge):
++    setup_power(bridge)
++    decoder, record = power_events(((1, 750), (0, 42)))
++    for event in decoder.decode_all(record)[1:]: deliver(bridge, event)
++    assert bridge.world.state['power'] == 75
++    assert set(bridge.world.state['packet_own_resources']['values']) == {'0', '1'}
++    bridge.world.ingest(Observation.create(addon(game_build='70575', frame_id='mana-mode',
++        monotonic_time=11., power_type=0, power=20, max_power=100, power_sample_time=9.5), 11.))
++    assert bridge.world.state['power'] == 42  # latest mana, never latest rage
++
++
++def test_new_fast_value_wins_without_waiting_for_another_tick(bridge):
++    setup_power(bridge)
++    decoder, record = power_events()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    bridge.world.ingest(Observation.create({'session_id': 'live-s', 'frame_id': 'power-fast',
++        'transport_kind': 'FAST', 'monotonic_time': 11., 'power_sample_time': 11.,
++        'power_type': 1, 'power': 80, 'max_power': 150}, 11.))
++    assert bridge.world.state['power'] == 80
++
++
++def test_unknown_conversion_keeps_raw_evidence_without_guessing_a_display_value(bridge):
++    setup_power(bridge, kind=255, value=9)
++    decoder, record = power_events(((255, 700),))
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.state['power'] == 9
++    assert bridge.world.state['packet_own_resources']['values']['255']['value'] is None
++    assert resource_reference(255) is None
++
++
++def test_state_flood_coalesces_each_resource_and_preserves_discrete_events(bridge):
++    setup_power(bridge)
++    descriptor = json.loads(bridge.path.read_text())
++    for amount in range(40):
++        decoder, record = power_events(((1, amount*10), (0, amount)))
++        for event in decoder.decode_all(record)[1:]:
++            assert bridge.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
++    discrete = decoded('SMSG_QUEST_UPDATE_COMPLETE', struct.pack('<I', 55639)+b'\x80', build=70575)[-1]
++    assert bridge.inbox.ingest_datagram(canonical(envelope(discrete.to_dict(), descriptor)))
++    events = bridge.inbox.poll()
++    assert len(events) == 3 and any(e['event_type'] == 'QUEST_COMPLETED' for e in events)
++    assert sorted(e['payload']['raw_power'] for e in events if e['event_type'] == 'OWN_POWER_UPDATE') == [39, 390]
++    assert bridge.inbox.peek_movement() == []
++
++
++def test_health_coalescing_preserves_the_create_baseline_and_partial_field_groups(bridge):
++    from test_own_baseline_20261030 import create_payload
++    from test_own_health_packets_20261030 import own_event
++    setup_power(bridge)
++    descriptor = json.loads(bridge.path.read_text())
++    decoder, record = own_event()
++    created = decoder.decode_all(replace(record, payload=create_payload()))[-1]
++    assert bridge.inbox.ingest_datagram(canonical(envelope(created.to_dict(), descriptor)))
++    for value in range(30):
++        decoder, record = own_event(health=value)
++        delta = decoder.decode_all(record)[-1]
++        assert bridge.inbox.ingest_datagram(canonical(envelope(delta.to_dict(), descriptor)))
++    queued = bridge.inbox.poll()
++    assert len(queued) == 2
++    assert queued[0]['payload']['sample_kind'] == 'CREATE'
++    assert queued[1]['payload']['health'] == 29
++
++
++def test_resource_reference_returns_owned_values_and_rejects_missing_or_corrupt_scale(tmp_path):
++    row = resource_reference(1)
++    row['display_modifier'] = 1
++    assert resource_reference(1)['display_modifier'] == 10
++    missing = tmp_path/'missing.json'
++    assert resource_reference(1, missing) is None
++    broken = tmp_path/'broken.json'
++    broken.write_text('{"schema":"aipc.power-reference.v1","rows":[]}', encoding='utf-8')
++    assert resource_reference(1, broken) is None
++    array = tmp_path/'array.json'
++    array.write_text('[]', encoding='utf-8')
++    assert resource_reference(1, array) is None
++
++
++@pytest.mark.parametrize('changes', [{'power_type': True}, {'power_type': 256}, {'raw_power': None},
++                                   {'raw_power': True}, {'raw_power': 2**32}])
++def test_malformed_power_never_enters_own_state(changes):
++    decoder, record = power_events()
++    event = decoder.decode_all(record)[-1].to_dict()
++    event['payload'].update(changes)
++    with pytest.raises(ValueError): normalize_event(event)
+--- before/tests/test_own_profile_20261030.py
++++ after/tests/test_own_profile_20261030.py
+@@ -0,0 +1,190 @@
++"""Selected own UnitData profile, including primary-resource identity."""
++from dataclasses import replace
++import json
++import struct
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.combat_contracts import CharacterProfile
++from wowbot.packetio.pkt import _decode_update_object
++from wowbot.packetio.ipc import canonical, envelope
++from wowbot.packetio.models import AgentPacketEvent
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from test_own_baseline_20261030 import create_payload
++from test_own_health_packets_20261030 import RAW_ME, own_event
++from test_own_power_20261030 import power_events
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_packet_codecs import packed_guid
++from test_unit_fields_20261027 import bits
++
++
++def profile_event(*, low=0x1234, map_id=2175, power_type=1):
++    decoder, record = own_event()
++    mask0, mask1 = 1 | (1 << 30) | (1 << 31), 1 | (1 << 1) | (1 << 4) | (1 << 8)
++    values = bits([(3, 8), (mask0, 32), (mask1, 32)]) + bytes((1, 11, 1, power_type)) + struct.pack('<i', 70)
++    fields = bytes((0, 0, 3))+struct.pack('<I', 0x20)+values
++    block = bytes((0,))+packed_guid(low=low)+struct.pack('<I', len(fields))+fields
++    body = struct.pack('<HI', map_id, 1)+bytes((0,))+struct.pack('<I', len(block))+block
++    return decoder, replace(record, payload=body)
++
++
++def test_values_mask_names_class_race_display_power_without_power_array_index_guess():
++    decoder, record = profile_event()
++    event = decoder.decode_all(record)[-1]
++    assert event.event_type == 'OWN_PROFILE_UPDATE'
++    assert event.payload == {'mover_guid': RAW_ME, 'world_map_id': 2175, 'sample_kind': 'VALUES',
++        'race_id': 1, 'class_id': 11, 'player_class_id': 1, 'power_type': 1, 'level': 70}
++    assert verified_semantics(normalize_event(event.to_dict()))
++    assert event.provenance['payload_layout'] == 'WPP_12_1_OWN_PROFILE_REVIEWED_V1'
++
++
++def test_create_profile_and_health_have_separate_completeness():
++    decoder, record = own_event()
++    events = decoder.decode_all(replace(record, payload=create_payload()))
++    assert [e.event_type for e in events] == ['PACKET_OPCODE_OBSERVED', 'OWN_PROFILE_UPDATE', 'OWN_UNIT_UPDATE']
++    assert all(verified_semantics(normalize_event(e.to_dict())) for e in events[1:])
++
++
++def test_other_player_values_are_not_read_even_with_known_fragments(monkeypatch):
++    from wowbot.packetio import update_object
++    decoder, record = profile_event(low=0x9999)
++    other = f'{(2<<58)|(1602<<42):016X}{0x9999:016X}'
++    def forbidden(*args): pytest.fail('another player profile was read')
++    monkeypatch.setattr(update_object, '_values_unit', forbidden)
++    assert _decode_update_object(record.payload, {other: (3,)}, own_character_guid='Player-1602-00001234') == []
++    assert _decode_update_object(record.payload, {other: (3,)}) == []
++
++
++def test_login_intent_or_unknown_unit_fragments_cannot_create_profile():
++    decoder, record = profile_event()
++    decoder._verified_player_guids.clear()
++    assert len(decoder.decode_all(record)) == 1
++    decoder, record = profile_event()
++    decoder.entity_fragments.clear()
++    assert len(decoder.decode_all(record)) == 1
++
++
++def setup(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575', level=60), 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++
++
++def test_native_profile_enables_typed_power_and_combat_class_without_addon_type(bridge):
++    setup(bridge)
++    assert 'power_type' not in bridge.world.addon_state
++    decoder, record = profile_event()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    decoder, record = power_events(((1, 750),))
++    deliver(bridge, decoder.decode_all(record)[-1])
++    state = bridge.world.state
++    assert state['level'] == 70 and state['power_type'] == 1 and state['power'] == 75
++    profile = CharacterProfile.from_state(state)
++    assert profile.class_id == 1 and profile.resource_type == 1
++    assert state['packet_own_profile']['coverage'] == 'PARTIAL'
++    assert bridge.world.last_received == 9.1
++
++
++def test_wrong_world_profile_does_not_overwrite_current_level_or_resource_type(bridge):
++    setup(bridge)
++    decoder, record = profile_event(map_id=1)
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.state['level'] == 60 and 'power_type' not in bridge.world.state
++
++
++def test_native_type_change_cannot_relabel_old_addon_amount_or_maximum(bridge):
++    bridge.world.ingest(Observation.create(addon(game_build='70575', power_type=1, power=75, max_power=150), 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++    decoder, record = profile_event(power_type=0)
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.state['power_type'] == 0
++    assert bridge.world.state['power'] is None and bridge.world.state['max_power'] is None
++    decoder, record = power_events(((0, 42),))
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.state['power'] == 42 and bridge.world.state['max_power'] is None
++    bridge.world.ingest(Observation.create(addon(game_build='70575', frame_id='mana-full',
++        monotonic_time=10.2, power_type=0, power=40, max_power=1000), 10.2))
++    assert bridge.world.state['power'] == 40 and bridge.world.state['max_power'] == 1000
++
++
++def test_delayed_full_profile_does_not_hide_native_update_and_newer_full_wins(bridge):
++    setup(bridge)
++    decoder, record = profile_event()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    bridge.world.ingest(Observation.create(addon(game_build='70575', frame_id='old-full',
++        monotonic_time=11., state_sample_time=9., level=60), 11.))
++    assert bridge.world.state['level'] == 70
++    assert bridge.world.evidence['level'][-1].observed_at == 9.
++    bridge.world.ingest(Observation.create(addon(game_build='70575', frame_id='new-full',
++        monotonic_time=11.1, level=71), 11.1))
++    assert bridge.world.state['level'] == 71
++    assert bridge.world.query.field_resolution('level', 11.1).diagnostic()['authority'] == 'ADDON_STATE'
++
++
++@pytest.mark.parametrize('change', [{'loading': True}, {'phase': 'other'}, {'character_guid': 'Player-1602-99999999'}])
++def test_profile_does_not_cross_context_or_loading(bridge, change):
++    setup(bridge)
++    decoder, record = profile_event()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    bridge.world.ingest(Observation.create(addon(game_build='70575', frame_id='next', **change), 10.1))
++    assert 'packet_own_profile' not in bridge.world.state
++    assert 'class_id' not in bridge.world.state
++
++
++def test_profile_expiry_never_refreshes_source_measurement(bridge):
++    setup(bridge)
++    decoder, record = profile_event()
++    deliver(bridge, decoder.decode_all(record)[-1])
++    assert bridge.world.query.field_resolution('class_id', 13.).state == 'UNKNOWN'
++
++
++@pytest.mark.parametrize('value', [True, -1, 256, None])
++def test_invalid_numeric_profile_enum_is_rejected(value):
++    decoder, record = profile_event()
++    event = decoder.decode_all(record)[-1].to_dict()
++    event['payload']['class_id'] = value
++    with pytest.raises(ValueError): normalize_event(event)
++
++
++def test_profile_fields_need_their_own_reviewed_layout():
++    decoder, record = profile_event()
++    event = decoder.decode_all(record)[-1].to_dict()
++    event['provenance']['payload_layout'] = 'WPP_12_1_OWN_UNIT_REVIEWED_V2'
++    assert not verified_semantics(normalize_event(event))
++
++
++def test_resource_and_actual_class_change_the_profile_revision_without_guessing_names():
++    base = {'class':'WARRIOR', 'player_class_id':0, 'class_id':1, 'power_type':1}
++    first = CharacterProfile.from_state(base)
++    assert first.class_id == 1
++    assert first.revision != CharacterProfile.from_state({**base, 'power_type':0}).revision
++
++
++def test_profile_mailbox_coalesces_matching_fields_without_losing_create_or_partial_delta(bridge):
++    setup(bridge)
++    descriptor = json.loads(bridge.path.read_text())
++    decoder, record = own_event()
++    created = decoder.decode_all(replace(record, payload=create_payload()))[1]
++    assert bridge.inbox.ingest_datagram(canonical(envelope(created.to_dict(), descriptor)))
++    def enqueue(event, fields):
++        # Event IDs identify content: modifying a dataclass payload without
++        # rebuilding its ID would correctly trip inbox replay rejection.
++        base = {k:event.payload[k] for k in ('mover_guid', 'world_map_id', 'sample_kind')}
++        partial = AgentPacketEvent.create(pid=event.selected_pid, flow_id=event.flow_id,
++            direction=event.direction, event_type=event.event_type, timestamp=event.timestamp,
++            semantic_status=event.semantic_status, opcode=event.opcode,
++            payload={**base, **fields}, provenance=event.provenance)
++        assert bridge.inbox.ingest_datagram(canonical(envelope(partial.to_dict(), descriptor)))
++    for level in range(70, 80):
++        decoder, record = profile_event()
++        event = decoder.decode_all(record)[-1]
++        enqueue(event, {'level':level})
++    decoder, record = profile_event()
++    event = decoder.decode_all(record)[-1]
++    enqueue(event, {'class_id':11})
++    rows = bridge.inbox.poll()
++    assert len(rows) == 3
++    assert len([r for r in rows if r['payload']['sample_kind'] == 'CREATE']) == 1
++    assert [r['payload']['level'] for r in rows if r['payload'].get('sample_kind') == 'VALUES'
++            and 'level' in r['payload']] == [79]
++    assert any(r['payload'].get('class_id') == 11 and 'level' not in r['payload'] for r in rows)
+--- before/tests/test_server_composition_20261030.py
++++ after/tests/test_server_composition_20261030.py
+@@ -58,6 +58,80 @@
+     assert agent.search_skill is None and agent.visual_approach is None
+ 
+ 
++def test_server_default_sensor_decodes_real_bgra_strip_without_vision_dependencies(tmp_path):
++    # Replace only the OS pixel source. Sensor selection, threaded buffering,
++    # AIPC5 grid decoding/reassembly and runtime ingestion remain production code.
++    code = '''
++import importlib.abc, json, sys, time
++class Block(importlib.abc.MetaPathFinder):
++    def find_spec(self, fullname, path=None, target=None):
++        forbidden = ('torch', 'ultralytics', 'cv2', 'wowbot.agent.perception',
++                     'wowbot.vision.world3d.tracking', 'wowbot.vision.world3d.candidate_tracker',
++                     'wowbot.vision.world3d.learned_detector', 'wowbot.vision.world3d.v3')
++        if any(fullname == x or fullname.startswith(x+'.') for x in forbidden):
++            raise AssertionError('forbidden transport dependency: '+fullname)
++sys.meta_path.insert(0, Block())
++from pathlib import Path
++sys.path.insert(0, str(Path(sys.argv[2])/'tests'))
++from test_pixel_strip_resolution_profiles import frame
++from wowbot.agent import capture_selection
++from wowbot.agent.runtime import AgentRuntime
++from wowbot.agent.executor import RecordingExecutor
++class PixelSource:
++    def __init__(self, pid, backend):
++        assert pid == 77 and backend is sink.backend
++        self.current = None
++    def capture(self): return self.current
++class PassiveBackend:
++    def emergency_pressed(self): return False
++sink = RecordingExecutor()
++sink.backend = PassiveBackend()
++capture_selection.ClientCapture = PixelSource
++runtime = AgentRuntime(77, None, Path(sys.argv[1]), executor=sink, runtime_profile='SERVER')
++pixel = runtime.sensor.source
++assert type(pixel).__name__ == 'PixelSensor'
++def publish(sequence, kind, value):
++    before = pixel.published_updates
++    wire = 'AIPC5|synthetic|%d|0|1|%s|%s' % (sequence, kind, json.dumps(value, separators=(',', ':')))
++    pixel.capture.current = (frame(1024, 768, wire), 1024, 768)
++    deadline = time.monotonic()+5.
++    while pixel.published_updates <= before:
++        assert time.monotonic() < deadline, pixel.health
++        time.sleep(.005)
++    runtime.step(time.monotonic())
++try:
++    runtime.sensor.start()
++    publish(1, 'STATE', {'character_guid':'Player-1-1234', 'character_name':'Offline',
++        'addon_version':'0.9.80', 'monotonic_time':100., 'timestamp':12345,
++        'health':100, 'max_health':120, 'power':20, 'max_power':100, 'power_type':1,
++        'map_id':1409, 'active_quests':[], 'inventory':{'items':[]}})
++    assert runtime.agent.world.state['health'] == 100
++    assert runtime.agent.world.state['power'] == 20
++    publish(2, 'FAST', {'monotonic_time':100.1, 'health':95, 'max_health':120,
++                         'power':25, 'max_power':100, 'power_type':1})
++    assert runtime.agent.world.state['health'] == 95
++    assert runtime.agent.world.state['power'] == 25
++    assert runtime.agent.world.state['health_sample_time'] == 100.1
++    assert runtime.agent.world.state['power_sample_time'] == 100.1
++    assert pixel.completed_full_states == 1 and pixel.fresh_fast_packets == 1
++    assert runtime.perception is None and runtime.vision_dataset is None
++    assert runtime.agent.mode.value == 'MANUAL' and not sink.commands
++finally:
++    runtime.close()
++assert runtime.sensor._sensors['telemetry'].thread is None or not runtime.sensor._sensors['telemetry'].thread.is_alive()
++print('server BGRA transport isolated')
++'''
++    root = Path(__file__).parents[1]
++    env = {**os.environ, 'PYTHONPATH': str(root/'src'),
++           'AIPC_CAPTURE_PROCESS': '0', 'AIPC_CAPTURE_BACKEND': 'gdi',
++           'AIPC_PACKET_TELEMETRY': '0', 'AIPC_SEMANTIC_ENABLED': '0',
++           'AIPC_REFERENCE_CATALOG': str(tmp_path/'absent.sqlite3')}
++    result = subprocess.run([sys.executable, '-B', '-c', code, str(tmp_path/'runtime'), str(root)],
++                            env=env, capture_output=True, text=True, timeout=30)
++    assert result.returncode == 0, result.stdout+result.stderr
++    assert 'server BGRA transport isolated' in result.stdout
++
++
+ def test_common_coordinate_values_keep_legacy_import_identity():
+     from wowbot.coordinates import PixelRect, ScreenPoint, BearingEstimate
+     from wowbot.vision.world3d.models import PixelRect as OldRect, ScreenPoint as OldPoint
+--- before/tests/test_unit_fields_20261027.py
++++ after/tests/test_unit_fields_20261027.py
+@@ -35,21 +35,25 @@
+ TARGET = player_raw(1402, 0x0B578799)
+ 
+ 
+-def unit_tail_bytes(*, target=TARGET, health=102625, max_health=120736, reach=7.):
++def unit_tail_bytes(*, target=TARGET, health=102625, max_health=120736, reach=7., owner=False, identity=bytes(6)):
+     b = struct.pack("<III", 0, 0, 0) + struct.pack("<I", 0) + struct.pack("<Ii", 0, 0)
+     b += ZERO*2                        # Charm, Summon
++    if owner: b += ZERO                 # Critter
+     b += ZERO                          # CharmedBy
+     b += ZERO*2                        # SummonedBy, CreatedBy
+     b += ZERO*2                        # DemonCreator, LookAtControllerTarget
+     b += packed(target) if target else ZERO
+     b += ZERO + struct.pack("<Q", 0) + ZERO*2
+     b += struct.pack("<iiiII", 0, 0, 0, 0, 0)      # ChannelData
+-    b += struct.pack("<bI", 0, 0) + bytes(6) + struct.pack("<I", 0)
+-    b += struct.pack("<q", health) + bytes(8*10) + struct.pack("<q", max_health)
++    b += struct.pack("<bI", 0, 0) + identity + struct.pack("<I", 0)
++    b += struct.pack("<q", health) + bytes(8*10)
++    if owner: b += bytes(8*10)           # owner regen fields
++    b += struct.pack("<q", max_health)
+     b += struct.pack("<i", 70) + bytes(4*5) + bytes([0]) + struct.pack("<i", 14)
+     for _ in range(3):
+         b += bytes(4*3+2+2+4+1+1) + bytes([0])      # VirtualItem + its 2 bits
+     b += struct.pack("<IIII", 0x88840, 0, 0, 0) + struct.pack("<I", 0) + bytes(8)
++    if owner: b += bytes(4)              # ranged attack time
+     b += struct.pack("<ff", 3.495, reach)
+     return b
+ 
+--- before/tools/build_client_catalog.py
++++ after/tools/build_client_catalog.py
+@@ -0,0 +1,280 @@
++"""Import local decoded DB2 data to a new indexed SQLite reference catalog.
++
++The C# exporter uses pinned DBCD plus WoWDBDefs layouts. No script is ever
++executed: simple pathID assignments are parsed as data and ambiguous scenes
++are retained as unresolved. Inventory does not mean every table is decoded.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++from pathlib import Path
++import re
++import sqlite3
++import struct
++import sys
++from uuid import uuid4
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1]/"src"))
++from wowbot.quests.scene_resolver import index_relations
++
++
++def sha256(path):
++    value = hashlib.sha256()
++    with Path(path).open("rb") as stream:
++        for block in iter(lambda: stream.read(1024 * 1024), b""):
++            value.update(block)
++    return value.hexdigest()
++
++
++def source_metadata(path):
++    with path.open("rb") as stream:
++        raw = stream.read(204)
++    if len(raw) < 204 or raw[:4] != b"WDC5":
++        return {"format": raw[:4].decode("ascii", "replace"), "schema_label": None,
++                "header_rows": None, "layout_hash": None}
++    values = struct.unpack_from("<9IHH7I", raw, 136)
++    return {"format": "WDC5", "schema_label": raw[8:136].split(b"\0")[0].decode("ascii"),
++            "header_rows": values[0], "layout_hash": f"{values[5]:08X}"}
++
++
++def rows(path):
++    with Path(path).open(encoding="utf-8-sig") as stream:
++        for line in stream:
++            item = json.loads(line)
++            if item.get("type") == "row":
++                yield item["id"], item["values"]
++
++
++def build(output, source, decoded_dirs, definitions, definition_revision, associations, world_reference):
++    """Publish only a completed new catalog; failed imports leave no usable file."""
++    output = Path(output)
++    if output.exists():
++        raise FileExistsError(output)
++    temporary = output.with_name(output.name + ".partial-" + uuid4().hex)
++    try:
++        _build(temporary, source, decoded_dirs, definitions, definition_revision, associations, world_reference)
++        if output.exists():
++            raise FileExistsError(output)
++        temporary.rename(output)
++    finally:
++        temporary.unlink(missing_ok=True)
++
++
++def _build(output, source, decoded_dirs, definitions, definition_revision, associations, world_reference):
++    output = Path(output)
++    if output.exists():
++        raise FileExistsError(output)
++    output.parent.mkdir(parents=True, exist_ok=True)
++    connection = sqlite3.connect(output)
++    try:
++        connection.executescript("""
++        PRAGMA journal_mode=DELETE;
++        CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
++        CREATE TABLE source_files(table_name TEXT PRIMARY KEY,path TEXT,sha256 TEXT,bytes INTEGER,
++          format TEXT,schema_label TEXT,layout_hash TEXT,header_rows INTEGER,decoded_rows INTEGER,
++          status TEXT NOT NULL,definition_sha256 TEXT);
++        CREATE TABLE db2_rows(table_name TEXT,id INTEGER,record_json TEXT NOT NULL,
++          PRIMARY KEY(table_name,id)) WITHOUT ROWID;
++        CREATE TABLE locations(id INTEGER PRIMARY KEY,x REAL,y REAL,z REAL,rot_json TEXT);
++        CREATE TABLE path_nodes(id INTEGER PRIMARY KEY,path_id INTEGER,sequence INTEGER,location_id INTEGER);
++        CREATE INDEX ix_path_nodes_path ON path_nodes(path_id,sequence);
++        CREATE TABLE scene_paths(package_id INTEGER,path_id INTEGER,script_id INTEGER,
++          source_member_id INTEGER,PRIMARY KEY(package_id,path_id,script_id));
++        CREATE INDEX ix_scene_path ON scene_paths(path_id);
++        CREATE TABLE quest_routes(quest_id INTEGER PRIMARY KEY,status TEXT,route_json TEXT);
++        CREATE TABLE quest_links(quest_id INTEGER,table_name TEXT,record_id INTEGER,
++          PRIMARY KEY(quest_id,table_name,record_id)) WITHOUT ROWID;
++        CREATE TABLE poi_blobs(id INTEGER PRIMARY KEY,quest_id INTEGER,map_id INTEGER,ui_map_id INTEGER);
++        CREATE INDEX ix_poi_quest ON poi_blobs(quest_id);
++        CREATE TABLE poi_points(id INTEGER PRIMARY KEY,blob_id INTEGER,x REAL,y REAL,z REAL);
++        CREATE INDEX ix_poi_blob ON poi_points(blob_id,id);
++        CREATE TABLE scene_scripts(package_id INTEGER,script_id INTEGER,source_member_id INTEGER,
++          PRIMARY KEY(package_id,script_id)) WITHOUT ROWID;
++        CREATE TABLE spell_effects(id INTEGER PRIMARY KEY,spell_id INTEGER,effect INTEGER,aura INTEGER,
++          trigger_spell INTEGER,difficulty_id INTEGER,misc1 INTEGER,misc2 INTEGER);
++        CREATE INDEX ix_spell_effect_spell ON spell_effects(spell_id);
++        CREATE INDEX ix_spell_effect_kind ON spell_effects(effect,aura);
++        """)
++        meta = {"schema_version": 3, "source_kind": "LOCAL_EXTRACTED_CLIENT_DB2",
++                "definitions_revision": definition_revision, "decoder": "DBCD 2.3.0",
++                "schema_label_is_live_build": False, "live_build_validation": "NOT_VALIDATED",
++                "network_runtime_dependency": False,
++                "world_reference_sha256": sha256(world_reference),
++                "reviewed_scene_exceptions_enabled": associations is not None}
++        connection.executemany("INSERT INTO metadata VALUES (?,?)", [(k, json.dumps(v)) for k, v in meta.items()])
++        for path in sorted(Path(source).glob("*.db2")):
++            header = source_metadata(path)
++            definition = Path(definitions) / (path.stem + ".dbd")
++            connection.execute("INSERT INTO source_files VALUES (?,?,?,?,?,?,?,?,?,?,?)", (
++                path.stem, str(path.resolve()), sha256(path), path.stat().st_size,
++                header["format"], header["schema_label"], header["layout_hash"], header["header_rows"],
++                None, "INVENTORIED_NOT_DECODED", sha256(definition) if definition.is_file() else None))
++        decoded = {}
++        for folder in decoded_dirs:
++            for path in sorted(Path(folder).glob("*.jsonl")):
++                # Last explicit export directory wins; never combine versions.
++                if path.stat().st_size:
++                    decoded[path.stem] = path
++        for table, path in decoded.items():
++            with path.open(encoding="utf-8-sig") as stream:
++                table_meta = json.loads(stream.readline())
++            if table_meta.get("type") != "table" or table_meta["name"] != table:
++                raise ValueError("Invalid decoded table metadata")
++            source_info = connection.execute(
++                "SELECT layout_hash,sha256,definition_sha256 FROM source_files WHERE table_name=?", (table,)).fetchone()
++            if (source_info is None or source_info != (
++                    table_meta.get("layout_hash"), table_meta.get("source_sha256"), table_meta.get("definition_sha256"))):
++                raise ValueError("DB2/DBD export provenance mismatch for " + table)
++            count = 0
++            for record_id, value in rows(path):
++                connection.execute("INSERT INTO db2_rows VALUES (?,?,?)", (table, record_id, json.dumps(value, separators=(",", ":"))))
++                quest_id = value.get("QuestID")
++                if table in {"QuestV2", "QuestV2CliTask"}:
++                    quest_id = record_id
++                if type(quest_id) is int and quest_id > 0:
++                    connection.execute("INSERT INTO quest_links VALUES (?,?,?)", (quest_id, table, record_id))
++                if table == "Location":
++                    point = value["Pos"]
++                    if len(point) != 3 or not all(type(v) in {int, float} and math.isfinite(v) for v in point):
++                        raise ValueError("Invalid Location XYZ")
++                    connection.execute("INSERT INTO locations VALUES (?,?,?,?,?)", (record_id, *point, json.dumps(value["Rot"])))
++                elif table == "PathNode":
++                    connection.execute("INSERT INTO path_nodes VALUES (?,?,?,?)", (
++                        record_id, value["PathID"], value["Sequence"], value["LocationID"]))
++                elif table == "QuestPOIBlob":
++                    connection.execute("INSERT INTO poi_blobs VALUES (?,?,?,?)", (
++                        record_id, value["QuestID"], value["MapID"], value["UiMapID"]))
++                elif table == "QuestPOIPoint":
++                    connection.execute("INSERT INTO poi_points VALUES (?,?,?,?,?)", (
++                        record_id, value["QuestPOIBlobID"], value["X"], value["Y"], value["Z"]))
++                elif table == "SpellEffect":
++                    misc = value["EffectMiscValue"]
++                    connection.execute("INSERT INTO spell_effects VALUES (?,?,?,?,?,?,?,?)", (
++                        record_id, value["SpellID"], value["Effect"], value["EffectAura"],
++                        value["EffectTriggerSpell"], value["DifficultyID"], misc[0], misc[1]))
++                count += 1
++            if count != table_meta["row_count"]:
++                raise ValueError("Decoded row count mismatch for " + table)
++            connection.execute("UPDATE source_files SET decoded_rows=?,status='DECODED_AVAILABLE_ROWS' WHERE table_name=?", (count, table))
++            connection.commit()
++            print(json.dumps({"table": table, "imported": count}), flush=True)
++
++        _index_scene_paths(connection)
++        print(json.dumps({"automatic_scene_resolution": index_relations(connection, world_reference)}), flush=True)
++        if associations is not None:
++            _link_quests(connection, associations, world_reference)
++        if sha256(world_reference) != meta["world_reference_sha256"]:
++            raise ValueError("Existing TDB changed during read-only catalog construction")
++        if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
++            raise ValueError("SQLite integrity check failed")
++        connection.commit()
++    finally:
++        connection.close()
++
++
++def _table(connection, name):
++    return {row_id: json.loads(value) for row_id, value in connection.execute(
++        "SELECT id,record_json FROM db2_rows WHERE table_name=?", (name,))}
++
++
++def _index_scene_paths(connection):
++    scripts = _table(connection, "SceneScriptText")
++    # Only plain assignments to pathID are supported. Player-condition
++    # branches with several paths remain indexed raw, never picked at random.
++    paths = {}
++    for key, value in scripts.items():
++        text = re.sub(r"--\[\[.*?\]\]", "", value.get("Script", ""), flags=re.S)
++        text = re.sub(r"--[^\r\n]*", "", text)
++        found = {int(x) for x in re.findall(r"(?:\bpathID\s*=\s*|\bLoadPath\s*\(\s*)(\d+)\b", text) if int(x) > 0}
++        if len(found) == 1:
++            paths[key] = found.pop()
++    members = {}
++    for member_id, value in _table(connection, "SceneScriptPackageMember").items():
++        members.setdefault(value["SceneScriptPackageID"], []).append((member_id, value))
++    chains = _table(connection, "SceneScript")
++    packages = _table(connection, "SceneScriptPackage")
++    for package_id in packages:
++        pending, visited_packages, seen_scripts = [package_id], set(), set()
++        while pending:
++            current = pending.pop()
++            if current in visited_packages:
++                continue
++            visited_packages.add(current)
++            for member_id, value in members.get(current, ()):
++                child = value.get("ChildSceneScriptPackageID")
++                if child:
++                    pending.append(child)
++                chain = [value.get("SceneScriptID")]
++                while chain:
++                    script_id = chain.pop()
++                    if not script_id or script_id in seen_scripts:
++                        continue
++                    seen_scripts.add(script_id)
++                    connection.execute("INSERT INTO scene_scripts VALUES (?,?,?)", (package_id, script_id, member_id))
++                    links = chains.get(script_id, {})
++                    chain.extend(links.get(key) for key in ("FirstSceneScriptID", "NextSceneScriptID"))
++                    path_id = paths.get(script_id)
++                    if path_id is not None:
++                        connection.execute("INSERT OR IGNORE INTO scene_paths VALUES (?,?,?,?)", (
++                            package_id, path_id, script_id, member_id))
++
++
++def _link_quests(connection, associations, world_reference):
++    manifest = json.loads(Path(associations).read_text(encoding="utf-8-sig"))
++    world = sqlite3.connect(Path(world_reference).resolve().as_uri() + "?mode=ro", uri=True)
++    world.row_factory = sqlite3.Row
++    try:
++        for relation in manifest["bindings"]:
++            existing = connection.execute("SELECT route_json FROM quest_routes WHERE quest_id=?", (relation["quest_id"],)).fetchone()
++            if existing:
++                if json.loads(existing[0])["scene_package"] != relation["scene_package_id"]:
++                    raise ValueError("Automatic/reviewed scene relation conflict")
++                continue  # An automatic structural resolution owns this route.
++            candidates = {r[0] for r in connection.execute(
++                "SELECT DISTINCT package_id FROM quest_scene_candidates WHERE quest_id=? AND status='RESOLVED' AND conditional=0", (relation["quest_id"],))}
++            if len(candidates)>1 or candidates and relation["scene_package_id"] not in candidates:
++                raise ValueError("Reviewed exception conflicts with automatic scene candidates")
++            quest = world.execute("SELECT ID,LogTitle FROM quest_template WHERE ID=?", (relation["quest_id"],)).fetchone()
++            objectives = list(world.execute("SELECT * FROM quest_objectives WHERE QuestID=?", (relation["quest_id"],)))
++            checkpoint = next((dict(r) for r in objectives if r["ObjectID"] == relation["checkpoint_object_id"]), None)
++            arrival = next((dict(r) for r in objectives if r["ObjectID"] == relation["arrival_object_id"]), None)
++            routes = list(connection.execute("SELECT DISTINCT path_id FROM scene_paths WHERE package_id=?", (relation["scene_package_id"],)))
++            if quest is None or checkpoint is None or arrival is None or len(routes) != 1:
++                raise ValueError("Unresolved quest/scene association: " + str(relation["quest_id"]))
++            path_id = routes[0][0]
++            points = list(connection.execute("""SELECT n.sequence,n.id,n.location_id,l.x,l.y,l.z,l.rot_json
++              FROM path_nodes n JOIN locations l ON l.id=n.location_id WHERE n.path_id=? ORDER BY n.sequence""", (path_id,)))
++            if len(points) != checkpoint["Amount"] + 1 or len({p[0] for p in points}) != len(points):
++                raise ValueError("Quest amount does not match the scene path")
++            route = {"quest_id": quest["ID"], "title": quest["LogTitle"], "scene_package": relation["scene_package_id"],
++                     "path_id": path_id, "map_id": relation["instance_id"], "ring_objective_entry": checkpoint["ObjectID"],
++                     "target_objective_entry": arrival["ObjectID"], "checkpoint_objective": checkpoint, "arrival_objective": arrival,
++                     "rings": [[*p[3:6], *json.loads(p[6])[2:3]] for p in points[:-1]],
++                     "target": [*points[-1][3:6], *json.loads(points[-1][6])[2:3]],
++                     "association_kind": manifest["association_kind"], "association_evidence": relation["evidence"],
++                     "coordinate_source": "LOCAL_DB2_SCENE_PATH_LOCATION", "live_validation": "NOT_VALIDATED",
++                     "source_node_ids": [p[1] for p in points], "source_location_ids": [p[2] for p in points]}
++            connection.execute("INSERT INTO quest_routes VALUES (?,?,?)", (quest["ID"], "REFERENCE_READY", json.dumps(route)))
++            connection.execute("INSERT OR REPLACE INTO quest_scene_resolution VALUES (?,?,?,?,?,?)", (
++                quest["ID"], "REVIEWED_EXCEPTION", "NO_COMPLETE_AUTOMATIC_CHAIN_REVIEWED_REFERENCE_USED",
++                json.dumps([relation["scene_package_id"]]), json.dumps([path_id]), "REFERENCE_READY"))
++        connection.execute("INSERT INTO metadata VALUES (?,?)", ("quest_association_sha256", json.dumps(sha256(associations))))
++    finally:
++        world.close()
++
++
++if __name__ == "__main__":
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--output", required=True)
++    parser.add_argument("--db2", required=True)
++    parser.add_argument("--decoded", action="append", required=True)
++    parser.add_argument("--definitions", required=True)
++    parser.add_argument("--definition-revision", required=True)
++    parser.add_argument("--associations", help="Optional reviewed exceptions; automatic resolution always runs")
++    parser.add_argument("--world-reference", required=True)
++    args = parser.parse_args()
++    build(args.output, args.db2, args.decoded, args.definitions, args.definition_revision,
++          args.associations, args.world_reference)
+--- before/tools/build_power_reference.py
++++ after/tools/build_power_reference.py
+@@ -0,0 +1,47 @@
++"""Build a small verified power-unit reference from an existing DB2 export."""
++import argparse
++import json
++from pathlib import Path
++
++from build_client_catalog import sha256, source_metadata
++
++
++def build(source, definition, decoded, output):
++    source, definition, decoded, output = map(Path, (source, definition, decoded, output))
++    with decoded.open(encoding='utf-8-sig') as stream:
++        manifest = json.loads(next(stream))
++        rows = [json.loads(line) for line in stream]
++    if (manifest.get('name') != 'PowerType' or manifest.get('source_sha256') != sha256(source)
++            or manifest.get('definition_sha256') != sha256(definition)
++            or manifest.get('layout_hash') != source_metadata(source).get('layout_hash')
++            or len(rows) != manifest.get('row_count')):
++        raise ValueError('power reference source/export provenance mismatch')
++    profiles, seen = [], set()
++    for row in rows:
++        value = row['values']
++        kind, divisor = value['PowerTypeEnum'], value['DisplayModifier']
++        if (row.get('type') != 'row' or row.get('table') != 'PowerType'
++                or type(kind) is not int or not 0 <= kind <= 255 or kind in seen
++                or type(divisor) is not int or not 0 < divisor <= 100_000
++                or type(value['MinPower']) is not int):
++            raise ValueError('invalid power reference row')
++        seen.add(kind)
++        profiles.append({'id': row['id'], 'power_type': kind, 'display_modifier': divisor,
++                         'minimum_raw': value['MinPower'], 'token': value['NameGlobalStringTag']})
++    result = {'schema': 'aipc.power-reference.v1', 'source_sha256': manifest['source_sha256'],
++              'definition_sha256': manifest['definition_sha256'], 'layout_hash': manifest['layout_hash'],
++              'schema_label': source_metadata(source).get('schema_label'),
++              'live_build_verified': False, 'rows': sorted(profiles, key=lambda p: p['power_type'])}
++    output.parent.mkdir(parents=True, exist_ok=True)
++    with output.open('x', encoding='utf-8') as stream:
++        json.dump(result, stream, indent=2)
++        stream.write('\n')
++    return len(profiles)
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser(description=__doc__)
++    for flag in ('source', 'definition', 'decoded', 'output'):
++        parser.add_argument('--'+flag, required=True)
++    args = parser.parse_args()
++    print(json.dumps({'power_types': build(args.source, args.definition, args.decoded, args.output)}))

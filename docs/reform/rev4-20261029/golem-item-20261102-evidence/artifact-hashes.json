@@ -1,0 +1,16 @@
+{
+  "before.json": "1785e27843b187499b91118a6876516bce50f8e9210cff53412e53364622f5b5",
+  "before.zip": "f23a64fbc759cdafa4d6e76316653f1e18dec9cee151f5f484bf12c998aa0383",
+  "catalogue-probe.json": "cf0223d2a48bd66cac86b3df5554efd7ff15adb6b314801bc52db609058e798a",
+  "changed-source.zip": "96b1dd513c2bd487443ce4ddfa0f354adcce47785b817aae8d39e152eb6f546d",
+  "changes.json": "d3de95bda36845856e45eead36abc448dd4181d5b66c7f5e1a83d2dff1562b58",
+  "changes.patch": "ac3a52d5bd6ca9ec87157de49ad55ed6a289d521806054c57c9625eaefa943f1",
+  "live-summary.json": "929f690c0204cb31001354c275b6cb55afb1164265b37fb4cac18c282d472c9f",
+  "regression-final-command.json": "38365462d49f60b5d29fddb802040436453037335eea7e4977c42e1d322b593e",
+  "regression-final-junit.xml": "284a02ee09ae03764787a606aac10d6ef3ee7fba9d6d31e0b4f80c14df083a79",
+  "regression-final-result.json": "b258e2c502543fc064e7f8cab3369237b2db15362492773dc37c3e51014cc557",
+  "regression-final.log": "e5c31fd46ed69f15c90aab3a7f1c3f6fb4bbba8a88e2f617a47799245c74cc00",
+  "run_tests.py": "2faa7f4351e2d66e7cbfc9d40294ba7305630b2e4a929e97609b6efd57257509",
+  "save_evidence.py": "d80c18d3f769bf25f5458a16857a945eae6455a30f3a3c75539e98fe610af55a",
+  "verification.json": "e4db9a88a48ff57b01179e34afca30d5d3e22567ddce8676b838041cfc6fb3c6"
+}

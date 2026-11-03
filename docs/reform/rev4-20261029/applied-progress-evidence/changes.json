@@ -1,0 +1,109 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "5b927fd3c3def428db96d7955f002a924bf90c9ab443200b874ac6cd61c21d5d",
+      "after_sha256": "2dfde1ae296b8018c7f0247496462324544524b0da75eded07ec2885f3e46d95"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "ee99c6d83488a92454ff77dc32c6621383081cb0fb83626dc289c618a3253c16",
+      "after_sha256": "5cf4c8c96633baf91db8d93f5fa54e2d132856b33f3803480f8826fbf8215733"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "7068547b6716b1a4777e3358803015b9f363d57a27c784cacfded2a0e2c759fd",
+      "after_sha256": "c7b08de2f432ef67754381de01d153e94e7e75b7c015ca4cad6aebd31b415e5a"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "f933cea07db463e7e4de66f16c1e1684cf185ad47c02ca85fea27d200bf730c3",
+      "after_sha256": "49c84d01b1a8cd86ea9076798b3eb4c92873efc5b613607bba04ddadf7bb2723"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P2_APPLIED_PACKET_PROGRESS.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "7a4363df09719c30939472a04c69722ab25d20343e2944ab3c3fb64de7885cda"
+    },
+    {
+      "path": "src/wowbot/agent/observation_ingestion.py",
+      "status": "MODIFIED",
+      "before_sha256": "eb66de12edd39f33d3871b2d5640fc8584ea4a449f583221de0a86f9dd5c35a4",
+      "after_sha256": "87a52d2868623669cb7d37a7c7bce64545268ddaccf8fb17354a8ec425bbc455"
+    },
+    {
+      "path": "src/wowbot/agent/runtime_packet_progress.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "5725c6d2439ed07e58bf3486281c250314cb026ae6e4c11178bd5cfba5dc0733"
+    },
+    {
+      "path": "src/wowbot/agent/runtime_packet_source.py",
+      "status": "MODIFIED",
+      "before_sha256": "ea3ce93a694ad3b5fb29bfaa9be07527e7c5948b5280c694bfc7a768850ef9ea",
+      "after_sha256": "f1e984b36cf55089a00b92f926f5753b75e67a07b64e991657a4dc2f95a22cdd"
+    },
+    {
+      "path": "src/wowbot/agent/world.py",
+      "status": "MODIFIED",
+      "before_sha256": "ad153556c3fb267c2558776912ddb85881f38c6a8a8c7993fb5dd329cde3fa92",
+      "after_sha256": "4bb3118c3b6ad30a397597dcbd6eac13f6e9e0eedc29c91be455c50b6e2174c4"
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "status": "MODIFIED",
+      "before_sha256": "dcf379e94be14c7f6abd612aa9f4e11b78c116ae33c0dfd6962864912db66593",
+      "after_sha256": "5c7ec037a368b42c7e1d60d9de9c6bdc63d536ea403d2e44c1ce9bac594995d0"
+    },
+    {
+      "path": "src/wowbot/agent/world_query.py",
+      "status": "MODIFIED",
+      "before_sha256": "276ff6b91ffd900eab06be2a3c444236f9ab39212716616fbe7c8dcc0b0a380b",
+      "after_sha256": "ec76a746d7098f740521f0447598215b7638762d089768a9784a7935993906c6"
+    },
+    {
+      "path": "src/wowbot/packetio/forwarder.py",
+      "status": "MODIFIED",
+      "before_sha256": "ff474048c1ae1348fae4b1b22c5291ea41460acd8a5635d285ec33d4094b35af",
+      "after_sha256": "73612742a8e886b12515ee82f2b178c595cb2e3de60a339e6968dd9ed361fb36"
+    },
+    {
+      "path": "src/wowbot/packetio/inbox.py",
+      "status": "MODIFIED",
+      "before_sha256": "e59af5b2481675d16b3936b7590c69890691c8e1c50a19cd5ef268cc812ff80c",
+      "after_sha256": "582ad24b177861ad4d54ccd2f27779b585785284c6e33783d43f579a752b72c2"
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "status": "MODIFIED",
+      "before_sha256": "1013876ee4afc3b30e0b8fc0a2beae7234c661a7470c6166b7588529b699c69e",
+      "after_sha256": "162a0c6683f15d033bcb3370872a4143211d4586d8b836bf7c7eb9e5aea833fe"
+    },
+    {
+      "path": "src/wowbot/packetio/stream_progress.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "b9e5c745e69f0af1807371b3b7d07b2033d20d1885daeb6f74ac0022df46b336"
+    },
+    {
+      "path": "src/wowbot/packetio/ymir_bridge.py",
+      "status": "MODIFIED",
+      "before_sha256": "db45b3920a9f35f888a6779ada47faf23a1dfc58ac6e95dc510e421cf72c8572",
+      "after_sha256": "1216a8d558130f89535a6f46dc3c51f3335693b2dd459553096549b7d607e73a"
+    },
+    {
+      "path": "tests/test_applied_packet_progress_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "a9b19f8b9a39f72fc8c1f3299cececa032143e87514a98080eb315c362981f10"
+    }
+  ],
+  "modified": 13,
+  "added": 4,
+  "removed": 0
+}

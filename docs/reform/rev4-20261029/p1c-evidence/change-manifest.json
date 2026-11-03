@@ -1,0 +1,170 @@
+{
+  "scope": "REV4 P1-C",
+  "project": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight claude\\ai_visual_bot_midnight 1.2\\projekt",
+  "baseline_files": 1106,
+  "baseline_sha256": "f292cae3fc4b1f76648df03624016e4be901f26352603ac4921e7caab9ed4eed",
+  "changes": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "operation": "modified",
+      "before_sha256": "2e848fb5ae158d3af3ceb3842ead2977ae5a2ba816f39bcbb1f2d33af7363ed4",
+      "after_sha256": "93336c21af91567a9431da831d2850658c309929ef4dcf053f161d695632bc6a",
+      "before_bytes": 246979,
+      "after_bytes": 248259
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "operation": "modified",
+      "before_sha256": "9c32f40c3894a11a2367fdd4815decea90977ce232cedf5ac2cf501f21e6841e",
+      "after_sha256": "88bf601bd93a6daf21e4820b9d6cd441b3d9938230868d158d5d6ef784b132dc",
+      "before_bytes": 1027789,
+      "after_bytes": 1030123
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "operation": "modified",
+      "before_sha256": "56ef04ac1db489e7870fd6a52f020e3276cdc67397183368ea2fdc013174469a",
+      "after_sha256": "a6431c08c769e25236ac9f75cd1e2b3736a5eb2123a252a470f93bd2c29193ad",
+      "before_bytes": 19856,
+      "after_bytes": 20071
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1C_NAVIGATION_QUERIES.md",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "32de6b69b92bb66a6f7424727a931113816bac9da885876f817c077cc0ff926d",
+      "before_bytes": null,
+      "after_bytes": 6942
+    },
+    {
+      "path": "src/wowbot/agent/engine.py",
+      "operation": "modified",
+      "before_sha256": "5813de3d5458179d17857db1dd0ce2bbc23c9a7e4b22bfa87e2685a77a19e146",
+      "after_sha256": "35c0611a2f8b3dace6131b5e39c05a69d100b9a898c186b8171f0ef8d2a90ea3",
+      "before_bytes": 46546,
+      "after_bytes": 46332
+    },
+    {
+      "path": "src/wowbot/agent/packet_entity_facts.py",
+      "operation": "modified",
+      "before_sha256": "e9f3c67a97b969fe17e95cdb890c8d851a34e976a12a7b2101d2aacb96aec9fe",
+      "after_sha256": "0a716ae284c1b8f0f2f627038621d80ee02a0c8a0129ba227301dca2df50eef0",
+      "before_bytes": 46671,
+      "after_bytes": 47063
+    },
+    {
+      "path": "src/wowbot/agent/planner.py",
+      "operation": "modified",
+      "before_sha256": "390fd18712486a7202fc3d64b8c9a26240cfe23557b148f41f825a6ece53cef9",
+      "after_sha256": "4d10b21a42df007ac34a498f60c83a0a2fdd08d9c0e9518a4a4212a1d25cfec2",
+      "before_bytes": 51166,
+      "after_bytes": 51552
+    },
+    {
+      "path": "src/wowbot/agent/quest_location_planning.py",
+      "operation": "modified",
+      "before_sha256": "9371b3139ffff5270a6f701bbc212ea5d6d3588aca6dfa0ca5ae30d090e572bf",
+      "after_sha256": "9ff0969abcb5f2377df7ed0a2b79bb1aafd4a31e7e1925a37904c2e808174f74",
+      "before_bytes": 72958,
+      "after_bytes": 73347
+    },
+    {
+      "path": "src/wowbot/agent/quest_objective_planning.py",
+      "operation": "modified",
+      "before_sha256": "f89e9cf19e956d7a4a0d80e6c5395c4131dc14066641f7306c632559931a552a",
+      "after_sha256": "0a657816e5e91ed3f081c9ef927c74451ce01aa48c5ad8d90e6d4348f3125e22",
+      "before_bytes": 54350,
+      "after_bytes": 54544
+    },
+    {
+      "path": "src/wowbot/agent/quest_planning.py",
+      "operation": "modified",
+      "before_sha256": "de3b8eb217353895c60a498b1d08b91e5d6a1ff2c3e4811916519bb924a52fd6",
+      "after_sha256": "3a94071777bf3cf5ddf8aa585e9070e188ad84b9415b5890d4e3408279877e38",
+      "before_bytes": 32874,
+      "after_bytes": 33197
+    },
+    {
+      "path": "src/wowbot/agent/quest_reference_matching.py",
+      "operation": "modified",
+      "before_sha256": "01db8c8f8a5b9edb5b5c5aab17b686a5e0b3c2ed72712b64839c66b5de203377",
+      "after_sha256": "8716d7d574b290601910c50c20408f90a9fa918fbc48ddb43d5e35153e2259ce",
+      "before_bytes": 1436,
+      "after_bytes": 1650
+    },
+    {
+      "path": "src/wowbot/agent/travel_mode.py",
+      "operation": "modified",
+      "before_sha256": "8b5bc69aff6d8360bb196dc07759935819f852b7a63f78e6b60495f6c842fa13",
+      "after_sha256": "5f4d566c72e41a43f09d8c667061aabaf4f602035cbd9f6ca5b90234b29277d3",
+      "before_bytes": 30906,
+      "after_bytes": 31124
+    },
+    {
+      "path": "src/wowbot/query_ports.py",
+      "operation": "modified",
+      "before_sha256": "6afa207af1630d21f0bac462e881ef2e402d952ca82c49f3c9a932d4745e051b",
+      "after_sha256": "5a43e7319b9dc8ffc144cbf1a38a3923dbe8dfd6b810186a95dd387ad9b23a29",
+      "before_bytes": 512,
+      "after_bytes": 2278
+    },
+    {
+      "path": "tests/test_cave_quest_layer_flow_20261006.py",
+      "operation": "modified",
+      "before_sha256": "bae2f39161a41ddaa99422163b75dc4628ea0db7aecc010126e8111c138369b5",
+      "after_sha256": "adbbb7a8823b2c3d0c5806ab915fb2147536de25cd3fa601ad921ff9ce3df32b",
+      "before_bytes": 27788,
+      "after_bytes": 27869
+    },
+    {
+      "path": "tests/test_collect_relation_ambiguity_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "458a34c3a07f3dcf03e0a95bbc8ae80f6b640564237576c74e946e168b4787ea",
+      "before_bytes": null,
+      "after_bytes": 4604
+    },
+    {
+      "path": "tests/test_ghost_navigation_handoff_20261028.py",
+      "operation": "modified",
+      "before_sha256": "7de1f61fbf29dfa1e6ff6441e271fc2b46a0e7bac4b5c5690f013ae67f9290b7",
+      "after_sha256": "c0bf6468619e9159ecff08a1740901ed5750bc3f94f541de9836715e2c560a8a",
+      "before_bytes": 8796,
+      "after_bytes": 8974
+    },
+    {
+      "path": "tests/test_navigation_query_ports_20261029.py",
+      "operation": "added",
+      "before_sha256": null,
+      "after_sha256": "9ad0bfe4e6ea7da754047d3f378562f9a999ff17a06d37f974947dd623421001",
+      "before_bytes": null,
+      "after_bytes": 9227
+    },
+    {
+      "path": "tests/test_pit_layer_and_pins_20261005.py",
+      "operation": "modified",
+      "before_sha256": "ccfc5f5f478ebf9e5bd227fe467df73062415c1c0edb3fdf6d6146de96919303",
+      "after_sha256": "b08dd4b1a79ca42e376a68470ae773ac8ec96a289dd0a4ee5797e576971a1612",
+      "before_bytes": 17677,
+      "after_bytes": 17734
+    },
+    {
+      "path": "tests/test_pit_run_20261014.py",
+      "operation": "modified",
+      "before_sha256": "d6e6ceb1db92c08a1356552b4376a5715c01d7dbcd74e9a1b9f688e9d4140951",
+      "after_sha256": "454dae28016c5aec16e48a158c24a8101dcb9f67d751735a18d4bfeceabf96b1",
+      "before_bytes": 22770,
+      "after_bytes": 22934
+    },
+    {
+      "path": "tests/test_quest_object_lock_20261014.py",
+      "operation": "modified",
+      "before_sha256": "89602ae35c7cde51dfa246b8c95e7e5bed11ffbadc91fc16c1bd589f250bc98c",
+      "after_sha256": "d18b23138f139007ae5fcb00421201e6dfe8155173014d4cf7334ea04675f018",
+      "before_bytes": 16125,
+      "after_bytes": 16267
+    }
+  ],
+  "numbered_coverage_rows_preserved": 203,
+  "artifact_files_are_separate_from_change_inventory": true
+}

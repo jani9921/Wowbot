@@ -1,0 +1,13 @@
+{
+  "envelope": "aipc.packet-envelope.v2",
+  "stamp_is_authenticated": true,
+  "local_delivery_not_server_ack": true,
+  "legacy_v1_continuity": "UNSEQUENCED",
+  "gap_requires_packet_rebaseline": true,
+  "mailbox_losses_explicit": true,
+  "normal_coalescing_is_not_loss": true,
+  "old_native_fields_discarded_in_legacy_mode": true,
+  "native_ttls_extended": false,
+  "retained_state_complete": false,
+  "new_live_acceptance": false
+}

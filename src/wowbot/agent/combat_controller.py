@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .models import number
-from .target_manager import TargetManager
-from wowbot.skills.ability_rules import AbilityCandidate, AbilityRuleEngine
+from wowbot.combat.target.system import TargetManager
+from wowbot.combat.ability.evaluator import AbilityRuleEngine
+from wowbot.combat.ability.contracts import AbilityCandidate
 
 
 class CombatPhase(StrEnum):

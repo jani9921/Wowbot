@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import math
 
 from .models import Proposal, number
-from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
+from wowbot.vision_contracts import RUNTIME_SUBJECT_CONFIDENCE
 from .destination_distance import world_arrived
 
 
@@ -222,7 +222,7 @@ class VisualSearchPlanningPolicy:
         if (getattr(goal, "domain", None) != "QUEST" or busy or not state.get("active_quests")
                 or state.get("world_map_open") or state.get("is_in_combat")):
             return values
-        zone = self.active_quest_area(state, quest_areas)
+        zone = self.active_quest_area(state, quest_areas, quest_model=getattr(world, "quest_model", None))
         # Only a TDB quest-POI polygon is a known zone; an API point's 30 yd
         # circle keeps the former walk-to-the-point-then-search behaviour.
         if (zone is None or zone["search_area"].get("region_source") != "TDB_QUEST_POI_POLYGON"
@@ -268,11 +268,31 @@ class VisualSearchPlanningPolicy:
         return kept
 
     @classmethod
-    def active_quest_area(cls, state: dict, quest_areas=None) -> dict | None:
+    def active_quest_area(cls, state: dict, quest_areas=None, *, quest_model=None) -> dict | None:
         """The nearest unfinished quest's API objective area (WORLD_YARDS)."""
         from .planning_types import world_point
+        from .quest_model import objective_type
         quests = {str(quest.get("quest_id")): quest for quest in state.get("active_quests") or ()
                   if isinstance(quest, dict) and quest.get("is_complete") is not True}
+        # Generic area roaming must not reinterpret a resolved conversation
+        # as the raw API's creature/KILL credit after its local search fails.
+        # The canonical QuestModel, including subordinate semantic evidence,
+        # wins. Stateless callers use the same deterministic classifier.
+        non_roaming = {"TALK_TO", "INTERACT_NPC", "BUY", "SELL", "RETURN", "GOSSIP_CHOICE",
+                       "WAIT", "DEFEND", "SCRIPTED_EVENT", "VEHICLE", "FIELD_TURN_IN"}
+        ready = quest_model.ready() if quest_model is not None else ()
+        modeled = {str(record.quest_id) for record in quest_model.records.values()} if quest_model is not None else set()
+        kinds = {}
+        for qid, quest in quests.items():
+            if qid in modeled:
+                candidates = [obj.type for obj in ready if str(obj.objective_id).split(":", 1)[0] == qid]
+            else:
+                candidates = [objective_type(obj)[0] for obj in quest.get("objectives") or ()
+                              if isinstance(obj, dict) and obj.get("is_complete") is not True]
+            kind = next((kind for kind in candidates if kind not in non_roaming), None)
+            if kind is not None:
+                kinds[qid] = kind
+        quests = {qid: quest for qid, quest in quests.items() if qid in kinds}
         position = state.get("player_world_position") or {}
         px, py = number(position.get("x")), number(position.get("y"))
         if not quests or px is None or py is None:
@@ -292,8 +312,6 @@ class VisualSearchPlanningPolicy:
         if best is None:
             return None
         _, quest_id, point = best
-        objective = next((item for item in quests[quest_id].get("objectives") or ()
-                          if isinstance(item, dict) and item.get("is_complete") is not True), {})
         search_area = {"x": point["x"], "y": point["y"],
                        "coordinate_space": "WORLD_YARDS",
                        "instance_id": point.get("instance_id"),
@@ -319,7 +337,7 @@ class VisualSearchPlanningPolicy:
                                 "region_source": "TDB_QUEST_POI_POLYGON"})
         return {"quest_id": quests[quest_id].get("quest_id"),
                 "objective_id": f"{quest_id}:area",
-                "objective_type": str(objective.get("type") or "UNKNOWN").upper(),
+                "objective_type": kinds[quest_id],
                 "search_area": search_area}
 
     @staticmethod
@@ -372,6 +390,53 @@ class VisualSearchPlanningPolicy:
     ) -> VisualSearchPlanningResult:
         state = world.state
         values = list(proposals)
+        if (goal.domain == "QUEST" and not state.get("active_quests")
+                and not state.get("world_map_open") and not state.get("is_in_combat")
+                and any(p.skill == "OPEN_MAP"
+                        and p.parameters.get("purpose") == "DISCOVER_AVAILABLE_QUESTS"
+                        and blocked_until.get(p.key, 0) <= now for p in values)):
+            # User live 2026-10-19: after turn-in, unrelated NPC/player
+            # bodies kept replacing the map request indefinitely. Only an
+            # actual local quest cue (or reaching a live giver pin) justifies
+            # the earlier, bounded local-marker step. A bare UNKNOWN body is
+            # not a quest source. Keep the existing map cooldown/budgets.
+            from .quest_giver_evidence import is_symbol, subject_has_quest_symbol
+            from .map_poi_planning import MapPoiPlanningPolicy, reachable_records
+            world3d = [item for item in state.get("visual_candidates") or ()
+                       if isinstance(item, dict) and item.get("source") == "WORLD3D"]
+            local_quest_probe = any(
+                p.skill == "INSPECT" and blocked_until.get(p.key, 0) <= now
+                and ((p.parameters.get("source") == "MINIMAP_CV"
+                      and p.parameters.get("kind") in {
+                          "quest", "quest_giver", "quest_turn_in", "quest_related"})
+                     or (p.parameters.get("source") == "WORLD3D"
+                         and (is_symbol(p.parameters)
+                              or subject_has_quest_symbol(p.parameters, world3d)
+                              or any(edge.get("type") == "ABOVE"
+                                     and edge.get("belief") == "SUPPORTED"
+                                     for edge in p.parameters.get("visual_relations") or ()))))
+                for p in values)
+            # A distant supported symbol/body group may be too small for an
+            # immediate INSPECT; the normal bounded SEEK below must still be
+            # allowed to acquire it. This does not admit an unmarked body.
+            if not local_quest_probe and world3d_probe_count < 4:
+                local_quest_probe = any(
+                    marker.get("inspectable") is not False
+                    and (number(marker.get("stable_frames")) or 0) >= 3
+                    and (number(marker.get("confidence")) or 0) >= .24
+                    and (subject_has_quest_symbol(marker, world3d)
+                         or any(edge.get("type") == "ABOVE" and edge.get("belief") == "SUPPORTED"
+                                for edge in marker.get("visual_relations") or ()))
+                    and (active_perception.evaluate(marker, world, goal).get("rejection") or {}).get(
+                        "belief") not in {"SUPPRESSED", "REJECTED"}
+                    for marker in world3d)
+            at_api_giver = any(distance <= MapPoiPlanningPolicy.GIVER_AREA_YARDS
+                               for distance, _record, _destination in
+                               reachable_records(state, "available_quests"))
+            if world3d_probe_count >= 4 or not (local_quest_probe or at_api_giver):
+                return VisualSearchPlanningResult(
+                    tuple(p for p in values if p.skill not in {"INSPECT", "SEEK_VISUAL_CUE"}),
+                    camera_search_step, camera_search_next_at, camera_search_position)
         # User 2026-10-01: an unrelated selection (another player, a random
         # NPC) must not block the quest-giver search until it is cleared by
         # hand.  The agent may simply click the right unit, which replaces
@@ -404,7 +469,10 @@ class VisualSearchPlanningPolicy:
                 and not any(
                     p.skill == "MOVE" and p.parameters.get("require_navmesh") is True
                     and p.parameters.get("purpose") in {
-                        "LOCATE_TURN_IN_REGION", "LOCATE_QUEST_OBJECTIVE_REGION"}
+                        "LOCATE_TURN_IN_REGION", "LOCATE_QUEST_OBJECTIVE_REGION",
+                        "LOCATE_API_QUEST_GIVER"}
+                    and blocked_until.get(p.key, 0) <= now
+                    and not world_arrived(world, p.parameters)
                     for p in values)):
             distant = []
             from .quest_giver_evidence import subject_has_quest_symbol
@@ -608,7 +676,8 @@ class VisualSearchPlanningPolicy:
 
         if (goal.domain == "QUEST" and (not state.get("active_quests") or arrived_location
                                         or blind_selected_identity
-                                        or self.active_quest_area(state, quest_areas) is not None)
+                                        or self.active_quest_area(state, quest_areas,
+                                            quest_model=getattr(world, "quest_model", None)) is not None)
                 and search_target_absent and not state.get("world_map_open")
                 and not state.get("is_in_combat") and not actionable_location
                 and not relevant_target and not explicit_local and not inspectable_local
@@ -657,7 +726,7 @@ class VisualSearchPlanningPolicy:
                 and not any(proposal.skill == "SEEK_VISUAL_CUE" for proposal in values)
                 and camera_search_step >= 4 and now >= camera_search_next_at
                 and isinstance(state.get("player_world_position"), dict)):
-            area = self.active_quest_area(state, quest_areas)
+            area = self.active_quest_area(state, quest_areas, quest_model=getattr(world, "quest_model", None))
             if area is not None:
                 values = [proposal for proposal in values if proposal.skill != "OPEN_MAP"]
                 values.append(Proposal.make(

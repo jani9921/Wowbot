@@ -1,0 +1,121 @@
+[
+  {
+    "saved_pid": 7592,
+    "world_map": 0,
+    "start": {
+      "x": -8832.4736328125,
+      "y": -123.25965118408,
+      "z": 80.70339965820312,
+      "z_known": true,
+      "coordinate_space": "WORLD_YARDS"
+    },
+    "end": {
+      "x": -8829.3896484375,
+      "y": -122.5425033569336,
+      "z": 80.76321411132812,
+      "z_known": true,
+      "coordinate_space": "WORLD_YARDS"
+    },
+    "status": "READY",
+    "reason": "route_found",
+    "seconds": 7.7247494999319315,
+    "diagnostics": {
+      "available": true,
+      "router": "native_detour",
+      "instance_id": 0,
+      "tile_count": 844,
+      "endpoint_layer": "known",
+      "allowed_flags": 19,
+      "max_walkable_slope_degrees": 44.0,
+      "walking_policy": "GEOMETRY_GENTLE_WIDE",
+      "road_labels": false,
+      "native_walking_costs": true,
+      "emitted_segment_grade_checked": true,
+      "step_height_allowance_yards": 0.6,
+      "centered_margin": 2.5,
+      "walking_detour_verified": false,
+      "walking_detour_trials": 0,
+      "liquid_wading": false,
+      "reason": "route_found",
+      "route_polygon_count": 3,
+      "anchor_count": 4,
+      "cost": 8.189593827704813,
+      "wade_yards": 0.0,
+      "steep_climbs": 0
+    },
+    "path_anchors": [
+      {
+        "x": -8832.4736328125,
+        "y": -123.25965118408203,
+        "z": 81.12616729736328,
+        "instance_id": 0,
+        "coordinate_space": "WORLD_YARDS",
+        "source": "TRINITYCORE_MMAP"
+      },
+      {
+        "x": -8831.9990234375,
+        "y": -120.64928436279297,
+        "z": 81.19142150878906,
+        "instance_id": 0,
+        "coordinate_space": "WORLD_YARDS",
+        "source": "TRINITYCORE_MMAP"
+      },
+      {
+        "x": -8828.7900390625,
+        "y": -120.32061004638672,
+        "z": 81.38970184326172,
+        "instance_id": 0,
+        "coordinate_space": "WORLD_YARDS",
+        "source": "TRINITYCORE_MMAP"
+      },
+      {
+        "x": -8829.3896484375,
+        "y": -122.5425033569336,
+        "z": 81.28477478027344,
+        "instance_id": 0,
+        "coordinate_space": "WORLD_YARDS",
+        "source": "TRINITYCORE_MMAP"
+      }
+    ]
+  },
+  {
+    "saved_pid": 12912,
+    "world_map": 2444,
+    "start": {
+      "x": -485.07458496094,
+      "y": 2346.5861816406,
+      "z_known": false,
+      "coordinate_space": "WORLD_YARDS"
+    },
+    "end": {
+      "x": -483.0,
+      "y": 2246.0,
+      "z": 481.0,
+      "z_known": true,
+      "coordinate_space": "WORLD_YARDS"
+    },
+    "status": "NO_ROUTE",
+    "reason": "endpoint_not_on_mesh",
+    "seconds": 5.973716399865225,
+    "diagnostics": {
+      "available": true,
+      "router": "native_detour",
+      "instance_id": 2444,
+      "tile_count": 547,
+      "endpoint_layer": "known",
+      "allowed_flags": 19,
+      "max_walkable_slope_degrees": 44.0,
+      "walking_policy": "GEOMETRY_GENTLE_WIDE",
+      "road_labels": false,
+      "native_walking_costs": true,
+      "emitted_segment_grade_checked": true,
+      "step_height_allowance_yards": 0.6,
+      "centered_margin": 2.5,
+      "walking_detour_verified": false,
+      "walking_detour_trials": 0,
+      "liquid_wading": false,
+      "reason": "endpoint_not_on_mesh",
+      "endpoint": "start"
+    }
+  }
+]

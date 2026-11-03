@@ -1,0 +1,83 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+..................................................................s..... [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+..............................s......................................... [ 94%]
+........................................................................ [ 96%]
+...............................................F........................ [ 98%]
+.................................................................        [100%]
+================================== FAILURES ===================================
+_ test_profile_mailbox_coalesces_matching_fields_without_losing_create_or_partial_delta _
+
+bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x0000016EEAF7A710>, inbox=<wowbot.packetio.inbox.PacketEvent...ight 1.2/_work/rev4-provider-closure-20261030/pytest-combined-2/test_profile_mailbox_coalesces0/packet_endpoint.json'))
+
+    def test_profile_mailbox_coalesces_matching_fields_without_losing_create_or_partial_delta(bridge):
+        setup(bridge)
+        descriptor = json.loads(bridge.path.read_text())
+        decoder, record = own_event()
+        created = decoder.decode_all(replace(record, payload=create_payload()))[1]
+        assert bridge.inbox.ingest_datagram(canonical(envelope(created.to_dict(), descriptor)))
+        for level in range(70, 80):
+            decoder, record = profile_event()
+            event = decoder.decode_all(record)[-1]
+            body = {k:event.payload[k] for k in ('mover_guid', 'world_map_id', 'sample_kind')}
+>           assert bridge.inbox.ingest_datagram(canonical(envelope(
+                replace(event, payload={**body, 'level':level}).to_dict(), descriptor)))
+E           assert False
+E            +  where False = ingest_datagram(b'{"context":{"character_guid":"Player-1602-00001234","context_id":"43dd33040369281da975e58f","game_build":70575,"inst....0},"schema":"aipc.packet-envelope.v1","signature":"0f05c58a58318d6446cc31d4332a7d2e4ea1a8b71ea794dfcff0376ee3c472d8"}')
+E            +    where ingest_datagram = <wowbot.packetio.inbox.PacketEventInbox object at 0x0000016E9532F8A0>.ingest_datagram
+E            +      where <wowbot.packetio.inbox.PacketEventInbox object at 0x0000016E9532F8A0> = namespace(world=<wowbot.agent.world.WorldModel object at 0x0000016EEAF7A710>, inbox=<wowbot.packetio.inbox.PacketEvent...ight 1.2/_work/rev4-provider-closure-20261030/pytest-combined-2/test_profile_mailbox_coalesces0/packet_endpoint.json')).inbox
+E            +    and   b'{"context":{"character_guid":"Player-1602-00001234","context_id":"43dd33040369281da975e58f","game_build":70575,"inst....0},"schema":"aipc.packet-envelope.v1","signature":"0f05c58a58318d6446cc31d4332a7d2e4ea1a8b71ea794dfcff0376ee3c472d8"}' = canonical({'schema': 'aipc.packet-envelope.v1', 'context': {'selected_pid': 77, 'session_id': 'live-s', 'character_guid': 'Playe...eceived_at': 1793353080.0042706, ...}, 'signature': '0f05c58a58318d6446cc31d4332a7d2e4ea1a8b71ea794dfcff0376ee3c472d8'})
+E            +      where {'schema': 'aipc.packet-envelope.v1', 'context': {'selected_pid': 77, 'session_id': 'live-s', 'character_guid': 'Playe...eceived_at': 1793353080.0042706, ...}, 'signature': '0f05c58a58318d6446cc31d4332a7d2e4ea1a8b71ea794dfcff0376ee3c472d8'} = envelope({'event_id': '95549278638a0cd119561626', 'schema': 'aipc.packet-event.v1', 'timestamp': 1000.0, 'received_at': 1793353080.0042706, ...}, {'schema': 'aipc.packet-endpoint.v1', 'host': '127.0.0.1', 'port': 50938, 'ipc_key': 'TEST_CAPABILITY_REDACTED', ...})
+E            +        where {'event_id': '95549278638a0cd119561626', 'schema': 'aipc.packet-event.v1', 'timestamp': 1000.0, 'received_at': 1793353080.0042706, ...} = to_dict()
+E            +          where to_dict = AgentPacketEvent(event_id='95549278638a0cd119561626', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=179...yload_scope': 'REVIEWED_FIELDS_ONLY_NOT_FULL_RECORD', 'semantic_ground_truth': True, 'file_offset': 0}, confidence=1.0).to_dict
+E            +            where AgentPacketEvent(event_id='95549278638a0cd119561626', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=179...yload_scope': 'REVIEWED_FIELDS_ONLY_NOT_FULL_RECORD', 'semantic_ground_truth': True, 'file_offset': 0}, confidence=1.0) = replace(AgentPacketEvent(event_id='95549278638a0cd119561626', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=179...yload_scope': 'REVIEWED_FIELDS_ONLY_NOT_FULL_RECORD', 'semantic_ground_truth': True, 'file_offset': 0}, confidence=1.0), payload={'mover_guid': '08190800000000000000000000001234', 'world_map_id': 2175, 'sample_kind': 'VALUES', 'level': 71})
+
+tests\test_own_profile_20261030.py:157: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_own_profile_20261030.py::test_profile_mailbox_coalesces_matching_fields_without_losing_create_or_partial_delta
+1 failed, 3734 passed, 2 skipped, 10 deselected in 178.01s (0:02:58)

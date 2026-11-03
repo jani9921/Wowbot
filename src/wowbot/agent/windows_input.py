@@ -60,6 +60,35 @@ class WindowsInput:
         self.api.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
         return owner.value == self.pid
 
+    def foreground_owner(self) -> dict:
+        """PID and executable name of the foreground window's process.
+
+        Diagnostics only (live 2026-10-19 14:48:32: focus left WoW while the
+        user was away and nothing recorded what took it). No window title is
+        read and no other process is opened beyond its image name.
+        """
+        hwnd = self.api.GetForegroundWindow()
+        owner = w.DWORD()
+        self.api.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        name = None
+        try:
+            kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel.OpenProcess.argtypes = [w.DWORD, w.BOOL, w.DWORD]
+            kernel.OpenProcess.restype = w.HANDLE
+            kernel.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, ctypes.POINTER(w.DWORD)]
+            kernel.CloseHandle.argtypes = [w.HANDLE]
+            handle = kernel.OpenProcess(0x1000, False, owner.value)  # QUERY_LIMITED_INFORMATION
+            if handle:
+                try:
+                    size, buffer = w.DWORD(1024), ctypes.create_unicode_buffer(1024)
+                    if kernel.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+                        name = buffer.value.rsplit("\\", 1)[-1][:80]
+                finally:
+                    kernel.CloseHandle(handle)
+        except (OSError, AttributeError):
+            pass
+        return {"pid": int(owner.value), "process": name, "window_present": bool(hwnd)}
+
     def emergency_pressed(self) -> bool:
         return bool(self.api.GetAsyncKeyState(0x7B) & 0x8000)
 

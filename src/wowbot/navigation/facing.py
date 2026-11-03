@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from wowbot.agent.models import Command, number
+from wowbot.runtime.entity_identity import check_entity_identity, world_entity_id
 
 
 class FaceStatus(StrEnum):
@@ -45,8 +46,7 @@ class FaceController:
 
     def begin(self, target, now: float, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> None:
         self._aligned = False
-        self._target_ref = str(
-            (target or {}).get("guid") or (target or {}).get("track_id") or "") or None
+        self._target_ref = world_entity_id((target or {}).get("guid"))
         self._deadline = now + max(.1, float(timeout))
 
     @staticmethod
@@ -70,6 +70,10 @@ class FaceController:
         return self._aligned
 
     def tick(self, target, now: float) -> FaceResult:
+        if (self._target_ref is not None and not check_entity_identity(
+                {"guid": self._target_ref}, target if isinstance(target, dict) else {})):
+            self.cancel()
+            return FaceResult(FaceStatus.TARGET_LOST, reason="target_identity_changed")
         if self._deadline is not None and now > self._deadline:
             self.cancel()
             return FaceResult(FaceStatus.FAILED, reason="facing_timeout")

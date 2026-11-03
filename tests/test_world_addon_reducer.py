@@ -45,7 +45,8 @@ def test_full_state_z_keeps_coherent_hover_sample_for_object_use() -> None:
     }, 2.25, "full-totem"))
     assert model.state["transport_kind"] == "STATE_Z"
     assert model.state["state_sample_time"] == 2.25
-    assert model.state.get("mouseover_sample_time") is None
+    assert model.state["mouseover_sample_time"] == 2.25
+    assert model.state["cursor_sample_time"] == 2.25
     assert model.state["cursor_position"] == {"nx": .55, "ny": .57}
 
 
@@ -131,8 +132,8 @@ def test_fast_closed_quest_ui_invalidates_stale_full_reward_dialog() -> None:
 
     assert model.state["quest_ui"] == {
         "open": False, "action": "", "x": 0, "y": 0,
-        "quest_id": 0, "gossip_option": None,
+        "quest_id": 0, "gossip_option": None, "gossip_options": None,
         "entries": [], "reward_choices": [],
-        "reward_selected_index": 0,
+        "reward_selected_index": 0, "npc_guid": None,
     }
     assert model.state["quest_ui_open"] is False

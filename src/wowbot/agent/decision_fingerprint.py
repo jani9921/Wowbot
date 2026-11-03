@@ -138,6 +138,10 @@ def evidence_signature(state: Mapping[str, Any] | None) -> str:
             for key in ("quest_ui", "gossip_ui", "vendor_ui", "loot_ui")
         },
         "combat": bool(value.get("is_in_combat")),
+        "mounted": value.get('is_mounted'),
+        "vehicle": value.get('in_vehicle'),
+        "flight_capability": {key: (value.get('flight') or {}).get(key) for key in
+                              ('flyable_area', 'advanced_flyable_area', 'can_glide')},
         "loading": bool(value.get("loading")),
         "world_map_open": bool(value.get("world_map_open")),
     }

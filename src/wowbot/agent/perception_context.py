@@ -23,7 +23,14 @@ class PerceptionContextMixin:
         # trackers while the dialog is up (MODAL_UI), so the units keep their
         # public IDs when it closes.  The World Map replaces the whole view
         # and its own processor, so it still resets.
-        stable_geometry = tuple((name, geometry.get(name)) for name in (
+        # The minimap geometry comes from pixel measurements converted to
+        # fractions. Subpixel float noise (live 2026-10-15: <0.00005) must
+        # not discard every visual TrackId; a real ROI move still changes the
+        # key. Keep the unrounded geometry for the actual image processors.
+        stable_geometry = tuple((name, round(float(geometry[name]), 3)
+                                 if name in {"center_x", "center_y", "radius_fraction"}
+                                 and isinstance(geometry.get(name), (int, float))
+                                 else geometry.get(name)) for name in (
             "visible", "center_x", "center_y", "radius_fraction",
             "world_map_open",
             # These alter projection/ROI semantics and must invalidate visual

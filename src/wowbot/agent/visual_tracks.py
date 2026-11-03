@@ -6,6 +6,7 @@ entity identity, quest role, hostility, or any other semantic fact.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections import deque
 import math
 import os
 
@@ -90,6 +91,7 @@ class VisualTrackManager:
         self.next_id = 1
         self.tracks: dict[str, dict[int, _Track]] = {}
         self.retired_tracks: dict[str, list[_Track]] = {}
+        self.identity_events: deque[dict] = deque(maxlen=96)
         # Persistent presentation objects for World3D: one id and one box per
         # visual phenomenon across raw id churn and short detector gaps.
         # The hold bridged heavy raw id churn (1.5 s / 3 s).  With detector-
@@ -105,6 +107,7 @@ class VisualTrackManager:
         self.next_id = 1
         self.tracks.clear()
         self.retired_tracks.clear()
+        self.identity_events.clear()
         self.stable_objects.reset()
 
     def _prune_retired_tracks(self, source: str, observed_at: float) -> None:
@@ -213,7 +216,18 @@ class VisualTrackManager:
                 result.append(detection)
                 continue
             detector_kind = str(detection.get("detector_kind") or detection.get("kind") or "visual_candidate")
-            family = self._family(detector_kind)
+            semantic_kind = str(detection.get("kind") or "")
+            upstream_track_id = (str(detection.get("upstream_track_id"))
+                                 if detection.get("upstream_track_id") is not None else None)
+            # PID 20864: the same detector-rate V3 subject alternated between
+            # canonical obstacle/subject labels.  The raw label is still
+            # reported, but must not split its source-local identity family.
+            association_kind = (semantic_kind
+                                if (source == "WORLD3D" and detector_kind == "obstacle_candidate"
+                                    and "subject" in semantic_kind and upstream_track_id is not None
+                                    and upstream_track_id.startswith("WORLD3D_V3:"))
+                                else detector_kind)
+            family = self._family(association_kind)
             appearance = detection.get("appearance") if isinstance(detection.get("appearance"), dict) else {}
             camera_dx = float(appearance.get("camera_motion_dx", 0) or 0)
             camera_dy = -float(appearance.get("camera_motion_dy", 0) or 0)
@@ -229,14 +243,29 @@ class VisualTrackManager:
             if appearance.get("screen_anchored"):
                 camera_nx = camera_ny = 0.
             prepared.append({"detection": detection, "x": float(x), "y": float(y),
-                             "detector_kind": detector_kind, "family": family,
+                             "detector_kind": detector_kind,
+                             "association_kind": association_kind, "family": family,
                              "appearance": appearance, "width": coordinate_width,
                              "height": coordinate_height, "camera_nx": camera_nx,
                              "camera_ny": camera_ny,
-                             "upstream_track_id": (str(detection.get("upstream_track_id"))
-                                                   if detection.get("upstream_track_id") is not None else None)})
+                             "upstream_track_id": upstream_track_id})
 
         active_tracks = list(active.values())
+        reserved_upstreams = {}
+        if source == "WORLD3D":
+            visible_upstreams = {item["upstream_track_id"] for item in prepared
+                                 if item["upstream_track_id"] is not None}
+            for track in active_tracks:
+                # A nearby new upstream may provisionally inherit a track
+                # while its former subject is absent. If both later appear,
+                # they cannot both be that subject. Restore the earliest
+                # remembered visible upstream instead of letting the newer
+                # alias keep the original's ID (14:21 run: V3:830 / V3:923).
+                remembered = [*track.upstream_track_aliases, track.upstream_track_id]
+                owner = next((upstream for upstream in remembered
+                              if upstream is not None and upstream in visible_upstreams), None)
+                if owner is not None:
+                    reserved_upstreams[track.identity] = owner
         costs = []
         association_modes: list[list[str | None]] = []
         for item in prepared:
@@ -253,6 +282,11 @@ class VisualTrackManager:
                 # of making a competing nearest-centre decision. Other
                 # sources (minimap/map) still use normal global assignment.
                 upstream_id = item["upstream_track_id"]
+                owner = reserved_upstreams.get(candidate_track.identity)
+                if upstream_id is not None and owner is not None and upstream_id != owner:
+                    row.append(math.inf)
+                    modes.append(None)
+                    continue
                 if upstream_id is not None:
                     known_upstreams = {candidate_track.upstream_track_id,
                                        *candidate_track.upstream_track_aliases}
@@ -317,13 +351,20 @@ class VisualTrackManager:
                     was_missing = True
                     active[track.identity] = track
             if track is None:
-                track = _Track(self.next_id, x, y, observed_at, observed_at, kind=detector_kind,
+                track = _Track(self.next_id, x, y, observed_at, observed_at,
+                               kind=item["association_kind"],
                                upstream_track_id=item["upstream_track_id"],
                                upstream_track_aliases=([item["upstream_track_id"]]
                                                        if item["upstream_track_id"] is not None else []))
                 self.next_id += 1
                 active[track.identity] = track
+                self.identity_events.append({
+                    "at": round(float(observed_at), 3), "event": "new",
+                    "track_id": f"{source}:{track.identity}",
+                    "upstream_track_id": item["upstream_track_id"],
+                    "bbox": dict(detection.get("bbox") or {})})
             else:
+                previous_upstream = track.upstream_track_id
                 unmatched.discard(track.identity)
                 was_missing = was_missing or track.misses > 0
                 old_x, old_y = track.x, track.y
@@ -333,7 +374,17 @@ class VisualTrackManager:
                 track.last_seen = observed_at
                 track.hits += 1
                 track.misses = 0
-            track.kind = detector_kind
+                if (item["upstream_track_id"] is not None
+                        and item["upstream_track_id"] != previous_upstream):
+                    self.identity_events.append({
+                        "at": round(float(observed_at), 3),
+                        "event": ("reacquired" if association_mode == "LONG_GAP_REIDENTIFIED"
+                                  else "upstream_rebind"),
+                        "track_id": f"{source}:{track.identity}",
+                        "previous_upstream_track_id": previous_upstream,
+                        "upstream_track_id": item["upstream_track_id"],
+                        "bbox": dict(detection.get("bbox") or {})})
+            track.kind = item["association_kind"]
             track.screen_anchored = bool(appearance.get("screen_anchored"))
             if item["upstream_track_id"] is not None:
                 if item["upstream_track_id"] not in track.upstream_track_aliases:

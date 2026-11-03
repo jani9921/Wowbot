@@ -1,0 +1,60 @@
+{
+  "kind": "synthetic_small_legacy_ingest_belief_snapshot",
+  "includes_packet_cast_and_health_projection": true,
+  "no_live_fps_claim": true,
+  "samples_per_run": 220,
+  "rows": [
+    {
+      "run": 1,
+      "version": "baseline_p1d",
+      "samples": 220,
+      "median_ms": 0.91465,
+      "p95_ms": 1.7337
+    },
+    {
+      "run": 1,
+      "version": "current_p1e_p9",
+      "samples": 220,
+      "median_ms": 1.1452,
+      "p95_ms": 2.4211
+    },
+    {
+      "run": 2,
+      "version": "baseline_p1d",
+      "samples": 220,
+      "median_ms": 0.8999999999999999,
+      "p95_ms": 1.6682
+    },
+    {
+      "run": 2,
+      "version": "current_p1e_p9",
+      "samples": 220,
+      "median_ms": 1.1952500000000001,
+      "p95_ms": 2.3448
+    },
+    {
+      "run": 3,
+      "version": "baseline_p1d",
+      "samples": 220,
+      "median_ms": 0.9117500000000001,
+      "p95_ms": 1.5929
+    },
+    {
+      "run": 3,
+      "version": "current_p1e_p9",
+      "samples": 220,
+      "median_ms": 1.0474,
+      "p95_ms": 2.0703
+    }
+  ],
+  "summary": {
+    "baseline_p1d": {
+      "median_ms": 0.9117500000000001,
+      "p95_ms": 1.6682
+    },
+    "current_p1e_p9": {
+      "median_ms": 1.1452,
+      "p95_ms": 2.3448
+    }
+  }
+}

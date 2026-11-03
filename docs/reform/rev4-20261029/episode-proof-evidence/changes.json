@@ -1,0 +1,67 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "7d67f3ac7e4fa551424de6c19c3d544df1c314fcb7e7d5730d7645b6ebb656bf",
+      "after_sha256": "3948f98ee0af9231ec0bdba491bd62b04c4f36ae41adf3b384e8d65f267d2ffc"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "1eb4d42479aab46308c62d10f40a408aee524ae33fdd9d0a916a4954a7db051e",
+      "after_sha256": "7b3e060af04b0ef747ffd02cde05580d4412dfdf68ca45432f5e356c598c4f89"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "20583aaa5d303b0224281f7812ce20d8259f6a6e413a4e80a234398bd4b6815d",
+      "after_sha256": "2440b6779d01cd4d63f1fe51ac5e5c29a3d9e445ff0f1003477c1484e8a57080"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "36b3bf532c813d97fab9392c4720ca80342c58046f824a99fd7724d7e927f934",
+      "after_sha256": "5064a654feeb8c044b2b97b0ab181dcd52fc64f6c93725c792bb9fde8e158208"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P9_PERSISTED_EPISODE_PROOFS.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "3ae9c7995b4b7e7307ba69bc376691179b0f09539e874a7745def7d5c0fc99c8"
+    },
+    {
+      "path": "src/wowbot/agent/memory.py",
+      "status": "MODIFIED",
+      "before_sha256": "d512f8a770fb290fdbc5b8e34dbcb56553548b8d985a916ef99a1d601289b47d",
+      "after_sha256": "079b63bfdbfa2568dfe091582791a030a27a534ceb456e662133d78f00ef7ff7"
+    },
+    {
+      "path": "src/wowbot/agent/memory_patterns.py",
+      "status": "MODIFIED",
+      "before_sha256": "6d3455ce049a804b08333e9763d2a0b62f841fd3366e7db30cedc7f3c35d7d97",
+      "after_sha256": "49c22d8538152930f89392cfb7c794203d3fa23646c6de4043866119cb392e95"
+    },
+    {
+      "path": "src/wowbot/verified_episode.py",
+      "status": "MODIFIED",
+      "before_sha256": "1224aa7244f63e95e3eeab7452c934ad6087398d218a65f984277a363d7be0a8",
+      "after_sha256": "3b513fff8eaa99296ba52952d85805d4f33b12bfbdad44bf3d293552d9f9e354"
+    },
+    {
+      "path": "tests/test_episode_proof_gate_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "d351ccad692d8566a896c671aaad17428d39f9c890d4fc8671968b19cba5463f"
+    },
+    {
+      "path": "tests/test_verified_episode_20261030.py",
+      "status": "MODIFIED",
+      "before_sha256": "8859e30b8d792c47098fd7d4dcd426a83cbde132ddb37d660b7c1dd4a4316edf",
+      "after_sha256": "cf460cf423d122661bf2a4df5f6a4eb9232b454ac2abaa3271a1593e79323b25"
+    }
+  ],
+  "modified": 8,
+  "added": 2,
+  "removed": 0
+}

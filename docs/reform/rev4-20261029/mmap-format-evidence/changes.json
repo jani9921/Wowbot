@@ -1,0 +1,73 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "6c177a1c349e462106b9a2b6b43963297f3cf21d29f9c30c6310153effc3d723",
+      "after_sha256": "fbadac7aec19608885fd16e01ad0c3dba31d3630bfafbc2ad13c4a7f4849866e"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "37b8e4c98ab223568e1d4878e6dc6255754a6f20ff5f5d7f036e122ca83d580e",
+      "after_sha256": "51bf99bbc182ff5734e8dbc9a7980cd3a9e52a7bb7d9f54f9a8915e2aa83b9c5"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "f6b3509f9157b0299889c395682c41d7f2b663ce1bd10a562e5ed4e676d56913",
+      "after_sha256": "10b568738c65361570c8d32adae485217a0a50e02efbf430891e49e870b91547"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "c5371b5a73c369a7980b05d7fffecba7c499a446e1ccfadcab30c5d61dc55e12"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "dc50d72efe2aeecdfed21e55393d98a02491fb78793991a61bea89c895c7bbbe",
+      "after_sha256": "fcaa923df876ae96eb1ea8729fe680c399ebd9b242b1dcd1a98923032f62d4cc"
+    },
+    {
+      "path": "src/wowbot/geometry_contracts.py",
+      "status": "MODIFIED",
+      "before_sha256": "c1053fe2b2db1ef4242427873434d392f9e5ce15faed5830c4438e933a127a5e",
+      "after_sha256": "7c9faaf07f46154efab8f978b144133578fd94183be6a699fcdb244a038ad6da"
+    },
+    {
+      "path": "src/wowbot/navigation/detour_native.py",
+      "status": "MODIFIED",
+      "before_sha256": "862aad347fc167d59f9cfca86f3baea3277f45fd2c67fb8af49b0e5938f92f96",
+      "after_sha256": "552bd45d13e711da0952bbb53eea87e2d1c3ca21aa09d7984c47a5375189f420"
+    },
+    {
+      "path": "src/wowbot/navigation/mmap_format.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "218daf51fba4d84af88a5ec07e1932783409bdd0513df4d7143f9e249d81174d"
+    },
+    {
+      "path": "src/wowbot/navigation/mmap_navmesh.py",
+      "status": "MODIFIED",
+      "before_sha256": "b66d3e3c56b1ce926e6505a1050dcafbf832c92edd5c756396c305cb3966e6ed",
+      "after_sha256": "6d106a379bb7734ab5f267f1fe3a4c3b38b4ff9942bbd9f09bc95c0fc51429ec"
+    },
+    {
+      "path": "tests/test_mmap_format_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "a84e196924e84e14e4dcc9d51ff931f5aa32cffc5e004f08bf6783cf3da21d78"
+    },
+    {
+      "path": "tests/test_mmap_navmesh.py",
+      "status": "MODIFIED",
+      "before_sha256": "e268cf1a058f1331f0a2a0d6364198841bc1185c9bfb471965b107036b78206c",
+      "after_sha256": "1784fdf93d696d7ad0e5eb7fdec192b5b268a1f10823c210e95394650a76de8e"
+    }
+  ],
+  "modified": 8,
+  "added": 3,
+  "removed": 0
+}

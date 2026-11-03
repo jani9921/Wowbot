@@ -1,0 +1,12 @@
+{
+  "exact_same_world_server_pose_precedes_addon": true,
+  "addon_unitposition_z_unknown": true,
+  "server_numeric_zero_z_preserved": true,
+  "recipient_identity_authority_unchanged": true,
+  "moving_recipient_same_reach": true,
+  "pre_route_own_position_acquisition_complete": false,
+  "M0_entity_typed_route_handoff_complete": false,
+  "new_live_acceptance": false,
+  "assistant_live_input": false,
+  "live_database_write": false
+}

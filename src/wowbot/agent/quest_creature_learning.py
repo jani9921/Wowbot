@@ -220,6 +220,14 @@ def project(model) -> None:
         # is none of them is not worth another hover (visual_inspection_planning).
         "pin_givers_known": bool(pin_givers) and uncovered_pins == 0,
     }
+    from .vehicle_prerequisites import learned_requirements
+    state["vehicle_requirements"] = learned_requirements(state, memory)
+    from .server_mode import server_mode_selected
+    if server_mode_selected(state):
+        # The looks only order screen probes, which server mode drops.  Live
+        # 2026-10-25 10:56-10:59 this pure-Python cosine over every remembered
+        # look was the agent thread's hottest stack (step p95 400-720 ms).
+        return
     _annotate_looks(state, memory.looks(state.get("map_id")), wanted)
 
 

@@ -30,6 +30,8 @@ def new_ui_errors(before: dict, after: dict) -> list[dict]:
     """
     known = [event.get("sequence") for event in (before or {}).get("events") or ()
              if isinstance(event, dict) and isinstance(event.get("sequence"), int)]
+    if isinstance((before or {}).get("ui_error_sequence"), int):
+        known.append(before["ui_error_sequence"])
     baseline = max(known) if known else None
     result = []
     for event in (after or {}).get("events") or ():
@@ -79,6 +81,8 @@ class InteractionVerifier:
         # new regardless of the clock.
         known = [event.get("sequence") for event in before.get("events") or ()
                  if isinstance(event, dict) and isinstance(event.get("sequence"), int)]
+        if isinstance(before.get("ui_error_sequence"), int):
+            known.append(before["ui_error_sequence"])
         baseline_sequence = max(known) if known else None
         for event in after.get("events") or ():
             if not isinstance(event, dict) or event.get("event_type") != "UI_ERROR_MESSAGE":
@@ -107,7 +111,8 @@ class InteractionVerifier:
         # successful Interact (shop open) was booked out_of_range.  Only an
         # error raised during this attempt counts, and an opened shop wins.
         message = self._fresh_ui_error(before, after).casefold()
-        if ((after.get("vendor_ui") or {}).get("open") is True
+        if (str(expected_result or "").upper() != "VEHICLE_ENTERED"
+                and (after.get("vendor_ui") or {}).get("open") is True
                 and (before.get("vendor_ui") or {}).get("open") is not True):
             return VerificationResult(True, .85, None, ("vendor_ui",))
         if any(token in message for token in self.RANGE_TOKENS) or self._range_event(before, after):
@@ -125,6 +130,10 @@ class InteractionVerifier:
         if after.get("in_vehicle") is True and before.get("in_vehicle") is not True:
             # A used vehicle NPC seats the player (addon 0.9.47).
             return VerificationResult(True, .9, None, ("vehicle_entered",))
+        if str(expected_result or "").upper() == "VEHICLE_ENTERED":
+            # A completed boarding credit cannot rise again on re-entry.
+            # A window or unrelated quest progress is not proof of boarding.
+            return VerificationResult(False, .0, None)
         old_quest, new_quest = before.get("quest_ui") or {}, after.get("quest_ui") or {}
         quest_opened = new_quest.get("open") is True and (
             old_quest.get("open") is not True

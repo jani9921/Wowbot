@@ -1,10 +1,12 @@
 """Canonical bounded M0 loot FSM."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
 
 from wowbot.agent.models import Command, number
-from .hover_confirm import CORPSE_SEARCH_OFFSETS, hover_confirm_step
+from .hover_confirm import CORPSE_SEARCH_OFFSETS, hover_confirm_step, pointer_acquisition_retired
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus, world_entity_id
 from wowbot.verification.loot import LootVerifier
 
@@ -18,7 +20,7 @@ class LootPhase(StrEnum):
     VERIFY = "VERIFY"
 
 
-def soft_interact_corpse(world_state: dict, corpse_guid) -> bool:
+def soft_interact_corpse(world_state: dict, corpse_guid, *, server_lootable: bool = False) -> bool:
     """The client's soft-interact unit is exactly this dead corpse.
 
     Live 2026-10-03 13:46:09: right after the kill the addon reported
@@ -32,9 +34,12 @@ def soft_interact_corpse(world_state: dict, corpse_guid) -> bool:
     target_guid = str((world_state.get("target") or {}).get("guid") or "")
     if target_guid and target_guid != str(corpse_guid):
         return False
+    # Live 2026-10-20 17:19:35-37: the soft-interact row carried only the
+    # corpse GUID (no dead flag) while the server marked it lootable for us
+    # (unit flag 0x4); the loot step then never pressed Interact.
     return any(isinstance(row, dict) and str(row.get("source_unit") or "").casefold() == "softinteract"
                and str(row.get("guid") or "") == str(corpse_guid)
-               and row.get("is_dead", row.get("dead")) is True
+               and (row.get("is_dead", row.get("dead")) is True or server_lootable)
                for row in world_state.get("soft_targets") or ())
 
 
@@ -42,6 +47,16 @@ class LootSkill:
     def __init__(self, verifier: LootVerifier | None = None):
         self.verifier = verifier or LootVerifier()
 
+    @staticmethod
+    def _server_lootable(params: dict, world_state: dict, corpse_guid) -> bool:
+        if not params.get("server_lootable") or not corpse_guid:
+            return False
+        from wowbot.agent.packet_entity_facts import UNIT_LOOTABLE
+        value = (world_state.get("packet_entities") or {}).get(str(corpse_guid)) or {}
+        flags = (value.get("dynamic_flags") or {}).get("value")
+        return not value.get("removed") and type(flags) is int and bool(flags & UNIT_LOOTABLE)
+
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         params, target = state.intent.parameters, world_state.get("target") or {}
         corpse_guid = world_entity_id(state.intent.target_ref or params.get("guid"))
@@ -55,11 +70,18 @@ class LootSkill:
         state.skill_context["loot"] = {"corpse_guid": corpse_guid,
                                         "expected_item_ids": expected_item_ids}
         state.phase = LootPhase.LOCATE_CORPSE.value
-        if soft_interact_corpse(world_state, corpse_guid):
+        if soft_interact_corpse(world_state, corpse_guid,
+                                server_lootable=self._server_lootable(params, world_state, corpse_guid)):
             state.skill_context["loot"]["via"] = "SOFT_INTERACT"
             state.phase = LootPhase.INTERACT.value
             return SkillResult(SkillStatus.RUNNING, commands=(Command("BIND", "INTERACTTARGET"),),
                                metadata={"loot_via": "SOFT_INTERACT"})
+        if params.get("corpse_anchor") and pointer_acquisition_retired(world_state):
+            # SERVER: ServerLootPolicy walks to the corpse GUID and presses
+            # Interact; a remembered screen point is no corpse.
+            return SkillResult(SkillStatus.FAILURE, FailureReason.CORPSE_NOT_FOUND,
+                               replan_required=True,
+                               metadata={"detail": "pointer_acquisition_retired"})
         if params.get("corpse_anchor"):
             x, y = number(params.get("x")), number(params.get("y"))
             if x is None or y is None or not (0 < x < 1 and 0 < y < 1):
@@ -89,7 +111,8 @@ class LootSkill:
             if corpse_guid and target.get("guid") != corpse_guid:
                 return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_LOST,
                                    retryable=True, replan_required=True)
-            if target.get("dead", target.get("is_dead")) is not True:
+            if (target.get("dead", target.get("is_dead")) is not True
+                    and not self._server_lootable(params, world_state, corpse_guid)):
                 return SkillResult(SkillStatus.FAILURE, FailureReason.NOT_LOOTABLE,
                                    replan_required=True)
             commands = (Command("BIND", "INTERACTTARGET"),)
@@ -103,6 +126,8 @@ class LootSkill:
         if (not corpse_guid or str(target.get("guid") or "") != str(corpse_guid)
                 or target.get("dead", target.get("is_dead")) is not True):
             return None
+        from wowbot.agent.packet_entity_facts import interaction_position
+        position = interaction_position(world_state, corpse_guid, allow_dead=True) or position
         if None in {number(player.get("x")), number(player.get("y")),
                     number(position.get("x")), number(position.get("y"))}:
             return None
@@ -112,6 +137,7 @@ class LootSkill:
             return None
         return {"kind": "WORLD_CORPSE", "corpse_guid": str(corpse_guid), "stop_distance": 3.5}
 
+    @identity_guarded
     def resume_after_approach(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         context = state.skill_context.setdefault("loot", {})
         corpse_guid = context.get("corpse_guid")
@@ -130,6 +156,7 @@ class LootSkill:
         parameters = getattr(getattr(state, "intent", None), "parameters", None) or {}
         return tuple(parameters.get("quest_ids") or ())
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         corpse_guid = (state.skill_context.get("loot") or {}).get("corpse_guid")
         if (state.skill_context.get("loot") or {}).get("hover_pending"):
@@ -152,7 +179,8 @@ class LootSkill:
                                                    expected_guid=str(corpse_guid or ""),
                                                    click_button="RIGHT", lower=True,
                                                    max_hovers=len(CORPSE_SEARCH_OFFSETS),
-                                                   search_offsets=CORPSE_SEARCH_OFFSETS)
+                                                   search_offsets=CORPSE_SEARCH_OFFSETS,
+                                                   deadline=state.attempt.deadline)
             if outcome == "CLICK":
                 context["hover_pending"] = False
                 state.phase = LootPhase.INTERACT.value

@@ -1,0 +1,30 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-domain-navigation-handoff-20261030\\domain-final-targeted-2-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-domain-navigation-handoff-20261030\\domain-final-targeted-2-junit.xml",
+    "tests/test_domain_navigation_handoff_20261030.py",
+    "tests/test_combat_runtime_runner.py",
+    "tests/test_interaction_runtime_runner.py",
+    "tests/test_loot_runtime_runner.py",
+    "tests/test_active_skill_supervision.py",
+    "tests/test_combat_range_handoff_20261030.py",
+    "tests/test_interact_packet_range_20261022.py",
+    "tests/test_m0_engine_combat_local_recovery.py",
+    "tests/test_position_before_route_20261030.py",
+    "tests/test_server_positions_20261020.py",
+    "tests/test_parallel_control.py",
+    "tests/test_trip_lifecycle_20261030.py",
+    "tests/test_packet_agent_bridge.py",
+    "tests/test_navigation_service.py",
+    "tests/test_mmap_navmesh.py"
+  ]
+}

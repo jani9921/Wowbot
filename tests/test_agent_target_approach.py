@@ -586,7 +586,7 @@ def test_target_click_waits_for_retail_export_latency_before_map_search():
     # Live AIPC5/debug runs have delivered the authoritative target projection
     # after more than five seconds.  The confirmed identity must remain
     # committed while Retail/addon target telemetry is still catching up.
-    value.tick(state(6.2, target=None, mouseover=mouse, cursor_position=cursor,
+    value.tick(state(6.2, target=None, target_sample_time=1., mouseover=mouse, cursor_position=cursor,
                      world_map_open=False), 6.2)
     assert value.pending and value.pending.proposal.skill == "TARGET"
     assert value.autonomy.commitment.target_guid == "jaina"
@@ -917,8 +917,10 @@ def test_pointer_is_kept_on_the_target_without_stopping_the_approach():
     second = state(1.1, target=target, visual_candidates=[{**track, "observed_at": 1.1}],
                    cursor_position=off)
     controller.observe(second, "vision:2", 1.1)
-    pointer = controller.command(second, "vision:2", 1.1)
+    pointer = (controller.follow_pointer_command(second, 1.1),)
     assert pointer[0].kind == "POINTER" and (pointer[0].x, pointer[0].y) == (.51, .62)
+    # Following no longer consumes this tick's forward/steering update.
+    assert controller.command(second, "vision:2", 1.1)[0].binding == "MOVEFORWARD"
     third = state(1.2, target=target, visual_candidates=[{**track, "observed_at": 1.2}],
                   cursor_position={"nx": .51, "ny": .62})
     controller.observe(third, "vision:3", 1.2)
@@ -1082,7 +1084,7 @@ def test_pointer_mouseover_naming_another_unit_drops_that_track():
     second = state(1.1, target=target, visual_candidates=[{**track, "observed_at": 1.1}],
                    cursor_position=off)
     controller.observe(second, "vision:2", 1.1)
-    assert controller.command(second, "vision:2", 1.1)[0].kind == "POINTER"
+    assert controller.follow_pointer_command(second, 1.1).kind == "POINTER"
     gnome = {"guid": "Player-1-ABC", "name": "Gnome", "is_player": True}
     answered = state(1.3, target=target, visual_candidates=[{**track, "observed_at": 1.3}],
                      cursor_position={"nx": .55, "ny": .6}, cursor_sample_time=1.3,

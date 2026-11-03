@@ -3,9 +3,9 @@ from __future__ import annotations
 import time
 import math
 from .models import number
-from wowbot.vision.entity_memory import EntityMemory
+from wowbot.entity_memory import EntityMemory
 from wowbot.vision.world_point_memory import WorldPointMemory
-from wowbot.vision.map_mouseover import normalize_map_mouseover
+from wowbot.map_mouseover import normalize_map_mouseover
 
 
 class SpatialMemory:

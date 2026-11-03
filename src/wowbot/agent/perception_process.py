@@ -22,6 +22,7 @@ from __future__ import annotations
 import multiprocessing as mp
 from queue import Empty, Full
 import time
+import threading
 from typing import Any
 
 
@@ -102,6 +103,7 @@ def _perception_process_main(config: dict[str, Any], requests, results, stopped,
                     "projection_revision": worker.projection_revision,
                     "projection_at": worker.projection_at,
                     "epoch": worker.epoch,
+                    "control_context": worker.context[0] if worker.context else None,
                     "status": worker.status,
                     "world_status": world["status"],
                     "world_at": world["at"],
@@ -150,6 +152,8 @@ class ProcessPerceptionWorker:
         self._world_status = "idle"
         self._world_at = 0.
         self._background_error: str | None = None
+        self._result_lock = threading.RLock()
+        self._control_context = None
         self._process = context.Process(
             target=_perception_process_main,
             args=({"capture_ring": capture_ring,
@@ -170,6 +174,10 @@ class ProcessPerceptionWorker:
         return None
 
     def _drain(self) -> None:
+        with self._result_lock:
+            self._drain_locked()
+
+    def _drain_locked(self) -> None:
         newest = None
         while True:
             try:
@@ -187,6 +195,7 @@ class ProcessPerceptionWorker:
             self.projection_revision = newest["projection_revision"]
             self.projection_at = newest["projection_at"]
             self.epoch = newest["epoch"]
+            self._control_context = newest.get("control_context")
             self.status = newest["status"]
             self._rates = newest["rates"]
             self._world_status = newest["world_status"]
@@ -194,6 +203,16 @@ class ProcessPerceptionWorker:
             self._background_error = newest.get("background_error")
         if not self._process.is_alive() and not self._stopped.is_set():
             self.status = f"world3d_process_exited:{self._process.exitcode}"
+
+    def peek_control(self, now: float) -> dict:
+        with self._result_lock:
+            self._drain_locked()
+            live = (self._process.is_alive() and self.projection_at is not None
+                    and 0 <= now-float(self.projection_at) <= self.RESULT_TTL_SECONDS)
+            return {"items": list(self.items) if live else [], "epoch": self.epoch,
+                    "revision": self.projection_revision, "at": self.projection_at,
+                    "camera_state": dict(getattr(self.world3d_batch, "camera_state", None) or {}) if live else {},
+                    "context": self._control_context}
 
     def submit_latest(self, *, allow=True, geometry=None, context=None,
                       world_map_open=False) -> list[dict]:

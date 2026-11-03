@@ -9,9 +9,10 @@ import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from .runtime import AgentRuntime
+from .gui_packet_status import packet_status_text
 
 
-def dashboard_projection(state: dict, model_path=None) -> dict[str, str]:
+def dashboard_projection(state: dict, model_path=None, *, now=None) -> dict[str, str]:
     """Small read-only view of the agent's actual status, never GUI-owned truth."""
     world = state.get("world") if isinstance(state.get("world"), dict) else {}
     player = world.get("player") if isinstance(world.get("player"), dict) else {}
@@ -33,7 +34,8 @@ def dashboard_projection(state: dict, model_path=None) -> dict[str, str]:
     return {
         "quest": f"Küldetés: {quest.get('title') or '—'} | Feladat: {objective.get('description') or '—'}",
         "control": (f"Döntés: {decision.get('skill') or '—'} | Célpont: "
-                    f"{target.get('name') or '—'} | Detektor: {detector} ({backend})"),
+                    f"{target.get('name') or '—'} | Detektor: {detector} ({backend}) | "
+                    f"{packet_status_text(state, now=now)}"),
         "advisor": (f"Ollama planner: {reasoner.get('status') or '—'} | "
                     f"szövegértelmező: {semantic.get('status') or '—'}"),
     }
@@ -42,6 +44,8 @@ def dashboard_projection(state: dict, model_path=None) -> dict[str, str]:
 class AgentWindow:
     def __init__(self, root, output: Path, *, auto_full_ai: bool = False):
         self.root, self.output, self.runtime = root, output, None
+        self.packet_bridge = None
+        self.packet_bridge_thread = None
         root.title("AIPC Agent — Retail 12.1")
         root.geometry("1120x820")
         self.pid = tk.StringVar()
@@ -50,8 +54,14 @@ class AgentWindow:
         self.goal_text = tk.StringVar(value="Questelj az Exile's Reach szigeten")
         self._model_path = None
         self.summary = tk.StringVar(value="MANUAL — nincs kliens csatlakoztatva")
+        # User 2026-10-25: Ymir dumps -> the TrinityCore TDB (WowPacketParser),
+        # by a button, optionally after every capture, with a progress report.
+        self._tdb_auto = self._load_tdb_auto()
+        self.tdb_import_auto = tk.BooleanVar(value=self._tdb_auto)
+        self.tdb_import_summary = tk.StringVar(value="TDB-frissítés: —")
+        self._tdb_import_process = None
         self.quest_summary = tk.StringVar(value="Küldetés: — | Feladat: —")
-        self.control_summary = tk.StringVar(value="Döntés: — | Célpont: — | Detektor: —")
+        self.control_summary = tk.StringVar(value="Döntés: — | Célpont: — | Detektor: — | Packet: nincs csatlakozva | adat: nincs")
         self.advisor_summary = tk.StringVar(value="Ollama: kikapcsolva")
         self._detail_json = None
         self._detail_trigger = None
@@ -68,6 +78,7 @@ class AgentWindow:
         self._control_started_at = None
         self._control_label = None
         self._closing = False
+        self._start_prelaunched_packet_bridge()
         outer = ttk.Frame(root, padding=12)
         outer.pack(fill="both", expand=True)
         ttk.Label(outer, text="Kliens PID (nincs automatikus helyettesítés):").grid(row=0, column=0, sticky="w")
@@ -82,6 +93,17 @@ class AgentWindow:
         ttk.Button(export_bar, text="Controller-cache létrehozása exportból", command=lambda: self.guard(self.export_cache)).pack(side="left")
         self.inventory_summary = tk.StringVar(value="Binding-export: még nincs adat")
         ttk.Label(export_bar, textvariable=self.inventory_summary).pack(side="left", padx=8)
+        tdb_bar = ttk.Frame(outer)
+        tdb_bar.grid(row=4, column=0, columnspan=3, sticky="ew", pady=2)
+        ttk.Button(tdb_bar, text="Ymir dumpok → TDB most (WPP)",
+                   command=lambda: self.guard(self.start_tdb_import)).pack(side="left")
+        ttk.Checkbutton(tdb_bar, text="Ymir leállításkor is", variable=self.tdb_import_auto,
+                        command=self._save_tdb_auto).pack(side="left", padx=6)
+        ttk.Label(tdb_bar, textvariable=self.tdb_import_summary).pack(side="left", padx=8)
+        # What went in, in plain words ("lény-spawn +120 · quest-cél +5 ...").
+        self.tdb_import_details = tk.StringVar(value="")
+        ttk.Label(outer, textvariable=self.tdb_import_details, wraplength=1050).grid(
+            row=4, column=0, columnspan=3, sticky="sw", pady=(26, 0))
         ttk.Label(outer, text=r"TrinityCore mmaps mappa (_retail_\mmaps):").grid(row=2, column=0, sticky="w")
         ttk.Entry(outer, textvariable=self.mmap_path).grid(row=2, column=1, sticky="ew")
         ttk.Button(outer, text="mmap tallózás", command=self.browse_mmap).grid(row=2, column=2)
@@ -117,6 +139,101 @@ class AgentWindow:
         if auto_full_ai:
             root.after(100, lambda: self.guard(self.connect_and_arm_full_ai))
         root.after(250, self.update)
+
+    def _start_prelaunched_packet_bridge(self):
+        """Start capture before WoW; authoritative PID binding happens later."""
+        from wowbot.packetio.ymir_bridge import YmirAgentBridge
+        project_root = Path(__file__).resolve().parents[3]
+        bridge = YmirAgentBridge(
+            executable=(project_root / "runtime" / "ymir" /
+                        "ymir_retail_12.1.5.70575_PORT_CANDIDATE_V3.exe"),
+            output=self.output / "ymir-bootstrap")
+        def run_then_import():
+            try:
+                bridge.run()
+            finally:
+                # User 2026-10-21: when the capture stops, fill the learned
+                # TDB from its dump.  A detached process outlives the GUI.
+                import subprocess
+                import sys
+                if self._tdb_auto:
+                    # The TDB tool fills the learned TDB first, then the
+                    # TrinityCore TDB, then recycles what both hold.
+                    self.start_tdb_import(settle=2.)
+                    return
+                try:
+                    subprocess.Popen(
+                        [sys.executable, str(project_root / "tools" / "import_ymir_dumps.py"),
+                         "--output", str(self.output), "--settle", "2"],
+                        cwd=str(project_root), stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        creationflags=(getattr(subprocess, "DETACHED_PROCESS", 0)
+                                       | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)))
+                except OSError:
+                    pass
+        thread = threading.Thread(
+            target=run_then_import, name="aipc-ymir-bridge", daemon=True)
+        self.packet_bridge = bridge
+        self.packet_bridge_thread = thread
+        thread.start()
+
+    def _tdb_settings_path(self) -> Path:
+        return self.output / "tdb_import.json"
+
+    def _load_tdb_auto(self) -> bool:
+        try:
+            return bool(json.loads(self._tdb_settings_path().read_text(encoding="utf-8")).get("auto"))
+        except (OSError, ValueError):
+            return False
+
+    def _save_tdb_auto(self) -> None:
+        self._tdb_auto = bool(self.tdb_import_auto.get())
+        try:
+            self._tdb_settings_path().write_text(json.dumps({"auto": self._tdb_auto}), encoding="utf-8")
+        except OSError:
+            pass
+
+    def start_tdb_import(self, settle: float = 30.) -> None:
+        """Run tools/import_ymir_dumps_tdb.py once, detached (never twice at a time)."""
+        import subprocess
+        import sys
+        process = self._tdb_import_process
+        if process is not None and process.poll() is None:
+            return
+        project_root = Path(__file__).resolve().parents[3]
+        self._tdb_import_process = subprocess.Popen(
+            [sys.executable, str(project_root / "tools" / "import_ymir_dumps_tdb.py"),
+             "--progress", str(self._tdb_progress_path()), "--settle", str(settle),
+             "--output", str(self.output), "--recycle"],
+            cwd=str(project_root), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def _tdb_progress_path(self) -> Path:
+        return self.output / "ymir-bootstrap" / "tdb_import_progress.json"
+
+    def _tdb_details_text(self) -> str:
+        from .wpp_tdb_import import human_summary
+        try:
+            state = json.loads(self._tdb_progress_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return ""
+        return " · ".join(human_summary(state.get("tables") or {})[:14])
+
+    def _tdb_progress_text(self) -> str:
+        try:
+            state = json.loads(self._tdb_progress_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return "TDB-frissítés: —"
+        tables = state.get("tables") or {}
+        spawns = sum((tables.get(name) or {}).get("inserted", 0) for name in ("creature", "gameobject"))
+        inserted = sum(counts.get("inserted", 0) for counts in tables.values()) - spawns
+        updated = sum(counts.get("updated", 0) for counts in tables.values())
+        elapsed = int(state.get("elapsed") or 0)
+        label = {"running": "fut", "done": "kész", "error": "hiba"}.get(state.get("state"), state.get("state"))
+        return (f"TDB-frissítés ({label}): {state.get('done', 0)}/{state.get('total', 0)} dump · "
+                f"új spawn {spawns} · új sor {inserted} · frissített sor {updated} · "
+                f"Lomtárba {state.get('recycled', 0)} · hiba {len(state.get('errors') or ())} · "
+                f"{elapsed // 60}:{elapsed % 60:02d}")
 
     def guard(self, fn):
         try:
@@ -188,8 +305,11 @@ class AgentWindow:
         if not any(w.pid == pid for w in find_visible_wow_windows()):
             raise ValueError("A kiválasztott PID-hez nem található látható WoW ablak")
         mmap_path = Path(self.mmap_path.get()) if self.mmap_path.get().strip() else None
-        from wowbot.vision.world3d.learned_detector import default_runtime_model_path
-        world3d_model = default_runtime_model_path()
+        from wowbot.runtime_profile import RuntimeProfile
+        world3d_model = None
+        if RuntimeProfile.resolve().visual:
+            from wowbot.vision.world3d.learned_detector import default_runtime_model_path
+            world3d_model = default_runtime_model_path()
         parameters = json.loads(self.parameters.get() or "{}")
         if not isinstance(parameters, dict):
             raise ValueError("A célparaméterek JSON objektumot várnak")
@@ -201,6 +321,8 @@ class AgentWindow:
             "auto_arm": bool(auto_arm),
         }
         previous_runtime = self.runtime
+        previous_bridge = getattr(self, "packet_bridge", None)
+        previous_bridge_thread = getattr(self, "packet_bridge_thread", None)
         if previous_runtime is not None:
             # Reconnect revokes input immediately; the potentially slow joins,
             # database closes and new telemetry startup remain in the worker.
@@ -212,18 +334,32 @@ class AgentWindow:
         self.summary.set(f"PID {pid} | csatlakozás folyamatban — telemetry/runtime inicializálás…")
         self._connect_thread = threading.Thread(
             target=self._connect_worker,
-            args=(generation, config, previous_runtime),
+            args=(generation, config, previous_runtime, previous_bridge,
+                  previous_bridge_thread),
             name="aipc-gui-connect", daemon=True)
         self._connect_thread.start()
 
-    def _connect_worker(self, generation, config, previous_runtime):
+    @staticmethod
+    def _stop_packet_bridge(bridge, thread):
+        """Drain Ymir before the runtime closes its authenticated UDP inbox."""
+        if bridge is None:
+            return
+        bridge.request_stop()
+        if thread is not None:
+            thread.join(timeout=6.)
+            if thread.is_alive():
+                bridge.force_stop()
+                thread.join(timeout=2.)
+
+    def _connect_worker(self, generation, config, previous_runtime,
+                        previous_bridge, previous_bridge_thread):
         """Build/start a runtime without touching any Tk object."""
-        runtime = None
+        runtime = bridge = bridge_thread = None
         try:
             if previous_runtime is not None:
                 previous_runtime.close()
             if self._closing:
-                self._connect_results.put((generation, None, config, None))
+                self._connect_results.put((generation, None, None, None, config, None))
                 return
             runtime = AgentRuntime(
                 config["pid"], config["cache"],
@@ -233,9 +369,14 @@ class AgentWindow:
             runtime.goal(config["goal"], config["parameters"])
             if self._closing:
                 runtime.close()
-                self._connect_results.put((generation, None, config, None))
+                self._connect_results.put((generation, None, None, None, config, None))
                 return
             runtime.start()
+            bridge, bridge_thread = previous_bridge, previous_bridge_thread
+            packet_telemetry = getattr(runtime, "packet_telemetry", None)
+            if bridge is not None and packet_telemetry is not None:
+                bridge.bind(selected_pid=config["pid"],
+                            endpoint_path=packet_telemetry.path)
             from adapters.atomic_file import write_json_replace
             write_json_replace(self.output / "agent_gui.json", {
                 "bindings_cache": (str(config["cache"].resolve()) if config["cache"]
@@ -246,25 +387,29 @@ class AgentWindow:
             if self._closing:
                 runtime.close()
                 runtime = None
-            self._connect_results.put((generation, runtime, config, None))
+            self._connect_results.put(
+                (generation, runtime, bridge, bridge_thread, config, None))
         except Exception as error:
             if runtime is not None:
                 try:
                     runtime.close()
                 except Exception:
                     pass
-            self._connect_results.put((generation, None, config, error))
+            self._connect_results.put((generation, None, None, None, config, error))
 
     def _finish_connections(self):
         """Apply worker results on Tk's owner thread."""
         while True:
             try:
-                generation, runtime, config, error = self._connect_results.get_nowait()
+                generation, runtime, bridge, bridge_thread, config, error = self._connect_results.get_nowait()
             except queue.Empty:
                 return
             if generation != self._connect_generation or self._closing:
                 if runtime is not None:
-                    threading.Thread(target=runtime.close, name="aipc-stale-runtime-close",
+                    def close_stale(stale_runtime=runtime, stale_bridge=bridge,
+                                    stale_thread=bridge_thread):
+                        stale_runtime.close()
+                    threading.Thread(target=close_stale, name="aipc-stale-runtime-close",
                                      daemon=True).start()
                 continue
             self._connect_thread = None
@@ -274,6 +419,8 @@ class AgentWindow:
                 messagebox.showerror("AIPC csatlakozási hiba", str(error), parent=self.root)
                 continue
             self.runtime = runtime
+            self.packet_bridge = bridge
+            self.packet_bridge_thread = bridge_thread
             self._model_path = config["world3d_model"]
             self.summary.set(f"PID {config['pid']} | MANUAL | runtime elindult, telemetryre vár")
             if config["auto_arm"] and config["cache"] is None:
@@ -419,12 +566,18 @@ class AgentWindow:
                     elapsed = time.monotonic()-self._connect_started_at
                     self.summary.set(
                         f"Csatlakozás folyamatban — telemetry/runtime inicializálás… {elapsed:.1f} mp")
+                elif self.packet_bridge is not None:
+                    bridge_state = self.packet_bridge.snapshot().get("state")
+                    self.summary.set(
+                        f"MANUAL — nincs kliens csatlakoztatva | YMIR: {bridge_state}")
                 return
             # ``runtime.status`` is an in-memory latest-snapshot pointer.
             # Do not serialise the full diagnostic tree in Tk's event loop:
             # live WorldModel evidence can be hundreds of KB and rewriting a
             # Text widget at 2 Hz makes the window appear frozen.
-            state = self.runtime.status
+            state = dict(self.runtime.status)
+            if self.packet_bridge is not None:
+                state["packet_bridge"] = self.packet_bridge.snapshot()
             inventory = state.get("binding_inventory") or {}
             self.inventory_summary.set(
                 f"Binding-export: {inventory.get('status', 'várakozás')} | "
@@ -435,7 +588,9 @@ class AgentWindow:
                 f"{decision.get('skill', '-')} | {decision.get('reason', '')}"
                 + (f" | indulás {state['arm_in']:.1f} mp" if state.get("arm_in") is not None else "")
                 + (" | HIÁNYZÓ BINDING: " + ", ".join(state["binding_preflight"]["missing"])
-                   if state.get("binding_preflight", {}).get("missing") else ""))
+                   if state.get("binding_preflight", {}).get("missing") else "")
+                + (f" | YMIR: {state['packet_bridge'].get('state')}"
+                   if state.get("packet_bridge") else ""))
             dashboard = dashboard_projection(state, getattr(self, "_model_path", None))
             self.quest_summary.set(dashboard["quest"])
             self.control_summary.set(dashboard["control"])
@@ -453,7 +608,9 @@ class AgentWindow:
                        (state.get("result") or {}).get("outcome"),
                        (state.get("result") or {}).get("reason"), pending.get("action_id"),
                        player.get("target", {}).get("guid") if isinstance(player.get("target"), dict) else None,
-                       player.get("quest_state_revision"), world.get("fresh"))
+                       player.get("quest_state_revision"), world.get("fresh"),
+                       (state.get("packet_bridge") or {}).get("state"),
+                       (state.get("packet_bridge") or {}).get("semantic_events"))
             now = time.monotonic()
             # The one-line summary remains responsive at 4 Hz; the bounded
             # detail text is rebuilt only for meaningful state changes or a
@@ -471,6 +628,11 @@ class AgentWindow:
             # refresh loop or interfere with the independently running agent.
             self.summary.set(f"GUI diagnosztikai frissítési hiba: {type(error).__name__}: {error}")
         finally:
+            try:
+                self.tdb_import_summary.set(self._tdb_progress_text())
+                self.tdb_import_details.set(self._tdb_details_text())
+            except Exception:
+                pass
             self.root.after(250, self.update)
 
     @staticmethod
@@ -512,7 +674,7 @@ class AgentWindow:
                 "loop_rates", "runtime_scheduler", "memory_metrics", "maintenance",
                 "camera_controller", "visual_approach", "vision_seek", "reasoner",
                 "combat_runtime", "skill_lifecycle",
-                "sensor_diagnostics", "vision", "runtime_error")
+                "sensor_diagnostics", "vision", "runtime_error", "packet_bridge")
         keys = (*keys, "input_safety")
         compact = {key: state.get(key) for key in keys if key in state}
         navigation = state.get("navigation") if isinstance(state.get("navigation"), dict) else {}
@@ -563,6 +725,9 @@ class AgentWindow:
         self._closing = True
         self._connect_generation += 1
         runtime, self.runtime = self.runtime, None
+        bridge, self.packet_bridge = self.packet_bridge, None
+        bridge_thread, self.packet_bridge_thread = self.packet_bridge_thread, None
+        self._stop_packet_bridge(bridge, bridge_thread)
         if runtime is not None:
             # Synchronous shutdown is intentional here: releasing every held
             # key and stopping FULL_AI takes precedence over close animation.

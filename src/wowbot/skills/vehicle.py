@@ -16,6 +16,7 @@ from typing import Any, Mapping
 
 from wowbot.agent.models import Command
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus
+from wowbot.runtime.skill_identity import identity_guarded
 from wowbot.verification import QuestProgressVerifier
 
 
@@ -48,6 +49,7 @@ class VehicleSkill:
     def __init__(self, verifier: QuestProgressVerifier | None = None):
         self.verifier = verifier or QuestProgressVerifier()
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         state.phase = VehiclePhase.DETECT_OVERRIDE.value
         if not is_vehicle_override_active(world_state):
@@ -73,6 +75,7 @@ class VehicleSkill:
         commands = tuple(Command("BIND", binding=action) for action in vehicle_actions)
         return SkillResult(SkillStatus.RUNNING, commands=commands)
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         if not is_vehicle_override_active(world_state):
             # Vehicle exited mid-attempt: invalidate vehicle action state and

@@ -19,7 +19,7 @@ def test_timeout_policy_maps_map_open_close_to_the_map_wait_domain():
 def test_retry_policy_is_typed_bounded_and_does_not_backoff_cancel():
     policy = RetryPolicy()
     assert policy.backoff(1, FailureReason.OUT_OF_RANGE) == 8.
-    assert policy.backoff(99, FailureReason.NO_RESPONSE) == 120.
+    assert policy.backoff(99, FailureReason.NO_RESPONSE) == 20.
     assert policy.backoff(4, FailureReason.CANCELLED) == 0.
 
 

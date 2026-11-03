@@ -1,0 +1,26 @@
+.................F...................................................... [ 67%]
+..................................                                       [100%]
+================================== FAILURES ===================================
+___ test_state_flood_coalesces_each_resource_and_preserves_discrete_events ____
+
+bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x00000162D93AD590>, inbox=<wowbot.packetio.inbox.PacketEvent..._midnight 1.2/_work/rev4-provider-closure-20261030/power-test-1/test_state_flood_coalesces_eac0/packet_endpoint.json'))
+
+    def test_state_flood_coalesces_each_resource_and_preserves_discrete_events(bridge):
+        setup_power(bridge)
+        descriptor = json.loads(bridge.path.read_text())
+        for amount in range(40):
+            decoder, record = power_events(((1, amount*10), (0, amount)))
+            for event in decoder.decode_all(record)[1:]:
+                assert bridge.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
+        discrete = decoded('SMSG_QUEST_UPDATE_COMPLETE', struct.pack('<I', 55639), build=70575)[-1]
+        assert bridge.inbox.ingest_datagram(canonical(envelope(discrete.to_dict(), descriptor)))
+        events = bridge.inbox.poll()
+>       assert len(events) == 3 and any(e['event_type'] == 'QUEST_COMPLETED' for e in events)
+E       AssertionError: assert (3 == 3 and False)
+E        +  where 3 = len([{'event_id': 'eee211f717ac09d6571331d0', 'schema': 'aipc.packet-event.v1', 'timestamp': 1000.0, 'selected_pid': 77, ....event_id': '503d595e483316889c0f19bc', 'schema': 'aipc.packet-event.v1', 'timestamp': 1000.0, 'selected_pid': 77, ...}])
+E        +  and   False = any(<generator object test_state_flood_coalesces_each_resource_and_preserves_discrete_events.<locals>.<genexpr> at 0x00000162D8A50040>)
+
+tests\test_own_power_20261030.py:122: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_own_power_20261030.py::test_state_flood_coalesces_each_resource_and_preserves_discrete_events
+1 failed, 105 passed in 2.78s

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-p1c-20261029\\pytest-ambiguity-red",
+    "tests/test_collect_relation_ambiguity_20261029.py"
+  ],
+  "returncode": 1
+}

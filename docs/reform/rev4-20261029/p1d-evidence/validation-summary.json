@@ -1,0 +1,95 @@
+{
+  "scope": "REV4 P1-D shared evidence values, observed/received time and ancestry correlation",
+  "scoped_status": "IMPLEMENTED_OFFLINE_TESTED",
+  "full_P1_status": "PARTIAL",
+  "final": {
+    "modules": 290,
+    "passed": 3543,
+    "failed": 0,
+    "skipped": 2,
+    "deselected": 10,
+    "pytest_seconds": 125.47,
+    "returncode": 0
+  },
+  "new_tests": {
+    "test_evidence_lineage_20261029": {
+      "cases": 7,
+      "failed": 0
+    },
+    "test_evidence_contracts_20261029": {
+      "cases": 42,
+      "failed": 0
+    }
+  },
+  "new_deselections": 0,
+  "targeted": "66 passed",
+  "prechange_red": "7 failed; red.log",
+  "benchmark": {
+    "baseline": {
+      "median_of_medians_ms": 0.4605,
+      "median_p95_ms": 0.7546,
+      "snapshot_bytes": 53887
+    },
+    "current": {
+      "median_of_medians_ms": 0.88575,
+      "median_p95_ms": 1.5949,
+      "snapshot_bytes": 73214
+    }
+  },
+  "benchmark_scope": "synthetic 220 measured cycles; three alternating isolated processes per version; not a live FPS/latency guarantee",
+  "skip_details": [
+    {
+      "test": "tests.test_minimap_quest_dot_20261004::test_detector_on_the_live_garrick_capture",
+      "reason": "live capture not present"
+    },
+    {
+      "test": "tests.test_world_map_raster::test_exile_reach_fixture_scans_fast_and_returns_candidates",
+      "reason": "optional Exile's Reach screenshot fixture is not included in this source archive"
+    }
+  ],
+  "assistant_started_game_capture_or_full_ai": false,
+  "live_validation": false,
+  "addon_checks": [
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Transport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Transport.lua",
+      "unchanged": true
+    }
+  ],
+  "remaining": [
+    "persistent/imported lineage propagation and baseline/delta lifecycle",
+    "field-level source authority and completeness/coverage consumers",
+    "other shared Fact/Belief contracts",
+    "typed geometry-result contracts",
+    "independent session bootstrap and process/capture/world generations",
+    "later REV4 runtime/travel/combat/mechanic phases"
+  ],
+  "additional_parent_time_cases": "future and nonfinite parent time cannot be laundered by a child timestamp"
+}

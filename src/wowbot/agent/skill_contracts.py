@@ -58,6 +58,9 @@ CONTRACTS = [
     SkillContract("WAIT", "new_observation", 2., cost=.05),
     SkillContract("WAIT_EVENT", "quest_event_or_objective_progress", 15.,
                   required_world_state=("active_quests",), cost=.05),
+    # REV4 survival: stationary regeneration before a new pull; success is
+    # observed own health at the finish threshold (skills/rest.py).
+    SkillContract("REST", "own_health_regenerated", 45., cost=.05),
     # Reverted 2 -> back to 5 on 2026-09-13: too many other stability issues
     # in flight (telemetry-staleness detection, REACQUIRE_TARGET, target
     # flicker) to also carry the risk of a tighter INSPECT deadline. Revisit
@@ -134,6 +137,12 @@ CONTRACTS = [
     SkillContract("EXTRA_ACTION", "quest_objective_progress", 8., ("EXTRAACTIONBUTTON1",),
                   preconditions=("visible_usable_exact_extra_action", "quest_action_identity"),
                   required_world_state=("extra_action", "active_quests"), cost=.55),
+    # P8.4 (user 2026-11-02): an addon secure button the user bound (quest
+    # emote).  Its binding comes from the exported action, rechecked at
+    # dispatch; only quest credit verifies it.
+    SkillContract("ADDON_ACTION", "quest_objective_progress", 8.,
+                  preconditions=("exact_addon_action_applied", "quest_action_identity", "verified_target"),
+                  required_world_state=("emote_action", "active_quests"), cost=.55),
     # 6 s: loot events/quest credit arrive on the paged STATE 1-3 s after the
     # click (live 2026-10-02: verified "not opened" 1 s before LOOT_RECEIVED).
     SkillContract("LOOT", "loot_received_or_inventory_changed", 6., ("INTERACTTARGET",),
@@ -168,9 +177,13 @@ CONTRACTS = [
     SkillContract("EXIT_VEHICLE", "left_vehicle", 2.5, preconditions=("in_vehicle",), cost=.2),
     SkillContract("VEHICLE_ABILITY", "vehicle_ability_cast_or_objective_progress", 3.,
                   preconditions=("vehicle_controls", "ready_vehicle_ability"), cost=.4),
-    SkillContract("MOUNT", "mounted", 4., preconditions=("not_mounted", "not_in_combat", "mount_binding_known"),
-                  required_world_state=("is_mounted",), cost=.35),
-    SkillContract("DISMOUNT", "dismounted", 2., preconditions=("mounted", "mount_binding_known"),
+    SkillContract("MOUNT", "mounted", 4.,
+                  preconditions=("not_mounted", "not_in_combat", "mount_binding_known",
+                                 "collected_mount_known", "riding_capability_confirmed"),
+                  required_world_state=("is_mounted", "mount_capability"), cost=.35),
+    # Live 16:37:41: the first dismounted FAST observation arrived ~3.8 s
+    # after the single press, just after the old 2 s attempt had failed.
+    SkillContract("DISMOUNT", "dismounted", 5., preconditions=("mounted", "mount_binding_known"),
                   required_world_state=("is_mounted",), cost=.15),
     SkillContract("CLOSE_MAP", "world_map_closed", 5., ("TOGGLEWORLDMAP",)),
     # An open NPC window with nothing to do (no button, no quest row): ESC

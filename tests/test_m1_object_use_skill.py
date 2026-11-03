@@ -44,7 +44,7 @@ def test_object_use_rejects_stale_cursor_or_wrong_hovered_object():
     assert ObjectUseSkill().begin(_active(), _state(object_id=88)).status is SkillStatus.FAILURE
 
 
-def test_tdb_object_id_with_idless_exact_tooltip_still_gets_fresh_hover_click():
+def test_tdb_object_id_with_idless_exact_tooltip_is_search_only():
     params={'object_id':339568,'tdb_object_name':'Thick Cocoon',
             'mouseover_tooltip':'Thick Cocoon ~ Who Lurks in the Pit'}
     mouse={'object_id':None,'name':'Thick Cocoon',
@@ -52,16 +52,17 @@ def test_tdb_object_id_with_idless_exact_tooltip_still_gets_fresh_hover_click():
            'quest_related':True,'quest_id':10}
     world={**_state(), 'mouseover':mouse}
     skill,state=ObjectUseSkill(),_active(params)
-    assert skill.begin(state,world).commands[0].kind=='HOVER'
-    assert skill.verify(state,world,1.2).commands[0].kind=='CLICK'
+    result = skill.begin(state, world)
+    assert result.reason.value == "IDENTITY_UNCERTAIN"
+    assert not result.commands
     wrong={**world,'mouseover':{**mouse,'object_id':4444}}
     assert not ObjectUseSkill._identity_matches(state.intent.parameters,wrong['mouseover'])
 
 
-def test_complete_state_z_after_hover_can_confirm_idless_tdb_totem():
+def test_complete_state_z_after_hover_can_confirm_numeric_tdb_totem_without_guid():
     params = {'object_id':327146, 'tdb_object_name':'Harpy Totem',
               'mouseover_tooltip':'Harpy Totem ~ Purge the Totems ~ 4/5 Harpy Totems burned'}
-    mouse = {'object_id':0, 'quest_id':10, 'quest_related':True,
+    mouse = {'object_id':327146, 'quest_id':10, 'quest_related':True,
              'tooltip':params['mouseover_tooltip']}
     before = {**_state(), 'transport_kind':'STATE_Z', 'state_sample_time':1.,
               'monotonic_time':1., 'mouseover':mouse}
@@ -148,7 +149,7 @@ def test_object_use_waits_for_post_hover_addon_samples_before_right_click():
     assert skill.verify(state, after, 1.2).commands[0].kind == "CLICK"
 
 
-def test_object_use_accepts_fresh_structured_name_when_full_tooltip_is_delayed():
+def test_object_use_rejects_name_only_even_when_the_sample_is_current():
     skill, state = ObjectUseSkill(), _active()
     state.intent.parameters["object_id"] = None
     state.intent.parameters["mouseover_tooltip"] = "Thick Cocoon ~ Who Lurks in the Pit ~ 0/5 rescued"
@@ -156,10 +157,8 @@ def test_object_use_accepts_fresh_structured_name_when_full_tooltip_is_delayed()
                                       "quest_related": True, "quest_id": 10},
               "monotonic_time": 1., "cursor_sample_time": 1.,
               "mouseover_sample_time": 1.}
-    assert skill.begin(state, before).commands[0].kind == "HOVER"
-    after = {**before, "monotonic_time": 1.2,
-             "cursor_sample_time": 1.2, "mouseover_sample_time": 1.2}
-    assert skill.verify(state, after, 1.2).commands[0].kind == "CLICK"
+    result = skill.begin(state, before)
+    assert result.reason.value == "IDENTITY_UNCERTAIN" and not result.commands
 
 
 def test_fresh_addon_cocoon_flag_overrides_only_optical_flow_yaw_drift():
@@ -194,10 +193,10 @@ def test_interacttarget_fallback_requires_a_matching_soft_gameobject_after_click
     skill, state = ObjectUseSkill(), _active()
     assert skill.begin(state, _state()).commands[0].kind == "HOVER"
     assert skill.verify(state, _state(), 1.2).commands[0].kind == "CLICK"
-    unrelated = {**_state(), "soft_targets": [{"unit_type": "GAMEOBJECT",
+    unrelated = {**_state(), "soft_targets": [{"unit_type": "GAMEOBJECT", "source_unit": "softinteract",
                     "guid": "other", "name": "Torch"}]}
     assert not skill.verify(state, unrelated, 3.5).commands
-    campfire = {**_state(), "soft_targets": [{"unit_type": "GAMEOBJECT",
+    campfire = {**_state(), "soft_targets": [{"unit_type": "GAMEOBJECT", "source_unit": "softinteract",
                    "guid": "campfire", "object_id": 77, "name": "Campfire"}]}
     fallback = skill.verify(state, campfire, 3.6)
     assert [command.binding for command in fallback.commands] == ["INTERACTTARGET"]

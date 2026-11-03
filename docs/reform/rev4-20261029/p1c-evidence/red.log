@@ -1,0 +1,66 @@
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_______ test_agent_does_not_attach_navigation_capabilities_to_the_world _______
+
+    def test_agent_does_not_attach_navigation_capabilities_to_the_world():
+        agent = AutonomousAgent(NoInput())
+        hidden = {"layer_oracle", "zone_sweep", "player_layer", "hostile_units", "walk_cost", "flight_departure_walk"}
+>       assert not hidden.intersection(agent.world.__dict__)
+E       AssertionError: assert not {'flight_departure_walk', 'hostile_units', 'layer_oracle', 'player_layer', 'walk_cost', 'zone_sweep'}
+E        +  where {'flight_departure_walk', 'hostile_units', 'layer_oracle', 'player_layer', 'walk_cost', 'zone_sweep'} = <built-in method intersection of set object at 0x000001E6A3E520A0>({'reliability_provider': None, 'relation_sink': None, 'event_sink': None, 'entity_memory': None, ...})
+E        +    where <built-in method intersection of set object at 0x000001E6A3E520A0> = {'flight_departure_walk', 'hostile_units', 'layer_oracle', 'player_layer', 'walk_cost', 'zone_sweep'}.intersection
+E        +    and   {'reliability_provider': None, 'relation_sink': None, 'event_sink': None, 'entity_memory': None, ...} = <wowbot.agent.world.WorldModel object at 0x000001E6A3E74EC0>.__dict__
+E        +      where <wowbot.agent.world.WorldModel object at 0x000001E6A3E74EC0> = <wowbot.agent.engine.AutonomousAgent object at 0x000001E6A3E74AD0>.world
+
+tests\test_navigation_query_ports_20261029.py:20: AssertionError
+_ test_state_only_layer_helper_cannot_borrow_an_attached_navigation_callback __
+
+    def test_state_only_layer_helper_cannot_borrow_an_attached_navigation_callback():
+        model = SimpleNamespace(player_layer=lambda state: 999.)
+        world = SimpleNamespace(_model=model)
+>       assert QuestLocationPlanningPolicy.player_layer_z(world, {}) is None
+E       assert 999.0 is None
+E        +  where 999.0 = <function QuestLocationPlanningPolicy.player_layer_z at 0x000001E6A39D09A0>(namespace(_model=namespace(player_layer=<function test_state_only_layer_helper_cannot_borrow_an_attached_navigation_callback.<locals>.<lambda> at 0x000001E6A3E6B6A0>)), {})
+E        +    where <function QuestLocationPlanningPolicy.player_layer_z at 0x000001E6A39D09A0> = QuestLocationPlanningPolicy.player_layer_z
+
+tests\test_navigation_query_ports_20261029.py:26: AssertionError
+__ test_unconfigured_travel_policy_does_not_invoke_a_world_attached_service ___
+
+    def test_unconfigured_travel_policy_does_not_invoke_a_world_attached_service():
+        from test_flight_travel_integration_20261029 import goal, state
+    
+        def forbidden(*args):
+            raise AssertionError("A world value cannot grant a navigation capability")
+    
+        current = state(mounted=False, indoors=True, sky=True)
+        world = SimpleNamespace(state=current, flight_departure_walk=forbidden)
+        move = Proposal.make("MOVE", "quest destination", goal(500., flight=False))
+>       assert TravelModePolicy().apply([move], Goal.parse("Questelj", 100.), world, 100.) == [move]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_navigation_query_ports_20261029.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\wowbot\agent\travel_mode.py:451: in apply
+    departure = self._walk_to_open_sky(proposals, world, now)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\wowbot\agent\travel_mode.py:385: in _walk_to_open_sky
+    departure = oracle(lead.parameters, state) if style and callable(oracle) else None
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = ({'coordinate_space': 'WORLD_YARDS', 'flight': False, 'flight_style': 'STEADY', 'instance_id': 2444, ...}, {'session_id': 'flight-test', 'monotonic_time': 100.0, 'map_id': 2023, 'orientation': 0.0, ...})
+
+    def forbidden(*args):
+>       raise AssertionError("A world value cannot grant a navigation capability")
+E       AssertionError: A world value cannot grant a navigation capability
+
+tests\test_navigation_query_ports_20261029.py:33: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_navigation_query_ports_20261029.py::test_agent_does_not_attach_navigation_capabilities_to_the_world
+FAILED tests/test_navigation_query_ports_20261029.py::test_state_only_layer_helper_cannot_borrow_an_attached_navigation_callback
+FAILED tests/test_navigation_query_ports_20261029.py::test_unconfigured_travel_policy_does_not_invoke_a_world_attached_service
+3 failed in 1.27s
+Exception ignored in: <function Console.__del__ at 0x000001E68B95C540>
+Traceback (most recent call last):
+  File "C:\Users\<user>\AppData\Roaming\Python\Python313\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

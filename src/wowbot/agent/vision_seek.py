@@ -10,9 +10,10 @@ from enum import StrEnum
 
 from .models import Command, number
 from .models import words
-from .quest_semantics import target_matches_objective
+from .quest_semantics import target_matches_objective, speak_target_matches, NPC_SPEAK_TYPES
 from .visual_approach import VisualApproachController, VisualApproachPhase
 from .tooltip_quest import effective_mouseover
+from .pointer_tracking import follow_pointer, live_pointer_point, world_pointer_blocked
 
 
 class SeekVisualCuePhase(StrEnum):
@@ -75,6 +76,19 @@ class SeekVisualCueController:
         self.identity_hover_requested_at: float | None = None
         self.identity_hover_mouse_sample_before: float | None = None
         self.identity_hover_point: tuple[float, float] | None = None
+        self.last_reaim_at = -1_000_000.0
+        self.pointer_follow_context = {}
+
+    # Live 2026-10-14 (user): SEEK found the Thick Cocoon, the turn carried
+    # the cursor off it before the tooltip arrived (~0.2-0.5 s through the
+    # pixel strip) and the search turned again.  A quest object hover keeps
+    # following the box and waits longer for the addon's answer.
+    IDENTITY_WAIT_SECONDS = .85
+    LOCAL_OBJECT_IDENTITY_WAIT_SECONDS = 2.5
+
+    def _holds_local_object(self) -> bool:
+        return (self.intent.get("search_capability") == "SEARCH_LOCAL_OBJECT"
+                and self.intent.get("quest_id") is not None)
 
     def begin(self, parameters: dict, state: dict, now: float) -> None:
         self.reset()
@@ -220,15 +234,40 @@ class SeekVisualCueController:
 
     def _mouseover_identifies_intent(self, mouse: dict, state: dict) -> bool:
         """Ground-truth identity gate for units and guid-less world objects."""
+        from wowbot.runtime.entity_identity import check_entity_identity
+        from wowbot.runtime.skill_identity import expected_identity
+        explicit = expected_identity(self.intent, include_item=True)
+        if explicit and not check_entity_identity(explicit, mouse):
+            return False
+        from .target_planning import is_player_unit
+        if is_player_unit(mouse, state):
+            return False
+        if self.intent.get("require_attackable") is True and (
+                mouse.get("attackable", mouse.get("is_attackable")) is not True
+                or mouse.get("dead") is True or mouse.get("is_dead") is True
+                or number(mouse.get("health")) == 0):
+            return False
+        if str(self.intent.get("objective_type") or "").upper() in NPC_SPEAK_TYPES:
+            if mouse.get("guid") == state.get("character_guid"):
+                return False
+            return speak_target_matches({
+                "type": self.intent["objective_type"],
+                "description": self.intent.get("objective_description"),
+                "target_entity": {"npc_id": self.intent.get("expected_npc_id"),
+                                  "name": self.intent.get("expected_name")},
+                "entity_candidates": self.intent.get("entity_candidates") or (),
+            }, mouse)
         object_id = self.intent.get("object_id")
         item_id = self.intent.get("item_id")
         if object_id is not None:
-            return str(mouse.get("object_id")) == str(object_id)
+            return bool(check_entity_identity({"object_id": object_id}, mouse))
         if item_id is not None:
-            return str(mouse.get("item_id")) == str(item_id)
+            return bool(check_entity_identity({"item_id": item_id}, mouse))
         expected_npc_id = self.intent.get("expected_npc_id")
         if expected_npc_id is not None:
-            return str(mouse.get("npc_id")) == str(expected_npc_id)
+            return (bool(check_entity_identity({"npc_id": expected_npc_id}, mouse))
+                    and (self.intent.get("require_attackable") is not True
+                         or mouse.get("attackable", mouse.get("is_attackable")) is True))
         expected_name = words(str(self.intent.get("expected_name") or "")).strip()
         if expected_name:
             actual_name = words(str(mouse.get("name") or "")).strip()
@@ -275,10 +314,17 @@ class SeekVisualCueController:
             # bounded response window, release this cue for the normal
             # inspection path, but only after the pointer was actually moved
             # to it.
-            if now-self.identity_hover_requested_at >= .85:
+            wait = (self.LOCAL_OBJECT_IDENTITY_WAIT_SECONDS if self._holds_local_object()
+                    else self.IDENTITY_WAIT_SECONDS)
+            if now-self.identity_hover_requested_at >= wait:
                 self.phase = SeekVisualCuePhase.CANDIDATE_READY
                 return SeekVisualCueAssessment(self.phase, True, True,
                                                "visual_cue_hovered_for_identification")
+            # A requested hover owns this cue for its bounded response window.
+            # Do not resume walking/turning while waiting for its identity.
+            self.phase = SeekVisualCuePhase.CANDIDATE_READY
+            return SeekVisualCueAssessment(self.phase, False, False,
+                                           "awaiting_visual_cue_mouseover_identity")
         if candidate is not None:
             score = self._score(candidate)
             if score > -1_000_000.0:
@@ -312,7 +358,7 @@ class SeekVisualCueController:
                     and assessment.reason == "identity_available_during_visual_seek"
                     and any(self.intent.get(key) not in (None, "", []) for key in (
                         "object_id", "item_id", "expected_npc_id", "expected_name",
-                        "expected_tooltips"))
+                        "expected_tooltips", "require_attackable"))
                     and not self._mouseover_identifies_intent(
                         effective_mouseover(state),
                         state)):
@@ -354,6 +400,8 @@ class SeekVisualCueController:
         return SeekVisualCueAssessment(self.phase, False, False, "seek_visual_cue_scanning")
 
     def command(self, state: dict, observation_id: str, now: float) -> tuple[Command, ...]:
+        if world_pointer_blocked(state):
+            return ()
         if (self.phase == SeekVisualCuePhase.CANDIDATE_READY
                 and self.identity_hover_requested_at is None):
             candidate = self._candidate(state)
@@ -365,6 +413,19 @@ class SeekVisualCueController:
                 self.identity_hover_point = (x, y)
                 self.last_command_observation_id = observation_id
                 return (Command("HOVER", x=x, y=y, duration=.05),)
+        if (self.phase == SeekVisualCuePhase.CANDIDATE_READY
+                and self.identity_hover_requested_at is not None):
+            # Keep the pointer on the moving box until the tooltip arrives.
+            candidate = self._candidate(state)
+            track_id = candidate.get("track_id") if candidate else None
+            point = live_pointer_point(state, track_id, now, candidate=candidate) if candidate else None
+            command = follow_pointer(self.pointer_follow_context, state, track_id, now, point=point) if point else None
+            if command is not None:
+                self.identity_hover_point = (command.x, command.y)
+                self.last_reaim_at = now
+                self.last_command_observation_id = observation_id
+                return (command,)
+            return ()
         if self.servo.intent is not None:
             return self.servo.command(state, observation_id, now)
         if observation_id == self.last_command_observation_id:

@@ -37,6 +37,28 @@ def test_monitor_emits_only_meaningful_changes():
     assert format_change(value, value) == []
 
 
+def test_monitor_preserves_parallel_control_revision_and_separate_cadences():
+    control = {"enabled": True, "implementation": "shared-fast-channels-v1",
+               "control_hz": 25., "pointer_hz": 20., "reason": "moving"}
+    worker = {"pending": 2, "completed": 4}
+    value = summarize({"parallel_control": control, "visual_memory_worker": worker,
+                       "loop_rates": {"runtime_poll_hz": 3., "parallel_control_hz": 25.}})
+    assert value["parallel_control"] == control
+    assert value["visual_memory_worker"] == worker
+    assert value["loop_rates"]["parallel_control_hz"] == 25.
+    assert any(line.startswith("parallel_control=") for line in format_change(value, {}))
+
+
+def test_monitor_exposes_conditional_quest_itinerary_not_just_one_current_skill():
+    agenda = {"implementation": "grounded-quest-agenda-v1", "preferred_step": "work:2",
+              "same_area_groups": [["1", "2", "3"]], "advice": "deterministic",
+              "itinerary": {"steps": [{"step": "work:2", "conditional": True},
+                                      {"step": "turnin:1", "conditional": True}]}}
+    value = summarize({"quest_agenda": agenda})
+    assert value["quest_agenda"] == agenda
+    assert any(line.startswith("quest_agenda=") for line in format_change(value, {}))
+
+
 def test_monitor_reads_unified_v3_v4_diagnostics():
     value = summarize({"vision_diagnostics": {
         "world3d_v3_v4": {"version": "world3d_v3_unified", "mode": "WORLD3D",

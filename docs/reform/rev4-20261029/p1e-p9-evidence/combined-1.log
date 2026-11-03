@@ -1,0 +1,171 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+....................................F...F............................... [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+..........................................................F............. [ 41%]
+........................................................................ [ 43%]
+..................................................................s..... [ 45%]
+.....................................F.................................. [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+.............................F..................................F....... [ 85%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+.....................................................F.................. [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+..............................s......................................... [ 97%]
+........................................................................ [ 99%]
+...............                                                          [100%]
+================================== FAILURES ===================================
+____________ test_a_downward_sweep_hop_above_the_landing_is_passed ____________
+
+    def test_a_downward_sweep_hop_above_the_landing_is_passed():
+        navmesh = _Navmesh()
+        nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))), navmesh=navmesh)
+        nav._player_layer = (2175, 80.4, -2224.8, UPPER, 1.)
+        nav.start_skill_request("MOVE", {"x": 81.6, "y": -2224.2, "z": 83.7, "z_estimated": True,
+                                         "coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                                         "map_id": 1409, "stop_distance": 6., "require_navmesh": True,
+                                         "sweep_direction": "DOWN", "location_source": "QUEST_ZONE_SWEEP"},
+                                _state(1.), "obs0", 1.)
+        passed = nav.observe(_state(3., events=[_fall(5)], y=-2227.), "obs1", 3.)
+>       assert passed.terminal and passed.success and passed.reason == "zone_sweep_hop_passed"
+E       AssertionError: assert (False)
+E        +  where False = MovementAssessment(phase=<MovementPhase.MOVING: 'MOVING'>, terminal=False, success=False, reason='trip_final_floor_not_verified').terminal
+
+tests\test_fall_off_spiral_replan_20261006.py:170: AssertionError
+_____ test_a_downward_hop_we_are_already_below_ends_without_a_fall_event ______
+
+    def test_a_downward_hop_we_are_already_below_ends_without_a_fall_event():
+        """Live 2026-10-06: off the spiral without a reported fall, the hop at 83 stayed the target."""
+        navmesh = _Navmesh()
+        nav = NavigationService(BindingsCache(binding_file(Path(tempfile.mkdtemp()))), navmesh=navmesh)
+        nav._player_layer = (2175, 80.4, -2224.8, UPPER, 1.)
+        nav.start_skill_request("MOVE", {"x": 81.6, "y": -2224.2, "z": 83.7, "z_estimated": True,
+                                         "coordinate_space": "WORLD_YARDS", "instance_id": 2175,
+                                         "map_id": 1409, "stop_distance": 6., "require_navmesh": True,
+                                         "sweep_direction": "DOWN", "location_source": "QUEST_ZONE_SWEEP"},
+                                _state(1.), "obs0", 1.)
+        nav._z.seed_player(2175, 80.4, -2227., LOWER, 2.)
+        passed = nav.observe(_state(3., y=-2227.), "obs1", 3.)
+>       assert passed.terminal and passed.success and passed.reason == "zone_sweep_hop_passed"
+E       AssertionError: assert (False)
+E        +  where False = MovementAssessment(phase=<MovementPhase.MOVING: 'MOVING'>, terminal=False, success=False, reason='trip_final_floor_not_verified').terminal
+
+tests\test_fall_off_spiral_replan_20261006.py:218: AssertionError
+_ test_navigation_service_uses_mmap_for_final_los_replan_without_second_authority _
+
+    def test_navigation_service_uses_mmap_for_final_los_replan_without_second_authority():
+        navmesh = NavMesh()
+        service = NavigationService(navmesh=navmesh)
+        destination = service.reposition_for_los(
+            live_target(), "mob-1", "combat:los:3", 2., desired_range=4.5)
+        snapshot = service.snapshot(2.)
+    
+        assert destination and destination["purpose"] == "LOS_REPOSITION"
+        assert len(navmesh.calls) == 1 and navmesh.calls[0][0] == 2175
+        assert snapshot["active_request"]["mode"] == "REPOSITION_FOR_LOS"
+>       assert snapshot["global_route"]["anchors"][1]["source"] == "TRINITYCORE_MMAP"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source'
+
+tests\test_los_recovery.py:99: KeyError
+_ test_kill_objective_builds_generic_verified_horizon_but_executes_only_first_step _
+
+    def test_kill_objective_builds_generic_verified_horizon_but_executes_only_first_step():
+        bot, executor = agent()
+        quest = {"quest_id": 42, "objectives": [{"objective_id": "42:kill", "type": "KILL",
+            "required": 3, "current": 0,
+            "target_location": {"map_id": 1609, "x": .55, "y": .45,
+                                "world_position": world(340, -2340)}}]}
+        result = bot.tick(state(active_quests=[quest], player_world_position=world(300, -2300)), 1)
+        plan = result["plan"]
+        assert plan["steps"][0]["capability"] == "MOVE"
+        assert plan["steps"][0]["status"] == "READY"
+>       assert [step["capability"] for step in plan["steps"]][1:] == [
+            "ACQUIRE_TARGET", "APPROACH_TARGET", "COMBAT", "LOOT", "VERIFY_OBJECTIVE"]
+E       AssertionError: assert ['VERIFY_OBJECTIVE'] == ['ACQUIRE_TAR...FY_OBJECTIVE']
+E         
+E         At index 0 diff: 'VERIFY_OBJECTIVE' != 'ACQUIRE_TARGET'
+E         Right contains 4 more items, first extra item: 'APPROACH_TARGET'
+E         Use -v to get more diff
+
+tests\test_multistep_plan.py:18: AssertionError
+_______ test_fast_lane_arrival_ends_the_medium_tick_on_the_same_sample ________
+
+    def test_fast_lane_arrival_ends_the_medium_tick_on_the_same_sample():
+        nav, _ = _navigation()
+        nav.start_skill_request("MOVE", _hop(), _state(66., -2248., 1.), "obs0", 1.)
+        arrived = _state(69.84, -2247.04, 2.)
+        fast = nav.observe(arrived, "fast", 2.)
+>       assert fast.terminal and fast.success
+E       AssertionError: assert (False)
+E        +  where False = MovementAssessment(phase=<MovementPhase.MOVING: 'MOVING'>, terminal=False, success=False, reason='trip_final_floor_not_verified').terminal
+
+tests\test_sweep_arrival_circling_20261005.py:85: AssertionError
+_______ test_primary_precedes_generic_api_waypoint_but_not_live_entity ________
+
+memory = <wowbot.agent.spatial_memory.SpatialMemory object at 0x000001D50C7B3A10>
+
+    def test_primary_precedes_generic_api_waypoint_but_not_live_entity(memory):
+        s=snapshot(memory)
+        obj=SimpleNamespace(objective_id='7:0', target_entity={'npc_id':100},
+                            target_location={'map_id':1409,'x':.9,'y':.9}, confidence=.9)
+        record=SimpleNamespace(quest_id=7,known_locations=[])
+>       assert ObjectiveLocator().locate(obj,record,s).coordinates['source']=='TDB_REFERENCE_POI'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source'
+
+tests\test_tdb_primary.py:33: KeyError
+___________ test_runtime_py_is_measurably_smaller_after_extraction ____________
+
+    def test_runtime_py_is_measurably_smaller_after_extraction():
+        lines = (ROOT / "agent" / "runtime.py").read_text(encoding="utf-8").splitlines()
+        # Was 981 lines before the V4-083/V4-095 extraction.
+>       assert len(lines) < 600
+E       AssertionError: assert 608 < 600
+E        +  where 608 = len(['from __future__ import annotations', '', 'import json', 'import os', 'from pathlib import Path', 'import threading', ...])
+
+tests\test_v4_083_095_module_size_reduction.py:18: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_fall_off_spiral_replan_20261006.py::test_a_downward_sweep_hop_above_the_landing_is_passed
+FAILED tests/test_fall_off_spiral_replan_20261006.py::test_a_downward_hop_we_are_already_below_ends_without_a_fall_event
+FAILED tests/test_los_recovery.py::test_navigation_service_uses_mmap_for_final_los_replan_without_second_authority
+FAILED tests/test_multistep_plan.py::test_kill_objective_builds_generic_verified_horizon_but_executes_only_first_step
+FAILED tests/test_sweep_arrival_circling_20261005.py::test_fast_lane_arrival_ends_the_medium_tick_on_the_same_sample
+FAILED tests/test_tdb_primary.py::test_primary_precedes_generic_api_waypoint_but_not_live_entity
+FAILED tests/test_v4_083_095_module_size_reduction.py::test_runtime_py_is_measurably_smaller_after_extraction
+7 failed, 3606 passed, 2 skipped, 10 deselected in 148.97s (0:02:28)

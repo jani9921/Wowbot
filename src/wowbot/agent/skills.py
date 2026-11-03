@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from .combat_controller import CombatController
-from wowbot.skills.ability_rules import AbilityRuleEngine
+from wowbot.combat.ability.evaluator import AbilityRuleEngine
 from .skill_contracts import CONTRACTS, SkillContract  # noqa: F401  (SkillContract re-exported)
 from .skill_availability import SkillAvailabilityMixin
 from .skill_commands import SkillCommandsMixin

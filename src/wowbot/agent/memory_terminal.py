@@ -27,17 +27,18 @@ class MemoryTerminalProcessor:
             {"action_id": attempt.action_id,
              "prediction_id": attempt.prediction.prediction_id,
              "verification_id": verification.verification_id})
-        legacy_context = f"{state.get('game_build')}:{state.get('map_id')}:{goal.domain}"
-        memory.learn(legacy_context, attempt.proposal.skill, outcome == Outcome.SUCCESS)
-        context = memory.learning_context(state, goal.domain)
-        memory.learn_procedure(
-            context, attempt.proposal.skill, outcome == Outcome.SUCCESS,
-            cost=contract.cost + max(0., now-attempt.started_at), at=now,
-            reason=reason, provenance={"goal_id": goal.goal_id,
-                "plan_id": attempt.plan_id, "action_id": attempt.action_id,
-                "prediction_id": attempt.prediction.prediction_id,
-                "verification_id": verification.verification_id,
-                "observation_ids": list(verification.evidence)})
+        if outcome != Outcome.CANCELLED:
+            legacy_context = f"{state.get('game_build')}:{state.get('map_id')}:{goal.domain}"
+            memory.learn(legacy_context, attempt.proposal.skill, outcome == Outcome.SUCCESS)
+            context = memory.learning_context(state, goal.domain)
+            memory.learn_procedure(
+                context, attempt.proposal.skill, outcome == Outcome.SUCCESS,
+                cost=contract.cost + max(0., now-attempt.started_at), at=now,
+                reason=reason, provenance={"goal_id": goal.goal_id,
+                    "plan_id": attempt.plan_id, "action_id": attempt.action_id,
+                    "prediction_id": attempt.prediction.prediction_id,
+                    "verification_id": verification.verification_id,
+                    "observation_ids": list(verification.evidence)})
         inspection_quality = None
         events: tuple[tuple[str, dict], ...] = ()
         if attempt.proposal.skill == "INSPECT":

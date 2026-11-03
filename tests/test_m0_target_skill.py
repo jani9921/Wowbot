@@ -18,11 +18,16 @@ def test_target_skill_requires_safe_explicit_target_input():
     assert result.status is SkillStatus.FAILURE
 
 
-def test_target_skill_clicks_then_requires_exact_guid_confirmation():
+def test_target_skill_hovers_then_requires_exact_guid_confirmation():
     skill = TargetSkill()
     state = active({"guid": "npc-1", "x": .4, "y": .5})
     started = skill.begin(state)
-    assert started.status is SkillStatus.RUNNING and started.commands[0].kind == "CLICK"
+    assert started.status is SkillStatus.RUNNING and started.commands[0].kind == "HOVER"
+    clicked = skill.verify(state, {"mouseover": {"guid": "npc-1"},
+                                   "mouseover_sample_time": 1.1,
+                                   "cursor_sample_time": 1.1,
+                                   "cursor_position": {"nx": .4, "ny": .5}}, 1.1)
+    assert clicked.commands[0].kind == "CLICK_CURRENT_CURSOR"
     wrong = skill.verify(state, {"target": {"guid": "npc-wrong"}}, 2)
     assert wrong.status is SkillStatus.FAILURE
     assert wrong.reason.value == "IDENTITY_UNCERTAIN"
@@ -40,6 +45,8 @@ def test_ground_truth_handoff_clicks_current_cursor_without_repositioning_it():
     skill = TargetSkill()
     state = active({"guid": "npc-1", "x": .4, "y": .5,
                     "ground_truth_handoff": True, "click_current_cursor": True})
+    state.before_snapshot = {"mouseover": {"guid": "npc-1"}, "mouseover_sample_time": 1.,
+        "cursor_position": {"nx": .4, "ny": .5}, "cursor_sample_time": 1.}
     started = skill.begin(state)
     assert started.status is SkillStatus.RUNNING
     assert started.commands[0].kind == "CLICK_CURRENT_CURSOR"

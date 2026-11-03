@@ -1,0 +1,15 @@
+{
+  "files": [
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.V12_0_0_65390/Parsers/UpdateFieldsHandler1215.cs",
+      "sha256": "a628276266a46838fa8f1383fe8507dafb5ac78d10479c9fc70c0cd3cf4590b2"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParser/Enums/UpdateFieldFlag.cs",
+      "sha256": "50816223d91077c5adf4169e3a3e200bd0cfb756647614b95b0cfdc5a3438797"
+    }
+  ],
+  "scope": "70340-family selected own CREATE UnitData remainder -> PlayerData QuestLog prefix",
+  "slot_count": 175,
+  "live_validated": false
+}

@@ -220,3 +220,15 @@ def test_corpse_of_a_unique_kill_target_means_wait_for_its_respawn():
           mouseover_sample_time=300., cursor_position={"nx": .5, "ny": .6, "sample_time": 300.},
           cursor_sample_time=300.)
     assert "55879:2" not in world.respawn_watch
+
+
+def test_a_scripted_ride_without_vehicle_ui_is_never_left():
+    """Live 2026-10-26 11:00:48: boarding a scripted ride completed its quest;
+    Leave Vehicle was pressed 3x on a seat with no vehicle UI or bar."""
+    done = {**STAGE_DONE, "is_complete": True, "objectives": [
+        {**objective, "is_complete": True, "current": objective["required"]}
+        for objective in STAGE_DONE["objectives"]]}
+    world = _world(active_quests=[done], has_vehicle_ui=False)
+    world.state["vehicle_controls"] = False
+    proposals = Planner(SkillRegistry()).candidates(Goal.parse("Questelj", 1.), world, 1.)
+    assert "EXIT_VEHICLE" not in [p.skill for p in proposals]

@@ -1,0 +1,8 @@
+{
+  "scope": "REV4 migration baseline: existing targeted offline tests, no client input",
+  "project": "C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt",
+  "command": "py -3.13 -B -m pytest -q -p no:cacheprovider --basetemp <review>/pytest-baseline tests/test_packet_agent_bridge.py tests/test_navigation_contracts.py tests/test_navigation_danger_reachability.py tests/test_parallel_control.py tests/test_target_manager.py tests/test_quest_transition_hold_20261027.py tests/test_sparring_gossip_20261026.py tests/test_flight_travel_integration_20261029.py tests/test_fast_lane_freshness_20261004.py tests/test_current_turnin_poi_20261029.py",
+  "exit_code": 0,
+  "summary": "138 passed in 10.84s",
+  "output_tail": "...................       [100%]\r\n138 passed in 10.84s\r\nException ignored in: <function Console.__del__ at 0x00000290AB150720>\r\nTraceback (most recent call last):\r\n  File \"C:\\Users\\<user>\\AppData\\Roaming\\Python\\Python313\\site-packages\\pyreadline3\\console\\console.py\", line 255, in __del__\r\nOSError: [WinError -1073741816] Windows Error 0xc0000008\r\n"
+}

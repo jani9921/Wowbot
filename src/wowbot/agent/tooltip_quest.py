@@ -16,6 +16,35 @@ from .models import number
 _COUNT = re.compile(r"^(\d+)\s*/\s*(\d+)\b")
 
 
+def known_dead_unit(unit: dict, state: dict) -> bool:
+    """Negative evidence for this GUID only, including compact FAST omissions.
+
+    A fresh detailed unit-change event may say corpse while FAST only names
+    an attackable unit. Never copy another unit's death/quest/identity fields.
+    Explicit live flags outrank an older event; expired events decide nothing.
+    """
+    from .packet_entity_facts import server_feign_death
+    if server_feign_death(state, unit.get("guid")):
+        return False                       # alive per the server, only feigning death
+    if unit.get("dead") is True or unit.get("is_dead") is True or number(unit.get("health")) == 0:
+        return True
+    if unit.get("dead") is False or unit.get("is_dead") is False:
+        return False
+    guid, now = unit.get("guid"), number(state.get("timestamp"))
+    if not guid or now is None:
+        return False
+    matching = [event for event in state.get("events") or ()
+                if isinstance(event, dict) and event.get("event_type") in {"MOUSEOVER_CHANGED", "TARGET_CHANGED"}
+                and (event.get("payload") or {}).get("guid") == guid
+                and number(event.get("timestamp")) is not None
+                and 0 <= now-number(event["timestamp"]) <= 3.]
+    if not matching:
+        return False
+    latest = max(matching, key=lambda event: (float(event["timestamp"]), number(event.get("sequence")) or 0.))
+    payload = latest.get("payload") or {}
+    return payload.get("dead") is True or payload.get("is_dead") is True
+
+
 def tooltip_quest_id(unit: dict, state: dict):
     text = str(unit.get("tooltip") or "")
     name = str(unit.get("name") or "").strip().casefold()
@@ -206,7 +235,7 @@ def effective_mouseover(state: dict, memory: dict | None = None) -> dict:
         return mouse
     return {**mouse, "tooltip": payload["tooltip"],
             "name": metadata.get("unit_name") or str(payload["tooltip"]).split(" ~ ", 1)[0],
-            "object_id": payload.get("object_id"),
+            "object_id": mouse.get("object_id"),
             "identity_source": "MOUSEOVER_CHANGED_EVENT"}
 
 
@@ -239,7 +268,7 @@ def _remembered_object(state: dict, mouse: dict, memory: dict | None) -> dict | 
             and abs(y-continuity["cursor"][1]) <= .004):
         return {**mouse, "tooltip": tooltip,
                 "name": metadata.get("unit_name") or tooltip.split(" ~ ", 1)[0],
-                "object_id": payload.get("object_id"),
+                "object_id": mouse.get("object_id"),
                 "identity_source": "CONTINUOUS_LIVE_QUEST_OBJECT_MOUSEOVER"}
     now, ingested_at = number(state.get("monotonic_time")), number(memory.get("ingested_at"))
     still_for = number(memory.get("still_for")) or 0.
@@ -262,6 +291,6 @@ def _remembered_object(state: dict, mouse: dict, memory: dict | None) -> dict | 
         return None
     return {**mouse, "tooltip": tooltip,
             "name": metadata.get("unit_name") or tooltip.split(" ~ ", 1)[0],
-            "object_id": payload.get("object_id"),
+            "object_id": mouse.get("object_id"),
             "quest_related": payload.get("quest_related"), "quest_id": payload.get("quest_id"),
             "identity_source": "MOUSEOVER_CHANGED_EVENT_AT_STILL_CURSOR"}

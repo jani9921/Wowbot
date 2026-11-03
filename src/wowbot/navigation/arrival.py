@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 import math
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 from .models import ArrivalCondition
 
 

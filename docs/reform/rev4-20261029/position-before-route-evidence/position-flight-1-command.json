@@ -1,0 +1,22 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-position-before-route-20261030\\position-flight-1-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-position-before-route-20261030\\position-flight-1-junit.xml",
+    "tests/test_flight_travel_integration_20261029.py",
+    "tests/test_trip_lifecycle_20261030.py",
+    "tests/test_generic_flight_movement_20261025.py",
+    "tests/test_travel_flight_handoff_20261028.py",
+    "tests/test_navigation_service_context_and_transition_wiring.py",
+    "tests/test_movement_skill_runner_phase_wiring.py",
+    "tests/test_server_composition_20261030.py"
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "files": [
+    {
+      "path": "data/client_power_types.json",
+      "before_sha256": null,
+      "after_sha256": "54d34963da05882730c1952a65678d12b7b0f65e7b5747098b0a53bfd1da4118",
+      "status": "ADDED"
+    },
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "before_sha256": "2c63f82243564c4405455693bad665494b6d0fa6f55811f1ecf9c54f51d6da65",
+      "after_sha256": "83d6b097c2c5a83b2e30a92e4cf37210db3782000b806d9047af2fd79482f7ae",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "before_sha256": "8d4eef6f7b2b6886cef5bb56f64b272928bd8f2932a3a7bc3bfc4ba9963f0a7f",
+      "after_sha256": "24eade78b6822d502e17f4c66147bc537959f6a67059c4460de947a35caee9f1",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "before_sha256": "9cd19ccf5d46fe51818216af018318d9e080b7e9a5a8b7a11c733d18eb62a831",
+      "after_sha256": "43bd3c3f8e586e80b4deb8b77709790125c2123ca09c2fbafa02c5877785d8b1",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "before_sha256": "895928426c797419439f20904b2e3c0b26764803c80f8ec10a5b37f20428f15e",
+      "after_sha256": "3372855002b7bdb171f0f424324831d927d29d6977c3deae48ebd527bb520920",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P3_OWN_HEALTH.md",
+      "before_sha256": "74f555ff4128f5d2f8333b31460fb55467c865a2ebdb402b1f0b1df3f082b598",
+      "after_sha256": "9c8af69ce65cf67df975a00f7a6ecb234b9d81963205b6d85953e979973eefde",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P3_PROVIDER_CLOSURE.md",
+      "before_sha256": null,
+      "after_sha256": "6e93ea8e3d0bdd5ab2fa1b4b00d1186f40a2353bec61a157705d0ae00bee3d62",
+      "status": "ADDED"
+    },
+    {
+      "path": "src/adapters/telemetry_packets.py",
+      "before_sha256": "72b2f86ad1cdcabc04af7ed029d1a01cde3890653858c60d52c47500a9799531",
+      "after_sha256": "1fd381b5344f1df3697cb303d4badeca50ca28c48553d25ab460b4e7607aff8d",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/agent/packet_own_health.py",
+      "before_sha256": "36c4bdcfc4c965e30fecc7346622a6ec829a841594cc183ee1b9c9487408670a",
+      "after_sha256": "9e15d524d72ec3f4dcd3ac3727717b172cb64dcc401f8242fc8e1035b2b505dd",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/agent/packet_own_power.py",
+      "before_sha256": null,
+      "after_sha256": "68e138f5e50429b10363d4f37045a12fc0cc21035c7d92b9267ffc118356d9a3",
+      "status": "ADDED"
+    },
+    {
+      "path": "src/wowbot/agent/packet_own_profile.py",
+      "before_sha256": null,
+      "after_sha256": "587eac5c688ddafbc72ea24b38a6698d6e1fde2fb5ee408c84fc8084efb8ffca",
+      "status": "ADDED"
+    },
+    {
+      "path": "src/wowbot/agent/world_addon_reducer.py",
+      "before_sha256": "ab54adf2654194d78bc5520b7738ab74663d8fba01443c411bd7406aef7e0885",
+      "after_sha256": "06e798433a9851d6eafc0a2e3751034160dc882dd088f80b83cccffc8fbd1397",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "before_sha256": "175924c43fd1dc46c908151bcf8d22ef6569ad3fc78d3d9b76fcf93b1f75c613",
+      "after_sha256": "67065f22d879a55cd8b414447f6fa30baa2579e2516c81870e32d1bbbbd85ff8",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/character_resources.py",
+      "before_sha256": null,
+      "after_sha256": "0870aede25f492f397263f356743759d06b868ad9c2cf98024a087712ffbc12a",
+      "status": "ADDED"
+    },
+    {
+      "path": "src/wowbot/combat_contracts.py",
+      "before_sha256": "3ce93b38ecd2dfe4f727e1b061a1f2fe3e881e13fc26f082fb3ad2f487799f9d",
+      "after_sha256": "ed8868446e9f85f6eb3770230d693430b6d213d9ac2ec255cd18343005b6dccd",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/field_sources.py",
+      "before_sha256": "69cebb9fc14db515d98339dd2303e28bfa20847735a3b6e0615593fc97d1c278",
+      "after_sha256": "374c89f1a20013790ab1bb9750f96ebbc54e929d03f0b290b544ad9347ab37dc",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/packetio/inbox.py",
+      "before_sha256": "dd6f5ce953e10dd233840c7cd618bd7c05cb30d842c76fd42fd13fc06a7381ea",
+      "after_sha256": "14d3366ae52356b8f4d5c9d0dec519abdaf56588c5329211c0695c449bab492b",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/packetio/opcodes_12_1.py",
+      "before_sha256": "57c79ad0fc512224748c4dbfcd28c6977f5abbb9bef769446c19344a3d1c1207",
+      "after_sha256": "88244a14951192b9ab37c3b83ee94ba1dfdb34a22a3d4fd48f8b94fe09016e03",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/packetio/own_power.py",
+      "before_sha256": null,
+      "after_sha256": "da4530ec84d57e3018ffd52edc6ea19f6a95401bfd1721e1bd837bc010b8aefc",
+      "status": "ADDED"
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "before_sha256": "f425c066cc650a989e9ba0b3a36ec6bd9ecba3f2881f3117b717c167c865f3bb",
+      "after_sha256": "b491246996e8ea9071a8b616ab14557a3e109f45076fcc12eb0c9f24da374ddd",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/packetio/update_object.py",
+      "before_sha256": "dfcd7d864ad9905ceb29f346ad9a8205ab9392efcdbdec3bd967db22e493ce87",
+      "after_sha256": "8d2d1cd8233e8f04a0b99e996ca02a8129ab65f0aed8b3eb4c47ab860455db24",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "before_sha256": "f67ff64a4dd323d1808727dad6cd38af89070b99de421b5bacd341877a8c0f9b",
+      "after_sha256": "9bde357bdafae2a71e5030fda8238c8d32fd21cead20b8e9827a15bf50adb9b8",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/quests/client_supplement.py",
+      "before_sha256": "23069c2d4dfae63b6f3a4fb2939ecca7d53b8e2f98e9498daf9791a7fa0d714e",
+      "after_sha256": "f0757b02d097377272f90196840998ea374f93477a7dc1010fbd8b0faa10f5af",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "src/wowbot/session_context.py",
+      "before_sha256": "419517ce52678645d6e6475d253b48af3963ae02f1106fb40fdc0952b21897b0",
+      "after_sha256": "b62c544336d528119ae1eb83e2e3db83c6d4e23f7ffb2c8f13a40c5d812c12c3",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "tests/test_own_baseline_20261030.py",
+      "before_sha256": null,
+      "after_sha256": "37a1808c0d8ed7e38cac085790fe5f067fb3751ce89dc18e55a595e72237c68f",
+      "status": "ADDED"
+    },
+    {
+      "path": "tests/test_own_health_packets_20261030.py",
+      "before_sha256": "8c979326e574541728212d333923657a645f426b91623738a48a10ab093f3dd7",
+      "after_sha256": "d5ee22470137680813964e4919847491427090b91c4cc0aa4507cf9b058f0050",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "tests/test_own_power_20261030.py",
+      "before_sha256": null,
+      "after_sha256": "be0ebc5cab46ab77d795a865d73e7322b0db060ed1eb1c267833ab70dde60826",
+      "status": "ADDED"
+    },
+    {
+      "path": "tests/test_own_profile_20261030.py",
+      "before_sha256": null,
+      "after_sha256": "565a4a4b8ff6abe46843bf0dd3ac9717ef061eb0bec7fccd1410842e409c5833",
+      "status": "ADDED"
+    },
+    {
+      "path": "tests/test_server_composition_20261030.py",
+      "before_sha256": "b80e89e260d8d4551ebaa6f6f959bf50f296acb135e776a82625bcca66535a54",
+      "after_sha256": "f10190cd4ac02216d9b525f7f093af91b7ff7f28ae4388b03927545ba54679a7",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "tests/test_unit_fields_20261027.py",
+      "before_sha256": "20de526f1bf107b9d1c03c42ca58c9b3311fe6c6d4d861102bcc5c6f870fabf5",
+      "after_sha256": "87f0f31a469e49b29bac48bc3be71a0ff988307995a5cdaa53a34a7de9bcc505",
+      "status": "MODIFIED"
+    },
+    {
+      "path": "tools/build_client_catalog.py",
+      "before_sha256": null,
+      "after_sha256": "38164a6bc90aefb8553c0e135ee8dfd44279ae20c41fe51dc9b794f9d148b80d",
+      "status": "ADDED"
+    },
+    {
+      "path": "tools/build_power_reference.py",
+      "before_sha256": null,
+      "after_sha256": "3cba9c62bed036004147fab9ee807c32b250a50e9f19fa1bba9e03eebba84f13",
+      "status": "ADDED"
+    }
+  ],
+  "modified": 21,
+  "added": 11,
+  "removed": 0
+}

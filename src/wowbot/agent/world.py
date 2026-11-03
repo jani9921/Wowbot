@@ -155,11 +155,15 @@ class WorldSnapshot:
 class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
     """Temporal facts with explicit contradiction history and session boundaries."""
 
-    def __init__(self, reliability_provider=None, relation_sink=None, event_sink=None, entity_memory=None):
+    def __init__(self, reliability_provider=None, relation_sink=None, event_sink=None, entity_memory=None,
+                 session_context_provider=None, runtime_profile=None):
         self.reliability_provider = reliability_provider
         self.relation_sink = relation_sink
         self.event_sink = event_sink
         self.entity_memory = entity_memory
+        self.session_context_provider = session_context_provider
+        from wowbot.runtime_profile import RuntimeProfile
+        self.runtime_profile = RuntimeProfile(runtime_profile or RuntimeProfile.LEGACY_VISION)
         self.session_id = ""
         self.latest: Observation | None = None
         self.addon_state: dict = {}
@@ -358,9 +362,29 @@ class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
                 self._evaluate_world_predictions(pending_observation)
 
     def ingest(self, obs: Observation, *, defer_rebuild: bool = False) -> bool:
+        if not self.runtime_profile.visual and obs.source in {
+                'WORLD3D', 'WORLD3D_LOCAL_VIEW', 'UI_CV', 'MINIMAP_CV', 'WORLD_MAP_CV', 'VISION', 'VLM', 'CROSS_VIEW'}:
+            return False
+        if obs.source == "PACKET_TELEMETRY" and self.session_context_provider is not None:
+            expected = self.session_context_provider.expected(self.session_context_provider.process.selected_pid)
+            if expected and obs.session_id == expected["session_id"] and self.session_id != obs.session_id:
+                self.__init__(self.reliability_provider, self.relation_sink, self.event_sink,
+                              self.entity_memory, self.session_context_provider, self.runtime_profile)
+                self.session_id = obs.session_id
         if obs.source != "ADDON_TELEMETRY":
             if obs.session_id != self.session_id:
+                if obs.source == "PACKET_TELEMETRY":
+                    # Live 2026-10-21 10:57: entity facts sent before the
+                    # addon session reached the model wait for it.
+                    from .world_packet_reducer import WorldPacketReducer
+                    WorldPacketReducer.hold(self, obs)
                 return False
+            if obs.source == "PACKET_TELEMETRY":
+                from .world_packet_reducer import WorldPacketReducer
+                return WorldPacketReducer.apply(self, obs, defer_rebuild=defer_rebuild)
+            if obs.source == 'PACKET_PROGRESS':
+                from .runtime_packet_progress import apply
+                return apply(self,obs,defer_rebuild=defer_rebuild)
             if obs.source == "AGENT_TRACE":
                 self.history.append(obs)
                 self._ingest_execution_trace(obs)
@@ -392,7 +416,7 @@ class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
         if self.session_id != obs.session_id:
             provider, sink, event_sink, entity_memory = (self.reliability_provider, self.relation_sink,
                                                           self.event_sink, self.entity_memory)
-            self.__init__(provider, sink, event_sink, entity_memory)
+            self.__init__(provider, sink, event_sink, entity_memory, self.session_context_provider, self.runtime_profile)
             self.session_id = obs.session_id
         state = obs.payload
         is_fast_state = state.get("transport_kind") == "FAST"
@@ -445,12 +469,19 @@ class WorldModel(WorldBeliefMixin, WorldEntityRecordsMixin, WorldCorpseMixin):
         """
         self._state_projector.rebuild(self)
 
+    def discard_packet_fields(self):
+        """Explicit sensor loss, including a legacy source without a provider."""
+        from .packet_continuity import discard_fields
+        discard_fields(self)
+        self._rebuild_state()
+
     @staticmethod
     def _screen_anchor_scene_valid(anchor: dict, state: dict) -> bool:
         return WorldStateProjector.screen_anchor_scene_valid(anchor, state)
 
     def fresh(self, now: float, ttl: float = ADDON_RECEIVE_FRESH_SECONDS) -> bool:
         return (self.latest is not None and 0 <= now - self.last_received <= ttl
+                and (self.session_context_provider is None or self.session_context_provider.local_ui_ready)
                 and self.state.get("player_present", True) is not False)
 
     def detail_snapshot_stale(self, now: float) -> bool:

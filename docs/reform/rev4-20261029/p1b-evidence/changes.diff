@@ -1,0 +1,871 @@
+--- a/docs/CURRENT_SOURCE_COVERAGE.md
++++ b/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,23 @@
+ # Current-source coverage ledger
++
++2026-10-29 REV4 P1-B — shared logical session/world context:
++**PARTIAL / OFFLINE_TESTED** for wider P1. Immutable SessionIdentity,
++WorldContext and SessionContext values now connect the existing packet source,
++addon-context facade and WorldModel reducer. Pending facts cannot be rebound
++across session/phase changes; entity/credit/POI/scene scopes include phase.
++UI-map-only changes retain same-world entities. Server map hints are checked
++against current context even with no entities or temporarily missing world
++fields. Logical validity does not replace IPC nonce, freshness or authority.
++The two new modules have 55 passing tests. Final combined regression:
++3292 passed, 1 pre-existing failed, 1 skipped, 10 unchanged deselections,
++260 modules; 500 source and 595 test Python files parse. The remaining quest
++drop ambiguity also fails on the pre-change backup. Localhost UDP passes
++outside the sandbox and in the final run; sandbox UDP timeouts were separately
++reproduced with the baseline and a minimal socket control. All eight addon
++files are unchanged. No new live input/acceptance. Independent session
++bootstrap, process/capture/world generations, other query/evidence ports and
++field authority remain open. All numbered/historical coverage below is retained.
++Details: docs/reform/rev4-20261029/P1B_SESSION_CONTEXT.md and LIVE_VALIDATION.md.
+ 
+ 2026-10-29 REV4 P1-A — per-agent TravelCostPort:
+ **PARTIAL / OFFLINE_TESTED** for the broader P1; the scoped global-oracle
+--- a/docs/LIVE_VALIDATION.md
++++ b/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,44 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-29 — REV4 P1-B logical context and packet scope (offline only)
++
++**P1-B scoped implementation OFFLINE_TESTED; wider P1 PARTIAL. No live acceptance.**
++Shared immutable SessionIdentity / WorldContext / SessionContext contracts now
++serve the existing addon-context facade, RuntimePacketSource and WorldModel
++packet reducer. No new session/input owner is introduced. The wire's seven
++logical fields and transport nonce remain separate. VALID/PENDING/MISMATCH
++diagnostics expose missing fields; malformed identity/world values disable
++the old endpoint rather than granting context. Unknown phase remains unknown.
++
++Pre-change regressions reproduced old-session/phase pending-fact rebinding,
++missing phase invalidation and a stale server-map hint without entity facts.
++The new scope preserves entities on a UI-map-only step and invalidates on a
++session/phase transition. Entity map samples and server map hints no longer
++survive the invalidated context or reappear after temporarily missing fields.
++Original sample times, authenticated IPC equality, PID/build/layout/freshness
++checks and existing input-authority ownership remain in effect.
++
++Final regression outside the sandbox (for real localhost UDP): **3292 passed,
++1 failed, 1 skipped, 10 deselected**, 260 modules, 97.39 seconds, exit 1.
++The two new test modules account for **55 passing cases**; the packet/context/
++GUI/client subset has **276 passing cases**. No exclusions were added.
++The sandbox's local UDP timeout also occurs on pre-change code and with two
++plain local sockets; the unsandboxed standalone round-trip and final test pass.
++
++The remaining failure is
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index.
++It also fails on the P1-B pre-change backup with the same 990401 -> 990201:0
++association. It remains an open reference ambiguity issue; the full run is
++not represented as green. All 500 source and 595 test Python files parse.
++All eight baseline addon files are byte-unchanged; no game/client/capture or
++FULL_AI process was started. These are offline context-boundary checks, not
++proof of an autonomously completed real quest.
++
++Independent SessionContextProvider/bootstrap, verified process/capture/world
++generation and baseline/delta reconciliation, remaining query/evidence ports
++and field-level authority are still unimplemented by this change. Numbered
++coverage and prior live claims are preserved.
++See [P1-B result and evidence](reform/rev4-20261029/P1B_SESSION_CONTEXT.md).
+ 
+ ## 2026-10-29 — REV4 P1-A cost-query isolation (offline only)
+ 
+--- a/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ b/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -2,9 +2,10 @@
+ 
+ Dátum: 2026-10-29, Europe/Budapest.
+ Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+-Állapot: **P0 részben ellenőrizve; P1-A offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
++Állapot: **P0 részben ellenőrizve; P1-A és P1-B offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
+ 
+ Utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
++Elkészült a közös session/world értékszerződés és a packet-hatókörök javítása is: [P1-B eredmény és még hiányzó session-provider](P1B_SESSION_CONTEXT.md). Az addonfüggetlen bootstrap ettől még nem készült el.
+ Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+ 
+ ## 1. Az átvétel eredménye
+--- /dev/null
++++ b/docs/reform/rev4-20261029/P1B_SESSION_CONTEXT.md
+@@ -0,0 +1,63 @@
++# REV4 P1-B — közös session- és világkontextus
++
++2026-10-29, Europe/Budapest. **A jelen munkacsomag IMPLEMENTED / OFFLINE_TESTED; a teljes P1 továbbra is PARTIAL.**
++Az aktív projekt a projekt nevű mappa. Nem történt új élő teszt, addontelepítés, kliensvezérlés vagy capture-indítás.
++
++## Bekötött szerződés
++
++A közös wowbot.context_contracts modul három immutable értéktípust vezet be: SessionIdentity, WorldContext és SessionContext. A modul kizárólag a standard libraryt használja; nincs agent-, vision-, navigációs vagy packet-provider függése, és nem hoz létre új állapottulajdonost.
++
++- SessionIdentity: kiválasztott PID, session_id, saját karakter-GUID, kliensbuild.
++- WorldContext: a meglévő instance_id világ-/navigációs térképazonosító, ettől külön a UI-map, valamint az ismert vagy unknown phase.
++- SessionContext: ellenőrzött értékpár és kompatibilis, hétmezős szótáradapter.
++
++Az instance_id korábbi elnevezése megmarad: ez nem bizonyít egyedi dungeon-instance azonosságot. A 0 érvényes világazonosító lehet. A phase=None unknown marad; nem lesz belőle kitalált alap-phase vagy 0. A logikai kontextus nem helyettesíti az IPC runtime/context nonce-ot, a mintavételi időt vagy az input-authority ellenőrzését.
++
++A packetio.context meglévő addon_context / addon_context_status függvényei kompatibilis facade-ként használják az új értékeket. Az értékelés VALID / PENDING / MISMATCH állapotot és hiányzó mezőket ad; PID-t kizárólag az explicit kiválasztott PID-hez kötéskor kap. A régi waiting_for_addon_context / unsupported_game_build okok megmaradnak. Hibás típusú azonosító, map vagy phase nem válik érvényes kontextussá.
++
++A RuntimePacketSource ebből az értékelésből hozza létre a saját immutable session_context értékét és a meglévő IPC-szótárat. Változatlan logikai kontextus nem generál új nonce-ot. Hiányzó vagy hibás új kontextus lezárja az előző aktív fogadói kontextust. A diagnosztika külön mutatja a kontextus állapotát és a hiányzó mezőneveket; a GUI a hibás kontextust/PID-t is megkülönbözteti a várakozástól.
++
++## Javított hibák
++
++1. A feldolgozásra váró packet-entitás/POI adatok régi összevetéséből kimaradt a session_id és a phase. Azonos PID, karakter, világ és build mellett így egy régi session vagy phase entitása később az új kontextushoz kötődhetett. A várakozó sor most teljes session/world hatókört őriz, az eredeti mintavételi idő megtartásával.
++2. A tárolt entitás-, quest-credit-, POI- és scene-hatókörből kimaradt a phase. Az érintett projekciók most azonos közös hatókört használnak. A session/phase-váltás érvénytelenít, míg a puszta UI-térképváltás ugyanabban a világban megtartja az entitást.
++3. A NEW_WORLD eredetű szervertérkép-hint az entitástábla hatóköréhez képest volt ellenőrizve. Üres entitástáblánál átcsúszhatott egy korábbi phase térképe; hiányzó world-context alatt pedig a cache-ben maradva később újra megjelenhetett. A hint most közvetlenül az aktuális kontextushoz van ellenőrizve. A régi entitás-térképminták sem keverednek az új hatókör mintáihoz.
++
++Az IPC-aláírás, a teljes transport-context összevetése, a selected-PID ellenőrzés, a build/layout allowlist, a kétmásodperces mintafrissesség és a packet/adatforrás input-authority különbsége megmaradt. Ezeket nem váltja ki az új logikai összevetés. A bootstrap továbbra is addonfüggő; az adatok forrásprioritása ebben a munkacsomagban nem rendeződött át.
++
++## Ellenőrzés
++
++| Próba | Eredmény |
++|---|---|
++| Első regresszió a forrásjavítás előtt | **5 failed, 3 passed**: phase-cache és négy hibás pending-újrakötés reprodukálva; a helyes context/UI-map kontrollok sikeresek |
++| Szervertérkép-próba a P1-B előtti mentésen | **1 failed**, a régi phase hintje megmarad |
++| Két új kontextusteszt-modul a végső körben | **55 passed** |
++| Packet/context/GUI/client részhalmaz a végső körben | **276 passed** |
++| Végső kombinált regresszió | **3292 passed, 1 failed, 1 skipped, 10 deselected**, 260 modul, pytest: 97.39 s, exit 1 |
++| Új tesztkizárás | **0**; a korábbi tízes lista változatlan |
++| Szintaxis | **500 forrásmodul + 595 teszt-Python-fájl**, 0 parse-hiba |
++| Addon | A korábbi baseline mind a **8 addonfájlja változatlan** |
++| Élő teszt / asszisztens által indított WoW/capture/FULL_AI | **Nem történt** |
++
++A helyi UDP körteszt a sandboxban nem kapott datagramot; a módosítás előtti mentés és egy két egyszerű UDP-socketből álló kontroll is ugyanezt mutatta. A sandboxon kívüli külön körteszt sikeres, és a végső kombinált kör is tartalmazza a sikeres valódi localhost továbbító→fogadó utat. Ez környezeti tesztkorlátozás volt, nem igazolt új fogadóhiba.
++
++A kombinált kör egyetlen megmaradt bukása:
++
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index
++
++Ugyanez a teszt a külön visszaolvasott P1-B előtti forrásmentésen is hibás 990401 → 990201:0 kapcsolatot ad. Az ambivalens, üres referencia-objective-k összerendelése továbbra is nyitott hiba. Nem került új kizárás mögé; a teljes tesztkör ezért nem nevezhető zöldnek. Az offline próbák nem igazolnak teljesített valódi questet.
++
++## Nyitott követelmények
++
++Ez a meglévő határ első közös értékszerződése, nem a teljes SessionContextProvider. A folyamat indulási idejének/PID-újrafelhasználásának ellenőrzése, a capture/world revision, az egyedi instance-azonosság, a packet baseline+delta életciklus és az addonfüggetlen cold/warm bootstrap még nincs elkészítve. A phase a jelen forrásokból csak akkor ismert, ha ténylegesen megérkezik; az ismeretlent ez a változás nem oldja fel.
++
++A további P1 query-/geometry-portok és Evidence-szerződés, majd a P2 bootstrap és a P3 mezőnkénti source authority külön kapuk. A no-vision runtime, TripPlan, combat- és questmechanika-átszervezés későbbi fázisok; ezeket a jelen típusok megléte nem teljesíti. A számozott V4/Design coverage-sorok és történeti live minősítések változatlanul megmaradtak.
++
++## Visszaállíthatóság és bizonyíték
++
++A P1-B előtti baseline.zip **1095** forrás-, teszt- és követési fájlt őriz byte-hashekkel a baseline.json mellett. A P1-A utáni állapotot menti, tehát az előző munkacsomag javításai is megmaradnak.
++
++Mentés és teljes tesztkimenet: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-p1b-20261029.
++A kis bizonyítékcsomag a dokumentum melletti p1b-evidence/ könyvtárban található. A validation-summary.json a teszteredményt és a nyitott részeket, a change-manifest.json a forrás/teszt/követési módosítások régi/új hashét, a changes.diff a szöveges változásokat rögzíti. Az IPC/build/parser/input-owner fájlok változatlansága külön ellenőrzött.
++
++Az új Python-forrást a GUI következő indítása tölti be. Az élő teszteket továbbra is a felhasználó vezeti; a jelen csomag nem ad új capture- vagy inputjogosultságot.
+--- a/src/wowbot/agent/gui_packet_status.py
++++ b/src/wowbot/agent/gui_packet_status.py
+@@ -21,6 +21,10 @@
+         return f"Packet: nem támogatott build ({label}) | adat: nincs"
+     if packet.get("status") == "waiting_for_addon_context":
+         return "Packet: addonkontextusra vár | adat: nincs"
++    if packet.get("status") == "invalid_addon_context":
++        return "Packet: érvénytelen kontextus | adat: nincs"
++    if packet.get("status") == "invalid_selected_pid":
++        return "Packet: érvénytelen PID | adat: nincs"
+     selected, runtime_pid = packet.get("selected_pid"), state.get("pid")
+     if selected is not None and runtime_pid is not None and selected != runtime_pid:
+         return "Packet: PID-eltérés | adat: nincs"
+--- a/src/wowbot/agent/runtime_packet_source.py
++++ b/src/wowbot/agent/runtime_packet_source.py
+@@ -7,7 +7,8 @@
+ import time
+ 
+ from .models import Observation
+-from wowbot.packetio.context import addon_context, addon_context_status, reported_game_build
++from wowbot.context_contracts import ContextState
++from wowbot.packetio.context import evaluate_addon_context, reported_game_build
+ 
+ 
+ class RuntimePacketSource:
+@@ -27,7 +28,10 @@
+         self.runtime_id = secrets.token_hex(16)
+         self.wall_clock = wall_clock
+         self.context = self.signature = None
++        self.session_context = None
+         self.context_status = "waiting_for_addon_context"
++        self.context_state = ContextState.PENDING
++        self.missing_context_fields = ()
+         self.observed_game_build = None
+         self.error = None
+         self.started = False
+@@ -68,9 +72,16 @@
+     def _observations(self, payload, world, current):
+         from adapters.atomic_file import write_json_replace
+         state = {**world.addon_state, **(payload or {})}
+-        self.context_status = addon_context_status(state)
++        evaluation = evaluate_addon_context(state)
++        self.context_status = evaluation.reason
++        self.context_state = evaluation.state
++        self.missing_context_fields = evaluation.missing_fields
+         self.observed_game_build = reported_game_build(state)
+-        signature = addon_context(state, self.pid)
++        self.session_context = evaluation.bind(self.pid)
++        if evaluation.state is ContextState.VALID and self.session_context is None:
++            self.context_status = "invalid_selected_pid"
++            self.context_state = ContextState.MISMATCH
++        signature = self.session_context.as_dict() if self.session_context else None
+         if signature != self.signature or self.context is None and signature is not None:
+             self.signature = signature
+             self.context = ({**signature, "runtime_id": self.runtime_id,
+@@ -210,6 +221,7 @@
+             "last_accepted_at": self.last_accepted_at,
+             "game_build": (self.context or {}).get("game_build"),
+             "observed_game_build": self.observed_game_build, "context_status": self.context_status,
++            "context_state": self.context_state.value, "missing_context_fields": list(self.missing_context_fields),
+             "endpoint": str(self.path) if self.source is not None else None,
+             "status": "disabled", **source}
+         if self.context is None and self.source is not None:
+--- a/src/wowbot/agent/world_packet_reducer.py
++++ b/src/wowbot/agent/world_packet_reducer.py
+@@ -6,6 +6,7 @@
+ import math
+ 
+ from .models import number, json_copy as copy
++from wowbot.context_contracts import SessionContext, context_matches
+ from wowbot.packetio.context import addon_context, addon_entity_guid, guid_map_id, same_player
+ from wowbot.packetio.validation import ENTITY_EVENTS as ENTITY_KINDS, normalize_event, verified_semantics
+ 
+@@ -32,7 +33,6 @@
+ # Entity facts arriving then wait PENDING_SECONDS for a matching context.
+ PENDING_SECONDS = 15.
+ PENDING_LIMIT = 4096
+-_STABLE_CONTEXT = ("selected_pid", "character_guid", "instance_id", "game_build")
+ 
+ 
+ def _remember_quest_poi(model, event, sampled, expected):
+@@ -59,8 +59,8 @@
+ def _entity_scope(context):
+     # The addon map_id is the UI map (1409 vs. a cave sub-map); a UI-map step
+     # inside the same world map must not forget the server's entity facts.
+-    return {k: context[k] for k in ("selected_pid", "session_id", "character_guid",
+-                                    "instance_id", "game_build")} if context else None
++    bound = SessionContext.from_mapping(context)
++    return bound.entity_scope() if bound else None
+ 
+ 
+ @lru_cache(maxsize=256)
+@@ -99,18 +99,25 @@
+ 
+ 
+ def _remember_entity(model, kind, body, sampled, context):
++    scope = _entity_scope(context)
++    if scope is None:
++        return
+     guid = addon_entity_guid(body.get("entity_guid"))
+     raw_map = guid_map_id(body["entity_guid"]) if guid is not None else None
+     if guid is None or not same_world_map(raw_map, context["instance_id"]):
+         return  # another map's spawn (or a player/pet) never enters this world
++    if model.__dict__.get("_packet_entities_context") != scope:
++        model.__dict__["_packet_entities"] = {}
++        model.__dict__["_packet_entities_context"] = scope
++        model.__dict__.pop("_entity_raw_maps", None)
++        known = model.__dict__.get("_packet_server_map")
++        if known and known["scope"] != scope:
++            model.__dict__.pop("_packet_server_map", None)
+     if kind == "ENTITY_CREATED":
+         # Without SMSG_NEW_WORLD (a run started inside the narrative map,
+         # live 15:50) the creates around us still name the server's map.
+         recent = model.__dict__.setdefault("_entity_raw_maps", deque(maxlen=SERVER_MAP_SAMPLES))
+         recent.append((raw_map, sampled))
+-    if model.__dict__.get("_packet_entities_context") != _entity_scope(context):
+-        model.__dict__["_packet_entities"] = {}
+-        model.__dict__["_packet_entities_context"] = _entity_scope(context)
+     table = model.__dict__.setdefault("_packet_entities", {})
+     entity = table.pop(guid, None) or {"guid": guid, "kind": guid.split("-", 1)[0].upper(),
+         "entry_id": int(guid.split("-")[5]), "map_id": context["instance_id"]}
+@@ -189,11 +196,14 @@
+ def _project_entities(model, state, reference):
+     table = model.__dict__.get("_packet_entities")
+     stored = model.__dict__.get("_packet_entities_context")
+-    if not table or not stored:
++    if not stored:
+         return
+     if _entity_scope(addon_context(model.addon_state, stored["selected_pid"])) != stored:
+         model.__dict__.pop("_packet_entities", None)
+         model.__dict__.pop("_packet_entities_context", None)
++        model.__dict__.pop("_entity_raw_maps", None)
++        return
++    if not table:
+         return
+     def age(sample):
+         return reference-sample["sampled_at"]
+@@ -251,12 +261,18 @@
+     the addon kept 2444).  World geometry routes on that map's own navmesh
+     there: the narrative citadel's walls and gates differ from 2444's."""
+     instance = (state.get("player_world_position") or {}).get("instance_id")
++    known = model.__dict__.get("_packet_server_map")
++    if known:
++        scope = known.get("scope")
++        # A NEW_WORLD can precede every entity create. Its scope must be
++        # checked against the current context even when the entity table is
++        # empty; otherwise the previous phase's cosmetic map survives.
++        current = _entity_scope(addon_context(model.addon_state, scope["selected_pid"])) if scope else None
++        if current is None or current != scope:
++            model.__dict__.pop("_packet_server_map", None)
++            known = None
+     if type(instance) is not int:
+         return
+-    known = model.__dict__.get("_packet_server_map")
+-    stored = model.__dict__.get("_packet_entities_context")
+-    if known and stored is not None and known["scope"] != stored:
+-        known = None                            # another session/character's transfer
+     if known and same_world_map(known["map_id"], instance):
+         if known["map_id"] != instance:
+             state["packet_server_map"] = {k: known[k] for k in ("map_id", "sampled_at", "source")}
+@@ -444,7 +460,7 @@
+             or not context.get("context_id") or provenance.get("producer") != "RuntimePacketSource"
+             or provenance.get("selected_pid") != safe["selected_pid"]
+             or sampled is None or not math.isfinite(sampled) or not 0 <= obs.received_at-sampled <= 2.
+-            or any(context.get(k) != v for k, v in expected.items())):
++            or not context_matches(context, expected)):
+         return None
+     return safe, expected, sampled
+ 
+@@ -488,13 +504,13 @@
+             sampled = number(event.get("sampled_at_monotonic"))
+             fresh = sampled is not None and math.isfinite(sampled) and 0 <= obs.received_at-sampled <= 2.
+             if (authentic and fresh and safe["event_type"] in PENDING_KINDS
+-                    and (expected is None or any(context.get(k) != v for k, v in expected.items()))
+-                    and (expected is None or all(context.get(k) == expected[k] for k in _STABLE_CONTEXT))):
++                    and (expected is None or not context_matches(context, expected))
++                    and (expected is None or context_matches(context, expected, include_ui_map=False))):
+                 # Same character/world, the addon context is just settling.
+                 WorldPacketReducer._hold(model, obs, safe, sampled, context)
+                 return False
+             if (expected is None or not authentic or not fresh
+-                    or any(context.get(k) != v for k, v in expected.items())):
++                    or not context_matches(context, expected)):
+                 return False
+         except (ValueError, TypeError, OverflowError):
+             return False
+@@ -587,8 +603,12 @@
+ 
+     @staticmethod
+     def _hold(model, obs, safe, sampled, context) -> None:
++        bound = SessionContext.from_mapping(context)
++        if (bound is None or bound.world.ui_map_id is None
++                or bound.identity.selected_pid != safe["selected_pid"]):
++            return
+         model.__dict__.setdefault("_packet_pending", deque(maxlen=PENDING_LIMIT)).append(
+-            (obs.received_at, safe, sampled, {k: context.get(k) for k in _STABLE_CONTEXT}))
++            (obs.received_at, safe, sampled, bound.entity_scope()))
+ 
+     @staticmethod
+     def hold(model, obs) -> None:
+@@ -615,9 +635,9 @@
+         if not pending:
+             return
+         model.__dict__["_packet_pending"] = deque(maxlen=PENDING_LIMIT)
+-        stable = {k: expected[k] for k in _STABLE_CONTEXT}
++        stable = _entity_scope(expected)
+         for received, held, sampled, context in pending:
+-            if (not 0 <= now-received <= PENDING_SECONDS or context != stable
++            if (stable is None or not 0 <= now-received <= PENDING_SECONDS or context != stable
+                     or held["event_id"] in seen or not verified_semantics(held)
+                     or held["provenance"].get("game_build") != expected["game_build"]):
+                 continue
+--- /dev/null
++++ b/src/wowbot/context_contracts.py
+@@ -0,0 +1,113 @@
++"""Immutable logical context shared by sensors and the world boundary.
++
++These values describe identity and scope, not input authority or freshness.
++The authenticated IPC runtime/context nonce and all sample-time checks remain
++separate. No process-start, phase, or dungeon-instance identity is inferred.
++"""
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from enum import Enum
++from typing import Any
++
++
++class ContextState(str, Enum):
++    VALID = "VALID"
++    PENDING = "PENDING"
++    MISMATCH = "MISMATCH"
++
++
++def _integer(value: Any, name: str, minimum: int = 0) -> None:
++    if type(value) is not int or value < minimum:
++        raise ValueError(f"invalid {name}")
++
++
++def _text(value: Any, name: str) -> None:
++    if type(value) is not str or not value.strip():
++        raise ValueError(f"invalid {name}")
++
++
++@dataclass(frozen=True, slots=True)
++class SessionIdentity:
++    selected_pid: int
++    session_id: str
++    character_guid: str
++    game_build: int
++
++    def __post_init__(self) -> None:
++        _integer(self.selected_pid, "selected_pid", 1)
++        _text(self.session_id, "session_id")
++        _text(self.character_guid, "character_guid")
++        _integer(self.game_build, "game_build", 1)
++
++
++@dataclass(frozen=True, slots=True)
++class WorldContext:
++    # Legacy instance_id names the world/map dataset used by navigation.
++    # It does not establish a unique dungeon-run identity. Map 0 is valid.
++    instance_id: int
++    ui_map_id: int | None = None
++    phase: int | str | None = None
++
++    def __post_init__(self) -> None:
++        _integer(self.instance_id, "instance_id")
++        if self.ui_map_id is not None:
++            _integer(self.ui_map_id, "ui_map_id")
++        if self.phase is not None:
++            if type(self.phase) is int:
++                _integer(self.phase, "phase")
++            else:
++                _text(self.phase, "phase")
++
++
++@dataclass(frozen=True, slots=True)
++class SessionContext:
++    identity: SessionIdentity
++    world: WorldContext
++
++    def __post_init__(self) -> None:
++        if not isinstance(self.identity, SessionIdentity) or not isinstance(self.world, WorldContext):
++            raise ValueError("invalid session/world context")
++
++    @classmethod
++    def from_mapping(cls, value: Mapping[str, Any] | None) -> SessionContext | None:
++        """Parse legacy logical fields, ignoring transport metadata.
++
++        UI map may be absent in a stored entity scope. Packet bootstrap must
++        additionally require a known UI map. Malformed values never become a
++        partially usable identity; phase=None remains unknown.
++        """
++        if not isinstance(value, Mapping):
++            return None
++        try:
++            identity = SessionIdentity(value.get("selected_pid"), value.get("session_id"),
++                                       value.get("character_guid"), value.get("game_build"))
++            world = WorldContext(value.get("instance_id"), value.get("map_id"), value.get("phase"))
++            return cls(identity, world)
++        except ValueError:
++            return None
++
++    def as_dict(self) -> dict[str, Any]:
++        return {"selected_pid": self.identity.selected_pid, "session_id": self.identity.session_id,
++                "character_guid": self.identity.character_guid, "game_build": self.identity.game_build,
++                "map_id": self.world.ui_map_id, "instance_id": self.world.instance_id,
++                "phase": self.world.phase}
++
++    def entity_scope(self) -> dict[str, Any]:
++        """World facts survive UI-map steps, never a session/phase change."""
++        result = self.as_dict()
++        result.pop("map_id")
++        return result
++
++
++def context_matches(left: Mapping[str, Any] | None, right: Mapping[str, Any] | None,
++                    *, include_ui_map: bool = True) -> bool:
++    """Logical comparison only; cannot replace authenticated IPC equality."""
++    a, b = SessionContext.from_mapping(left), SessionContext.from_mapping(right)
++    if a is None or b is None:
++        return False
++    if include_ui_map:
++        return a == b
++    return (a.identity == b.identity and a.world.instance_id == b.world.instance_id
++            and a.world.phase == b.world.phase)
+--- a/src/wowbot/packetio/context.py
++++ b/src/wowbot/packetio/context.py
+@@ -1,6 +1,10 @@
+ """Pure addon context/GUID checks shared by sensor adapter and world reducer."""
+ from __future__ import annotations
++from collections.abc import Mapping
++from dataclasses import dataclass
+ import re
++
++from wowbot.context_contracts import ContextState, SessionContext, SessionIdentity, WorldContext
+ 
+ 
+ def reported_game_build(state):
+@@ -13,29 +17,70 @@
+         return None
+ 
+ 
+-def addon_context_status(state):
++@dataclass(frozen=True, slots=True)
++class AddonContextEvaluation:
++    state: ContextState
++    reason: str
++    missing_fields: tuple[str, ...] = ()
++    session_id: str | None = None
++    character_guid: str | None = None
++    game_build: int | None = None
++    world: WorldContext | None = None
++
++    def bind(self, selected_pid: int) -> SessionContext | None:
++        if self.state is not ContextState.VALID:
++            return None
++        try:
++            return SessionContext(SessionIdentity(selected_pid, self.session_id,
++                                                  self.character_guid, self.game_build), self.world)
++        except ValueError:
++            return None
++
++
++def evaluate_addon_context(state):
++    """Validate logical fields without inventing a PID, phase or clock.
++
++    Build/layout eligibility stays packet policy. This is the existing addon
++    bootstrap facade, not an independent session provider.
++    """
+     from .builds import VERIFIED_OPCODE_BUILDS
++    if not isinstance(state, Mapping):
++        return AddonContextEvaluation(ContextState.MISMATCH, "invalid_addon_context")
+     build = reported_game_build(state)
+     if build is None:
+-        return "waiting_for_addon_context"
++        if state.get("game_build") in (None, ""):
++            return AddonContextEvaluation(ContextState.PENDING, "waiting_for_addon_context", ("game_build",))
++        return AddonContextEvaluation(ContextState.MISMATCH, "invalid_addon_context")
+     if build not in VERIFIED_OPCODE_BUILDS:
+-        return "unsupported_game_build"
+-    point = state.get("player_world_position") or {}
+-    if (not state.get("session_id") or not state.get("character_guid")
+-            or state.get("map_id") is None or point.get("instance_id") is None
+-            or state.get("loading") or state.get("player_present") is False):
+-        return "waiting_for_addon_context"
+-    return "ready"
++        return AddonContextEvaluation(ContextState.MISMATCH, "unsupported_game_build", game_build=build)
++    point = state.get("player_world_position")
++    if point is None:
++        point = {}
++    if not isinstance(point, Mapping):
++        return AddonContextEvaluation(ContextState.MISMATCH, "invalid_addon_context", game_build=build)
++    fields = {"session_id": state.get("session_id"), "character_guid": state.get("character_guid"),
++              "map_id": state.get("map_id"), "player_world_position.instance_id": point.get("instance_id")}
++    missing = tuple(key for key, value in fields.items() if value is None or value == "")
++    if missing or state.get("loading") or state.get("player_present") is False:
++        return AddonContextEvaluation(ContextState.PENDING, "waiting_for_addon_context", missing, game_build=build)
++    session, character = state["session_id"], state["character_guid"]
++    try:
++        if type(session) is not str or not session.strip() or type(character) is not str or not character.strip():
++            raise ValueError("invalid identity")
++        world = WorldContext(point["instance_id"], state["map_id"], state.get("phase"))
++    except ValueError:
++        return AddonContextEvaluation(ContextState.MISMATCH, "invalid_addon_context", game_build=build)
++    return AddonContextEvaluation(ContextState.VALID, "ready", session_id=session,
++                                  character_guid=character, game_build=build, world=world)
++
++
++def addon_context_status(state):
++    return evaluate_addon_context(state).reason
+ 
+ 
+ def addon_context(state, pid):
+-    if addon_context_status(state) != "ready":
+-        return None
+-    build = reported_game_build(state)
+-    point = state["player_world_position"]
+-    return {"selected_pid": pid, "session_id": state["session_id"],
+-        "character_guid": state["character_guid"], "map_id": state["map_id"],
+-        "instance_id": point["instance_id"], "phase": state.get("phase"), "game_build": build}
++    context = evaluate_addon_context(state).bind(pid)
++    return context.as_dict() if context else None
+ 
+ 
+ def same_player(raw_guid, addon_guid):
+--- /dev/null
++++ b/tests/test_context_contracts_20261029.py
+@@ -0,0 +1,177 @@
++"""Shared logical contracts must not supply missing authority or transport trust."""
++from dataclasses import FrozenInstanceError
++import json
++import struct
++
++import pytest
++
++from test_packet_agent_bridge import addon, bridge, deliver
++from test_packet_codecs import decoded
++from test_packet_quest_credit_projection_20261025 import credit
++from wowbot.context_contracts import ContextState, SessionContext, context_matches
++from wowbot.agent.models import Observation
++from wowbot.packetio.context import addon_context, addon_context_status, evaluate_addon_context
++from wowbot.packetio.ipc import canonical, envelope
++
++
++def test_logical_context_is_immutable_and_detached_from_legacy_dictionaries():
++    wire = {**addon_context(addon(), 77), "runtime_id": "runtime", "context_id": "nonce"}
++    context = SessionContext.from_mapping(wire)
++    wire["character_guid"] = "other"
++    exported = context.as_dict()
++    exported["phase"] = "other"
++    assert context.identity.character_guid == addon()["character_guid"]
++    assert context.world.phase == "world"
++    assert set(context.as_dict()) == {"selected_pid", "session_id", "character_guid", "game_build",
++                                      "map_id", "instance_id", "phase"}
++    assert json.loads(json.dumps(context.as_dict())) == context.as_dict()
++    with pytest.raises(FrozenInstanceError):
++        context.world.phase = "other"
++    with pytest.raises(FrozenInstanceError):
++        context.identity.selected_pid = 78
++
++
++@pytest.mark.parametrize("field,value", [
++    ("selected_pid", True), ("selected_pid", 0), ("selected_pid", "77"),
++    ("session_id", []), ("session_id", 7), ("session_id", "  "),
++    ("character_guid", {}), ("game_build", True), ("game_build", "69587"),
++    ("instance_id", -1), ("instance_id", True), ("instance_id", "2175"),
++    ("map_id", False), ("map_id", "1409"),
++    ("phase", []), ("phase", {}), ("phase", True), ("phase", 1.5),
++])
++def test_malformed_identity_or_world_fields_never_match_even_themselves(field, value):
++    bad = {**addon_context(addon(), 77), field: value}
++    assert SessionContext.from_mapping(bad) is None
++    assert not context_matches(bad, bad)
++
++
++def test_unknown_phase_and_zero_world_map_remain_explicit():
++    fields = {**addon_context(addon(), 77), "phase": None, "instance_id": 0, "map_id": 0}
++    context = SessionContext.from_mapping(fields)
++    assert context.world.phase is None and context.world.instance_id == context.world.ui_map_id == 0
++    assert not context_matches(fields, {**fields, "phase": 0})
++    scope = context.entity_scope()
++    assert "map_id" not in scope and scope["phase"] is None
++    assert SessionContext.from_mapping(scope).entity_scope() == scope
++    assert not context_matches(None, None)
++
++
++@pytest.mark.parametrize("change", [{"selected_pid": 78}, {"session_id": "next"},
++    {"character_guid": "other"}, {"game_build": 70448}, {"instance_id": 2444}, {"phase": "other"}])
++def test_entity_scope_never_crosses_an_identity_or_world_boundary(change):
++    original = addon_context(addon(), 77)
++    assert not context_matches(original, {**original, **change}, include_ui_map=False)
++    assert not context_matches(original, {**original, **change})
++
++
++def test_only_the_ui_map_can_change_inside_the_same_entity_scope():
++    original = addon_context(addon(), 77)
++    changed = {**original, "map_id": 84}
++    assert context_matches(original, changed, include_ui_map=False)
++    assert not context_matches(original, changed)
++
++
++@pytest.mark.parametrize("change,state,reason,missing", [
++    ({"map_id": None}, ContextState.PENDING, "waiting_for_addon_context", ("map_id",)),
++    ({"player_world_position": {}}, ContextState.PENDING, "waiting_for_addon_context", ("player_world_position.instance_id",)),
++    ({"loading": True}, ContextState.PENDING, "waiting_for_addon_context", ()),
++    ({"player_present": False}, ContextState.PENDING, "waiting_for_addon_context", ()),
++    ({"game_build": None}, ContextState.PENDING, "waiting_for_addon_context", ("game_build",)),
++    ({"game_build": "69588"}, ContextState.MISMATCH, "unsupported_game_build", ()),
++    ({"game_build": "invalid"}, ContextState.MISMATCH, "invalid_addon_context", ()),
++    ({"phase": []}, ContextState.MISMATCH, "invalid_addon_context", ()),
++    ({"map_id": True}, ContextState.MISMATCH, "invalid_addon_context", ()),
++    ({"character_guid": 9}, ContextState.MISMATCH, "invalid_addon_context", ()),
++    ({"player_world_position": [2175]}, ContextState.MISMATCH, "invalid_addon_context", ()),
++])
++def test_addon_facade_distinguishes_missing_context_from_malformed_context(change, state, reason, missing):
++    payload = addon(**change)
++    evaluation = evaluate_addon_context(payload)
++    assert evaluation.state is state and evaluation.reason == reason
++    assert evaluation.missing_fields == missing
++    assert addon_context_status(payload) == reason
++    assert addon_context(payload, 77) is None
++
++
++def test_context_binds_only_the_explicit_valid_pid_and_preserves_unknown_phase():
++    evaluation = evaluate_addon_context(addon(phase=None))
++    assert evaluation.state is ContextState.VALID
++    for pid in (None, True, 0, -1, "77"):
++        assert evaluation.bind(pid) is None
++    assert evaluation.bind(77).world.phase is None
++    assert evaluation.bind(77).identity.selected_pid == 77
++
++
++def test_runtime_uses_the_shared_context_without_churning_the_endpoint(bridge):
++    typed = bridge.adapter.session_context
++    wire = dict(bridge.adapter.context)
++    assert typed.as_dict() == bridge.adapter.signature == addon_context(addon(), 77)
++    assert bridge.adapter.observations(None, bridge.world, 10.) == ()
++    assert bridge.adapter.session_context == typed and bridge.adapter.context == wire
++    assert bridge.adapter.diagnostics()["context_state"] == "VALID"
++    assert bridge.adapter.diagnostics()["missing_context_fields"] == []
++
++
++def test_malformed_new_context_closes_the_old_packet_context(bridge):
++    assert bridge.adapter.observations(addon(phase=[]), bridge.world, 10.) == ()
++    assert bridge.adapter.session_context is None and bridge.adapter.context is None
++    status = bridge.adapter.diagnostics()
++    assert status["context_state"] == "MISMATCH" and status["status"] == "invalid_addon_context"
++    endpoint = json.loads(bridge.path.read_text())
++    assert endpoint["status"] == "inactive" and endpoint["context"] is None
++
++
++def test_pending_context_diagnostics_name_the_missing_field(bridge):
++    bridge.adapter.observations(addon(character_guid=None), bridge.world, 10.)
++    status = bridge.adapter.diagnostics()
++    assert status["context_state"] == "PENDING"
++    assert status["missing_context_fields"] == ["character_guid"]
++
++
++def test_equal_logical_identity_does_not_replace_the_authenticated_ipc_nonce(bridge):
++    old = json.loads(bridge.path.read_text())
++    bridge.adapter.observations(addon(loading=True), bridge.world, 10.)
++    bridge.adapter.observations(None, bridge.world, 10.)
++    new = json.loads(bridge.path.read_text())
++    assert context_matches(old["context"], new["context"])
++    assert old["context"]["context_id"] != new["context"]["context_id"]
++    assert not bridge.inbox.ingest_datagram(canonical(envelope(decoded()[-1].to_dict(), old)))
++
++
++def test_phase_transition_invalidates_credit_without_refreshing_addon_liveness(bridge):
++    deliver(bridge, credit(3))
++    assert bridge.world.state["packet_quest_credits"]["55639"]["182800"]["sampled_at"] == 10.
++    assert bridge.world.last_received == 9.
++    bridge.world.ingest(Observation.create(addon(frame_id="phase:credit", phase="other"), 10.1))
++    assert not bridge.world.state.get("packet_quest_credits")
++    bridge.world.ingest(Observation.create(addon(frame_id="phase:back"), 10.2))
++    assert not bridge.world.state.get("packet_quest_credits")
++
++
++@pytest.mark.parametrize("change", [{"phase": "other"}, {"player_world_position": {}}],
++                         ids=["phase", "missing-world-context"])
++def test_phase_transition_invalidates_server_map_even_without_any_entity(bridge, change):
++    position = {**addon()["player_world_position"], "instance_id": 2444}
++    state = addon(frame_id="cosmetic:world", player_world_position=position)
++    bridge.world.ingest(Observation.create(state, 9.1))
++    bridge.adapter.observations(None, bridge.world, 10.)
++    body = struct.pack("<iffffiiI", 2534, 1., 2., 3., 1.5, -1, 2, 7)
++    deliver(bridge, decoded("SMSG_NEW_WORLD", body)[-1])
++    assert bridge.world.state["packet_server_map"]["map_id"] == 2534
++    bridge.world.ingest(Observation.create({**state, "frame_id": "phase:new", **change}, 10.1))
++    assert not bridge.world.state.get("packet_server_map")
++    bridge.world.ingest(Observation.create({**state, "frame_id": "phase:back"}, 10.2))
++    assert not bridge.world.state.get("packet_server_map")
++
++
++def test_new_entity_scope_does_not_mix_the_previous_phases_map_samples():
++    from types import SimpleNamespace
++    from test_cosmetic_map_entities_20261027 import CONTEXT, NECKSNAPPER, with_map
++    from wowbot.agent.world_packet_reducer import _remember_entity
++
++    model = SimpleNamespace()
++    _remember_entity(model, "ENTITY_CREATED", NECKSNAPPER, 10., CONTEXT)
++    body = {**NECKSNAPPER, "entity_guid": with_map(NECKSNAPPER["entity_guid"], 2444)}
++    _remember_entity(model, "ENTITY_CREATED", body, 11., {**CONTEXT, "phase": "next"})
++    assert list(model._entity_raw_maps) == [(2444, 11.)]
++    assert len(model._packet_entities) == 1
+--- a/tests/test_cosmetic_map_entities_20261027.py
++++ b/tests/test_cosmetic_map_entities_20261027.py
+@@ -40,14 +40,16 @@
+ 
+ 
+ def test_the_server_map_comes_from_new_world_or_the_creates_around_us():
+-    model = SimpleNamespace()
++    model = SimpleNamespace(addon_state={**CONTEXT, "map_id": 2022,
++                                          "player_world_position": {"instance_id": 2444}})
+     for index in range(10):
+         body = dict(NECKSNAPPER, entity_guid=NECKSNAPPER["entity_guid"][:-2] + f"{index:02X}")
+         reducer._remember_entity(model, "ENTITY_CREATED", body, 10.+index, CONTEXT)
+     state = {"player_world_position": {"instance_id": 2444}}
+     reducer._project_server_map(model, state)
+     assert state["packet_server_map"]["map_id"] == 2534 and state["packet_server_map"]["source"] == "ENTITY_GUIDS"
+-    model.__dict__["_packet_server_map"] = {"map_id": 2444, "sampled_at": 30., "scope": None, "source": "SMSG_NEW_WORLD"}
++    model.__dict__["_packet_server_map"] = {"map_id": 2444, "sampled_at": 30.,
++        "scope": reducer._entity_scope(CONTEXT), "source": "SMSG_NEW_WORLD"}
+     model.__dict__.pop("_packet_entities_context", None)
+     state = {"player_world_position": {"instance_id": 2444}}
+     reducer._project_server_map(model, state)
+--- a/tests/test_gui_packet_status.py
++++ b/tests/test_gui_packet_status.py
+@@ -14,6 +14,8 @@
+ @pytest.mark.parametrize("changes,expected", [
+     ({"enabled": False}, "kikapcsolva"),
+     ({"status": "waiting_for_addon_context"}, "addonkontextusra vár"),
++    ({"status": "invalid_addon_context"}, "érvénytelen kontextus"),
++    ({"status": "invalid_selected_pid"}, "érvénytelen PID"),
+     ({"status": "unsupported_game_build", "observed_game_build": 70392}, "nem támogatott build (70392)"),
+     ({"status": "unavailable"}, "fogadóhiba"),
+     ({"error": "packet_sensor_failed"}, "fogadóhiba"),
+--- /dev/null
++++ b/tests/test_session_context_20261029.py
+@@ -0,0 +1,75 @@
++"""Context transitions through the real packet bridge; no capture or game input."""
++import json
++from types import SimpleNamespace
++
++import pytest
++
++from test_packet_entities import (
++    GARRICK, OMM_ONE_POINT, QGS_GARRICK, addon, bridge, deliver, semantic,
++)
++from wowbot.agent.models import Observation
++from wowbot.agent.runtime_packet_source import RuntimePacketSource
++from wowbot.agent.world import WorldModel
++from wowbot.packetio.inbox import PacketEventInbox
++from wowbot.packetio.ipc import canonical, envelope
++
++
++def test_phase_transition_invalidates_entities_without_resurrecting_them(bridge):
++    deliver(bridge, *semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK))
++    assert GARRICK in bridge.world.state["packet_entities"]
++    bridge.world.ingest(Observation.create(addon(frame_id="phase:new", phase="new-phase"), 10.1))
++    assert not bridge.world.state.get("packet_entities")
++    bridge.world.ingest(Observation.create(addon(frame_id="phase:back"), 10.2))
++    assert not bridge.world.state.get("packet_entities")
++
++
++def test_ui_map_transition_preserves_entities_in_the_same_world(bridge):
++    deliver(bridge, *semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK))
++    before = bridge.world.state["packet_entities"][GARRICK]
++    bridge.world.ingest(Observation.create(addon(frame_id="map:view", map_id=84), 10.1))
++    after = bridge.world.state["packet_entities"][GARRICK]
++    assert after["quest_giver"]["quest_available"] is True
++    assert after["quest_giver"]["sampled_at"] == before["quest_giver"]["sampled_at"]
++    assert after["quest_giver"]["age"] == pytest.approx(.1)
++    assert bridge.world.state["map_id"] == 84
++
++
++@pytest.fixture
++def opening_bridge(tmp_path):
++    """Source sees the newest payload before the WorldModel has merged it."""
++    world = WorldModel()
++    clock = SimpleNamespace(now=10., wall=1000.)
++    inbox = PacketEventInbox(77, port=0, autostart=False, clock=lambda: clock.now,
++                             wall_clock=lambda: clock.wall)
++    adapter = RuntimePacketSource(77, tmp_path, source=inbox, wall_clock=lambda: 999.)
++    adapter.observations(addon(), world, 10.)
++    yield SimpleNamespace(world=world, inbox=inbox, adapter=adapter, clock=clock,
++                          path=tmp_path/"packet_endpoint.json")
++    adapter.close()
++
++
++@pytest.mark.parametrize("change, accepted", [
++    ({"session_id": "next-session"}, False),
++    ({"phase": "new-phase"}, False),
++    ({"phase": None}, False),
++    ({"phase": 0}, False),
++    ({}, True),
++    ({"map_id": 84}, True),
++])
++def test_pending_entity_requires_the_same_session_and_phase(opening_bridge, change, accepted):
++    fixture = opening_bridge
++    descriptor = json.loads(fixture.path.read_text())
++    for event in semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK):
++        assert fixture.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
++    observations = fixture.adapter.observations(addon(), fixture.world, 10.)
++    assert len(observations) == 1
++    assert not fixture.world.ingest(observations[0])
++    assert not fixture.world.state.get("packet_entities")
++    fixture.world.ingest(Observation.create(addon(frame_id="context:ready", **change), 10.1))
++    fixture.clock.now = 10.5
++    fixture.adapter.observations(None, fixture.world, fixture.clock.now)
++    deliver(fixture, *semantic("SMSG_ON_MONSTER_MOVE", OMM_ONE_POINT))
++    entities = fixture.world.state.get("packet_entities") or {}
++    assert (GARRICK in entities) is accepted
++    if accepted:
++        assert entities[GARRICK]["quest_giver"]["sampled_at"] == 10.

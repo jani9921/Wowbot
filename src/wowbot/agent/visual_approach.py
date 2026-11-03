@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import asdict
+import math
 import os
 
 from .models import number
@@ -54,8 +55,7 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
     # Keep the pointer on the approached unit while walking (pointer-only
     # HOVER does not release the forward lease in the executor).
     pointer_tracking = os.environ.get("AIPC_VA_POINTER_TRACK", "1") != "0"
-    POINTER_INTERVAL = .5
-    POINTER_TOLERANCE = .03
+    POINTER_IDENTITY_TOLERANCE = .03
 
     def __init__(self, bindings=None):
         self.bindings = bindings
@@ -99,18 +99,25 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         self.visual_progress_samples = 0
         self.visual_no_progress_samples = 0
         self.stuck_evidence_sources = set()
+        self._progress_position: tuple[float, float] | None = None
+        self._progress_at: float | None = None
         self.last_distinct_visual_sample_time = None
         self.identity_rechecks = 0
         self.identity_reconfirmations = 0
         self.identity_recheck_requested_at = None
         self.identity_recheck_mouse_sample_before = None
         self.identity_recheck_track_id: str | None = None
+        self.identity_recheck_point = None
         # Live 2026-10-01: after a successful re-hover the servo still stopped
         # every three forward updates to re-hover the same track (W released
         # each time, 2-4 pauses per approach, failures when the addon sample
         # was late).  One confirmation per bound track is enough.
         self.identity_confirmed_track_id: str | None = None
         self.rejected_reacquire_track_ids: set[str] = set()
+        self.rejected_reacquire_positions: dict[str, tuple[float, float]] = {}
+        self.pointer_tracking_started_at = None
+        self.pointer_tracking_track_id = None
+        self.pointer_follow_context = {}
         self.last_confirmed_hover_point = None
         self.last_occluded_reacquire_at = None
         self.track_rebindings = 0
@@ -181,29 +188,61 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         mouse = state.get("mouseover") or {}
         mouse_time = number(state.get("mouseover_sample_time"))
         cursor_time = number(state.get("cursor_sample_time"))
+        from .target_planning import is_player_unit
         if (identify and mouse.get("guid")
-                and mouse.get("guid") != state.get("character_guid")
+                and not is_player_unit(mouse, state)
                 and mouse_time is not None and 0 <= now-mouse_time <= 1.5
                 and (cursor_time is None or 0 <= now-cursor_time <= 1.5)):
             self.phase = VisualApproachPhase.INTERACTION_READY
             return VisualApproachAssessment(
                 self.phase, True, True, "identity_available_during_visual_seek")
-        if not identify and guid and target and target.get("guid") != guid:
+        # UI opening ends locomotion, even if opening it cleared the target.
+        # The owning dialog skill still verifies its exact quest/action/owner.
+        object_use_approach = self.intent.get("object_use_approach") is True
+        item_use_approach = self.intent.get("item_use_approach") is True
+        if (self.intent.get("purpose") == "INTERACT"
+                and ((state.get("quest_ui") or {}).get("open")
+                     or (state.get("gossip_ui") or {}).get("open")
+                     or state.get("quest_ui_open") or state.get("gossip_open"))):
+            if object_use_approach or item_use_approach:
+                self.phase = VisualApproachPhase.FAILED
+                return VisualApproachAssessment(self.phase, True, False,
+                                                "ui_opened_during_object_approach")
+            self.phase = VisualApproachPhase.INTERACTION_READY
+            return VisualApproachAssessment(self.phase, True, True,
+                                            "interaction_ui_opened_during_approach")
+        checked = self._approach_identity_check(state, now)
+        if not checked:
             self.phase = VisualApproachPhase.FAILED
-            return VisualApproachAssessment(self.phase, True, False, "target_identity_changed")
+            reason = ("target_identity_stale" if "STALE" in checked.reason
+                      else "target_identity_changed")
+            return VisualApproachAssessment(self.phase, True, False, reason)
         if (not identify and self.intent.get("purpose") != "LOOT"
                 and target.get("dead", target.get("is_dead"))):
             self.phase = VisualApproachPhase.FAILED
             return VisualApproachAssessment(self.phase, True, False, "target_dead")
+        item_out_of_range = False
+        item_in_range = False
+        if item_use_approach:
+            from .quest_tool_resolver import QuestToolResolver
+            readiness = QuestToolResolver.item_state(
+                state, self.intent.get("item_id"), guid, self.intent.get("quest_ids"), now=now)
+            # Positive item range permits stopping, but a facing-recovery
+            # approach must still turn toward its live associated unit.
+            item_in_range = readiness is not None and readiness.get("in_range") is True
+            item_out_of_range = readiness is not None and readiness.get("in_range") is False
         wrong = self._pointer_names_other_unit(state, now)
         if wrong is not None:
             # The box being followed belongs to another unit (live
             # 2026-10-01: a gnome player beside Jaina).  Drop it; the
             # occluded/rebinding logic searches for the selected unit again.
-            self.rejected_reacquire_track_ids.add(wrong)
+            self._reject_reacquire_track(wrong, state)
             self.wrong_track_rejections += 1
             if self.intent.get("track_id") == wrong:
                 self.intent["track_id"] = None
+                self.identity_recheck_requested_at = None
+                self.identity_recheck_mouse_sample_before = None
+                self.identity_recheck_track_id = None
                 self.phase = VisualApproachPhase.OCCLUDED
                 return VisualApproachAssessment(
                     self.phase, False, False, "pointer_identity_names_another_unit")
@@ -220,6 +259,14 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
                         and self.identity_recheck_track_id != self.intent.get("track_id")):
                     self.intent["track_id"] = self.identity_recheck_track_id
                     self.track_rebindings += 1
+                confirmed_track = self.identity_recheck_track_id
+                if confirmed_track:
+                    self.rejected_reacquire_track_ids.discard(confirmed_track)
+                    self.rejected_reacquire_positions.pop(confirmed_track, None)
+                    self.intent["screen_position"] = {
+                        **(self.intent.get("screen_position") or {}),
+                        "x": x, "y": y, "sample_time": now, "track_id": confirmed_track,
+                        "source": "CONFIRMED_MOUSEOVER_ANCHOR", "track_association": "CONFIRMED"}
                 self.identity_recheck_track_id = None
                 self.identity_reconfirmations += 1
                 self.identity_confirmed_track_id = self.intent.get("track_id")
@@ -234,8 +281,7 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
                 # identity authority.  Only failure of a direct recheck of
                 # the already-bound track terminates this approach attempt.
                 if self.identity_recheck_track_id:
-                    self.rejected_reacquire_track_ids.add(
-                        self.identity_recheck_track_id)
+                    self._reject_reacquire_track(self.identity_recheck_track_id, state)
                     self.identity_recheck_requested_at = None
                     self.identity_recheck_mouse_sample_before = None
                     self.identity_recheck_track_id = None
@@ -262,24 +308,14 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
                 # the addon's next mouseover sample.
                 return VisualApproachAssessment(
                     self.phase, False, False, "awaiting_visual_identity_reconfirmation")
-        object_use_approach = self.intent.get("object_use_approach") is True
-        if (self.intent.get("purpose") == "INTERACT"
-                and ((state.get("quest_ui") or {}).get("open")
-                     or (state.get("gossip_ui") or {}).get("open")
-                     or state.get("quest_ui_open") or state.get("gossip_open"))):
-            if object_use_approach:
-                self.phase = VisualApproachPhase.FAILED
-                return VisualApproachAssessment(self.phase, True, False,
-                                                "ui_opened_during_object_approach")
-            self.phase = VisualApproachPhase.INTERACTION_READY
-            return VisualApproachAssessment(self.phase, True, True,
-                                            "interaction_ui_opened_during_approach")
         rejected_binding = (self.intent or {}).get("rejected_binding")
         harmful_in_range = any(
             action.get("is_harmful") is True and action.get("in_range") is True
             and (not rejected_binding or action.get("action") != rejected_binding)
             for action in state.get("actionbar", []))
-        if not identify and not object_use_approach and harmful_in_range:
+        if (self.intent.get("purpose") == "COMBAT"
+                and target.get("attackable", target.get("is_attackable")) is True
+                and not object_use_approach and not item_use_approach and harmful_in_range):
             self.phase = VisualApproachPhase.INTERACTION_READY
             return VisualApproachAssessment(self.phase, True, True,
                                             "combat_range_supported_during_approach")
@@ -401,7 +437,7 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         # The generic NPC beside-self/bottom shortcut falsely completed the
         # live 18:36 object approach at height .10 with zero movement.
         scale_ready = scale_ready or (
-            not object_use_approach and range_failures == 0
+            not object_use_approach and not item_use_approach and range_failures == 0
             and (bottom_reached or beside_self))
         advanced = (range_failures == 0
                     or getattr(self, "forward_commands_total", 0)
@@ -414,6 +450,10 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
             scale_ready = advanced
         else:
             scale_ready = scale_ready and advanced
+        if item_out_of_range:
+            scale_ready = False
+        elif item_in_range:
+            scale_ready = True
         # Retail NPC interaction needs range, not exact facing; the arc
         # approach rarely arrives dead-centre.
         interact_aligned = error is not None and abs(error) <= .20
@@ -456,11 +496,36 @@ class VisualApproachController(VisualApproachCommandMixin, VisualApproachGeometr
         if reach_purpose and interact_aligned and scale_ready:
             self.phase = VisualApproachPhase.INTERACTION_READY
             return VisualApproachAssessment(self.phase, True, True, "visual_interaction_range_supported")
+        if self._blocked(state, now):
+            self.phase = VisualApproachPhase.FAILED
+            return VisualApproachAssessment(self.phase, True, False, "visual_approach_blocked")
         if self.started_at is not None and now-self.started_at >= self.max_seconds:
             self.phase = VisualApproachPhase.FAILED
-            return VisualApproachAssessment(self.phase, True, False, "visual_approach_safety_deadline")
+            return VisualApproachAssessment(self.phase, True, False, "visual_approach_blocked"
+                                            if self._progress_at is not None
+                                            and now-self._progress_at >= self.BLOCKED_SECONDS
+                                            else "visual_approach_safety_deadline")
         self.phase = VisualApproachPhase.CENTERING if error is None or abs(error) > .18 else VisualApproachPhase.ADVANCING
         return VisualApproachAssessment(self.phase, False, False, "visual_target_tracked")
+
+    # Live 2026-10-13 05:39: W held against a tree root for 30 s.  The
+    # player position is the physical progress evidence; turning on the
+    # spot (CENTERING) does not count as being stuck.
+    BLOCKED_SECONDS = 3.
+    BLOCKED_PROGRESS_YARDS = .8
+
+    def _blocked(self, state: dict, now: float) -> bool:
+        position = state.get("player_world_position") or {}
+        x, y = number(position.get("x")), number(position.get("y"))
+        if x is None or y is None:
+            return False
+        advancing = self.phase == VisualApproachPhase.ADVANCING
+        if (not advancing or self._progress_position is None
+                or math.hypot(x-self._progress_position[0], y-self._progress_position[1])
+                >= self.BLOCKED_PROGRESS_YARDS):
+            self._progress_position, self._progress_at = (x, y), now
+            return False
+        return now - float(self._progress_at) >= self.BLOCKED_SECONDS
 
     def snapshot(self) -> dict:
         latest = asdict(self.samples[-1]) if self.samples else None

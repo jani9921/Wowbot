@@ -1,0 +1,134 @@
+{
+  "files": [
+    {
+      "path": "baseline.json",
+      "bytes": 216383,
+      "sha256": "1e612c6284c5aea7b3e20974dfaf9a92a2fbdbe051fb16f038e22fcd672cdb31"
+    },
+    {
+      "path": "baseline.zip",
+      "bytes": 3689209,
+      "sha256": "4b02376f5434be9026e55db3c87897c6b3370512e4cc1cf74e8b790f00e77fc4"
+    },
+    {
+      "path": "changes.json",
+      "bytes": 2428,
+      "sha256": "5dfebb2a556670d0be5a6afc103d0d1a49ace3b865104ed3a04c85a35b50eec9"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 21788,
+      "sha256": "3f86adaaf2c0e947b0a32e196ffb108c31660536fe77b3c0daf4c10fb1f84815"
+    },
+    {
+      "path": "collect_evidence.py",
+      "bytes": 3727,
+      "sha256": "ae1167f1aeff39bac784f7d8ca35df75c29b74c7dc9d27641e2ef12bb39de666"
+    },
+    {
+      "path": "combined-combat-range-1-command.json",
+      "bytes": 32168,
+      "sha256": "7c6be46843730c1266e2e1434f84ea51d477c422c9ab0565e7b1aaf4b0c14601"
+    },
+    {
+      "path": "combined-combat-range-1-junit.xml",
+      "bytes": 628660,
+      "sha256": "8ee2934bef176e0448ea2f6220f2ff3fc7b729b160a130480d87c2c7a2e23f79"
+    },
+    {
+      "path": "combined-combat-range-1-result.json",
+      "bytes": 84,
+      "sha256": "56d0b1cd26e263487f12b8392046eab2b40209c015a5bffe95984ba102f59cfc"
+    },
+    {
+      "path": "combined-combat-range-1.log",
+      "bytes": 4596,
+      "sha256": "abd6c8597c4239165ede595b11704317fb140b2accd43bd3d422b497dded8f64"
+    },
+    {
+      "path": "current-files.json",
+      "bytes": 216927,
+      "sha256": "799d6d4aa9f770ef44328ed21d60936ab82e8dc25ec95ba25d200d45b5aec70c"
+    },
+    {
+      "path": "current-source.zip",
+      "bytes": 3696036,
+      "sha256": "32d7d8bee7d11b92bbbe6bfab8c1721e42d5c0ea1fd3ad64e02f88e7d144a2d2"
+    },
+    {
+      "path": "facing-projection-probe.json",
+      "bytes": 639,
+      "sha256": "5b4b2e640cf694613b59c7346d83d365f3620c328f3f9219081afbce405ced9c"
+    },
+    {
+      "path": "finish_range_docs.py",
+      "bytes": 4149,
+      "sha256": "2580d7d86df85a24a24563f9e41ff43bedbca09c3666bd0acc10a74679fdb2c8"
+    },
+    {
+      "path": "live-combat-evidence.json",
+      "bytes": 30450,
+      "sha256": "a15340695a514859c44af893e115a9f2d5c4aaf87b35f360078624cf6987f8f8"
+    },
+    {
+      "path": "probe_facing_projection.py",
+      "bytes": 2187,
+      "sha256": "3429449e3b5a446590efc9cecd350cb036c4d4157719311ace4ffef1f2fde939"
+    },
+    {
+      "path": "range-policy.json",
+      "bytes": 385,
+      "sha256": "55b301071567de460087763ae3704cfeb1dcf907d11c570e945cd88fcccc368a"
+    },
+    {
+      "path": "range-test-1-command.json",
+      "bytes": 841,
+      "sha256": "df870e553c49b31849cb9abb2a02ffc96b81ff5419ee2e98596cf8be68188d80"
+    },
+    {
+      "path": "range-test-1-junit.xml",
+      "bytes": 15496,
+      "sha256": "f46f8aa084b7a3caaeacf6e9f9d09fa6643616e0f389c4a27d629a56d2fae344"
+    },
+    {
+      "path": "range-test-1-result.json",
+      "bytes": 66,
+      "sha256": "716fc2bf7968be4caade3a999570a829db56f5e0f7e1582d61071afb8c46232f"
+    },
+    {
+      "path": "range-test-1.log",
+      "bytes": 183,
+      "sha256": "734618fceb0e86b628a77000fee5c2503e0645a4f810ff9522c187fc4d83223c"
+    },
+    {
+      "path": "run_combined.py",
+      "bytes": 2037,
+      "sha256": "9a80f8dde800fce4dff92c3f87a8f4d63064d299a0928ef2d79ae4c3eff80f91"
+    },
+    {
+      "path": "run_targeted.py",
+      "bytes": 1161,
+      "sha256": "74b3f2f3b58d5235ce7bd1a2c4ee21ec5c77af0c2859a85daec2a09818b2d3c3"
+    },
+    {
+      "path": "save_range_checkpoint.py",
+      "bytes": 5529,
+      "sha256": "4704af59a088a2febc31c6257916760147007687e8e3d685846082dcceb2da46"
+    },
+    {
+      "path": "source-verification.json",
+      "bytes": 242,
+      "sha256": "e84f67e4c3764ee4edac4fec9c0bc845ac1f2dc7034c9b984239254396696561"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 700,
+      "sha256": "863606c84a59ab0133153fda0af42ea49e4e6e6641aa65d1e1cde8729a346464"
+    },
+    {
+      "path": "verify_closure.py",
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf"
+    }
+  ]
+}

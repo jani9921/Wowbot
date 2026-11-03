@@ -1,0 +1,153 @@
+F.FFFF..                                                                 [100%]
+================================== FAILURES ===================================
+____ test_phase_transition_invalidates_entities_without_resurrecting_them _____
+
+bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F8181DDFD0>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_phase_transition_invalida0/packet_endpoint.json'))
+
+    def test_phase_transition_invalidates_entities_without_resurrecting_them(bridge):
+        deliver(bridge, *semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK))
+        assert GARRICK in bridge.world.state["packet_entities"]
+        bridge.world.ingest(Observation.create(addon(frame_id="phase:new", phase="new-phase"), 10.1))
+>       assert not bridge.world.state.get("packet_entities")
+E       AssertionError: assert not {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CREATURE', 'entry_id': 245394, 'map_id': 2175, ...}}
+E        +  where {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CREATURE', 'entry_id': 245394, 'map_id': 2175, ...}} = <built-in method get of dict object at 0x000001F82ECD4A80>('packet_entities')
+E        +    where <built-in method get of dict object at 0x000001F82ECD4A80> = {'active_quests': [], 'character_guid': 'Player-1465-00001234', 'frame_id': 'phase:new', 'game_build': '70448', ...}.get
+E        +      where {'active_quests': [], 'character_guid': 'Player-1465-00001234', 'frame_id': 'phase:new', 'game_build': '70448', ...} = <wowbot.agent.world.WorldModel object at 0x000001F8181DDFD0>.state
+E        +        where <wowbot.agent.world.WorldModel object at 0x000001F8181DDFD0> = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F8181DDFD0>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_phase_transition_invalida0/packet_endpoint.json')).world
+
+tests\test_session_context_20261029.py:21: AssertionError
+___ test_pending_entity_requires_the_same_session_and_phase[change0-False] ____
+
+opening_bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F82EC7E850>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_pending_entity_requires_t0/packet_endpoint.json'))
+change = {'session_id': 'next-session'}, accepted = False
+
+    @pytest.mark.parametrize("change, accepted", [
+        ({"session_id": "next-session"}, False),
+        ({"phase": "new-phase"}, False),
+        ({"phase": None}, False),
+        ({"phase": 0}, False),
+        ({}, True),
+        ({"map_id": 84}, True),
+    ])
+    def test_pending_entity_requires_the_same_session_and_phase(opening_bridge, change, accepted):
+        fixture = opening_bridge
+        descriptor = json.loads(fixture.path.read_text())
+        for event in semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK):
+            assert fixture.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
+        observations = fixture.adapter.observations(addon(), fixture.world, 10.)
+        assert len(observations) == 1
+        assert not fixture.world.ingest(observations[0])
+        assert not fixture.world.state.get("packet_entities")
+        fixture.world.ingest(Observation.create(addon(frame_id="context:ready", **change), 10.1))
+        fixture.clock.now = 10.5
+        fixture.adapter.observations(None, fixture.world, fixture.clock.now)
+        deliver(fixture, *semantic("SMSG_ON_MONSTER_MOVE", OMM_ONE_POINT))
+        entities = fixture.world.state.get("packet_entities") or {}
+>       assert (GARRICK in entities) is accepted
+E       AssertionError: assert ('Creature-0-1465-2175-71046-245394-000053399A' in {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CRE... {'guid': 'Creature-0-1465-2175-71046-160433-000055FD64', 'kind': 'CREATURE', 'entry_id': 160433, 'map_id': 2175, ...}}) is False
+
+tests\test_session_context_20261029.py:73: AssertionError
+___ test_pending_entity_requires_the_same_session_and_phase[change1-False] ____
+
+opening_bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F82EC7DD10>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_pending_entity_requires_t1/packet_endpoint.json'))
+change = {'phase': 'new-phase'}, accepted = False
+
+    @pytest.mark.parametrize("change, accepted", [
+        ({"session_id": "next-session"}, False),
+        ({"phase": "new-phase"}, False),
+        ({"phase": None}, False),
+        ({"phase": 0}, False),
+        ({}, True),
+        ({"map_id": 84}, True),
+    ])
+    def test_pending_entity_requires_the_same_session_and_phase(opening_bridge, change, accepted):
+        fixture = opening_bridge
+        descriptor = json.loads(fixture.path.read_text())
+        for event in semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK):
+            assert fixture.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
+        observations = fixture.adapter.observations(addon(), fixture.world, 10.)
+        assert len(observations) == 1
+        assert not fixture.world.ingest(observations[0])
+        assert not fixture.world.state.get("packet_entities")
+        fixture.world.ingest(Observation.create(addon(frame_id="context:ready", **change), 10.1))
+        fixture.clock.now = 10.5
+        fixture.adapter.observations(None, fixture.world, fixture.clock.now)
+        deliver(fixture, *semantic("SMSG_ON_MONSTER_MOVE", OMM_ONE_POINT))
+        entities = fixture.world.state.get("packet_entities") or {}
+>       assert (GARRICK in entities) is accepted
+E       AssertionError: assert ('Creature-0-1465-2175-71046-245394-000053399A' in {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CRE... {'guid': 'Creature-0-1465-2175-71046-160433-000055FD64', 'kind': 'CREATURE', 'entry_id': 160433, 'map_id': 2175, ...}}) is False
+
+tests\test_session_context_20261029.py:73: AssertionError
+___ test_pending_entity_requires_the_same_session_and_phase[change2-False] ____
+
+opening_bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F82EC7DF90>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_pending_entity_requires_t2/packet_endpoint.json'))
+change = {'phase': None}, accepted = False
+
+    @pytest.mark.parametrize("change, accepted", [
+        ({"session_id": "next-session"}, False),
+        ({"phase": "new-phase"}, False),
+        ({"phase": None}, False),
+        ({"phase": 0}, False),
+        ({}, True),
+        ({"map_id": 84}, True),
+    ])
+    def test_pending_entity_requires_the_same_session_and_phase(opening_bridge, change, accepted):
+        fixture = opening_bridge
+        descriptor = json.loads(fixture.path.read_text())
+        for event in semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK):
+            assert fixture.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
+        observations = fixture.adapter.observations(addon(), fixture.world, 10.)
+        assert len(observations) == 1
+        assert not fixture.world.ingest(observations[0])
+        assert not fixture.world.state.get("packet_entities")
+        fixture.world.ingest(Observation.create(addon(frame_id="context:ready", **change), 10.1))
+        fixture.clock.now = 10.5
+        fixture.adapter.observations(None, fixture.world, fixture.clock.now)
+        deliver(fixture, *semantic("SMSG_ON_MONSTER_MOVE", OMM_ONE_POINT))
+        entities = fixture.world.state.get("packet_entities") or {}
+>       assert (GARRICK in entities) is accepted
+E       AssertionError: assert ('Creature-0-1465-2175-71046-245394-000053399A' in {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CRE... {'guid': 'Creature-0-1465-2175-71046-160433-000055FD64', 'kind': 'CREATURE', 'entry_id': 160433, 'map_id': 2175, ...}}) is False
+
+tests\test_session_context_20261029.py:73: AssertionError
+___ test_pending_entity_requires_the_same_session_and_phase[change3-False] ____
+
+opening_bridge = namespace(world=<wowbot.agent.world.WorldModel object at 0x000001F82EC7F110>, inbox=<wowbot.packetio.inbox.PacketEvent...al_bot_midnight 1.2/_work/rev4-p1b-20261029/pytest-red-verified/test_pending_entity_requires_t3/packet_endpoint.json'))
+change = {'phase': 0}, accepted = False
+
+    @pytest.mark.parametrize("change, accepted", [
+        ({"session_id": "next-session"}, False),
+        ({"phase": "new-phase"}, False),
+        ({"phase": None}, False),
+        ({"phase": 0}, False),
+        ({}, True),
+        ({"map_id": 84}, True),
+    ])
+    def test_pending_entity_requires_the_same_session_and_phase(opening_bridge, change, accepted):
+        fixture = opening_bridge
+        descriptor = json.loads(fixture.path.read_text())
+        for event in semantic("SMSG_QUEST_GIVER_STATUS", QGS_GARRICK):
+            assert fixture.inbox.ingest_datagram(canonical(envelope(event.to_dict(), descriptor)))
+        observations = fixture.adapter.observations(addon(), fixture.world, 10.)
+        assert len(observations) == 1
+        assert not fixture.world.ingest(observations[0])
+        assert not fixture.world.state.get("packet_entities")
+        fixture.world.ingest(Observation.create(addon(frame_id="context:ready", **change), 10.1))
+        fixture.clock.now = 10.5
+        fixture.adapter.observations(None, fixture.world, fixture.clock.now)
+        deliver(fixture, *semantic("SMSG_ON_MONSTER_MOVE", OMM_ONE_POINT))
+        entities = fixture.world.state.get("packet_entities") or {}
+>       assert (GARRICK in entities) is accepted
+E       AssertionError: assert ('Creature-0-1465-2175-71046-245394-000053399A' in {'Creature-0-1465-2175-71046-245394-000053399A': {'guid': 'Creature-0-1465-2175-71046-245394-000053399A', 'kind': 'CRE... {'guid': 'Creature-0-1465-2175-71046-160433-000055FD64', 'kind': 'CREATURE', 'entry_id': 160433, 'map_id': 2175, ...}}) is False
+
+tests\test_session_context_20261029.py:73: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_session_context_20261029.py::test_phase_transition_invalidates_entities_without_resurrecting_them
+FAILED tests/test_session_context_20261029.py::test_pending_entity_requires_the_same_session_and_phase[change0-False]
+FAILED tests/test_session_context_20261029.py::test_pending_entity_requires_the_same_session_and_phase[change1-False]
+FAILED tests/test_session_context_20261029.py::test_pending_entity_requires_the_same_session_and_phase[change2-False]
+FAILED tests/test_session_context_20261029.py::test_pending_entity_requires_the_same_session_and_phase[change3-False]
+5 failed, 3 passed in 0.93s
+Exception ignored in: <function Console.__del__ at 0x000001F817D9CA40>
+Traceback (most recent call last):
+  File "C:\Users\<user>\AppData\Roaming\Python\Python313\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

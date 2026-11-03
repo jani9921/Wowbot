@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.V12_0_0_65390/Parsers/UpdateFieldsHandler1215.cs",
+      "sha256": "a628276266a46838fa8f1383fe8507dafb5ac78d10479c9fc70c0cd3cf4590b2"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.Substructures/ItemHandler.cs",
+      "sha256": "106075cdd86dfa694ef2af6bdf9bab44a1098c891d07fcab2817e6dd238f90a0"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParserModule.Substructures/MythicPlusHandler.cs",
+      "sha256": "e9b6a927025eacca5917fb7b72178ab3672f27b86a698aad27bcb5833df6c3e6"
+    },
+    {
+      "path": "native/WowPacketParser/WowPacketParser/Enums/HighGuidType.cs",
+      "sha256": "779140e7eefca29d98ca1877ed313f47e149cd293ec6833b67bc93b02b18772b"
+    }
+  ],
+  "scope": "70340-family selected own CREATE roots, ItemData and ContainerData",
+  "root_slot_count": 105,
+  "container_slot_count": 98,
+  "live_validated": false,
+  "full_inventory_parity": false,
+  "unknown_deltas_invalidate": true
+}

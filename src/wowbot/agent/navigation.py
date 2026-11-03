@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from wowbot.navigation.graph import NavGraph, NavGraphNode
 from wowbot.navigation.planner import RoutePlanner, NoRouteError
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 from .models import number
 from .models import canonical
 import hashlib

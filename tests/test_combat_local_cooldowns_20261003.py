@@ -96,7 +96,7 @@ def test_target_hovers_the_live_box_and_clicks_only_when_the_guid_is_confirmed()
     intent = SimpleNamespace(skill="TARGET", target_ref=goat, parameters={
         "guid": goat, "click_current_cursor": True, "hover_x": .55, "hover_y": .6,
         "track_id": "WORLD3D:9"})
-    state = SimpleNamespace(intent=intent, skill_context={}, phase=None, started_at=10.,
+    state = SimpleNamespace(intent=intent, skill_type="TARGET", before_snapshot={}, skill_context={}, phase=None, started_at=10.,
                             attempt=SimpleNamespace(deadline=13.))
     skill = TargetSkill()
     first = skill.begin(state)
@@ -121,7 +121,7 @@ def test_loot_hover_shows_an_empty_corpse_and_does_not_click():
     goat = "Creature-0-3102-2175-11354-161130-0000408640"
     intent = SimpleNamespace(target_ref=goat, parameters={
         "guid": goat, "corpse_anchor": True, "x": .54, "y": .49})
-    state = SimpleNamespace(intent=intent, skill_context={}, phase=None, started_at=5.,
+    state = SimpleNamespace(intent=intent, skill_type="LOOT", skill_context={}, phase=None, started_at=5.,
                             attempt=SimpleNamespace(deadline=11.), before_snapshot={},
                             local_retry_count=0, failure_history=[])
     skill = LootSkill()

@@ -348,6 +348,7 @@ class PerceptionCycleMixin:
             ui_flag_raw_flips=dict(self.ui_flag_raw_flips),
             context_reset_reasons=list(self.context_reset_reasons))
         self.diagnostics["tracks"] = self.visual_tracks.snapshot()
+        self.diagnostics["visual_identity_events"] = list(self.visual_tracks.identity_events)[-32:]
         self.diagnostics["world3d_v3_v4"] = dict(self.world3d.last_diagnostics)
         self.diagnostics["surface_state"] = {
             "world_map": self.world_map_state_detector.detect(

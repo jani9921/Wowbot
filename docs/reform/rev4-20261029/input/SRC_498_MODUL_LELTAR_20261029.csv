@@ -1,0 +1,499 @@
+﻿relative_path,python_lines,package,source_import_occurrences,incoming_static_module_imports,largest_function_lines,provisional_migration_bucket,audit_status
+__init__.py,0,__init__.py,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/__init__.py,1,adapters,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/atomic_file.py,45,adapters,0,7,35,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/numpy_runtime.py,16,adapters,0,9,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/pixel_bridge.py,592,adapters,2,2,123,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/pixel_detectors.py,277,adapters,0,1,87,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/pixel_payload.py,316,adapters,0,1,293,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/telemetry_packets.py,373,adapters,0,1,105,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+adapters/windows_processes.py,43,adapters,0,0,24,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+legacy_logging/__init__.py,1,legacy_logging,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+legacy_logging/logger.py,29,legacy_logging,0,0,10,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+mocks/__init__.py,0,mocks,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/__init__.py,0,__init__.py,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/__init__.py,15,agent,1,0,5,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/acceptance.py,82,agent,0,0,32,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/action_launch.py,109,agent,4,1,22,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/actionbar_context.py,83,agent,1,3,52,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/active_perception.py,321,agent,1,1,163,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/active_skill_supervision.py,327,agent,4,1,70,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/agenda_advice.py,37,agent,0,2,12,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/agenda_route_preview.py,61,agent,1,1,39,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/agenda_sources.py,263,agent,4,2,55,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/autonomy_loop.py,843,agent,4,1,251,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/binding_inventory.py,197,agent,4,2,74,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/bindings.py,96,agent,0,3,16,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/camera_controller.py,138,agent,1,3,30,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/capability_acceptance.py,59,agent,0,0,6,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/capture_selection.py,50,agent,4,1,35,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/capture_worker.py,233,agent,5,1,38,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/collect_strategy.py,82,agent,1,2,19,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/combat_controller.py,212,agent,5,1,51,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/combat_planning.py,782,agent,24,1,312,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/combat_target_safety.py,47,agent,2,4,38,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/conversation_actors.py,115,agent,7,2,99,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/coordinates.py,39,agent,0,3,12,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/credit_failure_escalation.py,89,agent,1,1,10,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/cross_view.py,114,agent,2,1,30,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/death_recovery_planning.py,186,agent,3,4,57,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/decision_fingerprint.py,201,agent,1,1,29,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/destination_distance.py,116,agent,1,13,12,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/directed_item_facts.py,148,agent,7,5,50,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/directed_item_planning.py,102,agent,3,1,74,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/dxgi_capture.py,190,agent,1,2,42,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/engine.py,762,agent,38,3,437,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/engine_control.py,346,agent,8,1,79,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/engine_finish.py,135,agent,3,1,101,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/engine_runtime_projection.py,578,agent,24,4,346,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/entity_belief.py,115,agent,0,2,54,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/entity_objective_flows.py,74,agent,2,1,18,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/episode_memory.py,63,agent,1,1,17,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/escort_follow.py,82,agent,3,1,18,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/escort_planning.py,165,agent,2,2,38,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/evidence_freshness.py,66,agent,0,1,11,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/execution_bookkeeping.py,192,agent,5,1,99,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/executor.py,232,agent,5,3,62,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/fast_movement_lane.py,139,agent,6,2,129,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/flight_capability.py,129,agent,1,4,32,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/flight_control.py,205,agent,4,1,58,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/goal_manager.py,366,agent,2,2,29,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/golden_sessions.py,50,agent,0,0,25,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/gossip_topics.py,83,agent,3,1,37,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/gossip_trials.py,79,agent,2,3,20,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/gui.py,742,agent,9,0,97,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/gui_packet_status.py,45,agent,0,1,38,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/hover_control.py,324,agent,2,3,42,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/inspection_terminal.py,81,agent,1,1,62,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/interaction_range.py,16,agent,0,4,5,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/learned_world.py,482,agent,2,3,43,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/learning_memory.py,160,agent,1,1,30,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/live_capture.py,200,agent,0,1,33,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/location_fallback.py,34,agent,1,2,29,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/map_marker_dataset.py,233,agent,5,1,84,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/map_poi_planning.py,433,agent,8,7,65,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/map_search_planning.py,426,agent,4,1,118,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory.py,494,agent,11,2,183,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_learning.py,229,agent,1,1,58,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_maintenance.py,185,agent,1,1,128,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_patterns.py,139,agent,1,1,35,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_records.py,127,agent,2,1,25,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_rejection.py,122,agent,4,1,47,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/memory_terminal.py,62,agent,2,1,43,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/models.py,409,agent,0,196,31,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/mount_capability.py,19,agent,0,2,14,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/movement_controller.py,1151,agent,15,1,237,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/navigation.py,280,agent,6,1,56,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/navigation_planning.py,488,agent,5,1,76,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/navigation_situation.py,253,agent,3,1,128,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/navigation_terminal.py,82,agent,2,1,53,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/next_quest_resolver.py,41,agent,0,1,16,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/next_quest_source_hierarchy.py,50,agent,0,1,17,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/object_approach_search.py,125,agent,2,1,30,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/object_interaction_flow.py,1152,agent,22,13,81,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/objective_choice.py,206,agent,1,3,37,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/objective_locator.py,81,agent,3,2,41,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/objective_speech_planning.py,163,agent,4,3,32,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/objective_transport.py,64,agent,5,3,46,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/observation_ingestion.py,56,agent,1,1,11,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/obstacle_perception.py,56,agent,1,2,9,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/offline_replay.py,103,agent,5,1,86,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/outcome_bookkeeping.py,126,agent,2,1,114,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/packet_entity_facts.py,868,agent,8,34,102,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/parallel_control.py,316,agent,11,1,143,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/parallel_runtime.py,116,agent,1,1,34,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/parallel_view.py,88,agent,2,1,50,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/passive_wait.py,89,agent,1,1,36,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception.py,225,agent,15,2,126,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_background.py,164,agent,1,1,43,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_context.py,105,agent,0,1,37,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_cycle.py,374,agent,3,1,359,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_pipeline.py,70,agent,0,1,10,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_process.py,262,agent,4,1,85,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/perception_sources.py,337,agent,15,1,131,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/pkt_dump_import.py,115,agent,2,0,32,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/planner.py,863,agent,35,3,290,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/planning_domains.py,120,agent,4,1,31,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/planning_orchestration.py,268,agent,4,1,43,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/planning_types.py,43,agent,1,20,25,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/pointer_tracking.py,64,agent,3,9,19,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/profile_store.py,67,agent,0,1,21,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/proposal_ranking.py,172,agent,3,1,109,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_accept_flow.py,60,agent,2,1,9,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_agenda.py,273,agent,6,1,119,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_area_memory.py,167,agent,3,1,43,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_attempt_memory.py,107,agent,2,4,11,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_batch_planning.py,116,agent,2,1,44,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_contextual_talk.py,113,agent,6,1,43,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_creature_learning.py,258,agent,8,3,51,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_creature_memory.py,368,agent,0,7,46,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_dialog_planning.py,562,agent,18,1,192,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_dot_focus.py,207,agent,0,1,65,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_failure_memory.py,85,agent,1,2,12,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_giver_evidence.py,424,agent,14,10,68,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_graph.py,122,agent,0,1,43,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_info_hierarchy.py,57,agent,0,0,17,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_item_knowledge.py,165,agent,1,8,50,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_item_search.py,128,agent,6,3,41,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_location_planning.py,1194,agent,27,3,148,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_model.py,633,agent,10,6,72,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_object_lock.py,193,agent,3,1,37,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_objective_planning.py,787,agent,20,4,482,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_offer_selector.py,86,agent,0,1,30,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_planning.py,549,agent,27,1,141,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_playbooks.py,184,agent,4,2,67,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_poi_evidence.py,78,agent,2,2,36,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_receipts.py,61,agent,0,2,28,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_reference_matching.py,34,agent,1,12,22,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_reward_selector.py,148,agent,0,1,38,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_runtime.py,284,agent,6,1,133,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_search_hints.py,73,agent,3,2,45,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_semantics.py,343,agent,6,23,24,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_speaker_context.py,44,agent,2,1,27,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_state.py,73,agent,0,2,24,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_strategy_history.py,109,agent,0,3,18,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_target_planning.py,470,agent,8,1,307,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_terminal.py,102,agent,4,1,65,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_tool_resolver.py,92,agent,4,6,20,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_transition_hold.py,179,agent,3,1,48,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_turn_in.py,95,agent,0,4,20,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/quest_ui_evidence.py,122,agent,4,6,43,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reasoner.py,138,agent,1,1,53,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/recovery_planning.py,241,agent,2,1,103,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reference_catalog.py,357,agent,2,2,105,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reference_experience.py,250,agent,4,2,76,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reference_fallback.py,4,agent,1,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reference_knowledge.py,251,agent,6,2,136,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/reference_world_sqlite.py,227,agent,1,1,53,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/rejection.py,48,agent,1,2,37,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/rejection_memory.py,99,agent,2,1,29,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/rescue_object_planning.py,407,agent,13,2,66,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime.py,599,agent,38,1,284,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_control.py,113,agent,3,2,39,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_diagnostics_phase.py,166,agent,2,1,157,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_lifecycle.py,246,agent,6,1,65,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_observation_phase.py,479,agent,6,1,236,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_packet_source.py,241,agent,8,1,65,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_perception_phase.py,69,agent,0,1,64,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_safety_phase.py,38,agent,1,1,29,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/runtime_scheduler.py,194,agent,0,4,43,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/scripted_ride_planning.py,98,agent,1,1,46,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/self_avatar.py,293,agent,1,8,57,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/semantic_advisor.py,710,agent,2,1,96,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/sensor.py,399,agent,8,2,90,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/sensor_hub.py,214,agent,0,1,21,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/server_kill_planning.py,187,agent,3,1,86,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/server_loot_planning.py,148,agent,3,2,59,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/server_mode.py,72,agent,0,12,11,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/server_npc_planning.py,630,agent,13,10,170,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/session_transition.py,28,agent,1,1,22,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/shared_frame_buffer.py,232,agent,0,5,30,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skill_availability.py,597,agent,25,1,456,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skill_commands.py,214,agent,11,1,182,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skill_contracts.py,201,agent,0,4,13,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skill_verification.py,422,agent,9,1,404,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skills.py,22,agent,6,1,9,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/skyriding_control.py,445,agent,3,1,67,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/soft_targeting.py,137,agent,2,1,42,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/spatial_memory.py,289,agent,10,1,115,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/spawn_catalog.py,203,agent,0,1,56,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/stable_objects.py,379,agent,0,1,90,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/status_projection.py,142,agent,4,1,101,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/supertrack_navigation_cue.py,49,agent,0,1,11,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/suppressed_errors.py,54,agent,0,2,20,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/target_manager.py,258,agent,1,1,68,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/target_marker_approach.py,37,agent,1,2,21,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/target_planning.py,216,agent,11,8,117,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/tdb_builds.py,24,agent,0,2,8,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/tdb_knowledge.py,570,agent,13,1,159,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/tdb_locations.py,541,agent,6,10,117,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/terminal_result.py,123,agent,3,1,92,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/tooltip_quest.py,293,agent,2,15,55,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/track_motion.py,174,agent,1,6,65,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/travel_mode.py,515,agent,16,2,89,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/travel_reach_fallback.py,37,agent,1,1,27,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/turnin_resolver.py,221,agent,8,3,92,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/ui_context.py,170,agent,0,2,24,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/vehicle_abilities.py,334,agent,5,9,41,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/vehicle_combat_planning.py,402,agent,7,2,66,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/vehicle_prerequisites.py,168,agent,5,3,73,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/vision_dataset.py,175,agent,1,1,62,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/vision_seek.py,470,agent,10,1,108,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach.py,563,agent,11,3,331,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach_command.py,234,agent,3,1,220,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach_geometry.py,158,agent,2,1,38,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach_identity.py,254,agent,4,1,54,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach_tracking.py,301,agent,2,1,159,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_approach_types.py,62,agent,0,3,0,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_inspection_planning.py,439,agent,9,1,234,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_prototypes.py,170,agent,1,4,38,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_recognition_stabilizer.py,156,agent,0,2,41,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_recognition_worker.py,84,agent,0,1,21,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_search_planning.py,773,agent,15,2,400,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/visual_tracks.py,794,agent,2,1,332,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/agent/windows_input.py,168,agent,2,2,28,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world.py,496,agent,23,20,90,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_addon_reducer.py,333,agent,8,4,94,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_anchor_reducer.py,330,agent,11,1,144,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_beliefs.py,258,agent,2,1,53,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_corpses.py,157,agent,2,1,29,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_entities.py,88,agent,0,3,0,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_entity_records.py,102,agent,4,1,37,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_entity_reducer.py,83,agent,2,1,46,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_event_reducer.py,42,agent,2,1,25,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_evidence_reducer.py,73,agent,2,1,55,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_map_absence_resolver.py,59,agent,0,1,20,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_models.py,111,agent,0,3,11,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_packet_reducer.py,740,agent,5,5,109,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_prediction_runtime.py,124,agent,1,1,26,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_query.py,392,agent,11,1,34,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_section_updates.py,67,agent,0,1,10,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_snapshot.py,161,agent,2,1,72,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_state_contract.py,162,agent,1,2,95,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_state_projection.py,605,agent,12,1,88,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_trace_graph.py,93,agent,1,1,54,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/world_ui_reducer.py,37,agent,2,1,12,SHARED STATE/CONTRACT — DECOUPLE IMPORT GRAPH,AST + static import scan; behavioral review only for critical path
+wowbot/agent/wpp_tdb_import.py,589,agent,0,1,72,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/client_session.py,90,client_session.py,0,0,19,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/__init__.py,31,diagnostics,4,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/golden_trace_catalog.py,73,diagnostics,1,1,39,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/live_vision_monitor.py,445,diagnostics,2,2,116,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/navigation_overlay.py,158,diagnostics,0,1,70,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/obstacle_overlay.py,54,diagnostics,0,1,44,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/replay.py,270,diagnostics,0,3,18,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/runtime_replay.py,69,diagnostics,1,1,22,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/diagnostics/thread_profiler.py,126,diagnostics,0,1,26,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/execution/__init__.py,14,execution,3,0,0,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/execution/command_ack.py,123,execution,0,2,18,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/execution/command_dispatch.py,88,execution,1,5,25,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/execution/input_scheduler.py,148,execution,0,1,31,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/execution/resource_arbiter.py,66,execution,0,1,10,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/install/__init__.py,1,install,0,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/checks.py,521,install,1,1,35,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/engine_fingerprint.py,83,install,0,3,18,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/wizard.py,177,install,4,0,51,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/wizard_pages.py,397,install,2,1,68,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/wizard_stages.py,367,install,3,1,76,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/install/wizard_support.py,86,install,1,3,34,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/__init__.py,68,navigation,18,0,5,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/arrival.py,174,navigation,2,3,71,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/arrival_evidence.py,198,navigation,0,1,37,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/contracts.py,78,navigation,0,6,11,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/corridor.py,29,navigation,1,2,9,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/danger.py,190,navigation,0,1,49,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/detour_native.py,236,navigation,0,1,58,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/engine.py,120,navigation,10,0,37,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/entrance_verification.py,53,navigation,0,1,25,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/exile_reach_seed.py,51,navigation,2,0,14,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/facing.py,116,navigation,2,2,24,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/flight_path.py,128,navigation,1,8,26,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/flight_planner.py,318,navigation,0,2,40,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/flight_route.py,314,navigation,0,4,54,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/flight_travel.py,180,navigation,3,2,41,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/flight_trip.py,108,navigation,1,2,38,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/global_planner.py,425,navigation,12,2,122,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/graph.py,71,navigation,1,7,10,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/graph_builder.py,53,navigation,3,0,23,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/graph_localization.py,87,navigation,2,0,36,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/learning.py,46,navigation,1,2,10,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/local.py,51,navigation,2,1,18,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/local_planner.py,128,navigation,1,2,20,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/local_world_bridge.py,112,navigation,2,1,20,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/los_recovery.py,122,navigation,1,2,34,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/memory.py,130,navigation,0,2,20,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/mmap_navmesh.py,1370,navigation,1,2,92,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/models.py,78,navigation,1,6,5,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/movement.py,30,navigation,2,0,1,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/navigation_combat.py,154,navigation,4,1,70,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/navigation_context.py,62,navigation,0,2,28,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/navigation_mode.py,50,navigation,0,2,7,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/navigation_recovery.py,203,navigation,3,1,42,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/navigation_search.py,140,navigation,1,1,20,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/path_geometry.py,85,navigation,1,2,36,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/path_sampling.py,57,navigation,0,1,11,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/planner.py,62,navigation,3,3,21,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/progress.py,257,navigation,1,6,55,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/reachability.py,49,navigation,0,1,9,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/search_coverage.py,149,navigation,0,1,41,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/service.py,2589,navigation,50,2,193,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/spatial_context.py,120,navigation,2,0,32,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/spawn_threats.py,237,navigation,2,2,37,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/state_machine.py,27,navigation,1,1,4,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/stuck_classifier.py,69,navigation,0,2,37,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/stuck_resolver.py,235,navigation,1,3,34,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/surface_labels.py,231,navigation,0,0,87,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/trace_graph_binding.py,164,navigation,1,0,86,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/trace_pair_analysis.py,78,navigation,1,0,19,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/transition_resolver.py,69,navigation,0,2,33,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/world_context.py,176,navigation,1,2,41,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/navigation/z_resolver.py,591,navigation,1,1,97,TRAVEL/NAVIGATION — SERVICE SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/__init__.py,25,packetio,2,0,0,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/builds.py,46,packetio,0,4,3,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/capture.py,227,packetio,1,1,32,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/context.py,78,packetio,1,3,16,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/decoder.py,134,packetio,1,2,45,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/flows.py,88,packetio,1,2,22,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/forwarder.py,333,packetio,5,3,34,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/inbox.py,220,packetio,4,1,58,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/ipc.py,38,packetio,0,2,10,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/models.py,126,packetio,0,10,44,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/network.py,123,packetio,1,1,30,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/opcodes_12_1.py,139,packetio,0,1,0,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/pipeline.py,99,packetio,6,1,51,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/pkt.py,782,packetio,5,4,175,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/quest_poi.py,90,packetio,0,2,36,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/quest_poi_snapshot.py,46,packetio,2,1,16,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/reassembly.py,84,packetio,1,1,28,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/server_capture/pkt_writer.py,71,packetio,0,0,13,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/server_capture/process_key.py,227,packetio,0,0,28,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/server_capture/world_crypto.py,137,packetio,0,1,11,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/server_capture/wow_frames.py,233,packetio,2,0,35,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/sidecar.py,113,packetio,8,0,50,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/update_object.py,585,packetio,0,1,109,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/validation.py,189,packetio,2,5,111,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/packetio/ymir_bridge.py,301,packetio,3,1,61,SOURCES/PACKET — SOURCE AUTHORITY + BOOTSTRAP REVIEW,AST + static import scan; behavioral review only for critical path
+wowbot/quests/__init__.py,1,quests,0,0,0,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/client_catalog.py,333,quests,1,7,110,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/client_supplement.py,211,quests,0,2,75,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/item_spell_hits.py,52,quests,0,1,44,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/object_motion.py,22,quests,0,1,10,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/objective_mechanics.py,437,quests,1,2,62,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/playbooks.py,80,quests,0,1,2,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/scene_path_planning.py,275,quests,5,2,54,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/quests/scene_resolver.py,379,quests,0,0,197,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/__init__.py,54,runtime,17,0,0,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/active_skill.py,255,runtime,2,4,43,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/architecture_invariants.py,45,runtime,0,0,3,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/backpressure.py,53,runtime,0,2,12,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/cinematic_policy.py,56,runtime,0,2,13,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/contracts.py,175,runtime,1,12,39,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/entity_identity.py,128,runtime,0,33,30,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/events.py,177,runtime,2,1,17,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/failures.py,172,runtime,2,1,32,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/freshness_gate.py,89,runtime,0,1,44,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/health.py,61,runtime,0,1,33,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/loop_guard.py,321,runtime,0,1,34,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/m0_dispatch.py,61,runtime,3,1,29,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/performance.py,128,runtime,0,2,20,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/policies.py,81,runtime,1,2,13,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/skill_contract.py,63,runtime,2,1,10,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/skill_executor.py,198,runtime,4,1,59,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/skill_identity.py,387,runtime,10,29,134,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/state_invalidation.py,186,runtime,0,1,31,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/structured_logger.py,84,runtime,0,1,22,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/supervisor.py,558,runtime,3,3,67,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/runtime/verification_engine.py,84,runtime,1,1,26,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/skills/__init__.py,27,skills,22,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/ability_rules.py,395,skills,2,4,88,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/action_error_correlation.py,144,skills,1,2,43,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/combat.py,1058,skills,15,1,193,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/combat_ability_catalog.py,44,skills,0,1,14,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/combat_runtime.py,97,skills,1,1,50,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/combat_visual_follow.py,135,skills,1,1,81,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/defend_wait.py,88,skills,4,1,49,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/field_turnin.py,79,skills,3,1,19,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/hover_confirm.py,158,skills,3,5,74,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/instructed_spell.py,59,skills,4,1,27,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/interact.py,560,skills,13,1,219,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/interaction_recovery.py,44,skills,1,1,2,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/interaction_result.py,138,skills,1,3,48,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/interaction_runtime.py,163,skills,5,1,39,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/loot.py,216,skills,6,3,65,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/loot_runtime.py,73,skills,1,1,24,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/movement.py,62,skills,1,1,23,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/movement_phase_contract.py,67,skills,0,1,17,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/object_pull.py,140,skills,4,3,67,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/object_use.py,445,skills,18,2,193,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/quest_dialog.py,200,skills,8,2,139,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/skills/quest_item.py,384,skills,14,2,112,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/skills/quest_tool.py,126,skills,4,1,41,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/skills/search.py,156,skills,3,1,26,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/search_contract.py,68,skills,0,1,11,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/target.py,202,skills,7,1,89,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/target_recovery.py,116,skills,2,1,31,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/vehicle.py,96,skills,4,2,24,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/skills/visual_approach.py,82,skills,2,1,15,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/skills/visual_runtime.py,64,skills,1,1,21,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/verification/__init__.py,18,verification,9,0,0,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/base.py,30,verification,1,1,3,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/combat.py,121,verification,2,3,46,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/verification/combat_error_classifier.py,71,verification,3,2,40,COMBAT — POLICY/EXECUTION SPLIT,AST + static import scan; behavioral review only for critical path
+wowbot/verification/conditions.py,78,verification,0,2,20,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/interaction.py,204,verification,1,4,62,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/loot.py,164,verification,1,2,75,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/movement.py,41,verification,1,1,25,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/verification/quest.py,279,verification,1,4,128,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/verification/quest_dialog.py,177,verification,4,3,134,QUEST/INTERACTION — CONTRACTS + MECHANIC EXECUTION,AST + static import scan; behavioral review only for critical path
+wowbot/verification/ui.py,34,verification,1,1,10,CORE EXECUTION/VERIFICATION — KEEP GATED,AST + static import scan; behavioral review only for critical path
+wowbot/vision/__init__.py,8,vision,5,0,0,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/adapters/minimap.py,725,vision,2,3,119,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/adapters/world_map.py,177,vision,1,2,45,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/entity_memory.py,590,vision,0,2,82,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/fusion/__init__.py,5,vision,3,0,0,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/fusion/context.py,37,vision,2,1,23,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/fusion/local.py,14,vision,2,2,2,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/fusion/pipeline.py,48,vision,3,2,17,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/local_world.py,153,vision,1,3,43,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/map_marker_dataset.py,171,vision,1,0,48,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/map_markers.py,509,vision,3,4,80,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/map_mouseover.py,44,vision,0,4,13,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_floor_markers.py,171,vision,1,1,64,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_geometry.py,86,vision,1,3,21,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_perception.py,75,vision,1,1,13,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_quest_area.py,100,vision,0,4,22,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_quest_dot.py,91,vision,1,1,26,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/minimap_target_marker.py,100,vision,0,2,23,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/models.py,191,vision,0,29,24,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/mouseover_association.py,89,vision,0,2,61,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/opencv_backend.py,243,vision,0,5,30,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/tooltip.py,74,vision,0,1,53,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/ui_parser.py,40,vision,0,1,29,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/visual_signature.py,121,vision,1,1,62,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/__init__.py,62,vision,21,0,0,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/annotation_review.py,199,vision,2,0,30,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/association.py,87,vision,0,2,80,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/association_identity.py,363,vision,1,1,62,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/camera_motion.py,168,vision,1,2,52,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/candidate_tracker.py,236,vision,2,1,100,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/candidates.py,540,vision,2,5,149,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/capture_yolo_feed.py,493,vision,6,2,103,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/components.py,29,vision,2,1,4,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/cue_beliefs.py,76,vision,0,2,58,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/dataset_audit.py,157,vision,0,1,82,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/dataset_export.py,213,vision,1,0,82,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/debug_renderer.py,81,vision,0,1,53,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/directml.py,88,vision,0,1,33,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/feedback.py,114,vision,0,2,99,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/learned_detector.py,671,vision,8,10,180,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/models.py,182,vision,0,18,22,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/nameplate.py,135,vision,0,2,74,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/normalization.py,56,vision,2,3,42,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/ocr.py,193,vision,1,2,56,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/pipeline.py,854,vision,8,2,166,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/prescaled_gmc.py,104,vision,3,1,35,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/probe.py,150,vision,8,0,102,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/process_yolo_backend.py,265,vision,2,2,59,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/profiles.py,52,vision,0,3,14,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/scene.py,168,vision,1,5,102,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/scene_quality.py,150,vision,1,2,45,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/semantic_fusion.py,220,vision,0,2,48,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/shared_image_buffer.py,95,vision,1,1,17,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/tracking.py,634,vision,5,5,251,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/traversability.py,271,vision,0,2,142,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/v2.py,437,vision,6,3,128,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/v3.py,597,vision,7,3,234,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/v4.py,148,vision,0,3,73,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/validation.py,201,vision,3,3,90,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/video_dataset.py,201,vision,0,2,130,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world3d/visual_memory.py,128,vision,0,2,26,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_map_calibration.py,115,vision,0,2,46,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_map_graph_vision.py,262,vision,3,0,55,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_map_perception.py,135,vision,3,1,17,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_map_raster.py,271,vision,2,1,41,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_map_state.py,37,vision,0,1,31,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/vision/world_point_memory.py,139,vision,1,2,37,VISUAL_LEGACY — VERIFY CONSUMERS THEN DISCONNECT,AST + static import scan; behavioral review only for critical path
+wowbot/world_geometry/__init__.py,6,world_geometry,2,0,0,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/world_geometry/faction_templates.py,127,world_geometry,0,1,56,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/world_geometry/service.py,277,world_geometry,3,1,41,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/world_geometry/terrain_maps.py,277,world_geometry,0,2,60,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path
+wowbot/world_geometry/vmaps.py,335,world_geometry,0,1,32,OTHER — REVIEW CALLERS / COMPATIBILITY,AST + static import scan; behavioral review only for critical path

@@ -64,6 +64,8 @@ def test_campaign_work_first_and_far_side_trips_wait():
     result = QuestDomain.prefer_campaign(proposals, state)
     assert [(p.skill, p.parameters.get("quest_id"), p.priority) for p in result] == [
         ("MOVE", 9, 44.), ("MOVE", 5, 40.), ("COMBAT", None, 94.)]
-    # Campaign done (only turn-in left) or no campaign at all: side trips are free.
+    # A completed campaign still needs its turn-in before far side trips.
     state["active_quests"][0]["is_complete"] = True
+    assert len(QuestDomain.prefer_campaign(proposals, state)) == 3
+    state['active_quests'] = state['active_quests'][1:]
     assert len(QuestDomain.prefer_campaign(proposals, state)) == 4

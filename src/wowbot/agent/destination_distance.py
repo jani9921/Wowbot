@@ -14,14 +14,33 @@ import math
 from .models import number
 
 # Normalized-map thresholds the planner was tuned with, and their WORLD_YARDS
-# counterparts.  A destination's own stop/arrival distance wins when larger,
-# so the planner and the navigation controller agree on "arrived".
+# counterparts. Explicit positive stop/arrival distances also win when
+# smaller: an interaction's final close-in must not be dropped at four yards.
 ARRIVED_MAP_UNITS = .003
 ARRIVED_YARDS = 4.
 LONG_MOVE_MAP_UNITS = .04
 LONG_MOVE_YARDS = 40.
 # Ordering scale only, for callers that rank or track progress by distance.
 MAP_UNITS_PER_YARD = .001
+# Live 2026-10-27 16:41-16:42 (East Siege Arbalest, z 245.6 on a bridge): the
+# flight touched down under the bridge (z 200), 1.6 yd from it flat; the MOVE
+# counted as arrived, only a facing turn was left, it failed and the agent
+# WAITed, flew up and landed under it again.  A known destination height this
+# far from our server height is another level, not arrival.
+OTHER_LEVEL_YARDS = 12.
+
+
+def observed_height(player: dict) -> float | None:
+    """Our server-measured height, also through a navmesh-surface projection."""
+    if number(player.get("observed_z")) is not None:
+        return number(player.get("observed_z"))
+    return number(player.get("z")) if player.get("z_observed") is True else None
+
+
+def other_level(state: dict, destination: dict) -> bool:
+    z, pz = number(destination.get("z")), observed_height(state.get("player_world_position") or {})
+    return (destination.get("z_known") is not False and z is not None and pz is not None
+            and abs(z-pz) > OTHER_LEVEL_YARDS)
 
 
 def is_world_yards(destination: dict) -> bool:
@@ -64,9 +83,11 @@ def arrived(state: dict, destination: dict) -> bool:
         yards = world_yards(state, destination)
         if yards is None:
             return False
-        own = max((number(destination.get(key)) or 0.)
-                  for key in ("stop_distance", "arrival_radius"))
-        return yards <= max(ARRIVED_YARDS, own)
+        radii = [number(destination[key]) for key in ("stop_distance", "arrival_radius")
+                 if key in destination and destination[key] is not None]
+        if any(radius is None or not math.isfinite(radius) or radius <= 0 for radius in radii):
+            return False
+        return yards <= (max(radii) if radii else ARRIVED_YARDS) and not other_level(state, destination)
     distance = map_units(state, destination)
     return distance is not None and distance <= ARRIVED_MAP_UNITS
 

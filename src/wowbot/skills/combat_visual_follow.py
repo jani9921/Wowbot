@@ -52,6 +52,9 @@ class CombatVisualFollowPolicy:
         })
 
     def decide(self, context: dict, state: dict, now: float) -> CombatVisualFollowDecision | None:
+        from wowbot.agent.server_mode import server_mode_selected
+        if server_mode_selected(state):
+            return None
         follow = self._context(context)
         expected = str(context.get("expected_guid") or "")
         target = state.get("target") or {}

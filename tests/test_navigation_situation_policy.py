@@ -132,3 +132,17 @@ def test_exhausted_map_relocalization_is_not_reopened_without_new_context():
     assert result.skill == "WAIT"
     assert result.parameters["replan_scope"] == "MAP_OR_QUEST_EVIDENCE"
     assert "MAP_CONTEXT_CHANGED" in result.parameters["waiting_for"]
+
+
+def test_navmesh_move_inside_cave_is_not_turned_into_entrance_search():
+    """Live 2026-10-13 05:57 (Who Lurks in the Pit): inside the cave every
+    MOVE to the cocoons became SEARCH_ENTRANCE -> OPEN_MAP -> WAIT at 0/5."""
+    params = {"map_id": 1, "x": .52, "y": .50, "require_navmesh": True, "quest_id": 55639}
+    cave = {"map_id": 1, "is_indoors": True, "area_type": "Cave",
+            "floor_interior_map_appears": True, "cave_entrance_detected": True}
+    result = adapt(Proposal.make("MOVE", "go", params), cave, distance=.3)
+    assert result.skill == "MOVE"
+    # Once the mmap route has really failed the bounded search still runs.
+    failed = {"skill": "MOVE", "outcome": "FAILURE", "reason": "required_navmesh_route_unavailable"}
+    result = adapt(Proposal.make("MOVE", "go", params), cave, distance=.3, last_result=failed)
+    assert result.skill == "SEEK_VISUAL_CUE"

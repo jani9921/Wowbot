@@ -5,6 +5,25 @@ output/
 # Large imported/generated reference databases
 data/*.sqlite3
 
+# Local captures, reference databases and source backups are not public source.
+*.pkt
+*.pcap
+*.pcapng
+*.sqlite3-wal
+*.sqlite3-shm
+src*.zip
+docs/**/*.zip
+runtime/ymir/
+native/WowPacketParser/
+native/build*/
+native/**/obj/
+native/db2_exporter/bin/
+native/db2_struct_exporter/bin/
+examples/bindings-cache-pid-*.wtf
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.pyc

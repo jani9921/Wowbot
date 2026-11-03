@@ -7,15 +7,72 @@ import re
 from .models import Proposal, number
 from .world import WorldModel
 from .skill_contracts import _world_map_open
+from .quest_ui_evidence import dialog_evidence_allows
+from .mount_capability import mount_capability_allows
+from .packet_entity_facts import server_feign_death
 
 
 class SkillAvailabilityMixin:
     """Methods of SkillRegistry (skills.py); moved verbatim."""
 
     def available(self, proposal: Proposal, world: WorldModel) -> bool:
+        if (proposal.skill in {'SELL_VENDOR', 'BUY_VENDOR'}
+                and (world.state.get('inventory') or {}).get('complete') is False):
+            return False
         contract = self.contracts.get(proposal.skill)
         if not contract:
             return False
+        if (proposal.skill == 'MOVE' and proposal.parameters.get('flight') is True
+                and world.state.get('is_mounted') is not True
+                and world.state.get('in_vehicle') is not True):
+            # The shared travel policy can propose MOUNT and MOVE together.
+            # Only verified mounting admits the own-mount flight, regardless
+            # of learned utility scores or action-bar telemetry settling.
+            return False
+        from .server_mode import server_mode_selected
+        from .planner import Planner
+        if server_mode_selected(world.state) and Planner.vision_driven(proposal):
+            return False
+        if proposal.skill in {"COMBAT", "DEFEND"}:
+            from .combat_target_safety import combat_target_allowed
+            if not combat_target_allowed(world.state, world.state.get("target") or {},
+                    explicit_objective=proposal.parameters.get("elite_objective_verified") is True):
+                return False
+        from .vehicle_abilities import stationary_vehicle_controls
+        if (proposal.skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION", "RECOVER",
+                               "VISUAL_APPROACH", "SEEK_VISUAL_CUE", "APPROACH_TARGET"}
+                and stationary_vehicle_controls(world.state)):
+            return False
+        from wowbot.runtime.entity_identity import check_entity_identity
+        from wowbot.runtime.skill_identity import entity_role, expected_identity
+        role = entity_role(proposal.skill, proposal.parameters)
+        wanted = expected_identity(proposal.parameters, include_item=proposal.skill == "OBJECT_USE")
+        if role == "target" and wanted:
+            from wowbot.runtime.skill_identity import soft_interact
+            observed = (soft_interact(world.state) if proposal.parameters.get("activation_source") == "SOFT_INTERACT"
+                        else world.state.get("target"))
+            if not check_entity_identity(wanted, observed or {}):
+                return False
+        if proposal.skill == "ACQUIRE_TARGET":
+            # TAB cannot guarantee the intended GUID. Search/hover first;
+            # the exact-ID TARGET skill owns selection.
+            return False
+        if proposal.skill in {"GATHER", "HERB", "MINE"}:
+            if not check_entity_identity(wanted, world.state.get("mouseover") or {}):
+                return False
+        if proposal.skill == "OBJECT_USE":
+            from wowbot.skills.object_use import ObjectUseSkill
+            from .tooltip_quest import effective_mouseover
+            from wowbot.runtime.skill_identity import soft_interact
+            activation = proposal.parameters.get("activation_source")
+            if activation == "INTERACT_KEY_AT_SPAWN":
+                return False
+            if activation == "INTERACT_KEY_PACKET":
+                return ObjectUseSkill.packet_object_usable(proposal.parameters, world.state)
+            observed = (soft_interact(world.state) if activation == "INTERACT_KEY"
+                        else effective_mouseover(world.state))
+            if not ObjectUseSkill._identity_matches(proposal.parameters, observed or {}):
+                return False
         detail_age = number(world.state.get("state_age")) or 0
         # TARGET is generated only from a simultaneous, fresh FAST
         # mouseover/cursor edge (QuestDomain verifies both sample times).
@@ -28,11 +85,15 @@ class SkillAvailabilityMixin:
         # state_age drifts past 2s (live-confirmed 2026-09-12: WAIT loop on
         # "missing TOGGLEWORLDMAP binding" while missing_bindings was
         # actually empty -- the real gate was this detail_age check).
-        detail_dependent = {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "GATHER", "HERB", "MINE", "USE", "FISH",
+        detail_dependent = {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION", "GATHER", "HERB", "MINE", "USE", "FISH",
             "MOUNT", "DISMOUNT", "ASSIST", "USE_ON_TARGET",
             "FOLLOW_INSTRUCTION", "ESCAPE",
             "REPAIR", "BUY_VENDOR", "OPEN_BAGS", "SELL_VENDOR"}
-        if proposal.skill in detail_dependent and detail_age > 2.:
+        if proposal.skill in {"QUEST_DIALOG", "FIELD_TURN_IN"}:
+            if not dialog_evidence_allows(world.state, proposal.parameters,
+                                          received_now=getattr(world, "last_received", None)):
+                return False
+        elif proposal.skill in detail_dependent and detail_age > 2.:
             return False
         if self.bindings and any(not self.bindings.contains(a) for a in contract.required_bindings):
             return False
@@ -47,6 +108,9 @@ class SkillAvailabilityMixin:
                 and proposal.skill in {"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION",
                                        "VISUAL_APPROACH", "SEEK_VISUAL_CUE", "OPEN_MAP"}):
             return False
+        if proposal.skill == "ADDON_ACTION":
+            from wowbot.skills.quest_tool import addon_action_ready
+            return addon_action_ready(proposal.parameters, world.state, self.bindings)
         if proposal.skill == "EXTRA_ACTION":
             params, extra = proposal.parameters, world.state.get("extra_action") or {}
             return (self.bindings is not None
@@ -172,7 +236,9 @@ class SkillAvailabilityMixin:
             return (not world.state.get("is_casting") and (action is not None or inventory is not None)
                     and target.get("guid") == proposal.parameters.get("guid")
                     and target.get("attackable", target.get("is_attackable")) is False
-                    and not target.get("dead", target.get("is_dead")))
+                    and (not target.get("dead", target.get("is_dead"))
+                         or server_feign_death(world.state, target.get("guid"))
+                         or self._dead_target_item(world.state, proposal.parameters)))
         if proposal.skill == "EXIT_VEHICLE":
             return (world.state.get("in_vehicle") is True and world.state.get("on_taxi") is not True
                     and (not self.bindings or self.bindings.contains("VEHICLEEXIT")))
@@ -183,17 +249,38 @@ class SkillAvailabilityMixin:
                            and item.get("source") == "VEHICLE_BAR"), None)
             return (bool(world.state.get("vehicle_controls")) and action is not None
                     and action.get("is_usable") is not False
+                    and (number(action.get("cooldown_remaining")) or 0.) <= .1
+                    and (proposal.parameters.get("spell_id") is None
+                         or str(proposal.parameters["spell_id"]) == str(action.get("id")))
+                    and (not proposal.parameters.get("require_objective_progress")
+                         or (world.state.get("in_vehicle") is True and detail_age <= 2.
+                             and action.get("is_usable") is True
+                             and action.get("is_harmful") is not True
+                             and number(action.get("max_range")) == 0.))
                     and (not self.bindings or self.bindings.contains(binding)))
         if proposal.skill == "USE_ON_TARGET":
+            if proposal.parameters.get("item_aim_guid"):
+                from .directed_item_facts import ready_for_use
+                if not ready_for_use(world.state, proposal.parameters, world.state.get("monotonic_time")):
+                    return False
             target = world.state.get("target") or {}
             action = self.quest_item_action(world.state, proposal.parameters.get("item_id"))
             inventory = self.quest_item_inventory(world.state, proposal.parameters)
+            from .quest_tool_resolver import QuestToolResolver
             interact_key = (proposal.parameters.get("activation_source") == "INTERACT_KEY"
-                            and (not self.bindings or self.bindings.contains("INTERACTTARGET")))
+                            and (not self.bindings or self.bindings.contains("INTERACTTARGET"))
+                            and QuestToolResolver.can_interact(
+                                world.state, proposal.parameters.get("item_id"), proposal.parameters.get("guid"),
+                                proposal.parameters.get("quest_ids")))
             return (not world.state.get("is_casting")
                     and (action is not None or inventory is not None or interact_key)
-                    and target.get("guid") == proposal.parameters.get("guid")
-                    and not target.get("dead", target.get("is_dead")))
+                    and ((proposal.parameters.get("target_required") is False
+                          and proposal.parameters.get("item_target_mode") == "SELF"
+                          and not proposal.parameters.get("guid"))
+                         or (target.get("guid") == proposal.parameters.get("guid")
+                             and (not target.get("dead", target.get("is_dead"))
+                                  or server_feign_death(world.state, target.get("guid"))
+                                  or self._dead_target_item(world.state, proposal.parameters)))))
         if proposal.skill == "FOLLOW_INSTRUCTION":
             target = world.state.get("target") or {}
             action = self.instructed_action(world.state, proposal.parameters.get("instruction"))
@@ -299,6 +386,9 @@ class SkillAvailabilityMixin:
                 inventory_match = any(
                     str(item.get("item_id")) == str(item_id) and item.get("is_locked") is not True
                     for item in (world.state.get("inventory") or {}).get("items", ()))
+                if not special_item_match:
+                    from .quest_item_knowledge import authorized_item
+                    special_item_match = authorized_item(world.state, item_id, quest_ids)
                 return (world.state.get("bags_open") is False
                         and special_item_match and inventory_match)
             return (world.state.get("vendor_ui") or {}).get("open") is True and world.state.get("bags_open") is False
@@ -309,14 +399,24 @@ class SkillAvailabilityMixin:
                          if candidate.get("bag") == params.get("bag")
                          and candidate.get("slot") == params.get("slot")), None)
             x, y = number(params.get("x")), number(params.get("y"))
+            from .quest_objective_planning import quest_sellable
             return (vendor.get("open") is True and world.state.get("bags_open") is True
-                    and item is not None and item.get("is_quest_item") is not True
-                    and item.get("is_locked") is not True and item.get("is_equippable") is not True
-                    and (number(item.get("sell_price")) or 0) > 0
+                    and item is not None and quest_sellable(item)
                     and None not in (x, y, number(item.get("x")), number(item.get("y")))
                     and 0 < x < 1 and 0 < y < 1
                     and abs(x-number(item["x"])) <= .002 and abs(y-number(item["y"])) <= .002)
         if proposal.skill in {"TARGET", "INSPECT", "GATHER", "HERB", "MINE", "USE"}:
+            if proposal.skill == "TARGET" and proposal.parameters.get("activation_source") == "TAB_FRIEND_RESCUE":
+                return (not world.state.get("is_in_combat") and bool(proposal.parameters.get("guid"))
+                        and (self.bindings is None or self.bindings.contains("TARGETNEARESTFRIEND")))
+            if proposal.skill == "TARGET" and proposal.parameters.get("activation_source") == "TAB_DEFEND":
+                return (world.state.get("is_in_combat") is True and bool(proposal.parameters.get("guid"))
+                        and (self.bindings is None or self.bindings.contains("TARGETNEARESTENEMY")))
+            if proposal.skill == "TARGET" and proposal.parameters.get("activation_source") == "TAB_SERVER_GUID":
+                from .packet_entity_facts import tab_target_check
+                return (not world.state.get("is_in_combat")
+                        and tab_target_check(world.state, proposal.parameters.get("guid"))[0]
+                        and (self.bindings is None or self.bindings.contains("TARGETNEARESTENEMY")))
             if proposal.skill == "TARGET" and proposal.parameters.get("restore_last_target"):
                 return (not (world.state.get("target") or {}).get("guid")
                         and bool(proposal.parameters.get("guid")) and self.bindings is not None
@@ -351,13 +451,7 @@ class SkillAvailabilityMixin:
                                          and 0 <= now-cursor_time <= .35
                                          and abs(mouse_time-cursor_time) <= .05
                                          and abs(px-cx) <= .002 and abs(py-cy) <= .002)
-                expected_guid = proposal.parameters.get("guid")
-                expected_name = str(proposal.parameters.get("expected_name") or "").strip()
-                identity_matches = ((expected_guid and mouse.get("guid") == expected_guid)
-                                    or (not expected_guid and expected_name
-                                        and str(mouse.get("name") or
-                                                (mouse.get("tooltip_data") or {}).get("unit_name") or "").strip()
-                                            == expected_name))
+                identity_matches = check_entity_identity(wanted, mouse)
                 if not (fresh_and_co_sampled and identity_matches):
                     return False
             if proposal.skill == "USE":
@@ -377,7 +471,11 @@ class SkillAvailabilityMixin:
                         or not identity_matches):
                     return False
             return all(number(proposal.parameters.get(k)) is not None and 0 < float(proposal.parameters[k]) < 1 for k in ("x", "y"))
-        if proposal.skill in {"FISH", "MOUNT", "DISMOUNT"}:
+        if proposal.skill == "MOUNT":
+            return (mount_capability_allows(world.state)
+                    and bool(proposal.parameters.get("binding"))
+                    and (not self.bindings or self.bindings.contains(proposal.parameters["binding"])))
+        if proposal.skill in {"FISH", "DISMOUNT"}:
             return bool(proposal.parameters.get("binding")) and (not self.bindings or self.bindings.contains(proposal.parameters["binding"]))
         if proposal.skill == "ESCAPE":
             binding = proposal.parameters.get("binding")
@@ -461,8 +559,16 @@ class SkillAvailabilityMixin:
         return None
 
     @staticmethod
+    def _dead_target_item(state: dict, parameters: dict) -> bool:
+        from .quest_item_knowledge import item_allows_dead_target
+        return item_allows_dead_target(state, parameters.get("item_id"), parameters.get("quest_ids") or ())
+
+    @staticmethod
     def quest_item_inventory(state: dict, parameters: dict) -> dict | None:
         """Resolve one exact, visible active-quest item bag slot."""
+        from .collection_coverage import inventory_ready
+        if not inventory_ready(state):
+            return None
         if parameters.get("activation_source") != "INVENTORY_COORDINATE":
             return None
         item_id = parameters.get("item_id")
@@ -471,6 +577,9 @@ class SkillAvailabilityMixin:
             str(quest.get("quest_id")) in quest_ids
             and str((quest.get("special_item") or {}).get("item_id")) == str(item_id)
             for quest in state.get("active_quests", ()))
+        if not special_item_match:
+            from .quest_item_knowledge import authorized_item
+            special_item_match = authorized_item(state, item_id, quest_ids)
         if not special_item_match or state.get("bags_open") is not True:
             return None
         candidate = next((item for item in (state.get("inventory") or {}).get("items", ())

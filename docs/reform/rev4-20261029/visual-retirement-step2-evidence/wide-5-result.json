@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "modules": 329,
+  "added_modules": [
+    "tests/test_route_feedback_wip_20261030.py",
+    "tests/test_server_no_visual_proposals_20261030.py",
+    "tests/test_shared_coordinate_values_20261030.py"
+  ],
+  "elapsed_seconds": 152.39363850001246
+}

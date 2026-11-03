@@ -173,9 +173,17 @@ def summarize(status: dict) -> dict:
                        for track in tracks if track.get("source") == "WORLD3D"][:12]},
         "timings_ms": status.get("timings_ms"),
         "loop_rates": status.get("loop_rates"),
+        "parallel_control": status.get("parallel_control"),
+        "quest_agenda": status.get("quest_agenda"),
+        "packet_telemetry": status.get("packet_telemetry"),
+        "visual_memory_worker": status.get("visual_memory_worker"),
         "runtime_scheduler": status.get("runtime_scheduler"),
         "camera_controller": status.get("camera_controller"),
         "visual_approach": status.get("visual_approach"),
+        # Which floor the navigation believes the player is on (live
+        # 2026-10-13: a route planned from the cave layer above Hrun's pit
+        # could not be explained from the log).
+        "z_player": _dict(_dict(_dict(status.get("navigation")).get("z_resolver")).get("player")),
         "vision_seek": {key: _dict(status.get("vision_seek")).get(key) for key in
                         ("phase", "target_track_id", "candidate_score", "last_x",
                          "last_bbox_height", "scan_index")},
@@ -185,6 +193,7 @@ def summarize(status: dict) -> dict:
         "maintenance": status.get("maintenance"),
         "reasoner": status.get("reasoner"),
         "input_safety": status.get("input_safety"),
+        "foreground_loss": status.get("foreground_loss"),
         # BufferedPixelSensor's own capture+decode cost (its background
         # thread's poll_ms), distinct from timings_ms.sensor which only
         # measures the mailbox read in step() -- built in sensor.py but
@@ -227,7 +236,8 @@ def format_change(current: dict, previous: dict | None) -> list[str]:
                  "decision", "result", "pending", "commitment", "movement", "target", "quest_count",
                  "binding_ready", "missing_bindings", "runtime_error", "map_inspection", "combat_hint",
                  "obstacle", "vision_dataset")
-    core_keys = (*core_keys, "loop_rates", "runtime_scheduler", "camera_controller",
+    core_keys = (*core_keys, "loop_rates", "parallel_control", "quest_agenda", "packet_telemetry", "visual_memory_worker",
+                 "runtime_scheduler", "camera_controller",
                  "visual_approach", "combat_controller", "skill_lifecycle",
                  "memory_metrics", "maintenance", "reasoner", "sensor_diagnostics", "main_thread_poll")
     for key in core_keys:

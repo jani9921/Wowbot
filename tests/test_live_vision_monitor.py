@@ -55,6 +55,17 @@ def test_live_monitor_label_includes_track_id_and_keeps_self_identity():
         "WORLD3D:3 Vbmnm [SELF] 0.26 ACTIVE")
 
 
+def test_live_monitor_distinguishes_presentation_and_detector_rate_ids():
+    track = {"track_id": "WORLD3D:453", "upstream_track_id": "WORLD3D_V3:220",
+             "confidence": .63, "lifecycle": "ACTIVE",
+             "appearance": {"learned_label_hypothesis": "creature_unit_like"}}
+    assert LiveVisionMonitor._track_label(track) == (
+        "WORLD3D:453 [V3:220] creature_unit_like 0.63 ACTIVE")
+    overlay = PerceptionWorker._fast_debug_overlay([{**track, "bbox": {
+        "left": 20, "top": 25, "right": 70, "bottom": 80}}])
+    assert overlay["tracks"][0]["upstream_track_id"] == "WORLD3D_V3:220"
+
+
 def test_live_monitor_process_starts_and_closes_without_blocking_agent():
     monitor = LiveVisionMonitor(maximum_hz=5.0)
     try:

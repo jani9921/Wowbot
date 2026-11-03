@@ -1,16 +1,33 @@
-"""NavigationService combat positioning: range/LOS repositioning and facing.
+"""Combat local positioning: range/LOS repositioning and facing.
 
-Split out of service.py (2026-10-05); unchanged.
+Split out of service.py (2026-10-05) as a mixin; since the REV4 split
+(SRC_MELY_AUDIT 4.3) it is ``CombatLocalPositioningAdapter``, a component with
+explicit ports instead of the service's private attributes:
+
+* ``face`` -- the service's FaceController (the shared facing primitive),
+* ``los_recovery`` -- the LOS recovery planner,
+* ``danger`` -- the service's DangerMap,
+* ``resolve_entity`` / ``start_entity`` -- the service's entity-goal request
+  owner.  The adapter never starts a second controller or input lease.
+
+It owns only the latest LOS recovery directive (the service snapshot shows it).
 """
 from __future__ import annotations
 from wowbot.agent.models import Command, number
 from .facing import FaceResult
-from .contracts import ArrivalEnvelope, NavigationRequest
 from wowbot.runtime import world_entity_id
 
 
-class NavigationCombatMixin:
-    """Methods of NavigationService (service.py); moved verbatim."""
+class CombatLocalPositioningAdapter:
+    """NavigationService's combat positioning; the method bodies are unchanged."""
+
+    def __init__(self, face, los_recovery, danger, resolve_entity, start_entity) -> None:
+        self._face = face
+        self._los_recovery = los_recovery
+        self._danger = danger
+        self._resolve_entity_destination = resolve_entity
+        self._start_entity_request = start_entity
+        self.latest_los_recovery: dict | None = None
 
     def local_combat_reposition(self, state: dict, request: dict) -> tuple[Command, ...]:
         """Produce one bounded visual local-navigation correction.
@@ -69,7 +86,7 @@ class NavigationCombatMixin:
                             simultaneous=((turn,) if turn else ())),)
         if reason == "LINE_OF_SIGHT":
             directive = self._los_recovery.plan(state, request)
-            self._latest_los_recovery = {
+            self.latest_los_recovery = {
                 "phase": directive.phase.value,
                 "action": directive.action,
                 "duration": directive.duration,
@@ -85,7 +102,8 @@ class NavigationCombatMixin:
 
     def reposition_for_los(self, state: dict, entity_ref: str | None,
                            observation_id: str, now: float, *,
-                           desired_range: float = 4.5) -> dict | None:
+                           desired_range: float = 4.5, defer_plan: bool = False,
+                           deadline: float | None = None) -> dict | None:
         """Start the final, geometry-backed LOS recovery through this service.
 
         No screen pixel is converted into a world position.  A same-instance,
@@ -95,40 +113,20 @@ class NavigationCombatMixin:
         """
         expected = world_entity_id(entity_ref)
         target = state.get("target") or {}
-        player = state.get("player_world_position") or {}
-        position = target.get("world_position") or {}
         if (not expected or str(target.get("guid") or "") != expected
                 or target.get("dead", target.get("is_dead"))
                 or target.get("attackable", target.get("is_attackable")) is not True):
             return None
-        sampled = number(target.get("sample_time", state.get("target_sample_time")))
-        state_at = number(state.get("monotonic_time"))
-        state_at = now if state_at is None else state_at
-        if sampled is not None and not 0. <= state_at-sampled <= 1.5:
+        destination = self._resolve_entity_destination(state, expected, now, stop_distance=desired_range)
+        if deadline is not None:
+            deadline = number(deadline)
+            if deadline is None:
+                return None
+        if destination is None or deadline is not None and now >= deadline:
             return None
-        px, py = number(player.get("x")), number(player.get("y"))
-        tx, ty = number(position.get("x")), number(position.get("y"))
-        if None in {px, py, tx, ty}:
-            return None
-        player_instance = player.get("instance_id")
-        target_instance = position.get("instance_id")
-        if (player_instance is not None and target_instance is not None
-                and player_instance != target_instance):
-            return None
-        destination = {
-            "target_guid": expected, "purpose": "LOS_REPOSITION",
-            "coordinate_space": "WORLD_YARDS", "x": tx, "y": ty,
-            "z": number(position.get("z")) or 0.,
-            "instance_id": target_instance, "world_map_id": target_instance,
-            "stop_distance": float(desired_range), "allow_combat": True,
-        }
-        request = NavigationRequest(
-            request_id=f"los:{observation_id}", correlation_id=observation_id,
-            mode="REPOSITION_FOR_LOS", destination=destination,
-            target_entity_id=expected,
-            arrival=ArrivalEnvelope(desired_range=float(desired_range)),
-            allow_combat=True, priority=90, timeout=2.5)
-        self.start_request(request, state, now)
+        destination.update(purpose='LOS_REPOSITION', entity_goal=True, allow_combat=True, require_navmesh=True)
+        self._start_entity_request(destination, state, observation_id, now, defer_plan=defer_plan,
+            deadline=min(deadline,now+2.5) if deadline is not None else now+2.5, mode='REPOSITION_FOR_LOS')
         return destination
 
     def record_los_exhaustion(self, entity_ref: str | None, state: dict,

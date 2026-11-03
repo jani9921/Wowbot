@@ -115,6 +115,23 @@ def _adaptive_header_candidates(buffer: bytes, width: int, height: int):
     return candidates, classified
 
 
+def _remember_vertical_fast(buffer: bytes, width: int, height: int,
+                            x: float, y: float, pitch: float) -> bool:
+    """Recognize the independent FAST lane, never a primary/STATE origin.
+
+    Discovery may see it before STATE (or while STATE is covered). Preserve
+    the valid FAST geometry, but keep looking for the primary strip.
+    Legacy, unframed FAST strips are intentionally not excluded.
+    """
+    header = _lane_header(buffer, width, height, x, y, pitch)
+    if header is None or header[0] != VERTICAL_FAST_MARKER:
+        return False
+    decoded = _decode_lane(buffer, width, height, x, y, pitch)
+    if decoded is not None and decoded[0].split("|", 6)[5:6] == ["FAST"]:
+        _VERTICAL_FAST_CACHE[(width, height)] = (x, y, pitch)
+    return True
+
+
 def _decode_adaptive(buffer: bytes, width: int, height: int):
     candidates, classified = _adaptive_header_candidates(buffer, width, height)
     seen = set()
@@ -123,15 +140,25 @@ def _decode_adaptive(buffer: bytes, width: int, height: int):
         if identity in seen:
             continue
         seen.add(identity)
+        vertical = False
         for x_offset in (0., -.5, .5, -1., 1.):
             for delta_milli in range(-180, 181, 2):
                 pitch = measured_pitch + delta_milli / 1000.
                 x = round(origin+x_offset)
                 if pitch < .5 or x + (len(HEADER)-1)*pitch >= width:
                     continue
+                if _remember_vertical_fast(buffer, width, height, x, y, pitch):
+                    # No reason to refine this vertical lane as a primary
+                    # candidate. Other header candidates may still be STATE.
+                    vertical = (width, height) in _VERTICAL_FAST_CACHE
+                    if vertical:
+                        break
+                    continue
                 payload = _decode_grid(buffer, width, height, x, y, pitch)
                 if payload is not None:
                     return payload, (x, y, pitch), len(candidates), classified
+            if vertical:
+                break
     return None, None, len(candidates), classified
 
 
@@ -146,9 +173,15 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
         return classify_rgb(red, green, blue)
 
     cached = _GRID_CACHE.get((width, height))
+    if cached is not None and _remember_vertical_fast(buffer, width, height, *cached):
+        # Repair a cache left by the previous decoder without overwriting
+        # the remembered STATE origin with the unrelated vertical FAST one.
+        _GRID_CACHE.pop((width, height), None)
+        cached = None
     if cached is not None:
         payload = _decode_grid(buffer, width, height, *cached)
         if payload is not None:
+            _FAST_ONLY_FRAMES.pop((width, height), None)
             _LAST_DISCOVERY.update({"cache_hit": True, "status": "decoded",
                                     "x": cached[0], "y": cached[1], "pitch": cached[2]})
             return payload
@@ -174,7 +207,7 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
             _LAST_DISCOVERY.update({"status": "decoded", "x": lost[0], "y": lost[1],
                                     "pitch": lost[2], "path": "recovered_strip"})
             return payload
-    if key in _VERTICAL_FAST_CACHE and (cached is not None or lost is not None):
+    if key in _VERTICAL_FAST_CACHE:
         frames = _FAST_ONLY_FRAMES.get(key, 0) + 1
         _FAST_ONLY_FRAMES[key] = frames
         if frames % FAST_ONLY_RESEARCH_FRAMES:
@@ -185,8 +218,8 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
                 _LAST_DISCOVERY.update({"status": "fast_only", "path": "vertical_fast_cache"})
                 return vertical
 
-    # Top STATE uses four physical pixels; the separately placed vertical FAST
-    # lane uses three. Legacy UI-scaled strips remain supported below.
+    # Both current lanes use three physical pixels. The previous 4 px STATE
+    # and legacy UI-scaled strips remain supported below.
     expected = float(profile.get("expected_pitch", 4.0))
     max_x = min(width, max(32, int(profile.get("search_x", 192))))
     max_y = min(height, max(64, int(profile.get("search_y", 384))))
@@ -201,6 +234,8 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
                 if x + (len(HEADER) - 1) * pitch >= width:
                     continue
                 if all(color(round(x + i * pitch), y) == wanted for i, wanted in enumerate(HEADER)):
+                    if _remember_vertical_fast(buffer, width, height, x, y, pitch):
+                        continue
                     payload = _decode_grid(buffer, width, height, x, y, pitch)
                     if payload is not None:
                         _GRID_CACHE[(width, height)] = (x, y, pitch)
@@ -235,6 +270,8 @@ def decode_payload_from_bgra(buffer: bytes, width: int, height: int) -> Optional
                     for refined_milli in range(start, end + 1):
                         refined = refined_milli / 1000.0
                         if all(color(round(x + i * refined), y) == wanted for i, wanted in enumerate(HEADER)):
+                            if _remember_vertical_fast(buffer, width, height, x, y, refined):
+                                continue
                             payload = _decode_grid(buffer, width, height, x, y, refined)
                             if payload is not None:
                                 _GRID_CACHE[(width, height)] = (x, y, refined)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 
+from wowbot.query_ports import NavigationQueryPorts, TravelCostPort
 from .interaction_range import recently_verified_in_range
 from .collect_strategy import CollectStrategyTracker
 from .credit_failure_escalation import CreditFailureAction, CreditFailureEscalation
@@ -17,6 +18,13 @@ from .quest_dialog_planning import QuestDialogPlanningPolicy
 from .quest_location_planning import QuestLocationPlanningPolicy
 from .target_planning import TARGET_HANDOFF_MAX_SAMPLE_AGE_SECONDS, TargetPlanningPolicy
 from .quest_objective_planning import QuestObjectivePlanningMixin
+from .rescue_object_planning import RescueObjectPolicy, RescueTargetPolicy, SoftInteractRescuePolicy
+from .scripted_ride_planning import ScriptedRideHold
+from .objective_speech_planning import ObjectiveSpeechHold
+from .escort_planning import EscortPolicy
+from .server_kill_planning import ServerKillTargetPolicy
+from .server_loot_planning import ServerLootPolicy
+from .server_npc_planning import ServerNpcInteractionPolicy
 from .quest_target_planning import QuestSelectedTargetMixin
 
 
@@ -44,7 +52,10 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         except Exception:
             return
         saved[str(quest_id)] = cells
-    def __init__(self, attempt_memory=None):
+    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None,
+                 navigation_queries: NavigationQueryPorts | None = None):
+        self.travel_cost = travel_cost
+        self.navigation_queries = navigation_queries or NavigationQueryPorts()
         # A client-confirmed range error opens one persistent REACH_OBJECT
         # requirement. The Movement Skill owns it until world-space arrival.
         self.interaction_range_blocks: dict[str, dict] = {}
@@ -105,12 +116,15 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         # quest-item mechanic / scripted). Queried, not auto-applied -- a
         # caller decides what to do with the current best guess.
         self.collect_strategy = CollectStrategyTracker(history=self.strategy_history)
-        self.location_policy = QuestLocationPlanningPolicy()
+        self.location_policy = QuestLocationPlanningPolicy(travel_cost=self.travel_cost,
+                                                          navigation_queries=self.navigation_queries)
+        self.server_npcs = ServerNpcInteractionPolicy(object_flow=self.location_policy.object_interaction,
+                                                     travel_cost=self.travel_cost)
         # Compatibility views during the engine migration; the state itself is
         # owned only by QuestLocationPlanningPolicy.
         self.reached_quest_locations = self.location_policy.reached_quest_locations
         self.objective_locator = self.location_policy.objective_locator
-        self.dialog_policy = QuestDialogPlanningPolicy()
+        self.dialog_policy = QuestDialogPlanningPolicy(travel_cost=self.travel_cost)
         self.target_policy = TargetPlanningPolicy()
         self.batch_policy = QuestBatchPolicy()
 
@@ -123,6 +137,38 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         objective planning then loses the range error and loops on SEEK.
         """
         skill = result.get("skill")
+        directed = self.__dict__.get("directed_items")
+        if directed is not None:
+            directed.note_result(result, state, parameters)
+        if skill == "MOVE" and parameters.get("purpose") == "APPROACH_QUEST_OBJECT_SPAWN":
+            self.location_policy.object_interaction.packet_approach_search().note_move_result(
+                result, state, parameters)
+        if parameters.get("purpose") in {"HEAL_QUEST_ITEM", "QUEST_ITEM_ACQUIRE"}:
+            now = number(state.get("monotonic_time"))
+            guid = parameters.get("guid")
+            if now is not None and guid and parameters.get("objective_id"):
+                visits = self.__dict__.setdefault("_quest_item_visits", {})
+                key = (str(state.get("session_id")), str(parameters["objective_id"]), str(guid))
+                visit = visits.setdefault(key, {})
+                if skill == "TARGET":
+                    visit["presses"] = [at for at in visit.get("presses", ()) if 0 <= now-at <= 45.] + [now]
+                elif skill in {"ASSIST", "USE_ON_TARGET"} and result.get("outcome") == "SUCCESS":
+                    # These skills succeed only after QuestProgressVerifier.
+                    # Do not repeatedly heal the same GUID for the next count.
+                    visit["used_until"] = now + 600.
+                    visit["credited_at"] = now
+                    from .quest_item_search import context
+                    from .packet_entity_facts import best_position
+                    unit = (state.get("packet_entities") or {}).get(str(guid)) or {}
+                    point = best_position(unit)
+                    visit["context"] = context(state)
+                    if (point is not None and str(point.get("instance_id")) == visit["context"][0]
+                            and all(number(point.get(k)) is not None and math.isfinite(point[k])
+                                    for k in ("x", "y", "z"))):
+                        visit["position"] = {k: point[k] for k in ("x", "y", "z", "instance_id")}
+                        visit["seen_at"] = now
+                while len(visits) > 256:
+                    visits.pop(next(iter(visits)))
         if (skill == "OBJECT_USE" or
                 (skill == "VISUAL_APPROACH" and parameters.get("object_use_approach") is True)):
             self.location_policy.object_interaction.note_result(result, state)
@@ -192,11 +238,14 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
             # minute.  Standing at an API giver, its soft-interact NPC goes
             # first (MapPoiPlanningPolicy._soft_interact_pickup).
             from .map_poi_planning import soft_interact_giver_waiting
-            if soft_interact_giver_waiting(state, guid):
+            if soft_interact_giver_waiting(state, guid, travel_cost=self.travel_cost):
                 return False
             return not handled or selected_npc_shows_quest_symbol(state, guid)
         from .quest_giver_evidence import npc_objective_subjects
         ready = world.quest_model.ready()
+        from .quest_semantics import speak_target_matches
+        if any(speak_target_matches(obj, target) for obj in ready):
+            return True
         types = {str(getattr(obj, "type", "") or "") for obj in ready}
         return friendly_npc_relevant(state, str(target.get("guid") or ""), types,
                                      unit_name=target.get("name"),
@@ -322,6 +371,9 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         *, runtime_map_scan_started: float | None = None,
     ) -> list[Proposal]:
         proposals = self._propose(world, goal, runtime_map_scan_started=runtime_map_scan_started)
+        escorts = self.__dict__.get("escorts")
+        if escorts is not None:
+            proposals = escorts.filter_travel(proposals, world.state)
         return self.prefer_campaign(proposals, world.state)
 
     @classmethod
@@ -331,8 +383,10 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         campaign = {str(quest.get("quest_id")) for quest in quests if quest.get("is_campaign") is True}
         if not campaign:
             return proposals
-        campaign_open = any(quest.get("is_campaign") is True and quest.get("is_complete") is not True
-                            for quest in quests)
+        # Ready to turn in is still active campaign work. Live 20:31: the
+        # completed 65783 released an unaccepted task POI (66356) and the
+        # agent rode into its cave before returning to the real hand-in.
+        campaign_open = bool(campaign)
         position = state.get("player_world_position") or {}
         px, py = number(position.get("x")), number(position.get("y"))
         result = []
@@ -388,7 +442,29 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
         primary_context = world.runtime_context.get("primary_quest") or {}
         primary_quest_id = str(primary_context.get("quest_id") or "")
         primary_objective_id = str(primary_context.get("objective_id") or "")
-        result.extend(self.dialog_policy.propose(state, goal, primary_quest_id=primary_quest_id))
+        result.extend(self.__dict__.setdefault("scripted_rides", ScriptedRideHold()).propose(state))
+        result.extend(self.__dict__.setdefault("objective_speech", ObjectiveSpeechHold()).propose(state))
+        result.extend(self.__dict__.setdefault("escorts", EscortPolicy()).propose(state))
+        player_layer = self.location_policy.player_layer_z(world, state, navigation_queries=self.navigation_queries)
+        result.extend(self.__dict__.setdefault("rescue_objects", RescueObjectPolicy()).propose(
+            state, player_layer))
+        result.extend(self.__dict__.setdefault("rescue_soft", SoftInteractRescuePolicy()).propose(state))
+        result.extend(self.__dict__.setdefault("rescue_target", RescueTargetPolicy()).propose(state))
+        result.extend(self.__dict__.setdefault("server_kills", ServerKillTargetPolicy()).propose(
+            state, player_layer))
+        result.extend(self.__dict__.setdefault("server_loot", ServerLootPolicy()).propose(
+            state, player_layer))
+        result.extend(self.server_npcs.propose(state))
+        from wowbot.quests.scene_path_planning import (QuestScenePathPolicy, SceneCoursePolicy,
+                                                       SceneCourseRetryPolicy)
+        # A running ring scene (live package + DB2 path) leads; a course that
+        # timed out is started again at its starter NPC; the quest route only
+        # prepares a lesson before its scene starts.
+        scene_course = (self.__dict__.setdefault("scene_courses", SceneCoursePolicy()).propose(state)
+                        or self.__dict__.setdefault("scene_retries", SceneCourseRetryPolicy()).propose(state))
+        result.extend(scene_course or self.__dict__.setdefault("scene_paths", QuestScenePathPolicy()).propose(state))
+        result.extend(self.dialog_policy.propose(state, goal, primary_quest_id=primary_quest_id,
+                                                quest_model=world.quest_model, attempt_memory=self.attempt_memory))
         batch_policy = self.__dict__.setdefault("batch_policy", QuestBatchPolicy())
         deferred_turnins = batch_policy.deferred_turnins(state, state_time)
         quest_areas = getattr(self.location_policy, "quest_areas", None)
@@ -439,13 +515,15 @@ class QuestDomain(QuestSelectedTargetMixin, QuestObjectivePlanningMixin):
                                        else "EXPLICIT_GOAL_EXACT_ACTION")},
                     confidence=.98, priority=78,
                 ))
-        result.extend(self.location_policy.propose_turnins(
-            records, state, primary_context, deferred=deferred_turnins))
+        turnins = self.location_policy.propose_turnins(
+            records, state, primary_context, deferred=deferred_turnins)
+        result.extend(turnins)
         shop_open = (state.get("vendor_ui") or {}).get("open") is True
         self._propose_objectives(world, state, state_time, records, primary_quest_id,
                                  primary_objective_id, shop_open, result)
         result.extend(self.location_policy.propose_known_locations(
-            world, runtime_map_scan_started, deferred=deferred_turnins))
+            world, runtime_map_scan_started, deferred=deferred_turnins,
+            owned_turnins=frozenset(str(p.parameters.get("quest_id")) for p in turnins)))
         target = world.query.target()
         handoffs = self.target_policy.propose(
             world, goal, target=target,

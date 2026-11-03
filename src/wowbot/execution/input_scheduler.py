@@ -69,7 +69,8 @@ class InputScheduler:
             self._lease_changed.set()
 
     def execute_movement(self, *, keys: tuple[str, ...], forward: set[str], steering: set[str],
-                         steering_duration: float, check: Callable[[], None]) -> None:
+                         steering_duration: float, check: Callable[[], None],
+                         forward_duration: float | None = None) -> None:
         """Refresh one serialized forward/steering lease.
 
         ``check`` belongs to the selected-PID executor, preserving its focus,
@@ -91,7 +92,9 @@ class InputScheduler:
                     continue
                 self.backend.key(key, True)
                 self._held.add(key)
-            self._movement_deadline = time.monotonic()+self.movement_watchdog_seconds
+            self._movement_deadline = time.monotonic()+min(
+                self.movement_watchdog_seconds,
+                forward_duration if forward_duration is not None else self.movement_watchdog_seconds)
             self._steering_keys = set(steering)
             self._steering_deadline = (time.monotonic()+steering_duration+.01
                                        if steering else 0.)

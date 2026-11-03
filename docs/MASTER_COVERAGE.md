@@ -1,5 +1,138 @@
 # Master követelmény-nyilvántartás
 
+## 2026-10-28 — Vineyard: irányított quest item a közös végrehajtóban
+
+AGENT-06/09/22/23/25/46/47/49/61/62/70/72/73/76 érintett részei:
+**részleges, offline tesztelt**. Helyi DB2 item–periodikus aura–kúphatás és a
+meglévő TDB spell-hit–credit reláció kapcsolja a készüléket az objective-hoz.
+A script fázisa feltételes adat marad; nincs scriptfuttatás vagy quest-ID-s
+végrehajtási ág. A QuestDomain közös MOVE/facing és UseItemSkill javaslatokat
+ad; az addon csak publikus használhatóságot/cooldownt exportál, kiválasztott
+unit nélkül is. Az egyetlen aktiválást pontos objective-progressnek kell
+követnie; új session, más objective, cast, cooldown és despawn nem siker.
+A támogatott periodikus emitter család várakozása és trigger-próbálkozásai
+korlátosak, a többi mechanika kifejezetten nyitott. 55 célzott offline eset
+és a rögzített pozíciókból számolt natív útvonal/facing ellenőrzése sikeres.
+A szélesebb regresszió és az állapot: VINEYARD_DIRECTED_ITEM_FIX_20261028.md.
+Új élő questteljesítés és gate-emelés nincs; minden számozott sor megmarad.
+
+## 2026-10-28 — tárgyforrás és harctervező közös questkapcsolata
+
+AGENT-06/09/22/23/25/46/47/49/61/62/70/72/73/76 érintett részei:
+**részleges, offline tesztelt**. A meglévő objective–item–creature kapcsolatot
+a kiválasztás után a közös harctervező is átveszi. A még nyitott COLLECT
+objective forrása a megfelelő quest- és objective-azonosítóval juthat COMBAT
+javaslathoz; a tárgy és a mob neve közötti szöveges eltérés nem veszíti el a
+TDB-kapcsolatot. Több forrás és több quest külön reláció marad, a primer
+objective szűrése megmarad. Ellentmondó identity/item, bizonytalan forrás és
+kész számláló nem ad új vadászati jogosultságot; meglévő input/skill/credit
+kapuk érvényben maradnak. Nincs quest-ID szerinti új viselkedéság.
+
+A tényleges projektben 633 teszt sikeres 52 modulban, 491 Python-forrás
+parse-olható. Tizenkét rögzített állapot input nélküli visszajátszása igazolja
+a döntést; ez nem új live questteljesítés. A javítás utáni élő ellenőrzés és
+a külön Vineyard-item mechanika továbbra is nyitott. Minden alábbi számozott
+követelménysor és M0–M27 kapu változatlan; teljes követelményt nem zártunk le.
+Részletek: LIVE_VALIDATION.md.
+
+
+## 2026-10-25 — általános quest–scene feloldó és feltételkulcsos pályatáblák
+
+AGENT-06/07/46/47/48/61/62/70/72/73/76 érintett részei: **részleges,
+offline tesztelt**. A hiányzó általános adatösszekötés elkészült a támogatott
+spell/aura/SmartAI/PlayerCondition és feltételkulcsos táblákra. Nincs új
+questagy, inputtulajdonos vagy quest-ID ág a mozgásvezérlőben. Az eredeti
+TDB, DB2-k, binding-cache és addon változatlan; a saját klienskatalógus
+származtatott kapcsolatai bővültek, a TDB-t helyben olvassuk.
+
+36 dekódolt tábla; 241 questhez 332 scene-jelölt, 214 egycsomagos referencia,
+27 többértelmű kapcsolat és 179 feltételes táblás pályakapcsolat. A 72089
+Skytop futam 103255 feltétele -> 3562 scene -> 43699 Path -> 7 teljes XYZ-pont
+géppel, új kézi kivétel nélkül feloldódik; aktív futamfixture-ben eljut az
+agent közös referenciaállapotába. Ez nem élő futamteljesítés.
+
+A négy ismert lecke kivétele megmarad. A feltételek/scene élő igazolása,
+Skytop futam-előrehaladás megfelelő adaptere és az összes scriptmechanika
+nincs késznek jelölve. További kész gyűrűspályát a jelenlegi adatokból nem
+állítottunk elő találgatással. 529 teszt sikeres 43 modulban, 467 forrás
+parse-olható. Részletek: LIVE_VALIDATION.md és CLIENT_DB2_CATALOG.md. Az összes
+alábbi számozott követelménysor és elfogadási kapu változatlan; teljes
+követelmény vagy kapu nincs lezárva.
+
+## 2026-10-25 — közös repülési fázisok és kiegészítő helyi DB2-katalógus
+
+AGENT-06/07/46/47/48/61/62/70/72/73/76 és M13/M14/M20 érintett részei:
+**részleges, offline tesztelt**. A quest/scene adapter a quest domainben ad
+deklaratív útvonalat; a közös mozgásvezérlő kezeli a mount-előfeltételt és
+a Sky/Steady repülés utáni, ugyanazon tulajdonoshoz tartozó MMAP földi átadást.
+A szervercredit eredeti kontextussal/idővel kerül a WorldModelbe, nem ad
+addon-liveness-t vagy inputjogot. A kiválasztott cache követelménye megmarad.
+
+A meglévő TDB helyben, változatlan hash-sel és konfigurációval működik tovább;
+nem másoltuk. Mellé épült a helyi DB2 SQLite: 1125 leltározott fájl, 35 dekódolt
+tábla, 66589 questazonosító, 3530 scene-csomag, 40431 scene-szöveg, 17511 útvonal,
+72381 POI blob / 170335 pont. Az általános lekérdezés és közös referenciaprojekció
+működik; a négy ellenőrzött gyűrűs questkapcsolat külön részhalmaz. A 77345
+helyi pályája nyolc gyűrű és egy cél. A többi 1090 DB2 csak leltározott.
+Minden quest automatikus scene-felismerése, scriptértelmezése és mechanikájának
+végrehajtása nincs késznek minősítve; az ismeretlen kapcsolat UNRESOLVED.
+
+502 teszt sikeres 42 modulban a tényleges projektben, 466 forrás parse-olható;
+az offline natív geometriai replay közös földi átadást és fordulás utáni
+előremenetet igazol szintetikus visszacsatolással. Élő javítás utáni leszállás,
+odamenés, leadás és 77345 teljesítés még nyitott. Részletek: LIVE_VALIDATION.md
+és CLIENT_DB2_CATALOG.md. Az összes alábbi számozott sor és elfogadási kapu
+változatlan; teljes követelmény vagy kapu nincs lezárva.
+
+## 2026-10-25 — lecke utáni leszállás és földi questközelítés
+
+AGENT-06/46/47/48/61/62/70/72/73/76 és M13/M14/M20 érintett részei:
+a 13840 PID felhasználói futásában az 5/5 gyűrű és 1/1 célterület jóváírása
+élőben igazolt, a quest leadása nem történt meg. A késő jóváírás újraugrást,
+majd kb. 78,6 yard túlfutást okozott; onnan nincs MMAP út a leadóhoz. A mért
+első földet érési ponttól és a kijelölt célponttól a natív ellenőrzés talál
+járható utat. A javítás részleges, **offline tesztelt**: nincs új felszállás
+az utolsó gyűrű utáni földet éréskor; a közös NavigationService ugyanazon
+action/correlation alatt ellenőrzött földi MOVE-ra adja át az utolsó szakaszt.
+Felült repülő mounton is sétál; repülést explicit útvonal/lecke indít. A
+valódi questcredit, leadási dialógus, kiválasztott cache és MMAP kapui megmaradnak.
+430 teszt sikeres a tényleges projektben, köztük 15 új regresszió; 462 forrás
+parse-olható. Javítás utáni leszállás/odamenés/leadás élő ellenőrzése még nyitott.
+Részletek: LIVE_VALIDATION.md. Az összes alábbi számozott sor és kapu változatlan;
+teljes követelményt vagy elfogadási kaput ez a mérföldkő nem zár le.
+
+## 2026-10-25 — Skyriding élő visszacsatolás és felszállás javítása
+
+AGENT-06/07/48/61/62/70/72/73/76 és M20 érintett részfunkciói:
+**részleges, offline tesztelt** javítás, külön élő hibabizonyítékkal.
+A 27160 és 26524 PID felhasználói futása igazolta az aktív Skyriding-bart
+és a kész binding-preflightot, de nem a pálya önálló teljesítését. A mért
+flight evidence hiányzott a vezérlési állapotból; a FAST XY nem adott Z-t,
+és a földi esésvédelem a birtokolt repülés ugrását/siklását is blokkolta.
+A közös WorldModel és gyors vezérlő ugyanazt a kontextushoz és eredeti időhöz
+kötött XYZ/pitch/sebesség mintát kapja; csak a felült, meglévő repülésvezérlő
+kap felszállási/siklási kivételt. A kiválasztott cache és a többi inputkapu
+változatlanul kötelező. 396 teszt sikeres a tényleges projektben, köztük 18
+új regresszió; 462 Python-forrás parse-olható. Javítás utáni élő pálya és
+leszállás még nyitott. Részletek: LIVE_VALIDATION.md. Az összes alábbi
+számozott sor és elfogadási kapu megmarad, teljes követelmény nincs lezárva.
+
+## 2026-10-25 — aktív Skyriding-bar és kontextusos binding preflight
+
+AGENT-06/07/08/48/61/70/72/73/76 és M20 érintett részfunkciói:
+**részleges, offline tesztelt**. A közös WorldModel az addon által jelzett
+page/kind/revision alapján az aktív Skyriding-sort használja; a FAST sáv is
+ezt az oldalt követi. Kontextusváltáskor a régi spell-sorok érvénytelenek
+az új teljes snapshotig. A Skyriding preflight a vezérlő által használt
+repülési bindingokat ellenőrzi, leszállás után visszaáll a normál ellenőrzés.
+A kiválasztott cache marad a fizikai billentyűk kizárólagos forrása; hiányzó
+vagy eltérő szükséges binding továbbra is blokkol. A tényleges projektben
+futtatott 253 teszt sikeres, köztük 24 célzott regresszió; mind a 462 source
+Python-fájl parse-olható. Részletek: LIVE_VALIDATION.md.
+Az élő felszállás/barváltás/pálya/leszállás és a harc folytatása még nyitott,
+felhasználói tesztet igényel. Az alábbi összes számozott sor és M0–M27 kapu
+változatlan; teljes követelmény vagy kapu nem kapott kész minősítést.
+
 ## 2026-10-08 — elsődleges TDB-tudás és tanult kiegészítések
 
 AGENT-09/10/22/34/36/37/41/62/74/75 érintett részfunkciói:
@@ -139,7 +272,7 @@ A 0.8.0 megvalósítás és korlátai: AGENT_0.8.0.md. Valós tesztbizonyíték:
 | ADDON-19 | CURRENCY TELEMETRY (MASTER_ADDON_PROMPT.md:773) | Hiányos: teljes currency telemetria még nincs. |
 | ADDON-20 | GROUP TELEMETRY (MASTER_ADDON_PROMPT.md:788) | Hiányos: group/raid telemetria még nincs. |
 | ADDON-21 | INSTANCE / PVP TELEMETRY (MASTER_ADDON_PROMPT.md:816) | Hiányos: instance/PvP telemetria még nincs. |
-| ADDON-22 | MOUNT TELEMETRY (MASTER_ADDON_PROMPT.md:851) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
+| ADDON-22 | MOUNT TELEMETRY (MASTER_ADDON_PROMPT.md:851) | Részleges, offline tesztelt: addon 0.9.70 `mount_capability` (gyűjtött/használható mount, riding spell), `is_mounted`, `movement.indoors/swimming/falling`; az agent TravelModePolicy-je (WALK/GROUND_MOUNT/KEEP_CURRENT_MODE) erre kapuz, ismeretlen = nincs mount. Élő capability-érték még nem látott; repülés hiányzik. |
 | ADDON-23 | MOVEMENT TELEMETRY (MASTER_ADDON_PROMPT.md:873) | Részleges, offline tesztelt: külön AIPC5 `FAST_STATE` sáv friss position/world-position/orientation/speed/moving/target/mouseover adatot ad névlegesen 26,7 Hz-en; a World Model csak a gyors contract mezőit frissíti, a lassú quest/inventory tényeket nem. A `movement.indoors` most minden kompakt transport profilban megmarad; ismeretlen API-érték nem válik hamis `false` jellé. Ennek valós kliensbeli beérkezése, valamint a live frekvencia- és késleltetésmérés még szükséges. |
 | ADDON-24 | DEATH / RECOVERY TELEMETRY (MASTER_ADDON_PROMPT.md:894) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
 | ADDON-25 | UI / GAME STATE (MASTER_ADDON_PROMPT.md:922) | Nyilvántartva; részfunkciók auditja/élő elfogadása szükséges. |
@@ -224,6 +357,50 @@ teljes STATE-ben; OBJECT_USE nem indult, a SEEK után az agent visszament
 bounded FAST exportja, name-only objective-egyezés és a névvel igazolt
 OBJECT_USE átjárókeresés fölé sorolása **offline tesztelt**; telepített Lua
 újratöltése és élő quest-credit elfogadása még szükséges.
+
+2026-10-21, 50 / 62 / M14 (interaction, loot, server mode): a sárkányon
+köröző Archivist Rellid soft-interact alapú kiszabadítása **élőben igazolt**
+(10:57:08 F7, 10:57:12 credit). Offline tesztelt, élőben még nem igazolt: a
+Ctrl+Tab (TARGETNEARESTFRIEND) mentés addon 0.9.71 `interact_near`
+mezővel, a mentési credit 5 s-os megvárása, a szerver módban kizárólag
+szerveres loot (GUID → szerver x,y,z → F7, képernyős hullakeresés nélkül) és
+a beálló addon-kontextus alatt érkező szerveres entitás-tények 15 s-os
+megtartása.
+
+2026-10-21, M23 / M27 (halál-helyreállítás, hosszú futás): a 11:10–12:00-s
+felhasználói futásban szerver módban élőben igazolt: a ketrec-mentés
+(70122), a leadás és öt quest felvétele. A második halál után a szellem egy
+repülő szellem-mounton lebegett, és a csak-navmesh hullafutás 30 percen át
+hurokban bukott el. **Offline tesztelt, élőben nem igazolt:** a leereszkedés
+(X) a levegőből, a közvetlen hullafutás útvonal nélkül, a magasság szerinti
+walk-cost cache, a 180 s-os tartós hurok utáni MANUAL leállás és az addon
+0.9.72 `flying` mezője minden szinten.
+
+2026-10-21 15:13–15:26, 50 / M14 / M21: a szerver módú, kizárólag szerveres
+loot (GUID → szerver x,y,z → F7) **élőben igazolt** (6/6 `loot_verified`).
+**Offline tesztelt:** a 40 yd-on belüli szerveres objective-egység helyi
+munkának számít (nincs oda-vissza MOVE), és a leírás nélküli TDB objective-sor
+a quest egyetlen azonos fajtájú nyitott objective-jéhez kötődik.
+
+2026-10-21, M2 / C4 (több támadó): **offline tesztelt, élőben nem igazolt** a
+harcbeli védekező Tab (TAB_DEFEND, bármely élő támadható ellenfél), az élő
+támadó elleni harc-hibák 0,5 s-os újrapróbálása és a bekötött Start Attack
+billentyűs auto-attack. A felhasználó jelezte: Exile's Reach után a
+Single-Button Assistant a 2-es bindre került (csak feljegyezve, AGENT_MILESTONES C5).
+
+2026-10-21 15:45–16:15, 50 / 62 / M14 (interakció, quest-dialógus, szerver mód):
+**offline tesztelt, élőben nem igazolt** a vendor gossip-soros bolt-nyitás
+és a megnevezett (valutás) tárgy megvétele (addon 0.9.73 `gossip_options`,
+vendor-lapozás exportja), a TDB „Talk to <NPC>” / „Ride Vehicle” creditek
+beszélgetős/járműves célként kezelése, az útközbeni felszállás és a szigorú
+szerver mód (nincs képernyős lépés, nincs egérmozgatás trackekre).
+
+2026-10-22, M5 / 50 (navigáció, interakció): **offline tesztelt, élőben nem
+igazolt** a sekély folyadékon (víz, láva, slime) átgázolás: natív Detour v2,
+`NAV_WADE` csak 1,6 yd mélységig (MAPS/VMAPS mérés), víz ×3, láva/slime ×10
+költség, így átkel, nem sétál benne; a Life-Binder Conservatory 24 elbukott
+útvonalából 17 most megvan. A követő (follower) quest-leadó F7-es leadása
+offline tesztelt (69/69 replay tick).
 
 ## Forrásazonosítók
 

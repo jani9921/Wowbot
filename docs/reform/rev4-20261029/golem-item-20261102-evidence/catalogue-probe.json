@@ -1,0 +1,98 @@
+{
+  "quest_id": 26257,
+  "objectives": [
+    {
+      "objective_id": "26257:0",
+      "type": "USE_ITEM_ON_TARGET",
+      "target_entity": {
+        "npc_id": 42381,
+        "name": "Overloaded Harvest Golem",
+        "source": "TDB_ITEM_SUBJECT"
+      },
+      "current_count": 0.0,
+      "item_id": 57954
+    },
+    {
+      "objective_id": "26257:1",
+      "type": "KILL",
+      "target_entity": null,
+      "current_count": 25.0,
+      "item_id": null
+    }
+  ],
+  "item_uses": [
+    {
+      "item_id": 57954,
+      "spell_id": 79436,
+      "match": "SPELL_SUMMON_OBJECTIVE",
+      "subject_entries": [
+        42381
+      ],
+      "credit_links": []
+    }
+  ],
+  "use": {
+    "id": 12174,
+    "spell_id": 79436,
+    "trigger_type": 0,
+    "slot": 0,
+    "charges": 0,
+    "cooldown_ms": 0,
+    "category_cooldown_ms": 10000,
+    "category_id": 1149,
+    "specialization_id": 0,
+    "condition_id": 0,
+    "link_id": 11606,
+    "target_mode": "UNIT",
+    "target_relation": "ANY",
+    "implicit_targets": [
+      25,
+      46
+    ],
+    "target_restrictions": [],
+    "difficulty_id": 0,
+    "spell_name": "Wake Harvest Golem",
+    "ranges": [
+      {
+        "ID": 2,
+        "DisplayName_lang": "Combat Range",
+        "DisplayNameShort_lang": "Combat",
+        "Flags": 1,
+        "RangeMin": [
+          0,
+          0
+        ],
+        "RangeMax": [
+          5,
+          5
+        ]
+      }
+    ],
+    "status": "RESOLVED",
+    "credit_links": [],
+    "summoned_creatures": [
+      {
+        "entry": 42601,
+        "effect_mask": 2
+      }
+    ],
+    "triggered_spells": [
+      {
+        "spell_id": 79436,
+        "spell_chain": [
+          79436
+        ]
+      }
+    ],
+    "credit_search_truncated": false,
+    "target_entries": [
+      {
+        "entry": 42381,
+        "effect_mask": 2,
+        "spell_id": 79436,
+        "source": "TDB_SPELL_TARGET_CONDITION",
+        "confirmed": false
+      }
+    ]
+  }
+}

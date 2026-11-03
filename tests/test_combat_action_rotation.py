@@ -6,7 +6,7 @@ from wowbot.agent.world import WorldModel, Observation
 def world(**extra):
     value = WorldModel()
     value.ingest(Observation.create({"session_id": "s", "frame_id": "f", "timestamp": 1,
-        "map_id": 1409, "position": {"x": .5, "y": .5}, "orientation": 0,
+        "monotonic_time": 1., "map_id": 1409, "position": {"x": .5, "y": .5}, "orientation": 0,
         "player_present": True, "world_map_open": False, **extra}, 1))
     return value
 

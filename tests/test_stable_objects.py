@@ -50,6 +50,9 @@ def test_new_raw_id_for_the_same_box_keeps_the_object_id():
     assert out[0]["raw_lifecycle"] == "ACTIVE" and out[0]["coasting"] is False
     assert out[0]["stable_frames"] >= 4
     assert layer.diagnostics()["duplicate_merges"] == 1
+    assert layer.diagnostics()["identity_events"][-1]["event"] == "raw_rebind"
+    assert layer.diagnostics()["identity_events"][-1]["track_id"] == "WORLD3D:2"
+    assert layer.diagnostics()["identity_events"][-1]["raw_track_id"] == "WORLD3D:9"
 
 
 def test_simultaneous_distinct_boxes_stay_separate_but_exact_duplicates_merge():
@@ -135,6 +138,30 @@ def test_same_upstream_id_rejoins_its_object_after_an_intake_stall():
     after = layer.update([moved], 12.7)[0]
     assert after["track_id"] == first["track_id"]
     assert layer.diagnostics()["upstream_rebinds"] == 1
+
+
+def test_same_v3_subject_keeps_object_id_when_canonical_label_flips_to_obstacle():
+    layer = StableObjectLayer()
+    first = raw("WORLD3D:14", (439, 249, 479, 353))
+    first.update({"kind": "unknown_subject_candidate", "detector_kind": "obstacle_candidate",
+                  "upstream_track_id": "WORLD3D_V3:9"})
+    original = layer.update([first], 10.)[0]
+    later = raw("WORLD3D:102", (434, 250, 484, 378))
+    later.update({"kind": "unknown_subject_candidate",
+                  "upstream_track_id": "WORLD3D_V3:9"})
+    rebound = layer.update([later], 10.1)[0]
+    assert rebound["track_id"] == original["track_id"]
+    assert rebound["raw_track_ids"] == ["WORLD3D:102", "WORLD3D:14"]
+
+
+def test_obstacle_without_v3_subject_identity_stays_separate():
+    layer = StableObjectLayer()
+    subject = raw("WORLD3D:14", BODY)
+    subject["kind"] = "unknown_subject_candidate"
+    obstacle = raw("WORLD3D:15", BODY)
+    obstacle.update({"kind": "unknown_subject_candidate", "detector_kind": "obstacle_candidate"})
+    out = layer.update([subject, obstacle], 10.)
+    assert {item["track_id"] for item in out} == {"WORLD3D:14", "WORLD3D:15"}
 
 
 def test_coasting_track_moves_with_the_camera_and_expires_quickly():

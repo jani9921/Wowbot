@@ -13,6 +13,13 @@ def next_medium_interval(agent, normal_hz: float) -> float:
         agent.mode == Mode.FULL_AI and agent.pending
         and agent.pending.proposal.skill in {
             "MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"})
+    airborne = getattr(getattr(agent, "navigation", None), "airborne_route_active", None)
+    # Live 2026-10-25 17:28 (Skyriding): 3 Hz medium ticks of 0.1-0.45 s held
+    # the engine lock about half the time; the fast flight loop skipped those
+    # samples (busy_skips) and the drake flew unsteered.
+    flying = active_reach and callable(airborne) and airborne() is True
+    if getattr(getattr(agent, "parallel_control", None), "enabled", False) and not flying:
+        return 1./normal_hz
     return 1.0 if active_reach else 1./normal_hz
 
 
@@ -73,7 +80,9 @@ class RuntimeControl:
             return
         if runtime.agent.goal is None:
             raise ValueError("Előbb adj meg egy célt")
-        preflight = runtime.bindings.preflight(runtime.agent.goal.domain, ())
+        from .actionbar_context import binding_context
+        preflight = runtime.bindings.preflight(
+            runtime.agent.goal.domain, (), context=binding_context(runtime.agent.world.state))
         if not preflight["ready"]:
             raise ValueError("Hiányzó bindingok a kiválasztott cache-ben: "
                              + ", ".join(preflight["missing"]))

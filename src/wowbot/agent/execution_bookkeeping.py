@@ -51,6 +51,12 @@ class ExecutionBookkeeper:
 
     def record(self, proposal, now: float, *, planner,
                approach_counts: dict) -> None:
+        if proposal.skill == "INTERACT" and proposal.parameters.get("purpose") in {
+                "SERVER_OBJECTIVE_NPC", "OBJECTIVE_PICKUP", "OBJECTIVE_SPELLCLICK"}:
+            policy = getattr(planner.quest, "server_npcs", None)
+            guid = proposal.parameters.get("soft_guid")
+            if policy is not None and guid:
+                policy.note_dispatched(guid, now)
         if proposal.skill in {"APPROACH_TARGET", "VISUAL_APPROACH"}:
             guid = proposal.parameters.get("guid")
             approach_counts[guid] = approach_counts.get(guid, 0) + 1
@@ -91,6 +97,12 @@ class ExecutionBookkeeper:
         """Project terminal compatibility facts without finishing the skill."""
         skill = attempt.proposal.skill
         parameters = attempt.proposal.parameters
+        if (skill == 'INTERACT' and outcome is Outcome.SUCCESS
+                and parameters.get('purpose') == 'OBJECTIVE_SPELLCLICK'
+                and parameters.get('item_id') is not None and parameters.get('objective_id')):
+            policy = getattr(planner.quest, 'server_npcs', None)
+            if policy is not None:
+                policy.note_item_collected(world.state, parameters, now)
         experience = getattr(getattr(world, "entity_memory", None), "reference_experience", None)
         if experience is not None:
             try:
@@ -118,10 +130,18 @@ class ExecutionBookkeeper:
         if skill == "MOVE" and outcome == Outcome.SUCCESS and dungeon is not None:
             dungeon.map_pois.mark_reached(parameters, now)
         if skill in {"INTERACT", "TALK", "QUEST_DIALOG"} and outcome == Outcome.SUCCESS:
-            guid = parameters.get("guid") or (world.state.get("target") or {}).get("guid")
+            guid = parameters.get("guid") or parameters.get("soft_guid") or (world.state.get("target") or {}).get("guid")
             if guid:
                 planner.quest.interacted_guids[guid] = world.quest_signature(world.state)
                 planner.quest.interacted_at[guid] = now
+                # A dialog that opened proves interaction range (live
+                # 2026-10-13 05:39: after Bjorn's turn-in an older range block
+                # sent a 30 s VISUAL_APPROACH into a tree root instead of
+                # the follow-up Interact).
+                planner.quest.interaction_range_blocks.pop(guid, None)
+                verified = getattr(planner.quest, "approach_verified_at", None)
+                if isinstance(verified, dict):
+                    verified[guid] = now
         if (skill in {"VISUAL_APPROACH", "APPROACH_TARGET"} and outcome == Outcome.SUCCESS
                 and parameters.get("purpose") in {None, "INTERACT"}):
             # Standing next to the unit is new evidence: an earlier silent

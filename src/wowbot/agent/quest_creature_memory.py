@@ -319,6 +319,16 @@ class QuestCreatureMemory:
                 "progress_methods": progress[0], "progress_steps": progress[1],
                 "ability_effects": abilities}
 
+    def verified_progress(self, limit: int = 500) -> list[dict]:
+        """Objective rises with the skill that caused them (most frequent first)."""
+        with self._lock:
+            cursor = self._db.execute(
+                "SELECT description, skill, MAX(in_vehicle) AS in_vehicle, SUM(count) AS total "
+                "FROM quest_progress WHERE skill IS NOT NULL AND skill != '' "
+                "GROUP BY quest_id, objective, skill ORDER BY total DESC LIMIT ?", (int(limit),))
+            names = [column[0] for column in cursor.description]
+            return [dict(zip(names, row)) for row in cursor.fetchall()]
+
     def close(self) -> None:
         with self._lock:
             self._db.close()

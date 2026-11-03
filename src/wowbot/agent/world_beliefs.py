@@ -7,13 +7,15 @@ from collections import deque
 from dataclasses import field
 from .models import Observation, canonical, number
 from .world_models import Belief, ContradictionRecord, Evidence
+from .evidence_factory import evidence_from_observation
+from wowbot.evidence_contracts import EvidenceValidity, finite_time, independent_evidence
 
 
 RELIABILITY = {"ADDON_TELEMETRY": 1., "MOUSEOVER": 1., "TOOLTIP": .9,
                "ENTITY_MEMORY": .7, "SPATIAL_MEMORY": .7, "SEMANTIC_MEMORY": .7, "WORLD_MAP_CV": .6,
                "MINIMAP_CV": .55, "WORLD3D": .55, "WORLD3D_LOCAL_VIEW": .55, "UI_CV": .58, "VISION": .55,
                "CROSS_VIEW": .55, "AI": .3, "REFERENCE_MEMORY": .3,
-               "QUEST_STATE": 1., "PLAYER_STATE": 1.}
+               "QUEST_STATE": 1., "PLAYER_STATE": 1., "PACKET_TELEMETRY": 1.}
 
 
 SENSOR_TIERS = {
@@ -35,7 +37,13 @@ SOURCE_TIERS = {
     "VISION": "PERCEPTION", "CROSS_VIEW": "PERCEPTION", "AI": "REASONING", "VLM": "REASONING",
     "PREDICTION": "REASONING",
     "REFERENCE_MEMORY": "REASONING",
+    "PACKET_TELEMETRY": "STRONG",  # only typed, verified reducer claims have confidence
 }
+
+CORRELATED_FRAME_SOURCES = frozenset({
+    "MINIMAP_CV", "WORLD_MAP_CV", "WORLD3D", "WORLD3D_LOCAL_VIEW", "UI_CV", "VISION",
+    "CROSS_VIEW", "AI", "VLM",
+})
 
 
 # These fields describe a continuously changing sampled state, not durable
@@ -132,7 +140,8 @@ class WorldBeliefMixin:
                     "contradictions": list(old_contradiction[1])}, obs)
             self.contradiction_state[key] = contradiction_identity
 
-    def add_evidence(self, key: str, value, obs: Observation, confidence: float = 1., ttl: float = 5.):
+    def add_evidence(self, key: str, value, obs: Observation, confidence: float = 1., ttl: float = 5.,
+                     *, observed_at: float | None = None):
         entries = self.evidence.setdefault(key, deque(maxlen=20))
         if any(e.correlation_id == obs.correlation_id and e.source == obs.source for e in entries):
             return
@@ -140,19 +149,14 @@ class WorldBeliefMixin:
         reliability = dynamic if dynamic is not None else RELIABILITY.get(obs.source, .4)
         reliability = max(0., min(1., float(reliability)))
         sensor_tier = SOURCE_TIERS.get(obs.source, "UNKNOWN")
-        context = {"session_id": obs.session_id, "map_id": obs.payload.get("map_id"),
-                   "surface": obs.payload.get("surface")}
         provenance = obs.payload.get("provenance") or {}
+        provenance = provenance if isinstance(provenance, dict) else {}
         independence_group = str(provenance.get("independence_group") or
-                                 (obs.correlation_id if obs.source in {"MINIMAP_CV", "WORLD_MAP_CV", "WORLD3D", "UI_CV", "VISION", "AI"}
+                                 (obs.correlation_id if obs.source in CORRELATED_FRAME_SOURCES
                                   else obs.observation_id))
-        entries.append(Evidence(obs.observation_id, obs.correlation_id, obs.source, obs.received_at,
-                                obs.received_at + ttl, canonical(value), confidence, reliability,
-                                canonical(context), independence_group, sensor_tier,
-                                SENSOR_TIERS[sensor_tier], key,
-                                str(obs.payload.get("entity_id") or obs.payload.get("guid") or "") or None,
-                                str(obs.payload.get("quest_id") or "") or None,
-                                str(obs.payload.get("objective_id") or "") or None))
+        entries.append(evidence_from_observation(key, value, obs, confidence, reliability,
+            sensor_tier, SENSOR_TIERS[sensor_tier], independence_group, ttl=ttl, previous=entries,
+            observed_at=observed_at))
 
     @staticmethod
     def _diagnostic_claim_value(key: str, value):
@@ -184,20 +188,20 @@ class WorldBeliefMixin:
         return value
 
     def belief(self, key: str, now: float) -> dict:
-        entries = list(self.evidence.get(key, ()))
-        active = [e for e in entries if e.expires >= now]
+        from .packet_continuity import eligible_evidence
+        entries = list(eligible_evidence(self, self.evidence.get(key, ())))
+        from wowbot.field_sources import POLICIES, FieldSourceResolver, belief_projection
+        if key in POLICIES and any(e.is_fresh(now) for e in entries):
+            return belief_projection(FieldSourceResolver().resolve(key, entries, now,
+                context={"session_id": self.session_id}))
+        active = [e for e in entries if e.is_fresh(now)]
         if not active:
-            return {"status": "STALE" if entries else "UNKNOWN", "value": None, "evidence": []}
+            return {"status": "STALE" if any(e.validity(now) is EvidenceValidity.EXPIRED for e in entries)
+                    else "UNKNOWN", "value": None, "evidence": []}
         # Several visual/AI passes over one captured frame are correlated. Keep
         # only the strongest vote in such a group rather than manufacturing
         # independent support from the same pixels.
-        groups = {}
-        for entry in active:
-            current = groups.get(entry.independence_group)
-            if current is None or (entry.tier_rank, entry.reliability * entry.confidence) > (
-                    current.tier_rank, current.reliability * current.confidence):
-                groups[entry.independence_group] = entry
-        ranked = sorted(list(groups.values()),
+        ranked = sorted(independent_evidence(active),
                         key=lambda e: (e.tier_rank, e.reliability * e.confidence, e.at), reverse=True)
         winning_rank = ranked[0].tier_rank
         peers = [entry for entry in ranked if entry.tier_rank == winning_rank]
@@ -231,10 +235,15 @@ class WorldBeliefMixin:
                 "source_reliability": {e.source: e.reliability for e in ranked},
                 "evidence_hierarchy": [{"observation_id": e.observation_id, "source": e.source,
                                         "tier": e.sensor_tier, "tier_rank": e.tier_rank,
-                                        "weighted_confidence": e.reliability*e.confidence}
+                                        "weighted_confidence": e.reliability*e.confidence,
+                                        "observed_at": e.observed_at, "received_at": e.received_at,
+                                        "completeness": e.completeness.value}
                                        for e in ranked],
                 "correlation_groups": sorted({e.correlation_id for e in ranked}),
                 "independence_groups": sorted({e.independence_group for e in ranked}),
+                # Detailed metadata once for the chosen value; all immutable
+                # records remain available through WorldQuery.evidence().
+                "provenance": best.lineage.as_dict(limit=8) if best.lineage else None,
                 "context": json.loads(best.context_json)}
 
     def typed_belief(self, key: str, now: float) -> Belief:
@@ -251,7 +260,10 @@ class WorldBeliefMixin:
         tick -- snapshot()'s own beliefs projection separately skips dead
         keys on every call regardless of when this last ran.
         """
-        dead = [k for k, entries in self.evidence.items() if not any(e.expires >= now for e in entries)]
+        if not finite_time(now):
+            return 0
+        dead = [k for k, entries in self.evidence.items() if not any(
+            e.validity(now) in {EvidenceValidity.VALID, EvidenceValidity.FUTURE} for e in entries)]
         for k in dead:
             del self.evidence[k]
         return len(dead)

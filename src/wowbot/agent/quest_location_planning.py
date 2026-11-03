@@ -4,12 +4,14 @@ from __future__ import annotations
 import math
 import re
 
+from wowbot.query_ports import NavigationQueryPorts, TravelCostPort
 from .models import Proposal, number
 from .objective_locator import ObjectiveLocator
 from .planning_types import point, world_point
 from .turnin_resolver import TurnInLocationKind, TurnInResolver
 from .travel_reach_fallback import TravelReachFallbackPolicy
 from .escort_follow import EscortFollowPolicy
+from .server_mode import server_profile
 from .object_interaction_flow import ObjectInteractionFlow
 from .tooltip_quest import effective_mouseover
 from .entity_objective_flows import KillObjectiveFlow, SpeakObjectiveFlow
@@ -17,6 +19,7 @@ from .map_poi_planning import MapPoiPlanningPolicy
 from .world import WorldModel
 from .quest_dot_focus import QuestDotFocus
 from .destination_distance import world_arrived
+from .ui_zones import location_on_map
 
 
 
@@ -25,6 +28,10 @@ from .destination_distance import world_arrived
 # and the agent walked 95 yd east for it.  "!"/"?" icons stand on the API
 # giver pins and on finished quests' turn-in points.
 DOT_GIVER_ICON_YARDS = 20.
+
+
+MIN_DOT_PIXELS = 6
+ARROW_SPECK_FRACTION = .12
 
 
 def minimap_objective_dots(state: dict, *, turn_in_yards: float = 30.,
@@ -50,11 +57,23 @@ def minimap_objective_dots(state: dict, *, turn_in_yards: float = 30.,
     view = number(candidate.get("view_radius_yards")) or number(geometry.get("view_radius_yards"))
     if px is None or py is None or not view:
         return []
-    from wowbot.vision.minimap_quest_area import offsets_to_world
+    from wowbot.coordinates import offsets_to_world
     rotate = bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap")))
     # A dot with a floor arrow is not where we can walk to on this floor
     # (user 2026-10-05: "sárga pötty lefelé nyíllal").
-    same_floor = [dot for dot in candidate["dots"] if dot.get("floor", "SAME") == "SAME"]
+    # Live 2026-10-14: 2-5 px "dots" right at the player arrow (within 12 %
+    # of the radius; 36 samples a run) kept "same space" true and drew dot
+    # moves.  Small real dots exist farther out (10-04: 7 px at .17, 3 px
+    # at .35 at another zoom), so only specks at the arrow are dropped.
+    def speck(dot) -> bool:
+        pixels = number(dot.get("pixels"))
+        fraction = number(dot.get("distance_fraction"))
+        if fraction is None:
+            offset = dot.get("offset") or (0., 0.)
+            fraction = math.hypot(float(offset[0]), float(offset[1]))
+        return pixels is not None and pixels < MIN_DOT_PIXELS and fraction < ARROW_SPECK_FRACTION
+    same_floor = [dot for dot in candidate["dots"] if dot.get("floor", "SAME") == "SAME"
+                  and not speck(dot)]
     if not same_floor:
         return []
     points = offsets_to_world([dot["offset"] for dot in same_floor],
@@ -119,7 +138,7 @@ def minimap_vertical_objective_cues(state: dict) -> list[tuple[float, float, str
                        and abs(float(value)) <= 1. for value in marker["offset"])]
     if not markers:
         return []
-    from wowbot.vision.minimap_quest_area import offsets_to_world
+    from wowbot.coordinates import offsets_to_world
     points = offsets_to_world([marker["offset"] for marker in markers],
                               player_x=px, player_y=py, view_radius_yards=view,
                               rotate=bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap"))),
@@ -152,12 +171,18 @@ def minimap_vertical_objective_cues(state: dict) -> list[tuple[float, float, str
                        number(candidate.get("observed_at")) or number(state.get("monotonic_time")) or 0.))
     return result
 
+
+UNLOGGED_QUEST_MAX_YARDS = 800.   # a map marker of a quest not in the log, beyond this, is no work
+
+
 class QuestLocationPlanningPolicy:
     """Resolve explicit quest locations without owning movement or input."""
 
-    def __init__(self) -> None:
-        self.objective_locator = ObjectiveLocator()
-        self.turnin_resolver = TurnInResolver()
+    def __init__(self, *, travel_cost: TravelCostPort | None = None,
+                 navigation_queries: NavigationQueryPorts | None = None) -> None:
+        self.navigation_queries = navigation_queries or NavigationQueryPorts()
+        self.objective_locator = ObjectiveLocator(travel_cost=travel_cost)
+        self.turnin_resolver = TurnInResolver(travel_cost=travel_cost)
         self.travel_fallback = TravelReachFallbackPolicy()
         self.escort_follow = EscortFollowPolicy()
         self.object_interaction = ObjectInteractionFlow()
@@ -165,7 +190,7 @@ class QuestLocationPlanningPolicy:
         self.kill_flow = KillObjectiveFlow()
         self.reached_quest_locations: dict[tuple, str] = {}
         self.quest_search_regions: dict[tuple[str, int], dict] = {}
-        self.map_pois = MapPoiPlanningPolicy()
+        self.map_pois = MapPoiPlanningPolicy(travel_cost=travel_cost)
         # quest_id -> (x, y, route z or None) of the turn-in region reached.
         self.turn_in_arrivals: dict[str, tuple[float, float, float | None]] = {}
         # API pins are neighbourhoods, not NPC coordinates.  Crossing the
@@ -249,9 +274,30 @@ class QuestLocationPlanningPolicy:
                 round(number(location.get("location_map_y", location.get("y"))) or -1., 5),
                 str(location.get("location_source", location.get("source")) or ""))
 
+    @staticmethod
+    def region_signature(state: dict) -> str:
+        """Quest state that may move an objective region elsewhere.
+
+        Live 2026-10-13 06:10 (Who Lurks in the Pit): the first cocoon
+        (0/5 -> 1/5) invalidated the "zone reached" mark, and at 31 yd from
+        the rim POI the agent climbed out of the pit back to it.  A count
+        rising inside the same objective keeps the region; a finished
+        objective or quest (the next step may be elsewhere) does not.
+        """
+        from .models import canonical
+
+        def done(objective: dict) -> bool:
+            current, required = number(objective.get("current")), number(objective.get("required"))
+            return (objective.get("is_complete") is True
+                    or (current is not None and required is not None and current >= required))
+        return canonical([{"id": quest.get("quest_id"), "complete": quest.get("is_complete"),
+                           "objectives": [done(objective) for objective in quest.get("objectives") or ()
+                                          if isinstance(objective, dict)]}
+                          for quest in state.get("active_quests") or () if isinstance(quest, dict)])
+
     def mark_reached(self, location: dict, state: dict) -> None:
         if location.get("quest_id") is not None:
-            self.reached_quest_locations[self.location_key(location)] = WorldModel.quest_signature(state)
+            self.reached_quest_locations[self.location_key(location)] = self.region_signature(state)
             x, y = number(location.get("x")), number(location.get("y"))
             if (location.get("purpose") == "LOCATE_TURN_IN_REGION"
                     and location.get("coordinate_space") == "WORLD_YARDS"
@@ -346,6 +392,24 @@ class QuestLocationPlanningPolicy:
         if (quest_id is not None and areas is not None
                 and areas.contains(quest_id, px, py, position.get("instance_id"))):
             return True   # inside the area learned from the minimap outline
+        if quest_id is not None:
+            from .tdb_locations import quest_zone_contains_player
+            if quest_zone_contains_player(state, quest_id, destination) is True:
+                # Area pins need not all be visited. This only enters local
+                # objective search; it never marks the quest/objective done.
+                return True
+        # Live 2026-10-14 13:34:32: after the first cocoon, 27 yd from the
+        # rim POI down in the pit, "outside the area" sent the agent back up
+        # to the POI.  Near one of the quest's multi-floor object spawns the
+        # zone is entered; the floor walk / dots own it from there.
+        # Live 20:25:39: after the first cocoon the walk stood 27 yd from the
+        # nearest spawn and climbed back to the rim POI; the spawns' extent
+        # (plus the margin) is the pit.
+        spawns = self.multi_level_spawns(state, quest_id) if quest_id is not None else []
+        margin = self.FLOOR_WALK_ZONE_YARDS
+        if spawns and (min(s["x"] for s in spawns)-margin <= px <= max(s["x"] for s in spawns)+margin
+                       and min(s["y"] for s in spawns)-margin <= py <= max(s["y"] for s in spawns)+margin):
+            return True
         return math.hypot(px-dx, py-dy) <= self.OBJECTIVE_AREA_ARRIVED_YARDS
 
     # Live 2026-10-05 12:25 ("Who Lurks in the Pit", user: "spirálisan megy
@@ -362,10 +426,60 @@ class QuestLocationPlanningPolicy:
         r"underground|depths?|tunnels?|mines?|burrows?|underneath|down (?:into|in|to|there))\b",
         re.IGNORECASE)
 
+    # User 2026-10-13: "the walk's route should be the TDB spawns and the
+    # yellow dots".  The floor walk (pit/cave) visits the quest's TDB /
+    # learned object spawns in route order; a live yellow dot still comes
+    # first (the walk yields to it, see ``same_space``).
+    FLOOR_WALK_TARGET_YARDS = 4.
+    # Live 2026-10-14 13:33:20-13:34:26: the separate TDB spawn MOVE picked
+    # the cocoons one by one (pit bottom first, then z 33), walked past the
+    # top cocoon and outranked the dots.  A spawn set spread over floors is
+    # visited by the floor walk in its navmesh route order instead (10-07:
+    # 5/5 with the walk, dots and seen-cocoon SEEKs, no spawn MOVE).
+    MULTI_LEVEL_SPAWN_YARDS = 15.
+    FLOOR_WALK_ZONE_YARDS = 25.
+
+    @staticmethod
+    def floor_walk_targets(state: dict, qid) -> list[dict]:
+        from .object_interaction_flow import quest_object_spawns
+        return quest_object_spawns(state, qid)
+
+    @classmethod
+    def multi_level_spawns(cls, state: dict, qid) -> list[dict]:
+        """The open object objective's spawns when they lie on several floors."""
+        targets = cls.floor_walk_targets(state, qid)
+        heights = [target["z"] for target in targets]
+        return targets if len(targets) >= 2 and max(heights)-min(heights) >= cls.MULTI_LEVEL_SPAWN_YARDS else []
+
+    @staticmethod
+    def player_layer_z(world, state: dict, *,
+                       navigation_queries: NavigationQueryPorts | None = None) -> float | None:
+        oracle = navigation_queries.player_layer if navigation_queries is not None else None
+        if not callable(oracle):
+            return None
+        try:
+            return number(oracle(state))
+        except Exception:                      # planning hint only, never a crash
+            return None
+
+    @classmethod
+    def with_player_layer(cls, world, state: dict, *,
+                          navigation_queries: NavigationQueryPorts | None = None) -> dict:
+        """The state with the navigation's resolved player floor as Z, so the
+        TDB spawn choice ranks spawns on/near the player's own floor first."""
+        position = state.get("player_world_position") or {}
+        if not position or (position.get("z_known") is not False and number(position.get("z")) is not None):
+            return state
+        z = cls.player_layer_z(world, state, navigation_queries=navigation_queries)
+        if z is None:
+            return state
+        return {**state, "player_world_position": {
+            **position, "z": z, "z_known": True, "z_observed": False, "z_source": "NAVMESH_LAYER"}}
+
     def _lower_layer_move(self, world, location: dict, destination: dict, qid) -> Proposal | None:
         model = getattr(world, "_model", world)
-        sweep = getattr(model, "__dict__", {}).get("zone_sweep")
-        oracle = getattr(model, "__dict__", {}).get("layer_oracle")
+        sweep = self.navigation_queries.zone_sweep
+        oracle = self.navigation_queries.lower_layer
         if not callable(sweep) and not callable(oracle):
             return None
         state = world.state
@@ -399,14 +513,19 @@ class QuestLocationPlanningPolicy:
         # this quest.  In a multi-objective cave both can appear together.
         if same_space:
             return None
-        if above_cue or any(item.get("kind") == "minimap_floor_markers" and item.get("markers")
-                            for item in minimap):
-            # A located floor cue is handled by the directional route below.
-            # In particular, ABOVE must never start a blind downward sweep.
+        # ABOVE must never start a blind downward sweep.  A BELOW cue is the
+        # directional route's (``minimap_vertical_move``) -- except over a
+        # multi-floor spawn set: the arrowed dot nearest in 2D skipped the
+        # spiral's cocoons (live 2026-10-14 13:35:02: rim -> pit bottom).
+        multi_level = bool(self.multi_level_spawns(state, qid))
+        if above_cue or (not multi_level and any(
+                item.get("kind") == "minimap_floor_markers" and item.get("markers") for item in minimap)):
             return None
         key = (str(qid), round(number(destination.get("x")) or 0.), round(number(destination.get("y")) or 0.))
+        targets = self.floor_walk_targets(state, qid)
         try:
-            point = sweep(state, destination, key) if callable(sweep) else oracle(state, destination)
+            point = (sweep(state, {**destination, "sweep_targets": targets}, key) if callable(sweep)
+                     else oracle(state, destination))
         except Exception:
             return None
         if not point:
@@ -417,9 +536,13 @@ class QuestLocationPlanningPolicy:
                   "purpose": "LOCATE_QUEST_OBJECTIVE_REGION", "destination_layer": "LOWER",
                   "layer_cue": ("MINIMAP_OBJECTIVE_BELOW" if below_cue else "QUEST_TEXT" if text_cue
                                 else "ZONE_HAS_LOWER_FLOORS"),
-                  "require_navmesh": True, "stop_distance": 6.0}
+                  "require_navmesh": True,
+                  # At a TDB object spawn on the route: close enough to use it.
+                  "stop_distance": self.FLOOR_WALK_TARGET_YARDS if point.get("sweep_target") else 6.0}
         return Proposal.make(
-            "MOVE", "Quest zóna bejárása a járható szinteken (gödör/barlang), közben keresés",
+            "MOVE", ("Quest zóna bejárása: következő TDB-objektum a spirál/szint útvonalán"
+                     if point.get("sweep_target") else
+                     "Quest zóna bejárása a járható szinteken (gödör/barlang), közben keresés"),
             params, confidence=.7, priority=80 if (text_cue or below_cue) else 62)
 
     def turn_in_search(self, quest_id, destination: dict) -> Proposal:
@@ -469,6 +592,14 @@ class QuestLocationPlanningPolicy:
             completion_mode = str(primary_context.get("completion_mode") or "UNKNOWN")
             turnin = self.turnin_resolver.locate(quest, state, completion_mode)
             if turnin.kind is TurnInLocationKind.LOCAL_ENTITY:
+                if (turnin.location or {}).get("knowledge_priority") == "SERVER_LIVE":
+                    result.append(Proposal.make(
+                        "INTERACT", "Szerveres quest leadó elérve: igazolt F7 címzett, leadási ablak megnyitása",
+                        {"activation_source": "SOFT_INTERACT", "soft_guid": turnin.entity_guid,
+                         "npc_id": turnin.location.get("npc_id"), "quest_id": qid,
+                         "purpose": "SERVER_TURN_IN", "completion_mode": "NPC_TURN_IN"},
+                        confidence=.98, priority=116, evidence=turnin.evidence))
+                    continue
                 result.append(Proposal.make(
                     "TALK", "Élő telemetria által igazolt quest leadó entity",
                     {"guid": turnin.entity_guid, "quest_id": qid,
@@ -476,11 +607,31 @@ class QuestLocationPlanningPolicy:
                      "turnin_evidence": list(turnin.evidence)}, priority=92))
             elif (turnin.location
                   and turnin.location.get("coordinate_space") == "WORLD_YARDS"):
-                if self.turn_in_arrived(qid, turnin.location, state):
-                    result.append(self.turn_in_search(qid, turnin.location))
+                server_ender = turnin.location.get("knowledge_priority") == "SERVER_LIVE"
+                if server_ender:
+                    from .server_npc_planning import server_npc_distance
+                    distance = server_npc_distance(state, turnin.location)
+                    distance = distance if distance is not None else math.inf
+                    if distance < 1.:
+                        result.append(Proposal.make(
+                            "WAIT", "A szerveres leadónál: a helyes F7 címzett friss mintájára vár",
+                            {"purpose": "SERVER_TURN_IN", "quest_id": qid,
+                             "server_entity_guid": turnin.entity_guid,
+                             "waiting_for": ["SOFT_INTERACT_GUID_MATCH"]}, priority=115))
+                        continue
+                    if distance <= 4.:
+                        # Close but not yet the recipient: take the last
+                        # bounded steps rather than hunting visual markers.
+                        turnin.location["stop_distance"] = 0.8
+                elif self.turn_in_arrived(qid, turnin.location, state):
+                    if not server_profile(state):
+                        result.append(self.turn_in_search(qid, turnin.location))
                     continue
                 result.append(Proposal.make(
-                    "MOVE", ("TDB elsődleges quest leadási keresési régió" if turnin.location.get('knowledge_priority')=='PRIMARY_STATIC'
+                    "MOVE", ("Szerver: leadó NPC ('?') pontos helye (GUID)"
+                             if turnin.location.get('knowledge_priority') == 'SERVER_LIVE'
+                             else "Szerveres quest leadási POI (XYZ)" if turnin.location.get('knowledge_priority')=='SERVER_POI'
+                             else "TDB elsődleges quest leadási keresési régió" if turnin.location.get('knowledge_priority')=='PRIMARY_STATIC'
                              else "Quest API által jelzett quest leadási keresési régió"),
                     {**turnin.location, "quest_id": qid,
                      "completion_mode": turnin.completion_mode,
@@ -488,13 +639,35 @@ class QuestLocationPlanningPolicy:
                      "turnin_evidence": list(turnin.evidence),
                      "purpose": "LOCATE_TURN_IN_REGION",
                      "require_navmesh": True}, priority=110))
-        return result
+        from .turnin_order import order_turnins
+        zones = self.__dict__.get("turnin_zones")
+        if zones is None:
+            from .turnin_order import ZoneResolver
+            zones = self.__dict__["turnin_zones"] = ZoneResolver()
+        return order_turnins(result, state, zones)
+
+    # User 2026-10-21 ("nagyon sok move volt ami össze-vissza vitte, oda-vissza"),
+    # live 15:21:17-15:22:06: the server walk to an Encroaching Lava (70135, 104)
+    # and the TDB route to Practice Materials 350 yd away (70124, 96+12+4)
+    # swapped every 0.5-1 s -- the latter dropped below only while an elemental
+    # was under the cursor.  A live server unit of any open objective this near
+    # is local work too.
+    LOCAL_SERVER_WORK_YARDS = 40.
 
     @staticmethod
     def local_work_at_hand(obj, state: dict) -> bool:
         """A live subject of this objective, or a live quest enemy, is
-        selected or hovered: the local skills own the next step."""
+        selected or hovered, or the server shows a live unit of an open
+        objective nearby: the local skills own the next step."""
         from .quest_semantics import subject_matches_name, use_on_subjects
+        from .packet_entity_facts import kill_objective_units
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        if px is not None and py is not None and any(
+                str(unit.get("instance_id")) == str(position.get("instance_id"))
+                and math.hypot(unit["x"]-px, unit["y"]-py) <= QuestLocationPlanningPolicy.LOCAL_SERVER_WORK_YARDS
+                for unit in kill_objective_units(state)):
+            return True
         units = [unit for unit in (state.get("target") or {}, effective_mouseover(state))
                  if isinstance(unit, dict) and unit.get("guid")
                  and unit.get("dead") is not True and unit.get("is_dead") is not True]
@@ -512,9 +685,23 @@ class QuestLocationPlanningPolicy:
         if record is None or getattr(obj, "completion_state", None) == "COMPLETE":
             return []
         state = world.state
+        if (getattr(obj, "target_object", None) or {}).get("item_id") is not None:
+            from .quest_semantics import entity_constraints_allow, subject_matches_name, use_on_subjects
+            subjects = use_on_subjects({**(getattr(obj, "raw", None) or {}),
+                                       "description": getattr(obj, "description", "")})
+            target = state.get("target") or {}
+            if (target.get("guid") and target.get("dead") is not True and target.get("is_dead") is not True
+                    and subjects and subject_matches_name(subjects, target.get("name"))
+                    and entity_constraints_allow(target, getattr(obj, "target_entity", None))):
+                # Live 10-18: a selected boar was abandoned for zone sweeps
+                # while F7 identity/readiness was unavailable. Local item use,
+                # approach or an explicit wait owns it, not another spawn.
+                return []
         if obj.type in {"ESCORT", "FOLLOW"}:
             return self.escort_follow.propose(obj, record, state)
-        located = self.objective_locator.locate(obj, record, state)
+        pois = world.query.quest_objective_pois(record.quest_id, obj)
+        located = self.objective_locator.locate(obj, record, self.with_player_layer(
+            world, state, navigation_queries=self.navigation_queries), quest_pois=pois)
         map_where = point(located.coordinates) if located and located.coordinates else None
         route_where = world_point(located.coordinates) if located and located.coordinates else None
         learned_search_region = self._remember_blue_search_region(
@@ -533,24 +720,25 @@ class QuestLocationPlanningPolicy:
                     "require_navmesh": True,
                     "stop_distance": 8.0,
                 })
+            reached_area = (
+                self.reached_quest_locations.get(self.location_key(params))
+                == self.region_signature(state)
+                or (located.status.value == "SEARCH_AREA"
+                    and location_on_map(where, state.get("map_id"))
+                    and world_arrived(world, params)))
             entity_flow = (self.speak_flow if obj.type in self.speak_flow.objective_types
                            else self.kill_flow if obj.type in self.kill_flow.objective_types
                            else None)
             entity_target_confirmed = bool(
                 entity_flow and entity_flow.matches_target(obj, state.get("target") or {}))
-            reached_entity_area = bool(
-                entity_flow
-                and (self.reached_quest_locations.get(self.location_key(params))
-                     == WorldModel.quest_signature(state)
-                     or (located.status.value == "SEARCH_AREA"
-                         and where.get("map_id") == state.get("map_id")
-                         and world_arrived(world, where))))
+            reached_entity_area = bool(entity_flow and reached_area)
             if entity_target_confirmed:
                 # CombatPlanningPolicy or QuestDomain now owns the validated
                 # target handoff; do not emit another navigation proposal.
                 return []
             if reached_entity_area:
-                return entity_flow.propose_local_search(obj, record, params)
+                # SERVER: the server NPC/kill policies act in the reached area.
+                return [] if server_profile(state) else entity_flow.propose_local_search(obj, record, params)
             from .quest_semantics import use_on_subjects
             object_objective = (obj.type in {"USE_OBJECT", "INTERACT"} and bool(
                 getattr(obj, "target_object", None)
@@ -565,26 +753,31 @@ class QuestLocationPlanningPolicy:
                 and self.object_interaction.quest_mouseover_matches(
                     self.object_interaction.expected_identity(obj),
                     effective_mouseover(state), state, getattr(record, 'quest_id', None)))
-            reached_object_area = (
-                object_objective
-                and (self.reached_quest_locations.get(self.location_key(params))
-                     == WorldModel.quest_signature(state)
-                     or (located.status.value == "SEARCH_AREA"
-                         and where.get("map_id") == state.get("map_id")
-                         and world_arrived(world, where))))
+            reached_object_area = object_objective and reached_area
             if object_identity_confirmed:
                 # QuestDomain will now emit OBJECT_USE from the same fresh
                 # addon mouseover/cursor sample. Do not obscure it with MOVE.
                 return []
             if reached_object_area:
-                return self.object_interaction.propose_local_search(obj, record, params)
+                return ([] if server_profile(state)
+                        else self.object_interaction.propose_local_search(obj, record, params))
             reached_without_credit = (
                 obj.type in {"TRAVEL_TO", "REACH_AREA"}
                 and self.reached_quest_locations.get(self.location_key(params))
-                == WorldModel.quest_signature(state))
+                == self.region_signature(state))
             if reached_without_credit:
-                return self.travel_fallback.propose(obj, record, state, params)
+                return [] if server_profile(state) else self.travel_fallback.propose(obj, record, state, params)
             confidence, priority = obj.confidence, 40 if obj.optional else 45
+            if (where.get('knowledge_priority') == 'PRIMARY_STATIC'
+                    and self.multi_level_spawns(state, record.quest_id)):
+                # (object_objective needs the objective text, which the first
+                # sample after accepting lacks -- 20:15:59 the spawn MOVE won.)
+                # Live 2026-10-13/14 (Who Lurks in the Pit): this separate
+                # spawn MOVE jumped from spawn to spawn (pit bottom first),
+                # walked past seen cocoons and outranked the dots; the floor
+                # walk visits the same spawns in route order (the 10-07 walk
+                # got 5/5 without falls).
+                return []
             if (where.get('knowledge_priority') == 'PRIMARY_STATIC'
                     and not self.local_work_at_hand(obj, state)):
                 # An exact active-objective TDB route must win over the
@@ -595,11 +788,22 @@ class QuestLocationPlanningPolicy:
                 # selected Austin Huxworth was left for this MOVE instead of
                 # getting the First Aid Kit; a murloc TARGET was cancelled).
                 confidence, priority = .75, 96
-            at_search_area = (located.status.value == "SEARCH_AREA"
-                              and where.get("map_id") == state.get("map_id")
+            # COLLECT has no SPEAK/KILL entity flow. Its verified zone arrival
+            # must still hand over to local search, even after walking away
+            # from the POI or hovering an unrelated player. Do not confuse
+            # the navigation stop radius (8 yd) with the default 4 yd radius.
+            collect_area_reached = (
+                obj.type == "COLLECT" and reached_area
+                and location_on_map(where, state.get("map_id"))
+                and (route_where is None or str(route_where.get("instance_id")) == str(
+                    (state.get("player_world_position") or {}).get("instance_id"))))
+            at_search_area = collect_area_reached or (located.status.value == "SEARCH_AREA"
+                              and location_on_map(where, state.get("map_id"))
                               and not (state.get("target") or (state.get("mouseover") or {}).get("guid"))
-                              and world_arrived(world, where))
+                              and world_arrived(world, params))
             if at_search_area:
+                if server_profile(state):
+                    return []              # reached: the server entity policies act here
                 search_area = dict(learned_search_region or route_where or where)
                 return [Proposal.make(
                     "SEEK_VISUAL_CUE", "Az objective keresési területére érve: korlátos helyi vizuális keresés",
@@ -663,6 +867,31 @@ class QuestLocationPlanningPolicy:
             focus.pop(other)
         return local if now - started <= self.LOCAL_AREA_FOCUS_SECONDS else None
 
+    def drop_area_sweeps_while_dots(self, proposals: list, state: dict) -> list:
+        """No quest-zone sweep while yellow objective dots show the places.
+
+        User 2026-10-13 (Who Lurks in the Pit): the dots mark the objectives;
+        walking the zone is for when none is shown (one may lie beyond the
+        minimap edge).  Up/down arrows count too; a dot searched out without
+        result no longer holds the sweep back.
+        """
+        now = number(state.get("monotonic_time")) or 0.
+        live = self.dot_focus.live_quest_ids(now)
+        live.update(str(cue[2]) for cue in minimap_vertical_objective_cues(state))
+        live.update(str(dot[2]) for dot in minimap_objective_dots(state))
+        if not live:
+            return proposals
+
+        def sweep(proposal) -> bool:
+            # Only the blind area search (grid cells).  The walk over the
+            # floors (layer_cue MOVE) is the route through the TDB spawns and
+            # already yields to a live dot (``_lower_layer_move``).
+            params = proposal.parameters
+            return (str(params.get("quest_id")) in live
+                    and proposal.skill == "SEEK_VISUAL_CUE"
+                    and params.get("purpose") == "SEARCH_LOCAL_OBJECTIVE_AREA")
+        return [proposal for proposal in proposals if not sweep(proposal)]
+
     def minimap_dot_move(self, world, *, preferred_quest: str | None = None) -> Proposal | None:
         """Walk to the nearest yellow quest-objective dot on the minimap.
 
@@ -687,6 +916,12 @@ class QuestLocationPlanningPolicy:
         candidates = minimap_objective_dots(state, turn_in_yards=self.DOT_TURN_IN_YARDS,
                                             association_yards=self.DOT_ASSOCIATION_YARDS)
         now = number(state.get("monotonic_time")) or 0.
+        for cx, cy, cue_quest, _floor, _stamp in minimap_vertical_objective_cues(state):
+            # An arrowed dot where no yellow one is drawn in this sample.
+            if not any(str(qid) == str(cue_quest)
+                       and math.hypot(dx-cx, dy-cy) <= self.dot_focus.MATCH_YARDS
+                       for dx, dy, qid in candidates):
+                self.dot_focus.forget_other_floor(str(cue_quest), cx, cy)
         dot_view = next((number(item.get("view_radius_yards")) for item in state.get("visual_candidates") or ()
                          if isinstance(item, dict) and item.get("kind") == "minimap_quest_dot"), None)
         focus = self.dot_focus.select(state, candidates, x=px, y=py, now=now,
@@ -700,6 +935,17 @@ class QuestLocationPlanningPolicy:
         # fresh MOVE here outranks SEEK and repeatedly drags the player back
         # to the dot instead of letting the search finish (Hrun 2026-10-07).
         if focus.search_started is not None:
+            return None
+        last = (getattr(world, "runtime_context", None) or {}).get("last_result") or {}
+        if (last.get("skill") == "MOVE" and str(last.get("outcome")) == "SUCCESS"
+                and last.get("purpose") == "APPROACH_MINIMAP_QUEST_DOT"
+                and str(last.get("reason") or "").startswith("reach_arrival")):
+            # Live 2026-10-13 18:09 (pit bottom): the navigation resolved the
+            # dot onto the player's own floor, next to the player, and
+            # reported arrival without moving; 7 yd from the raw dot the
+            # planner sent the same MOVE again ~90 times in 45 s.  The
+            # navigation's arrival is the arrival: search here.
+            self.dot_focus.arrived(now)
             return None
         dx, dy, quest_key = focus.x, focus.y, focus.quest_id
         quest_id = next((quest.get("quest_id") for quest in open_quests
@@ -720,6 +966,9 @@ class QuestLocationPlanningPolicy:
              # Yellow without an arrow: the objective is on our floor (the Z
              # resolver prefers that layer, user 2026-10-06).
              "floor_hint": "SAME",
+             # User 2026-10-14: there, face the object so the client's
+             # soft-interact target is it (then the Interact key).
+             **({"face_on_arrival": True} if open_object_objective(state, quest_id) else {}),
              "dot_world": [round(dx, 1), round(dy, 1)],
              "quest_dot_key": f"{quest_key}:{round(focus.selected_at, 3)}"},
             confidence=.7, priority=88)
@@ -767,9 +1016,13 @@ class QuestLocationPlanningPolicy:
             elif now-focus["last_seen"] > 8.:
                 focus = self._vertical_focus = None
         if focus is None:
+            # A downward arrow of a multi-floor spawn set is the floor walk's
+            # (``_lower_layer_move``): it descends through the spawns in route
+            # order instead of to the arrowed dot nearest in 2D.
             available = [(math.hypot(x-px, y-py), x, y, qid, floor, stamp)
                          for x, y, qid, floor, stamp in cues
-                         if preferred_quest is None or qid == preferred_quest]
+                         if (preferred_quest is None or qid == preferred_quest)
+                         and not (floor == "BELOW" and self.multi_level_spawns(state, qid))]
             if not available:
                 return None
             _, x, y, qid, floor, stamp = min(available)
@@ -833,9 +1086,17 @@ class QuestLocationPlanningPolicy:
             confidence=.75, priority=86,
             evidence=("same_space_quest_dot_arrived", "identity_not_yet_confirmed"))
 
+    @staticmethod
+    def _yards_away(destination: dict, state: dict) -> float:
+        player = state.get("player_world_position") or {}
+        try:
+            return math.hypot(float(destination["x"])-float(player["x"]), float(destination["y"])-float(player["y"]))
+        except (KeyError, TypeError, ValueError):
+            return math.inf
+
     def propose_known_locations(
         self, world, runtime_map_scan_started: float | None = None,
-        *, deferred=frozenset(),
+        *, deferred=frozenset(), owned_turnins=frozenset(),
     ) -> list[Proposal]:
         state = world.state
         result: list[Proposal] = []
@@ -845,7 +1106,7 @@ class QuestLocationPlanningPolicy:
                                      or str(dot_move.parameters.get("quest_id")) == local_quest):
             result.append(dot_move)
         elif dot_move is None:
-            local_dot_search = self._minimap_dot_local_search(state)
+            local_dot_search = None if server_profile(state) else self._minimap_dot_local_search(state)
             if local_dot_search is not None:
                 result.append(local_dot_search)
         vertical_move = self.minimap_vertical_move(world, preferred_quest=local_quest)
@@ -860,6 +1121,16 @@ class QuestLocationPlanningPolicy:
             if completed and str(qid) in deferred:
                 # Nearby unfinished quests come first; turn in together later.
                 continue
+            if completed and str(qid) in owned_turnins:
+                # The canonical resolver already proposed this hand-in. Do
+                # not also offer its heightless map pin at equal priority:
+                # the shorter ground route could win and lose the upper Z.
+                continue
+            if completed and self.turnin_resolver.server_ender(qid, state) is not None:
+                # propose_turnins owns the server GUID/XYZ endpoint. The
+                # parallel same-priority POI route used to cancel itself on
+                # that already-known server handoff, over and over.
+                continue
             # A completed quest's normalized map marker is only a search
             # region.  It must never launch direct-line movement across
             # terrain.  C_Map's explicit world conversion is the only route
@@ -869,11 +1140,12 @@ class QuestLocationPlanningPolicy:
                 spot = (float(destination["x"]), float(destination["y"]))
                 if not any(math.hypot(spot[0]-x, spot[1]-y) <= 5. for x, y in searched):
                     searched.append(spot)
-                    result.append(self.turn_in_search(qid, destination))
+                    if not server_profile(state):
+                        result.append(self.turn_in_search(qid, destination))
                 continue
             reached_zone = (destination is not None and not completed
                             and self.reached_quest_locations.get(self.location_key(location))
-                            == WorldModel.quest_signature(state))
+                            == self.region_signature(state))
             if destination and not completed and (reached_zone
                                                   or self._within_objective_area(destination, state, qid)):
                 # Live 2026-10-03: inside the objective area every kill credit
@@ -884,6 +1156,13 @@ class QuestLocationPlanningPolicy:
                 if descend is not None:
                     result.append(descend)
                 continue
+            if (destination and not completed and not any(
+                    str(q.get("quest_id")) == str(qid) for q in state.get("active_quests", []))
+                    and self._yards_away(destination, state) > UNLOGGED_QUEST_MAX_YARDS):
+                # Live 2026-10-25 21:23-21:29: map markers of quests not in the
+                # log (82672 in Valdrakken, Ohn'ahra 699xx) drew the agent,
+                # now flying, across three zones.  Only nearby ones are work.
+                continue
             if destination and not completed and local_quest is not None and str(qid) != local_quest:
                 # Live 2026-10-04 09:15: at 1/7 inside the Quilboar Shadow
                 # Magic area the other quest's MOVE (and its minimap dot) won
@@ -891,7 +1170,7 @@ class QuestLocationPlanningPolicy:
                 continue
             if destination:
                 reached = self.reached_quest_locations.get(self.location_key(location))
-                if completed or reached != WorldModel.quest_signature(state):
+                if completed or reached != self.region_signature(state):
                     result.append(Proposal.make(
                         "MOVE", "Leadási hely mmap útvonalon" if completed else "Quest térképi helyének felderítése",
                         {**destination,

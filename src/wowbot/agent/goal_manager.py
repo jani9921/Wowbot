@@ -112,6 +112,12 @@ class GoalManager:
     @staticmethod
     def reference(proposal) -> str:
         params = proposal.parameters
+        if not params.get("objective_id") and params.get("quest_id") and params.get("purpose"):
+            # Live 2026-10-20 09:59: three instant failures of the minimap
+            # floor-cue MOVE ("55639") blocked every quest-level MOVE of 55639
+            # for 120 s -- the turn-in walk too, so FULL_AI waited a minute
+            # after the quest completed.  One purpose fails on its own.
+            return f"{params['quest_id']}:{params['purpose']}"
         return str(params.get("objective_id") or params.get("quest_id") or
                    params.get("site_key") or params.get("node_id") or proposal.key)
 
@@ -136,11 +142,18 @@ class GoalManager:
         self._persist(task)
         return task
 
-    def filter(self, proposals, contracts, now: float):
+    # Live 2026-10-25 10:52:41-10:53:04 (Torgok, 4.9 yd, Shield Slam in
+    # range): three instant out_of_range COMBAT failures made the fight
+    # UNRESOLVED for 120 s, so FULL_AI WAITed until the mob died.  A fight
+    # against a live attacker is never parked; its own backoff is <= 0.5 s.
+    _LIVE_COMBAT_SKILLS = frozenset({"COMBAT", "DEFEND"})
+
+    def filter(self, proposals, contracts, now: float, *, live_combat: bool = False):
         result = []
         for proposal in proposals:
             task = self.register(proposal, contracts[proposal.skill], now)
-            if task.status == "UNRESOLVED" and task.blocked_until > now:
+            if (task.status == "UNRESOLVED" and task.blocked_until > now
+                    and not (live_combat and proposal.skill in self._LIVE_COMBAT_SKILLS)):
                 continue
             if task.status == "UNRESOLVED":
                 task.status, task.failures = "CANDIDATE", 0
@@ -161,6 +174,10 @@ class GoalManager:
                 task.failures = 0
                 task.status = "VERIFIED_STEP"
                 self._reopen_interaction_after_approach(proposal, now)
+            elif (proposal.skill, str(reason).lower()) in self._NOT_ATTEMPTED:
+                # Aborted before the right-click: nothing was tried on the
+                # object, so it is no evidence against the objective.
+                task.status = "RETRY"
             else:
                 task.failures += 1
                 task.status = "UNRESOLVED" if task.failures >= 3 else "RETRY"
@@ -169,7 +186,7 @@ class GoalManager:
                     # block left FULL_AI waiting 80 s with nothing to do
                     # (live 2026-09-30).
                     task.blocked_until = now + (15. if proposal.skill in self._SEARCH_SKILLS
-                                                else 120.)
+                                                else 20.)
             task.reason, task.updated_at = reason, now
             self._persist(task)
         if not success and failure_decision is not None:
@@ -177,6 +194,14 @@ class GoalManager:
         self._recompute(now)
 
     _SEARCH_SKILLS = frozenset({"SEEK_VISUAL_CUE", "INSPECT", "OPEN_MAP", "CLOSE_MAP"})
+    # Live 2026-10-13 17:21 (Who Lurks in the Pit): one identity_uncertain
+    # and two stale_observation aborts -- no click sent -- blocked the cocoon
+    # objective's OBJECT_USE for 120 s while a cocoon sat under the still
+    # cursor.  QuestFailureMemory's short cooldown still spaces the retries.
+    _NOT_ATTEMPTED = frozenset({("OBJECT_USE", "stale_observation"),
+                                ("OBJECT_USE", "identity_uncertain"),
+                                ("MOVE", "ambiguous_player_layer"),
+                                ("MOVE", "ambiguous_player_layer_after_fall")})
     _APPROACH_SKILLS = frozenset({"VISUAL_APPROACH", "APPROACH_TARGET", "REACH_OBJECT"})
     _INTERACTION_SKILLS = frozenset({"INTERACT", "TALK", "QUEST_DIALOG"})
 
@@ -213,7 +238,7 @@ class GoalManager:
             return
         if stage in {"GOAL_ALTERNATIVE", "GOAL_FAILED"} and task is not None:
             task.status = "UNRESOLVED"
-            task.blocked_until = max(task.blocked_until, now + 120.)
+            task.blocked_until = now + 20.
             task.reason = f"{stage.casefold()}:{recovery}"
             task.updated_at = now
             self._persist(task)
@@ -231,10 +256,28 @@ class GoalManager:
     def sync_world(self, quest_model, now: float):
         completed = {obj.objective_id for record in quest_model.records.values()
                      for obj in record.objectives if obj.completion_state == "COMPLETE"}
+        # Quest progress is new evidence: a task of that quest blocked by
+        # earlier failures may run again (the turn-in after the last credit).
+        progress = self.__dict__.setdefault("_quest_progress", {})
+        changed = set()
+        for record in quest_model.records.values():
+            key = str(record.quest_id)
+            signature = (str(record.current_state), tuple(
+                (obj.objective_id, obj.current_count, obj.completion_state) for obj in record.objectives))
+            if key in progress and progress[key] != signature:
+                changed.add(key)
+            progress[key] = signature
         for task in self.tasks.values():
             if task.reference in completed:
                 task.status, task.updated_at = "COMPLETED", now
                 self._persist(task)
+            elif (task.status == "UNRESOLVED" and task.blocked_until > now
+                  and str(task.reference).split(":", 1)[0] in changed):
+                task.status, task.failures, task.blocked_until = "RETRY", 0, 0.
+                task.reason, task.updated_at = "quest_progress_changed", now
+                self._persist(task)
+                if self.goal and self.goal.status == "RECOVERING":
+                    self.transition("ACTIVE", "quest_progress_changed", now)
         self._recompute(now)
 
     def mark_task_completed(self, reference: str, now: float, reason: str = "task_completion_verified"):

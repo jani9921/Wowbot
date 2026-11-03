@@ -4,7 +4,8 @@ from dataclasses import dataclass
 import math
 from typing import Optional
 
-from wowbot.vision.models import MinimapObservation, WorldObservation, WorldPosition
+from wowbot.coordinates import WorldPosition
+from wowbot.vision.models import MinimapObservation, WorldObservation
 from .models import MovementIntent, MovementMode
 
 

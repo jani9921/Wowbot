@@ -25,7 +25,9 @@ class MemoryPatternsMixin:
 
     def _promote_episode_pattern(self, episode_id: str):
         episode = self.episode(episode_id)
-        if not episode or episode["status"] != "SUCCESS":
+        from wowbot.verified_episode import POLICY, manifest_ids, outcome_roots, reusable_episode
+        proofs = self.evidence_manifests_by_id(manifest_ids(episode))
+        if not reusable_episode(episode, manifests=proofs)[0]:
             return
         verified = [step["payload"] for step in episode["steps"]
                     if step["kind"] == "VERIFICATION" and step["payload"].get("outcome") == "SUCCESS"]
@@ -34,12 +36,19 @@ class MemoryPatternsMixin:
             return
         context = self.learning_context(episode["initial_state"], episode["domain"])
         _, version = self._context_keys(context)
-        signature = hashlib.sha256(canonical(skills).encode()).hexdigest()[:24]
+        signature = hashlib.sha256(canonical({'policy': POLICY, 'skills': skills}).encode()).hexdigest()[:24]
         pattern_id = hashlib.sha256(f"{episode['domain']}:{version}:{signature}".encode()).hexdigest()[:24]
         cost = max(0., (episode["ended_at"] or episode["started_at"])-episode["started_at"])
         context_key = canonical(context)
-        provenance = {"episode_ids": [episode_id], "context_keys": [context_key]}
+        provenance = {"episode_ids": [episode_id], "context_keys": [context_key],
+                      'verification_policy': POLICY,
+                      'verification_ids': [row['verification_id'] for row in verified][-32:]}
+        roots = outcome_roots(episode, proofs)
+        provenance['source_root_observation_ids'] = sorted(roots)
         with self._tx() as db:
+            if db.execute('SELECT 1 FROM task_pattern_source_roots WHERE pattern_id=? AND root_id IN ('+
+                          ','.join('?' for _ in roots)+') LIMIT 1',(pattern_id,*sorted(roots))).fetchone():
+                return  # durable dedup survives truncation of the diagnostic provenance lists
             existing = db.execute("SELECT successes,failures,mean_cost,provenance,first_seen FROM task_patterns "
                                   "WHERE domain=? AND version=? AND signature=?",
                                   (episode["domain"], version, signature)).fetchone()
@@ -47,8 +56,20 @@ class MemoryPatternsMixin:
             successes += 1
             mean_cost = ((existing[2]*max(0, successes-1)+cost)/successes) if existing else cost
             if existing:
-                previous = json.loads(existing[3]); provenance["episode_ids"] = (previous.get("episode_ids", [])+[episode_id])[-20:]
+                previous = json.loads(existing[3])
+                observed_ids = {row['observed_observation_id'] for row in verified}
+                if observed_ids & set(previous.get('source_observation_ids', ())):
+                    return  # replaying the same verification is not a new trial
+                if roots & set(previous.get('source_root_observation_ids', ())):
+                    return  # new wrappers over the same source are not independent trials
+                provenance["episode_ids"] = (previous.get("episode_ids", [])+[episode_id])[-20:]
                 provenance["context_keys"] = list(dict.fromkeys(previous.get("context_keys", [])+[context_key]))[-20:]
+                provenance['source_observation_ids'] = list(dict.fromkeys(
+                    [*previous.get('source_observation_ids', ()), *sorted(observed_ids)]))[-256:]
+                provenance['source_root_observation_ids'] = list(dict.fromkeys(
+                    [*previous.get('source_root_observation_ids', ()), *sorted(roots)]))[-256:]
+            else:
+                provenance['source_observation_ids'] = sorted({row['observed_observation_id'] for row in verified})
             confidence = (successes+2)/(successes+failures+4)
             stage = "GENERALIZED" if successes >= 5 and len(provenance["context_keys"]) >= 3 else "SUPPORTED" if successes >= 3 else "REPEATED" if successes >= 2 else "EPISODIC"
             values = (pattern_id, episode["domain"], version, signature,
@@ -58,6 +79,8 @@ class MemoryPatternsMixin:
                       mean_cost, successes, failures, confidence, stage, canonical(provenance),
                       existing[4] if existing else episode["started_at"], episode["ended_at"])
             db.execute("INSERT OR REPLACE INTO task_patterns VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
+            db.executemany('INSERT INTO task_pattern_source_roots VALUES (?,?,?)',
+                           [(pattern_id, root, episode_id) for root in sorted(roots)])
 
     def task_patterns(self, domain: str | None = None) -> list[dict]:
         query = "SELECT id,domain,version,signature,preconditions,steps,expected,success,failure,mean_cost,successes,failures,confidence,stage,provenance,first_seen,last_seen FROM task_patterns"
@@ -76,8 +99,12 @@ class MemoryPatternsMixin:
 
     def find_similar_task_patterns(self, domain: str, candidate_skills: list[str], state: dict,
                                    limit: int = 5) -> dict:
+        from wowbot.verified_episode import POLICY
+        _, version = self._context_keys(self.learning_context(state, domain))
         patterns = [item for item in self.task_patterns(domain)
-                    if item["stage"] in {"SUPPORTED", "GENERALIZED"}]
+                    if item["stage"] in {"SUPPORTED", "GENERALIZED"}
+                    and item['version'] == version
+                    and item['provenance'].get('verification_policy') == POLICY]
         wanted = [str(item) for item in candidate_skills]
         wanted_set = set(wanted)
         scored = []

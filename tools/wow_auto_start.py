@@ -168,11 +168,13 @@ def bindings_cache(explicit: str | None) -> Path | None:
 
 def agent_environment() -> dict:
     env = dict(os.environ)
-    defaults = {"AIPC_CAPTURE_BACKEND": "dxgi", "AIPC_CAPTURE_PROCESS": "1",
-                # The live-vision preview window is diagnostics only (CPU);
-                # off unless AIPC_LIVE_VISION is set explicitly.
-                "AIPC_LIVE_VISION": "0", "AIPC_LIVE_VISION_HZ": "60",
-                "AIPC_WORLD3D_PROPOSAL_MODE": "YOLO_ONLY", "AIPC_YOLO_PROCESS": "1",
+    defaults = {# REV4 (user 2026-10-30): the server/GUID path is the agent's
+                # authority.  Without these the unattended start resolved to
+                # LEGACY_VISION and ran with no packet inbox at all.
+                "AIPC_RUNTIME_PROFILE": "SERVER", "AIPC_PACKET_TELEMETRY": "1",
+                # The capture carries the addon pixel strip; no YOLO/World3D/
+                # live-vision defaults: SERVER builds no vision worker.
+                "AIPC_CAPTURE_BACKEND": "dxgi", "AIPC_CAPTURE_PROCESS": "1",
                 # Screenshots for the whole unattended trial (~2 s heartbeat).
                 "AIPC_LIVE_CAPTURE_MAX_FRAMES": "900"}
     for key, value in defaults.items():

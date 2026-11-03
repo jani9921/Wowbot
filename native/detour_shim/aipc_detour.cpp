@@ -10,6 +10,7 @@
 #include "DetourCommon.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
+#include "walking_filter.h"
 
 #define AIPC_API extern "C" __declspec(dllexport)
 
@@ -17,6 +18,9 @@ namespace {
 struct AipcNav {
     dtNavMesh* mesh = nullptr;
     dtNavMeshQuery* query = nullptr;
+    float max_walking_slope = 44.f;
+    float water_cost = 1.f;          // 2026-10-22: wadeable liquid multipliers
+    float magma_slime_cost = 1.f;
 };
 
 // The shared edge of two neighbouring polygons (dtNavMeshQuery's own
@@ -54,6 +58,87 @@ dtQueryFilter make_filter(unsigned short include, unsigned short exclude) {
 
 // 100 * sizeof(dtPolyRef) + DT_NAVMESH_VERSION: lets Python verify the ABI.
 AIPC_API int aipc_abi() { return 100 * static_cast<int>(sizeof(dtPolyRef)) + DT_NAVMESH_VERSION; }
+
+// Capability + per-map setting, not a process-global filter. Older DLLs do
+// not advertise enforcement of the Python-side walking slope contract.
+AIPC_API int aipc_nav_walking_policy(void* handle, float slope) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || !std::isfinite(slope) || slope < 0.f || slope >= 89.f) return 0;
+    nav->max_walking_slope = slope;
+    return 1;
+}
+
+// Cost multipliers of wadeable liquid polygons (>= 1; 1 = like ground).
+AIPC_API int aipc_nav_liquid_costs(void* handle, float water, float magma_slime) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || !std::isfinite(water) || !std::isfinite(magma_slime) || water < 1.f || magma_slime < 1.f)
+        return 0;
+    nav->water_cost = water;
+    nav->magma_slime_cost = magma_slime;
+    return 1;
+}
+
+// Every ground polygon whose flags intersect ``mask`` and whose X/Z bounds
+// overlap the Detour box [bmin, bmax] (heights ignored).  Writes up to
+// ``max_out`` polygons: ref, flags, vertex count and up to 6 vertices
+// (x,y,z each; DT_VERTS_PER_POLYGON is 6).  Returns the number found, which
+// can exceed ``max_out``; the caller then asks again with more room.
+AIPC_API int aipc_nav_polys_with_flags(void* handle, const float* bmin, const float* bmax,
+                                       unsigned short mask, unsigned long long* out_refs,
+                                       unsigned short* out_flags, unsigned char* out_counts,
+                                       float* out_verts, int max_out) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || !mask) return 0;
+    const dtNavMesh* mesh = nav->mesh;
+    int found = 0;
+    for (int i = 0; i < mesh->getMaxTiles(); ++i) {
+        const dtMeshTile* tile = mesh->getTile(i);
+        if (!tile || !tile->header) continue;
+        const dtMeshHeader* header = tile->header;
+        if (header->bmax[0] < bmin[0] || header->bmin[0] > bmax[0]
+                || header->bmax[2] < bmin[2] || header->bmin[2] > bmax[2]) continue;
+        const dtPolyRef base = mesh->getPolyRefBase(tile);
+        for (int j = 0; j < header->polyCount; ++j) {
+            const dtPoly* poly = &tile->polys[j];
+            if (poly->getType() != DT_POLYTYPE_GROUND || !(poly->flags & mask) || poly->vertCount == 0)
+                continue;
+            float lo[2] = {1e30f, 1e30f}, hi[2] = {-1e30f, -1e30f};
+            for (int v = 0; v < poly->vertCount; ++v) {
+                const float* p = &tile->verts[poly->verts[v] * 3];
+                lo[0] = dtMin(lo[0], p[0]); hi[0] = dtMax(hi[0], p[0]);
+                lo[1] = dtMin(lo[1], p[2]); hi[1] = dtMax(hi[1], p[2]);
+            }
+            if (hi[0] < bmin[0] || lo[0] > bmax[0] || hi[1] < bmin[2] || lo[1] > bmax[2]) continue;
+            if (found < max_out) {
+                out_refs[found] = static_cast<unsigned long long>(base | static_cast<dtPolyRef>(j));
+                out_flags[found] = poly->flags;
+                const int count = poly->vertCount < 6 ? poly->vertCount : 6;
+                out_counts[found] = static_cast<unsigned char>(count);
+                for (int v = 0; v < count; ++v)
+                    dtVcopy(&out_verts[(found * 6 + v) * 3], &tile->verts[poly->verts[v] * 3]);
+            }
+            ++found;
+        }
+    }
+    return found;
+}
+
+// OR ``flags`` into each polygon's flags (e.g. the project's wadeable mark).
+// Returns how many polygons were updated.
+AIPC_API int aipc_nav_add_poly_flags(void* handle, const unsigned long long* refs, int count,
+                                     unsigned short flags) {
+    AipcNav* nav = static_cast<AipcNav*>(handle);
+    if (!nav || !refs || count <= 0) return 0;
+    int updated = 0;
+    for (int i = 0; i < count; ++i) {
+        unsigned short current = 0;
+        const dtPolyRef ref = static_cast<dtPolyRef>(refs[i]);
+        if (dtStatusFailed(nav->mesh->getPolyFlags(ref, &current))) continue;
+        if (dtStatusSucceed(nav->mesh->setPolyFlags(ref, static_cast<unsigned short>(current | flags))))
+            ++updated;
+    }
+    return updated;
+}
 
 AIPC_API void* aipc_nav_create(const float* origin, float tile_width, float tile_height,
                                int max_tiles, int max_polys, int max_nodes) {
@@ -129,7 +214,9 @@ AIPC_API int aipc_nav_find_path(void* handle, const float* start, const float* e
     if (!nav) return -3;
     *out_point_count = 0;
     *out_poly_count = 0;
-    dtQueryFilter filter = make_filter(include, exclude);
+    AipcWalkingFilter filter(nav->max_walking_slope, nav->water_cost, nav->magma_slime_cost);
+    filter.setIncludeFlags(include);
+    filter.setExcludeFlags(exclude);
     dtPolyRef start_ref = 0, end_ref = 0;
     float start_point[3], end_point[3];
     if (dtStatusFailed(nav->query->findNearestPoly(start, extents, &filter, &start_ref, start_point)) || !start_ref)
@@ -248,7 +335,9 @@ AIPC_API int aipc_nav_find_path_centered(void* handle, const float* start, const
     if (!nav) return -3;
     *out_point_count = 0;
     *out_poly_count = 0;
-    dtQueryFilter filter = make_filter(include, exclude);
+    AipcWalkingFilter filter(nav->max_walking_slope, nav->water_cost, nav->magma_slime_cost);
+    filter.setIncludeFlags(include);
+    filter.setExcludeFlags(exclude);
     dtPolyRef start_ref = 0, end_ref = 0;
     float start_point[3], end_point[3];
     if (dtStatusFailed(nav->query->findNearestPoly(start, extents, &filter, &start_ref, start_point)) || !start_ref)

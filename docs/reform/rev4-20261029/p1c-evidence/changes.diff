@@ -1,0 +1,1246 @@
+--- a/docs/CURRENT_SOURCE_COVERAGE.md
++++ b/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,22 @@
+ # Current-source coverage ledger
++
++2026-10-29 REV4 P1-C — navigation query DI and collect-source identity:
++**PARTIAL / OFFLINE_TESTED** for wider P1. Six navigation callbacks are no
++longer attached to WorldModel. Immutable per-owner query ports serve quest
++floor/sweep planning, resurrection and the walk to a flight departure;
++Planner/session reset retains its provider. Existing navigation/input owners
++remain. The shared collect-source resolver now rejects partial blank-row
++ordinal guesses, includes completed counters when checking list alignment,
++and preserves exact IDs, unique text and complete multi-item workflows.
++Legacy parent-only item identity is explicitly marked as a weaker hint and
++cannot authorize SPELLCLICK. The previously open quest-drop ambiguity test
++now passes. Thirty new cases pass across two modules. Final regression:
++3366 passed, 1 skipped, 10 unchanged deselections, 267 modules, exit 0.
++All 500 source and 597 test Python files parse; eight addon files are unchanged.
++No new live input/acceptance. Shared Evidence and typed geometry-result
++semantics, independent session bootstrap and field authority remain open.
++All 203 numbered/historical coverage rows below are preserved.
++Details: docs/reform/rev4-20261029/P1C_NAVIGATION_QUERIES.md and LIVE_VALIDATION.md.
+ 
+ 2026-10-29 REV4 P1-B — shared logical session/world context:
+ **PARTIAL / OFFLINE_TESTED** for wider P1. Immutable SessionIdentity,
+--- a/docs/LIVE_VALIDATION.md
++++ b/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,39 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-29 — REV4 P1-C navigation ports and collect-source matching (offline only)
++
++**Scoped P1-C IMPLEMENTED / OFFLINE_TESTED; wider P1 PARTIAL. No live acceptance.**
++The composition root now injects navigation capabilities into Planner and
++quest/travel consumers instead of dynamically attaching six callbacks to
++WorldModel. Player-floor, lower-layer/sweep, resurrection-threat/cost and
++flight-departure queries remain per navigation owner across planning snapshots
++and session resets. Navigation retains its existing cache/sweep progress and
++input ownership; no second navigation controller is introduced.
++
++The prior ambiguous blank quest-drop reference failure is also fixed. One
++collect-source matcher serves discovery, SPELLCLICK and combat. Partial lists
++cannot bind an item through an ordinal guess; completed visible items remain
++in the alignment check. Exact IDs/text and complete multi-item mappings are
++preserved. A unique legacy parent-only item ID is a marked weaker hunt hint,
++not an exact per-source interaction relation; live click flags do not grant a
++kill and missing explicit source identity cannot grant SPELLCLICK/F7.
++
++Final regression: **3366 passed, 1 skipped, 10 deselected**, 267 modules,
++100.55 seconds, exit 0, including localhost UDP outside the sandbox. No new
++exclusions. The two new modules contribute **17 navigation + 13 relation
++cases**; the focused source/query/legacy group has 125 passes. Five older
++fixture files now supply explicit queries while preserving their behavior
++assertions. The previously failing
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index
++passes in this final run. Its earlier failure reports remain historical.
++
++All 500 source and 597 test Python files parse. Eight addon files and the
++navigation algorithm/service, WorldModel, session/IPC/build/parser boundaries
++are unchanged. No game, capture or FULL_AI process was started. These offline
++tests do not prove a completed live quest or a completed wider REV4 migration.
++Shared Evidence/geometry-result contracts, independent bootstrap and field
++authority remain open; numbered coverage and prior live evidence are retained.
++See [P1-C implementation and evidence](reform/rev4-20261029/P1C_NAVIGATION_QUERIES.md).
+ 
+ ## 2026-10-29 — REV4 P1-B logical context and packet scope (offline only)
+ 
+--- a/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ b/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -2,10 +2,11 @@
+ 
+ Dátum: 2026-10-29, Europe/Budapest.
+ Célprojekt: C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight claude/ai_visual_bot_midnight 1.2/projekt.
+-Állapot: **P0 részben ellenőrizve; P1-A és P1-B offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
++Állapot: **P0 részben ellenőrizve; P1-A, P1-B és P1-C offline tesztelve; a P1 további részei és P2–P9 tervezettek**.
+ 
+ Utókövetés: az első kódos munkacsomag elkészült, lásd [P1-A eredmény és nyitott kapuk](P1A_QUERY_ISOLATION.md).
+ Elkészült a közös session/world értékszerződés és a packet-hatókörök javítása is: [P1-B eredmény és még hiányzó session-provider](P1B_SESSION_CONTEXT.md). Az addonfüggetlen bootstrap ettől még nem készült el.
++Az explicit navigációs query-portok is be vannak kötve; a korábban nyitott quest-drop referenciahiba offline javítva: [P1-C eredmény és hátralévő Evidence/geometry kapuk](P1C_NAVIGATION_QUERIES.md).
+ Az alábbi 1–9. fejezet az átvételkori, kódmódosítás előtti állapotot és tervezést rögzíti; az eredeti 498 modulos baseline megmarad.
+ 
+ ## 1. Az átvétel eredménye
+--- /dev/null
++++ b/docs/reform/rev4-20261029/P1C_NAVIGATION_QUERIES.md
+@@ -0,0 +1,67 @@
++# REV4 P1-C — navigációs query-portok és gyűjtős forrásazonosság
++
++2026-10-29, Europe/Budapest. **A munkacsomag IMPLEMENTED / OFFLINE_TESTED; a teljes P1 továbbra is PARTIAL.**
++Aktív munkamappa: a projekt nevű mappa. Nem indult játék, capture vagy FULL_AI; az élő validáció továbbra is a felhasználó feladata.
++
++## Navigációs függőségek
++
++A WorldModelhez dinamikusan csatolt hat navigációs callback megszűnt: layer_oracle, zone_sweep, player_layer, hostile_units, walk_cost és flight_departure_walk. A Planner a saját példánya függőségeit kapja a composition roottól; a WorldModel adatot és evidence-et tartalmaz.
++
++A közös wowbot.query_ports modul öt további callable protokollt és egy immutable NavigationQueryPorts értéket vezet be. A már meglévő TravelCostPort külön explicit paraméterként kompatibilis marad. Az új közös modul kizárólag standard-library importokat használ, agentfüggése nincs.
++
++Bekötött utak:
++
++- a játékos feloldott szintje a questhely és questobjektum kiválasztásánál;
++- alsó szintű pont és a barlangi/spirális területbejárás következő pontja;
++- veszélyes mobok és útvonalköltség a biztonságos feltámadási helyhez;
++- a repülés előtti, geometriával igazolt gyalogos kijutás nyílt ég alá.
++
++A Planner session-resetje megtartja a saját query-bundle-t, az új QuestDomain és TravelModePolicy is ezt kapja. A planning snapshotnak nem kell szolgáltatáshivatkozásokat vagy a modell rejtett attribútumaiban élő navigációt átadnia. A régi függvények továbbra is hívhatók; query nélkül a régi WorldModel-attribútumok nem biztosítanak implicit hozzáférést.
++
++A barlangi sweep állapota és a geometriacache a meglévő NavigationService tulajdona marad. A portok nem indítanak mozgást és nem írnak a WorldModel állapotába; a sweep lekérdezése továbbra is figyelembe veszi a már megfigyelt haladást. Ez a határ nem teszi tiszta, állapotmentes függvénnyé a navigációt.
++
++A kész vagy átmenetileg elérhetetlen sweep nem indul újra az alsó szintű támponttól. A hiányzó játékosmagasság None marad, a 0 magasság érvényes érték. Az ismert geometriamagasság továbbra is z_observed=False becslési jelölést kap. Egy hibázó felszállásihely-lekérdezés nem állítja le a Plannert és nem gyárt igazolatlan repülési szakaszt.
++
++## A korábbról nyitott quest-drop hiba javítása
++
++A P1-A és P1-B körben még bukó ambivalens referencia-objective teszt oka két eltérő item→mob párosítás volt. Az egyik hiányos, leírás nélküli statikus listából sorszám szerint rendelt forrást az első látható itemhez. A másik egy kész item után a megmaradt itemre is átadhatta az előző forrását.
++
++Most a discovery, a SPELLCLICK-felismerés és a combat ugyanazt a collect_creature_sources párosítót használja. A kill-relációépítő külön itempárosítási ága megszűnt.
++
++- A pontos objective-ID és az egyedi leírásegyezés továbbra is használható hiányos referencialistánál.
++- A sorszámos, üres leírású illesztéshez az item-listák teljes, egyedi sorrendi fedése szükséges; a már kész látható itemek is beleszámítanak az ellenőrzésbe.
++- Az egyetlen látható item és egyetlen üres referencia-item sor továbbra is összerendelhető, akkor is, ha a régi katalógus nem tárol order mezőt. Ez nem ír felül explicit ID-ütközést vagy duplikált ID-t.
++- A régi, csak a szülő objective-ben tárolt item-ID egyértelmű egyitemes esetben megmarad keresési támpontnak, item_id_explicit=False jelöléssel. Ez nem jogosít SPELLCLICK/F7 interakcióra. Élő SPELLCLICK jelzés mellett nem válik kill-jogosultsággá sem.
++- Az explicit per-source item-ID-t, a nem ölős mechanikákat, a kész countert és a kiválasztott cél GUID/entry/range ellenőrzéseit a javítás nem kerüli meg.
++
++A reference_objectives opcionális allow_ordinal paramétere kompatibilis; más fogyasztók alapértelmezett forráspolitikáját ez a kör nem rendezte át. A teljes mezőnkénti source authority továbbra is külön migráció.
++
++## Ellenőrzés
++
++| Próba | Eredmény |
++|---|---|
++| Kezdeti navigációs határpróba | **3 failed** a javítás előtt |
++| Új navigációs regressziók | **17 passed**: két owner, eltérő szintek, snapshot, session-reset, feltámadás, felszállási gyaloglás, unknown/0, hibázó geometria, szerializáció |
++| Új forráspárosítási regressziók | **13 passed**: részleges/teljes listák, kész item, ID/szöveg, duplikáció, régi szülőadat és F7-korlát |
++| Szűk forrás/query/legacy kör | **125 passed** |
++| Végső kombinált kör | **3366 passed, 1 skipped, 10 deselected**, **267 modul**, 100.55 s, exit 0 |
++| Új tesztkizárás | **0**; a korábbi tízes lista változatlan |
++| Szintaxis | **500 forrásmodul + 597 teszt-Python-fájl**, 0 parse-hiba |
++| Addon | Mind a **8 baseline addonfájl változatlan** |
++| Élő viselkedés | Nem volt új élő validáció; az offline eredmény nem valódi questteljesítés |
++
++Az öt régi tesztfájl beállításait explicit query-átadásra migráltam; a barlangi közelítés, a soft-interact cocoon és a szellem repülési viselkedésének elvárásai megmaradtak. A localhost UDP-t is tartalmazó végső kör a sandboxon kívül futott. A korábbi Windows pyreadline3 lezáróüzenet egyes szűk futásoknál továbbra is megjelenhetett; az exit-kód és a pytest eredmény külön rögzített.
++
++A korábbi ismert bukás most sikeres:
++test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index.
++A P1-A/P1-B jelentések történeti bukása megmarad; ez a munkacsomag zárja le a hibát **offline**.
++
++## Hátralévő kapuk és bizonyíték
++
++A legacy dict/None geometriaválaszok még nem különböztetik meg egységesen a hiányzó tile-t, ismeretlen geometriát, részleges útvonalat és eltérő geometria-revíziót. A közös Evidence/source-lineage szerződés, az addonfüggetlen SessionContextProvider és baseline/delta életciklus, valamint a mezőnkénti forrásfeloldás még nincs kész. A későbbi runtime/no-vision, TripPlan, combat- és questmechanika-fázisok sem teljesültek ettől. A 203 számozott coverage-sor és a korábbi élő minősítések megmaradnak.
++
++A P1-C előtti baseline.zip **1106** forrás-, teszt-, addon- és követési fájlt mentett, a P1-A/P1-B javításokkal együtt. Teljes mentés és tesztkimenet:
++C:/Users/<user>/Documents/ChatGPT/ai_visual_bot_midnight 1.2/_work/rev4-p1c-20261029.
++A p1c-evidence/ könyvtárban a kis eredménycsomag, hash-manifeszt és szöveges diff található. A navigációs algoritmus/service, WorldModel, session-context, IPC/build/parser és addon változatlansága ellenőrzött.
++
++A friss forrást a GUI következő indítása tölti be. Az asszisztens nem indított és nem hagyott hátra FULL_AI-t.
+--- a/src/wowbot/agent/engine.py
++++ b/src/wowbot/agent/engine.py
+@@ -1,4 +1,6 @@
+ from __future__ import annotations
++
++from wowbot.query_ports import NavigationQueryPorts
+ from dataclasses import asdict, replace
+ import threading
+ import time
+@@ -74,17 +76,15 @@
+         from .quest_attempt_memory import QuestAttemptMemory
+         self.quest_attempt_memory = QuestAttemptMemory()
+         self.navigation = NavigationService(bindings, navmesh=navmesh)
++        self.navigation_queries = NavigationQueryPorts(
++            player_layer=self.navigation.player_layer_z,
++            lower_layer=self.navigation.lower_layer_point,
++            zone_sweep=self.navigation.zone_sweep_next,
++            hostile_units=self.navigation.hostile_units,
++            flight_departure_walk=self.navigation.flight_departure_walk)
+         self.planner = Planner(self.registry, memory, self.quest_attempt_memory,
+-                               travel_cost=self.navigation.walk_cost)
+-        # Planning-only geometry query for the quest planner (pit/cave layer
+-        # under a quest POI); WorldModel re-init keeps extra attributes.
+-        self.world.__dict__["layer_oracle"] = self.navigation.lower_layer_point
+-        self.world.__dict__["zone_sweep"] = self.navigation.zone_sweep_next
+-        self.world.__dict__["player_layer"] = self.navigation.player_layer_z
+-        # Safe resurrection spot (user 2026-10-20): hostiles near the corpse.
+-        self.world.__dict__["hostile_units"] = self.navigation.hostile_units
+-        self.world.__dict__["walk_cost"] = self.navigation.walk_cost
+-        self.world.__dict__['flight_departure_walk'] = self.navigation.flight_departure_walk
++                               travel_cost=self.navigation.walk_cost,
++                               navigation_queries=self.navigation_queries)
+         # User 2026-10-14: a found quest object keeps the mouse (see module).
+         self.object_lock = QuestObjectLock()
+         self.planner.quest.location_policy.object_interaction.lock = self.object_lock
+--- a/src/wowbot/agent/packet_entity_facts.py
++++ b/src/wowbot/agent/packet_entity_facts.py
+@@ -549,7 +549,7 @@
+ 
+ def collect_creature_sources(state: dict) -> dict[str, list[dict]]:
+     """Exact open item-objective -> creature sources, not a kill instruction."""
+-    from .quest_reference_matching import reference_objectives
++    from .quest_reference_matching import reference_objectives, objective_text_key
+     from wowbot.runtime.entity_identity import template_id
+     references = (state.get('reference_knowledge') or {}).get('quests') or {}
+     result: dict[str, list[dict]] = {}
+@@ -558,18 +558,32 @@
+                 or quest.get('is_accepted') is False):
+             continue
+         qid = str(quest.get('quest_id'))
+-        for index, objective in enumerate(quest.get('objectives') or ()):
+-            if not isinstance(objective, dict) or objective.get('is_complete') is True:
++        items = [(index, objective) for index, objective in enumerate(quest.get('objectives') or ())
++                 if isinstance(objective, dict) and (
++                     str(objective.get('type') or '').upper() == 'COLLECT'
++                     or str(objective.get('raw_type') or '').lower() == 'item')]
++        refs = [row for row in (references.get(qid) or {}).get('objectives') or () if isinstance(row, dict)]
++        item_rows = [row for row in refs if str(row.get('credit_kind') or '').upper() == 'ITEM']
++        # A partial catalog cannot assign its blank row to the first of
++        # several visible item counters. Keep completed counters in this
++        # alignment too: completing one does not give its source to another.
++        orders = [str(row.get('order')) for row in item_rows]
++        allow_ordinal = len(orders) == len(items) and set(orders) == {str(index) for index, _ in items}
++        for index, objective in items:
++            if objective.get('is_complete') is True:
+                 continue
+             current, required = number(objective.get('current')), number(objective.get('required'))
+             if current is not None and required is not None and 0 < required <= current:
+                 continue
+-            if (str(objective.get('type') or '').upper() != 'COLLECT'
+-                    and str(objective.get('raw_type') or '').lower() != 'item'):
+-                continue
+             oid = str(objective.get('objective_id') or f'{qid}:{index}')
+-            rows = reference_objectives(qid, oid, objective.get('description'),
+-                                        (references.get(qid) or {}).get('objectives'))
++            rows = reference_objectives(qid, oid, objective.get('description'), refs,
++                                        allow_ordinal=allow_ordinal)
++            if (not rows and len(items) == len(item_rows) == 1 and oid == f'{qid}:{index}'
++                    and not objective_text_key(item_rows[0].get('description'))
++                    and not any(str(row.get('objective_id')) == oid for row in refs)):
++                # The only visible item and the only blank item row are
++                # unambiguous even when the catalog omits its order field.
++                rows = item_rows
+             if len(rows) != 1 or str(rows[0].get('credit_kind') or '').upper() != 'ITEM':
+                 continue
+             row = rows[0]
+@@ -580,14 +594,21 @@
+                 continue
+             for source in row.get('item_sources') or ():
+                 if (not isinstance(source, dict) or source.get('kind') != 'CREATURE'
+-                        or source.get('relation') != 'QUEST_ITEM_ASSOCIATION'
+-                        or template_id(source.get('item_id')) != item_id):
++                        or source.get('relation') != 'QUEST_ITEM_ASSOCIATION'):
++                    continue
++                inherited_item = (source.get('item_id') is None and len(items) == len(item_rows) == 1)
++                if template_id(source.get('item_id')) != item_id and not inherited_item:
+                     continue
+                 entry = template_id(source.get('entry'))
+                 if entry is None:
+                     continue
+                 binding = {'quest_id': qid, 'objective_id': oid, 'item_id': item_id,
+                            'reference_objective_id': row.get('objective_id')}
++                if inherited_item:
++                    # Older reference rows name the item only at the parent.
++                    # Preserve that unique hunt hint without upgrading it to
++                    # an exact per-source item relation for an interaction.
++                    binding['item_id_explicit'] = False
+                 if binding not in result.setdefault(str(entry), []):
+                     result[str(entry)].append(binding)
+     return result
+@@ -608,7 +629,8 @@
+                 or (value.get('unit') or {}).get('health') == 0
+                 or str(value.get('map_id')) != instance):
+             continue
+-        bindings = sources.get(str(value.get('entry_id')), [])
++        bindings = [source for source in sources.get(str(value.get('entry_id')), [])
++                    if source.get('item_id_explicit') is not False]
+         flags = (value.get('info') or {}).get('npc_flags')
+         if len(bindings) == 1 and type(flags) is int and flags & NPC_SPELLCLICK:
+             result[str(value['guid'])] = {**bindings[0], 'npc_id': value['entry_id']}
+@@ -639,23 +661,22 @@
+                     or conversation_objective(row)
+                     or row.get("credit_action") in {"TALK", "RIDE", "BUY", "SPELLCLICK"}):
+                 continue                       # talked to / ridden / clicked / picked up, never killed
+-            item = str(row.get("credit_kind") or "").upper() == "ITEM"
+-
+-            def same_kind(objective, item=item):
+-                return ((str(objective.get("type") or "").upper() == "COLLECT"
+-                         or str(objective.get("raw_type") or "").lower() == "item") if item
+-                        else (str(objective.get("type") or "").upper() == "KILL"
+-                              or str(objective.get("raw_type") or "").lower() == "monster"))
++            if str(row.get("credit_kind") or "").upper() == "ITEM":
++                continue  # all item/source matching uses collect_creature_sources below
++
++            def same_kind(objective):
++                return (str(objective.get("type") or "").upper() == "KILL"
++                        or str(objective.get("raw_type") or "").lower() == "monster")
+             if text:
+                 match = next(((index, objective) for index, objective in live
+                               if text.casefold() in str(objective.get("description") or "").casefold()
+                               and same_kind(objective)), None)
+             else:
+-                # Live 2026-10-21 (Practice Materials 70124): the TDB row has
+-                # no description.  The quest's only open objective of the
+-                # row's kind is it, when the row is its quest's only one.
++                # A blank creature row can match the only unfinished kill
++                # objective when it is the only row of that kind. Item rows
++                # use the separate complete-list/identity checks below.
+                 kind_rows = [other for other in rows
+-                             if (str(other.get("credit_kind") or "").upper() == "ITEM") == item]
++                             if str(other.get("credit_kind") or "").upper() != "ITEM"]
+                 candidates = [(index, objective) for index, objective in live if same_kind(objective)]
+                 match = candidates[0] if len(candidates) == 1 and len(kind_rows) == 1 else None
+                 # Live 2026-10-23 (Training Wings 70061): three description-less
+@@ -663,34 +684,20 @@
+                 # "Relentless Gust"; the live objectives read "0/12 Agitated
+                 # Weedling slain" ...  The credit's own name binds the row.
+                 name = str(row.get("credit_name") or "").strip().casefold()
+-                if match is None and not item and name and not proxy_credit_name(name):
++                if match is None and name and not proxy_credit_name(name):
+                     named = [(index, objective) for index, objective in candidates
+                              if name in str(objective.get("description") or "").casefold()]
+                     match = named[0] if len(named) == 1 else None
+-                if match is None and not item:
++                if match is None:
+                     match = _progress_bar_objective(rows, live)
+             if match is None:
+                 continue
+             index, objective = match
+-            current, required = number(objective.get("current")), number(objective.get("required"))
+-            if item and current is not None and required is not None and 0 < required <= current:
+-                continue  # a finished drop counter cannot authorize another hunt
+             objective_id = str(objective.get("objective_id") or f"{qid}:{index}")
+-            if item:
+-                # Quest-item drops (creature_questitem), not vendors/containers.
+-                from wowbot.runtime.entity_identity import template_id
+-                entries = {str(template_id(source.get("entry"))) for source in row.get("item_sources") or ()
+-                           if isinstance(source, dict) and source.get("kind") == "CREATURE"
+-                           and source.get("relation") == "QUEST_ITEM_ASSOCIATION"
+-                           and template_id(source.get("entry")) is not None
+-                           and (source.get("item_id") is None
+-                                or (template_id(source.get("item_id")) is not None
+-                                    and template_id(source["item_id"]) == template_id(row.get("credit_object_id"))))}
+-            else:
+-                entries = {str(named.get("entry")) for key in ("named_creatures", "credit_creatures")
+-                           for named in row.get(key) or ()
+-                           if isinstance(named, dict) and named.get("entry") is not None}
+-            if (not item and str(row.get("credit_kind") or "").upper() in {"CREATURE", "CREATURE_CREDIT"}
++            entries = {str(named.get("entry")) for key in ("named_creatures", "credit_creatures")
++                       for named in row.get(key) or ()
++                       if isinstance(named, dict) and named.get("entry") is not None}
++            if (str(row.get("credit_kind") or "").upper() in {"CREATURE", "CREATURE_CREDIT"}
+                     and row.get("credit_object_id") is not None
+                     and not proxy_credit_name(row.get("credit_name"))):
+                 entries.add(str(row["credit_object_id"]))
+@@ -698,8 +705,8 @@
+                 relations = wanted.setdefault(entry, [])
+                 if (qid, objective_id) not in relations:
+                     relations.append((qid, objective_id))
+-    # Several blank item rows can still be matched by the shared objective
+-    # resolver. A creature_questitem association alone does not require a kill:
++    # One item/source resolver serves discovery, interaction and combat.
++    # A creature_questitem association alone does not require a kill:
+     # a live SPELLCLICK source supplies its item through Interact instead.
+     clicked_entries = {str(value.get('entry_id'))
+         for value in (state.get('packet_entities') or {}).values()
+--- a/src/wowbot/agent/planner.py
++++ b/src/wowbot/agent/planner.py
+@@ -1,6 +1,6 @@
+ from __future__ import annotations
+ 
+-from wowbot.query_ports import TravelCostPort
++from wowbot.query_ports import NavigationQueryPorts, TravelCostPort
+ from .models import Goal, Proposal, number
+ from .world import WorldModel
+ from .planning_types import point
+@@ -23,13 +23,16 @@
+     """One planner ranks proposals from all domains; no direct input calls."""
+ 
+     def __init__(self, registry, memory=None, quest_attempt_memory=None, *,
+-                 travel_cost: TravelCostPort | None = None):
++                 travel_cost: TravelCostPort | None = None,
++                 navigation_queries: NavigationQueryPorts | None = None):
+         self.registry = registry
+         self.memory = memory
+         self.travel_cost = travel_cost
++        self.navigation_queries = navigation_queries or NavigationQueryPorts()
+         from .quest_attempt_memory import QuestAttemptMemory
+         self.quest_attempt_memory = quest_attempt_memory or QuestAttemptMemory()
+-        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost)
++        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost,
++                                 navigation_queries=self.navigation_queries)
+         self.combat_policy = CombatPlanningPolicy(registry)
+         self.visual_inspection_policy = VisualInspectionPolicy()
+         self.visual_search_policy = VisualSearchPlanningPolicy()
+@@ -54,7 +57,7 @@
+         self._movement_visual_cooldowns: dict[tuple, float] = {}
+         from .quest_agenda import QuestAgenda
+         self.agenda = QuestAgenda(travel_cost=self.travel_cost)
+-        self.travel_mode = TravelModePolicy()
++        self.travel_mode = TravelModePolicy(departure_walk=self.navigation_queries.flight_departure_walk)
+ 
+     def reset_session(self) -> None:
+         """Drop every session-local decision cache after identity changes.
+@@ -65,7 +68,8 @@
+         half-finished search against unrelated state.
+         """
+         self.quest_attempt_memory.reset()
+-        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost)
++        self.quest = QuestDomain(self.quest_attempt_memory, travel_cost=self.travel_cost,
++                                 navigation_queries=self.navigation_queries)
+         self.blocked_until.clear()
+         self.recent.clear()
+         self.map_search_policy.reset_session()
+@@ -81,7 +85,7 @@
+         self._movement_visual_handoff = None
+         self._movement_visual_cooldowns.clear()
+         self.agenda.reset()
+-        self.travel_mode = TravelModePolicy()
++        self.travel_mode = TravelModePolicy(departure_walk=self.navigation_queries.flight_departure_walk)
+ 
+     def refresh_agenda(self, goal, world, now, *, advisor=None):
+         # Look-ahead only, also during an active attempt. This never calls
+@@ -561,9 +565,8 @@
+         if player_dead_or_ghost(state):
+             # Dead or a ghost: release / corpse run / resurrect only.
+             policy = self.__dict__.setdefault("death_recovery", DeathRecoveryPolicy())
+-            model = getattr(world, '_model', world)
+-            proposals = policy.propose(state, now, hostile_units=model.__dict__.get("hostile_units"),
+-                                       walk_cost=model.__dict__.get("walk_cost"))
++            proposals = policy.propose(state, now, hostile_units=self.navigation_queries.hostile_units,
++                                       walk_cost=self.travel_cost)
+             for proposal in proposals:
+                 policy.note_dispatched(proposal, now)
+             return self.travel_mode.apply(proposals, goal, world, now)
+--- a/src/wowbot/agent/quest_location_planning.py
++++ b/src/wowbot/agent/quest_location_planning.py
+@@ -4,7 +4,7 @@
+ import math
+ import re
+ 
+-from wowbot.query_ports import TravelCostPort
++from wowbot.query_ports import NavigationQueryPorts, TravelCostPort
+ from .models import Proposal, number
+ from .objective_locator import ObjectiveLocator
+ from .planning_types import point, world_point
+@@ -176,7 +176,9 @@
+ class QuestLocationPlanningPolicy:
+     """Resolve explicit quest locations without owning movement or input."""
+ 
+-    def __init__(self, *, travel_cost: TravelCostPort | None = None) -> None:
++    def __init__(self, *, travel_cost: TravelCostPort | None = None,
++                 navigation_queries: NavigationQueryPorts | None = None) -> None:
++        self.navigation_queries = navigation_queries or NavigationQueryPorts()
+         self.objective_locator = ObjectiveLocator(travel_cost=travel_cost)
+         self.turnin_resolver = TurnInResolver(travel_cost=travel_cost)
+         self.travel_fallback = TravelReachFallbackPolicy()
+@@ -448,9 +450,9 @@
+         return targets if len(targets) >= 2 and max(heights)-min(heights) >= cls.MULTI_LEVEL_SPAWN_YARDS else []
+ 
+     @staticmethod
+-    def player_layer_z(world, state: dict) -> float | None:
+-        model = getattr(world, "_model", world)
+-        oracle = getattr(model, "__dict__", {}).get("player_layer")
++    def player_layer_z(world, state: dict, *,
++                       navigation_queries: NavigationQueryPorts | None = None) -> float | None:
++        oracle = navigation_queries.player_layer if navigation_queries is not None else None
+         if not callable(oracle):
+             return None
+         try:
+@@ -459,13 +461,14 @@
+             return None
+ 
+     @classmethod
+-    def with_player_layer(cls, world, state: dict) -> dict:
++    def with_player_layer(cls, world, state: dict, *,
++                          navigation_queries: NavigationQueryPorts | None = None) -> dict:
+         """The state with the navigation's resolved player floor as Z, so the
+         TDB spawn choice ranks spawns on/near the player's own floor first."""
+         position = state.get("player_world_position") or {}
+         if not position or (position.get("z_known") is not False and number(position.get("z")) is not None):
+             return state
+-        z = cls.player_layer_z(world, state)
++        z = cls.player_layer_z(world, state, navigation_queries=navigation_queries)
+         if z is None:
+             return state
+         return {**state, "player_world_position": {
+@@ -473,8 +476,8 @@
+ 
+     def _lower_layer_move(self, world, location: dict, destination: dict, qid) -> Proposal | None:
+         model = getattr(world, "_model", world)
+-        sweep = getattr(model, "__dict__", {}).get("zone_sweep")
+-        oracle = getattr(model, "__dict__", {}).get("layer_oracle")
++        sweep = self.navigation_queries.zone_sweep
++        oracle = self.navigation_queries.lower_layer
+         if not callable(sweep) and not callable(oracle):
+             return None
+         state = world.state
+@@ -688,7 +691,8 @@
+                 return []
+         if obj.type in {"ESCORT", "FOLLOW"}:
+             return self.escort_follow.propose(obj, record, state)
+-        located = self.objective_locator.locate(obj, record, self.with_player_layer(world, state))
++        located = self.objective_locator.locate(obj, record, self.with_player_layer(
++            world, state, navigation_queries=self.navigation_queries))
+         map_where = point(located.coordinates) if located and located.coordinates else None
+         route_where = world_point(located.coordinates) if located and located.coordinates else None
+         learned_search_region = self._remember_blue_search_region(
+--- a/src/wowbot/agent/quest_objective_planning.py
++++ b/src/wowbot/agent/quest_objective_planning.py
+@@ -206,7 +206,8 @@
+                     flow = self.location_policy.object_interaction
+                     flow.note_result((world.runtime_context.get("last_result") or {})
+                                      if hasattr(world, "runtime_context") else {}, state)
+-                    player_z = self.location_policy.player_layer_z(world, state)
++                    player_z = self.location_policy.player_layer_z(
++                        world, state, navigation_queries=self.navigation_queries)
+                     server_spot, _known = flow.packet_use_spot(state, quest_key, player_z)
+                     steps = (self._server_object_steps(flow, state, server_spot, player_z, obj, quest_key)
+                              if server_spot is not None else None)
+@@ -257,7 +258,8 @@
+                     # generic OBJECT_USE fallback below must not re-click
+                     # this same obstructed hover on every planner tick.
+                     continue
+-                player_z = self.location_policy.player_layer_z(world, state)
++                player_z = self.location_policy.player_layer_z(
++                    world, state, navigation_queries=self.navigation_queries)
+                 quest_key = record.quest_id if record else qid
+                 server_spot, server_known = flow.packet_use_spot(state, quest_key, player_z)
+                 if server_spot is not None:
+@@ -618,7 +620,8 @@
+         if obj.type not in {"USE_OBJECT", "INTERACT"} or not is_game_object_objective(obj):
+             return False
+         flow = self.location_policy.object_interaction
+-        player_z = self.location_policy.player_layer_z(world, state)
++        player_z = self.location_policy.player_layer_z(
++            world, state, navigation_queries=self.navigation_queries)
+         if state.get("packet_entities"):
+             spot, _known = flow.packet_use_spot(state, qid, player_z)
+             if spot is not None and spot["distance"] <= self.SERVER_OBJECT_AT_HAND_YARDS:
+--- a/src/wowbot/agent/quest_planning.py
++++ b/src/wowbot/agent/quest_planning.py
+@@ -7,7 +7,7 @@
+ 
+ import math
+ 
+-from wowbot.query_ports import TravelCostPort
++from wowbot.query_ports import NavigationQueryPorts, TravelCostPort
+ from .interaction_range import recently_verified_in_range
+ from .collect_strategy import CollectStrategyTracker
+ from .credit_failure_escalation import CreditFailureAction, CreditFailureEscalation
+@@ -52,8 +52,10 @@
+         except Exception:
+             return
+         saved[str(quest_id)] = cells
+-    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None):
++    def __init__(self, attempt_memory=None, *, travel_cost: TravelCostPort | None = None,
++                 navigation_queries: NavigationQueryPorts | None = None):
+         self.travel_cost = travel_cost
++        self.navigation_queries = navigation_queries or NavigationQueryPorts()
+         # A client-confirmed range error opens one persistent REACH_OBJECT
+         # requirement. The Movement Skill owns it until world-space arrival.
+         self.interaction_range_blocks: dict[str, dict] = {}
+@@ -114,7 +116,8 @@
+         # quest-item mechanic / scripted). Queried, not auto-applied -- a
+         # caller decides what to do with the current best guess.
+         self.collect_strategy = CollectStrategyTracker(history=self.strategy_history)
+-        self.location_policy = QuestLocationPlanningPolicy(travel_cost=self.travel_cost)
++        self.location_policy = QuestLocationPlanningPolicy(travel_cost=self.travel_cost,
++                                                          navigation_queries=self.navigation_queries)
+         self.server_npcs = ServerNpcInteractionPolicy(object_flow=self.location_policy.object_interaction,
+                                                      travel_cost=self.travel_cost)
+         # Compatibility views during the engine migration; the state itself is
+@@ -442,7 +445,7 @@
+         result.extend(self.__dict__.setdefault("scripted_rides", ScriptedRideHold()).propose(state))
+         result.extend(self.__dict__.setdefault("objective_speech", ObjectiveSpeechHold()).propose(state))
+         result.extend(self.__dict__.setdefault("escorts", EscortPolicy()).propose(state))
+-        player_layer = self.location_policy.player_layer_z(world, state)
++        player_layer = self.location_policy.player_layer_z(world, state, navigation_queries=self.navigation_queries)
+         result.extend(self.__dict__.setdefault("rescue_objects", RescueObjectPolicy()).propose(
+             state, player_layer))
+         result.extend(self.__dict__.setdefault("rescue_soft", SoftInteractRescuePolicy()).propose(state))
+--- a/src/wowbot/agent/quest_reference_matching.py
++++ b/src/wowbot/agent/quest_reference_matching.py
+@@ -10,12 +10,14 @@
+     return re.sub(r"^\d+\s*/\s*\d+\s*", "", words(str(value or ""))).strip()
+ 
+ 
+-def reference_objectives(quest_id, objective_id, description, rows) -> list[dict]:
++def reference_objectives(quest_id, objective_id, description, rows, *, allow_ordinal: bool = True) -> list[dict]:
+     """Exact ID, otherwise unique text; ordinal fallback only for blank text.
+ 
+     Retail can hide a credit row entirely. A visible ``quest:1`` therefore
+     need not be the TDB row with order=1. Contradictory/duplicate descriptions
+     are not repaired by a guessed index. No identity/action authority here.
++    Callers with incomplete row alignment can disable the ordinal fallback;
++    exact-ID and unique-description matching remain available.
+     """
+     rows = [row for row in rows or () if isinstance(row, dict)]
+     oid = str(objective_id)
+@@ -26,6 +28,8 @@
+     named = [row for row in rows if key and objective_text_key(row.get("description")) == key]
+     if named:
+         return named if len(named) == 1 else []
++    if not allow_ordinal:
++        return []
+     prefix, sep, index = oid.partition(":")
+     if not sep or prefix != str(quest_id) or not index.isdigit():
+         return []
+--- a/src/wowbot/agent/travel_mode.py
++++ b/src/wowbot/agent/travel_mode.py
+@@ -24,6 +24,8 @@
+ ground approach. Being mounted alone continues to mean ground travel.
+ """
+ from __future__ import annotations
++
++from wowbot.query_ports import FlightDeparturePort
+ 
+ import math
+ 
+@@ -103,7 +105,8 @@
+ class TravelModePolicy:
+     """Owns MOUNT/DISMOUNT proposals; the ranker still picks the winner."""
+ 
+-    def __init__(self) -> None:
++    def __init__(self, *, departure_walk: FlightDeparturePort | None = None) -> None:
++        self.departure_walk = departure_walk
+         self.mode = WALK
+         self.reason = "no_decision"
+         self.was_mounted: bool | None = None
+@@ -381,8 +384,10 @@
+             if (mount.get('mount_type_id') in FLYING_MOUNT_TYPES
+                     and (state.get('mount_capability') or {}).get('flying_riding_known') is True):
+                 style = 'STEADY'
+-        oracle = getattr(getattr(world, '_model', world), 'flight_departure_walk', None)
+-        departure = oracle(lead.parameters, state) if style and callable(oracle) else None
++        try:
++            departure = self.departure_walk(lead.parameters, state) if style and callable(self.departure_walk) else None
++        except Exception:  # unavailable geometry cannot prove a departure leg
++            departure = None
+         if departure is None:
+             return None
+         self.mode, self.reason = WALK, 'walk_to_open_sky'
+--- a/src/wowbot/query_ports.py
++++ b/src/wowbot/query_ports.py
+@@ -1,10 +1,13 @@
+ """Small, read-only query contracts shared across domain boundaries.
+ 
+-Providers are injected into their consumers, never placed in serialized world
+-state or stored in module globals. A cost query cannot execute movement/input.
++Providers are injected into their consumers, never placed in world data or
++stored in module globals. Queries cannot execute movement/input. Navigation
++may retain its own planning caches and sweep progress behind these ports.
+ """
+ from __future__ import annotations
+ 
++from collections.abc import Hashable
++from dataclasses import dataclass
+ from typing import Any, Protocol
+ 
+ 
+@@ -12,3 +15,48 @@
+     """Walking length for this owner's context, or None if no route is known."""
+ 
+     def __call__(self, state: dict[str, Any], destination: dict[str, Any]) -> float | None: ...
++
++
++class PlayerLayerPort(Protocol):
++    """Resolved player-floor height, or None when unavailable."""
++
++    def __call__(self, state: dict[str, Any]) -> float | None: ...
++
++
++class LowerLayerPort(Protocol):
++    """A reachable lower-floor point, or None; never a movement command."""
++
++    def __call__(self, state: dict[str, Any], destination: dict[str, Any]) -> dict[str, Any] | None: ...
++
++
++class ZoneSweepPort(Protocol):
++    """Navigation-owned sweep's next point; None also covers a finished sweep."""
++
++    def __call__(self, state: dict[str, Any], destination: dict[str, Any], key: Hashable) -> dict[str, Any] | None: ...
++
++
++class HostileUnitsPort(Protocol):
++    """Planning threat candidates near a point, not combat/input authority."""
++
++    def __call__(self, state: dict[str, Any], center: dict[str, Any], radius: float = 60.) -> list[dict[str, Any]]: ...
++
++
++class FlightDeparturePort(Protocol):
++    """A geometry-proven walking leg to open sky, or None when unproven."""
++
++    def __call__(self, parameters: dict[str, Any], state: dict[str, Any]) -> dict[str, Any] | None: ...
++
++
++@dataclass(frozen=True, slots=True)
++class NavigationQueryPorts:
++    """Capabilities of one navigation owner, held only by planning consumers.
++
++    This bundle has no routing/input methods or independent state. The
++    existing TravelCostPort is still supplied explicitly for compatibility.
++    """
++
++    player_layer: PlayerLayerPort | None = None
++    lower_layer: LowerLayerPort | None = None
++    zone_sweep: ZoneSweepPort | None = None
++    hostile_units: HostileUnitsPort | None = None
++    flight_departure_walk: FlightDeparturePort | None = None
+--- a/tests/test_cave_quest_layer_flow_20261006.py
++++ b/tests/test_cave_quest_layer_flow_20261006.py
+@@ -3,6 +3,8 @@
+ Offline tests prove state transitions only.  They are not live quest credit.
+ """
+ from types import SimpleNamespace
++
++from wowbot.query_ports import NavigationQueryPorts
+ 
+ from wowbot.agent.quest_dot_focus import QuestDotFocus
+ from wowbot.agent.quest_location_planning import QuestLocationPlanningPolicy
+@@ -350,7 +352,8 @@
+ 
+ 
+ def test_unconfirmed_floor_arrow_does_not_start_a_blind_downward_sweep():
+-    policy = QuestLocationPlanningPolicy()
++    policy = QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
++        zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.}))
+     state = _state(1.)
+     state["visual_candidates"] = [{"kind": "minimap_floor_markers", "source": "MINIMAP_CV",
+                                    "candidate_labels": ["objective_above_like"],
+@@ -358,16 +361,15 @@
+     location = {"quest_id": 55639, "x": .5, "y": .5}
+     destination = {"x": 0., "y": 0., "instance_id": 2175, "coordinate_space": "WORLD_YARDS"}
+     world = _world(state)
+-    world._model = SimpleNamespace(zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.})
+     assert policy._lower_layer_move(world, location, destination, 55639) is None
+ 
+ 
+ def test_expired_same_space_dot_does_not_block_a_later_layer_sweep():
+-    policy = QuestLocationPlanningPolicy()
++    policy = QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
++        zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.}))
+     policy.dot_focus.select(_state(1.), [(25., 0., "55639")], x=0., y=0., now=1.)
+     state = _state(25.)
+     world = _world(state)
+-    world._model = SimpleNamespace(zone_sweep=lambda *_: {"x": 9., "y": 9., "z": -20.})
+     location = {"quest_id": 55639, "x": .5, "y": .5}
+     destination = {"x": 0., "y": 0., "instance_id": 2175,
+                    "coordinate_space": "WORLD_YARDS"}
+--- /dev/null
++++ b/tests/test_collect_relation_ambiguity_20261029.py
+@@ -0,0 +1,103 @@
++"""Partial reference lists cannot invent a live item-objective identity."""
++from copy import deepcopy
++
++import pytest
++
++from test_quest_drop_combat_handoff_20261028 import ENTRY, GUID, ITEM, QUEST, state
++from wowbot.agent.packet_entity_facts import (
++    NPC_SPELLCLICK, collect_creature_sources, collect_spellclick_units, kill_objective_entries,
++)
++from wowbot.agent.quest_reference_matching import reference_objectives
++
++
++def two_items():
++    value = state()
++    other = deepcopy(value["active_quests"][0]["objectives"][0])
++    other["description"] = "0/3 Silver Dust"
++    value["active_quests"][0]["objectives"].append(other)
++    return value
++
++
++@pytest.mark.parametrize("first_complete", [False, True])
++def test_incomplete_blank_catalog_cannot_bind_either_visible_item(first_complete):
++    value = two_items()
++    if first_complete:
++        value["active_quests"][0]["objectives"][0].update(current=3, is_complete=True)
++    assert collect_creature_sources(value) == {}
++    assert kill_objective_entries(value) == {}
++
++
++def test_exact_objective_id_can_resolve_a_partial_reference_list():
++    value = two_items()
++    value["active_quests"][0]["objectives"][0]["objective_id"] = 990501
++    assert collect_creature_sources(value)[str(ENTRY)][0]["objective_id"] == "990501"
++    assert kill_objective_entries(value)[str(ENTRY)] == (str(QUEST), "990501")
++
++
++def test_unique_description_can_resolve_a_partial_reference_list():
++    value = two_items()
++    value["reference_knowledge"]["quests"][str(QUEST)]["objectives"][0]["description"] = "Amber Carapace"
++    assert collect_creature_sources(value)[str(ENTRY)][0]["objective_id"] == f"{QUEST}:0"
++
++
++def test_single_visible_item_and_single_blank_row_need_no_fabricated_order():
++    value = state()
++    value["reference_knowledge"]["quests"][str(QUEST)]["objectives"][0].pop("order")
++    assert collect_creature_sources(value)[str(ENTRY)][0]["item_id"] == ITEM
++    assert kill_objective_entries(value)[str(ENTRY)] == (str(QUEST), f"{QUEST}:0")
++
++
++def test_complete_distinct_item_orders_keep_the_existing_multi_item_workflow():
++    value = two_items()
++    rows = value["reference_knowledge"]["quests"][str(QUEST)]["objectives"]
++    other = deepcopy(rows[0])
++    other.update(objective_id=990502, order=1, credit_object_id=ITEM+1)
++    other["item_sources"][0].update(entry=ENTRY+1, item_id=ITEM+1)
++    rows.append(other)
++    sources = collect_creature_sources(value)
++    assert sources[str(ENTRY)][0]["objective_id"] == f"{QUEST}:0"
++    assert sources[str(ENTRY+1)][0]["objective_id"] == f"{QUEST}:1"
++
++
++def test_duplicate_orders_do_not_make_a_complete_reference_alignment():
++    value = two_items()
++    rows = value["reference_knowledge"]["quests"][str(QUEST)]["objectives"]
++    rows.append({**deepcopy(rows[0]), "objective_id": 990502})
++    assert collect_creature_sources(value) == {}
++    assert kill_objective_entries(value) == {}
++
++
++def test_single_blank_row_cannot_override_an_explicit_objective_id_conflict():
++    value = state()
++    value["active_quests"][0]["objectives"][0]["objective_id"] = 999999
++    assert collect_creature_sources(value) == {}
++    assert kill_objective_entries(value) == {}
++
++
++def test_duplicate_explicit_ids_cannot_be_repaired_by_the_single_item_fallback():
++    value = state()
++    row = value["reference_knowledge"]["quests"][str(QUEST)]["objectives"][0]
++    row["objective_id"] = f"{QUEST}:0"
++    value["reference_knowledge"]["quests"][str(QUEST)]["objectives"].append(
++        {"objective_id": f"{QUEST}:0", "credit_kind": "CREATURE", "description": ""})
++    assert collect_creature_sources(value) == {}
++
++
++def test_legacy_parent_item_id_remains_a_hint_without_becoming_an_exact_click_relation():
++    value = state()
++    row = value["reference_knowledge"]["quests"][str(QUEST)]["objectives"][0]
++    row["item_sources"][0].pop("item_id")
++    binding, = collect_creature_sources(value)[str(ENTRY)]
++    assert binding["item_id"] == ITEM and binding["item_id_explicit"] is False
++    assert kill_objective_entries(value)[str(ENTRY)] == (str(QUEST), f"{QUEST}:0")
++    value["packet_entities"][GUID]["info"]["npc_flags"] = NPC_SPELLCLICK
++    assert collect_spellclick_units(value) == {}
++    assert kill_objective_entries(value) == {}
++
++
++@pytest.mark.parametrize("oid,text,expected", [(123, "other", [123]),
++    ("7:0", "0/1 Amber", [123]), ("7:0", "", [])])
++def test_disabling_ordinal_matching_keeps_exact_id_and_text(oid, text, expected):
++    rows = [{"objective_id": 123, "order": 0, "description": "Amber"}]
++    found = reference_objectives(7, oid, text, rows, allow_ordinal=False)
++    assert [row["objective_id"] for row in found] == expected
+--- a/tests/test_ghost_navigation_handoff_20261028.py
++++ b/tests/test_ghost_navigation_handoff_20261028.py
+@@ -9,6 +9,8 @@
+ import math
+ 
+ import pytest
++
++from wowbot.query_ports import NavigationQueryPorts
+ 
+ from wowbot.agent.death_recovery_planning import DeathRecoveryPolicy, corpse_run_matches
+ from wowbot.agent.goal_manager import GoalManager
+@@ -55,16 +57,19 @@
+     assert not move.parameters.get('safe_resurrection_spot')
+ 
+ 
+-def test_planning_snapshot_keeps_navigation_oracles_and_selects_shared_steady_flight():
++def test_planner_owns_navigation_queries_and_selects_shared_steady_flight_for_a_snapshot():
+     current = ghost(near=True)
+     world = WorldModel()
+     world.ingest(Observation.create(current, 100.))
+     calls = []
+-    world.__dict__['walk_cost'] = lambda *a: calls.append('path')
+-    world.__dict__['hostile_units'] = lambda *a: calls.append('hostiles') or [{'x': -361., 'y': 900.}]
++    queries = NavigationQueryPorts(
++        hostile_units=lambda *a: calls.append('hostiles') or [{'x': -361., 'y': 900.}])
++    planner = Planner(SkillRegistry(), travel_cost=lambda *a: calls.append('path'),
++                      navigation_queries=queries)
+     snapshot = world.planning_snapshot(100.)
+     assert 'walk_cost' not in snapshot.__dict__
+-    (proposal,) = Planner(SkillRegistry()).candidates(Goal.parse('Questelj', 1.), snapshot, 100.)
++    assert 'hostile_units' not in world.__dict__
++    (proposal,) = planner.candidates(Goal.parse('Questelj', 1.), snapshot, 100.)
+     assert set(calls) == {'path', 'hostiles'}
+     assert proposal.skill == 'MOVE' and proposal.parameters['flight_style'] == 'STEADY'
+ 
+--- /dev/null
++++ b/tests/test_navigation_query_ports_20261029.py
+@@ -0,0 +1,208 @@
++"""REV4 P1-C: planning services belong to consumers, never world data."""
++from types import SimpleNamespace
++
++import pytest
++
++from wowbot.agent.engine import AutonomousAgent
++from wowbot.agent.models import Goal, Proposal
++from wowbot.agent.quest_location_planning import QuestLocationPlanningPolicy
++from wowbot.agent.travel_mode import TravelModePolicy
++from wowbot.query_ports import NavigationQueryPorts
++
++
++class NoInput:
++    def execute(self, commands):
++        raise AssertionError("Planning queries cannot send client input")
++
++    execute_movement = execute
++
++
++def test_agent_does_not_attach_navigation_capabilities_to_the_world():
++    agent = AutonomousAgent(NoInput())
++    hidden = {"layer_oracle", "zone_sweep", "player_layer", "hostile_units", "walk_cost", "flight_departure_walk"}
++    assert not hidden.intersection(agent.world.__dict__)
++
++
++def test_state_only_layer_helper_cannot_borrow_an_attached_navigation_callback():
++    model = SimpleNamespace(player_layer=lambda state: 999.)
++    world = SimpleNamespace(_model=model)
++    assert QuestLocationPlanningPolicy.player_layer_z(world, {}) is None
++
++
++def test_unconfigured_travel_policy_does_not_invoke_a_world_attached_service():
++    from test_flight_travel_integration_20261029 import goal, state
++
++    calls = []
++
++    def forbidden(*args):
++        calls.append(1)
++        return None
++
++    current = state(mounted=False, indoors=True, sky=True)
++    world = SimpleNamespace(state=current, flight_departure_walk=forbidden)
++    move = Proposal.make("MOVE", "quest destination", goal(500., flight=False))
++    assert TravelModePolicy().apply([move], Goal.parse("Questelj", 100.), world, 100.) == [move]
++    assert calls == []
++
++
++@pytest.mark.parametrize("reset", [False, True])
++def test_two_agents_keep_their_floor_queries_through_snapshots_and_session_reset(reset):
++    from test_reference_cost_isolation_20261029 import scene
++    from wowbot.agent.models import Observation
++    from wowbot.navigation.z_resolver import ResolvedPosition
++
++    first, second = AutonomousAgent(NoInput()), AutonomousAgent(NoInput())
++    for agent, height in ((first, 80.), (second, 10.)):
++        state = scene()
++        state.update(timestamp=10., monotonic_time=10., frame_id="floor:1")
++        state["active_quests"][0]["objectives"][0].update(type="KILL", total=1, description="Unit slain")
++        state["player_world_position"].update(z_known=False)
++        rows = state["reference_knowledge"]["quests"]["7"]["spawn_candidates"]
++        rows[0]["z"], rows[1]["z"] = 80., 10.
++        agent.world.ingest(Observation.create(state, 10.))
++        if reset:
++            state.update(session_id="next-session", frame_id="floor:2", timestamp=11., monotonic_time=11.)
++            agent.world.ingest(Observation.create(state, 11.))
++            agent.planner.reset_session()
++        agent.navigation._z.player = ResolvedPosition(0., 0., height, .85, "MMAP", 2444,
++                                                     at=state["monotonic_time"])
++
++    def destination(agent):
++        record = agent.world.quest_model.records[7]
++        snapshot = agent.world.planning_snapshot(11. if reset else 10.)
++        proposals = agent.planner.quest.location_policy.propose_objective(
++            snapshot, record.objectives[0], record, "7")
++        return next(p.parameters for p in proposals if p.skill == "MOVE")
++
++    assert destination(first)["x"] == 20.
++    assert destination(second)["x"] == 60.
++    assert destination(first)["z"] == 80.
++    assert first.planner.navigation_queries is first.navigation_queries
++    assert second.planner.quest.location_policy.navigation_queries is second.navigation_queries
++
++
++@pytest.mark.parametrize("reset", [False, True])
++def test_two_agents_keep_their_flight_departure_query_after_planner_reset(monkeypatch, reset):
++    from test_flight_travel_integration_20261029 import goal, state
++    from wowbot.navigation.service import NavigationService
++
++    def departure(navigation, parameters, current):
++        x = navigation._navmesh.exit_x
++        return {"point": {"x": x, "y": 0., "z": 0.},
++                "anchors": [{"x": 0., "y": 0., "z": 0.}, {"x": x, "y": 0., "z": 0.}]}
++
++    monkeypatch.setattr(NavigationService, "flight_departure_walk", departure)
++    first = AutonomousAgent(NoInput(), navmesh=SimpleNamespace(exit_x=10.))
++    second = AutonomousAgent(NoInput(), navmesh=SimpleNamespace(exit_x=-10.))
++    for agent in (first, second):
++        if reset:
++            agent.planner.reset_session()
++        agent.world.state = state(mounted=False, indoors=True, sky=True)
++        move = Proposal.make("MOVE", "quest destination", goal(500., flight=False))
++        result, = agent.planner.travel_mode.apply([move], Goal.parse("Questelj", 100.), agent.world, 100.)
++        assert result.parameters["flight_departure"]["point"]["x"] == agent.navigation._navmesh.exit_x
++        assert not result.parameters["flight"]
++
++
++@pytest.mark.parametrize("reset", [False, True])
++def test_resurrection_reads_only_the_owning_planners_queries(monkeypatch, reset):
++    from test_ghost_navigation_handoff_20261028 import ghost
++    from wowbot.agent.models import Observation
++    from wowbot.navigation.service import NavigationService
++
++    calls = []
++
++    def hostiles(navigation, *args):
++        calls.append((navigation._navmesh.owner, "hostiles"))
++        return [{"x": -361., "y": 900.}]
++
++    def cost(navigation, *args):
++        calls.append((navigation._navmesh.owner, "cost"))
++        return None
++
++    monkeypatch.setattr(NavigationService, "hostile_units", hostiles)
++    monkeypatch.setattr(NavigationService, "walk_cost", cost)
++    first = AutonomousAgent(NoInput(), navmesh=SimpleNamespace(owner="first"))
++    second = AutonomousAgent(NoInput(), navmesh=SimpleNamespace(owner="second"))
++    for agent, owner in ((first, "first"), (second, "second")):
++        agent.world.ingest(Observation.create(ghost(near=True), 100.))
++        if reset:
++            agent.planner.reset_session()
++        calls.clear()
++        result, = agent.planner.candidates(Goal.parse("Questelj", 1.), agent.world.planning_snapshot(100.), 100.)
++        assert result.skill == "MOVE" and result.parameters["flight_style"] == "STEADY"
++        assert set(calls) == {(owner, "hostiles"), (owner, "cost")}
++
++
++@pytest.mark.parametrize("value", [None, 0., 95.])
++def test_player_layer_query_preserves_unknown_zero_and_observation_flags(value):
++    state = {"player_world_position": {"x": 1., "y": 2., "instance_id": 2444, "z_known": False}}
++    queries = NavigationQueryPorts(player_layer=lambda _: value)
++    result = QuestLocationPlanningPolicy.with_player_layer(None, state, navigation_queries=queries)
++    assert state["player_world_position"].get("z") is None
++    if value is None:
++        assert result is state
++    else:
++        assert result["player_world_position"]["z"] == value
++        assert result["player_world_position"]["z_known"] is True
++        assert result["player_world_position"]["z_observed"] is False
++        assert result["player_world_position"]["z_source"] == "NAVMESH_LAYER"
++
++
++@pytest.mark.parametrize("failing", [False, True])
++def test_finished_or_unavailable_sweep_does_not_restart_at_the_lowest_floor(failing):
++    from test_pit_layer_and_pins_20261005 import _world, _moves
++
++    def sweep(*args):
++        if failing:
++            raise RuntimeError("geometry unavailable")
++        return None
++
++    lower_calls = []
++
++    def forbidden(*args):
++        lower_calls.append(1)
++        return None
++
++    policy = QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
++        zone_sweep=sweep, lower_layer=forbidden))
++    assert _moves(policy, _world()) == []
++    assert lower_calls == []
++
++
++def test_unavailable_flight_departure_does_not_crash_or_invent_an_exit():
++    from test_flight_travel_integration_20261029 import goal, state
++
++    def unavailable(*args):
++        raise RuntimeError("missing geometry")
++
++    world = SimpleNamespace(state=state(mounted=False, indoors=True, sky=True))
++    move = Proposal.make("MOVE", "quest destination", goal(500., flight=False))
++    policy = TravelModePolicy(departure_walk=unavailable)
++    assert policy.apply([move], Goal.parse("Questelj", 100.), world, 100.) == [move]
++
++
++def test_player_layer_exception_is_unknown_and_known_height_needs_no_query():
++    calls = []
++
++    def unavailable(*args):
++        calls.append(1)
++        raise RuntimeError("missing geometry")
++
++    queries = NavigationQueryPorts(player_layer=unavailable)
++    assert QuestLocationPlanningPolicy.player_layer_z(None, {}, navigation_queries=queries) is None
++    known = {"player_world_position": {"x": 0., "y": 0., "z": 12., "z_known": True}}
++    assert QuestLocationPlanningPolicy.with_player_layer(None, known, navigation_queries=queries) is known
++    assert calls == [1]
++
++
++def test_query_bundle_is_immutable_and_cannot_enter_the_world_snapshot():
++    from dataclasses import FrozenInstanceError
++    import json
++
++    agent = AutonomousAgent(NoInput())
++    with pytest.raises(FrozenInstanceError):
++        agent.navigation_queries.player_layer = lambda _: 99.
++    encoded = json.dumps(agent.world.state)
++    assert "navigation_queries" not in encoded and "bound method" not in encoded
++    assert "navigation_queries" not in agent.world.planning_snapshot(0.).state
+--- a/tests/test_pit_layer_and_pins_20261005.py
++++ b/tests/test_pit_layer_and_pins_20261005.py
+@@ -12,6 +12,8 @@
+ """
+ from types import SimpleNamespace
+ 
++from wowbot.query_ports import NavigationQueryPorts
++
+ from wowbot.agent.map_poi_planning import MapPoiPlanningPolicy
+ from wowbot.agent.models import Proposal
+ from wowbot.agent.navigation_planning import NavigationProposalAdapter
+@@ -27,23 +29,28 @@
+           "z_source": "NAVMESH_LOWER_LAYER", "drop_yards": 117.}
+ 
+ 
+-def _world(t=1., texts=None, oracle=lambda state, destination: dict(BOTTOM)):
++def _world(t=1., texts=None):
+     state = {"monotonic_time": t, "map_id": 1409, "active_quests": [PIT_QUEST], "quest_locations": [POI],
+              "player_world_position": {"x": 93.2, "y": -2249.1, "instance_id": 2175}}
+     model = SimpleNamespace(state=state)
+-    model.__dict__.update({"layer_oracle": oracle, "quest_texts": texts or {}})
++    model.quest_texts = texts or {}
+     return SimpleNamespace(state=state, _model=model, query=SimpleNamespace(remembered_locations=lambda kinds: []),
+                            distance=lambda params: None)
+ 
+ 
+ def _moves(policy, world):
+     return [p for p in policy.propose_known_locations(world) if p.skill == "MOVE"]
++
++
++def _policy(oracle=lambda state, destination: dict(BOTTOM), sweep=None):
++    return QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
++        lower_layer=oracle, zone_sweep=sweep))
+ 
+ 
+ def test_quest_text_pointing_down_sends_the_agent_to_the_layer_below():
+     texts = {"55639": {"description": "I fear it will be up to you to make the descent and save the survivors."
+                                       " With our luck, the last survivor is at the bottom of the pit."}}
+-    moves = _moves(QuestLocationPlanningPolicy(), _world(texts=texts))
++    moves = _moves(_policy(), _world(texts=texts))
+     assert len(moves) == 1
+     move = moves[0]
+     assert (move.parameters["z"], move.parameters["z_known"], move.parameters["destination_layer"]) == (-21.1, True, "LOWER")
+@@ -54,17 +61,17 @@
+     """User: at the zone (edge) the exploration starts at once -- not first a
+     rim search, not first the centre.  Without a text cue it ranks below the
+     local seek/inspect/yellow-dot moves."""
+-    moves = _moves(QuestLocationPlanningPolicy(), _world(t=1.))
++    moves = _moves(_policy(), _world(t=1.))
+     assert len(moves) == 1 and moves[0].priority == 62
+     assert moves[0].parameters["layer_cue"] == "ZONE_HAS_LOWER_FLOORS"
+ 
+ 
+ def test_no_lower_floor_or_a_finished_sweep_gives_no_move():
+     texts = {"55639": {"description": "the bottom of the pit"}}
+-    assert _moves(QuestLocationPlanningPolicy(), _world(texts=texts, oracle=lambda s, d: None)) == []
++    assert _moves(_policy(oracle=lambda s, d: None), _world(texts=texts)) == []
+     world = _world(texts=texts)
+-    world._model.__dict__["zone_sweep"] = lambda state, destination, key: None     # swept down and up
+-    assert _moves(QuestLocationPlanningPolicy(), world) == []
++    # A configured, finished sweep must not restart at the lower-layer hint.
++    assert _moves(_policy(sweep=lambda state, destination, key: None), world) == []
+ 
+ 
+ def test_game_object_objectives_do_not_make_friendly_npcs_relevant():
+@@ -148,10 +155,10 @@
+     """User 2026-10-05: yellow = same space as the objective; grey = a space we
+     are not in; a down/up arrow = lower/higher than us."""
+     below = _with_minimap(_world(t=1.), ["quest_objective_dot_like", "other_space_like", "objective_below_like"])
+-    moves = _moves(QuestLocationPlanningPolicy(), below)
++    moves = _moves(_policy(), below)
+     assert len(moves) == 1 and moves[0].priority == 80
+     assert moves[0].parameters["layer_cue"] == "MINIMAP_OBJECTIVE_BELOW"
+-    policy = QuestLocationPlanningPolicy()
++    policy = _policy()
+     yellow = _with_minimap(_world(t=40.), ["quest_objective_dot_like"], kind="minimap_quest_dot",
+                            dots=[{"offset": [.1, .05]}])
+     yellow.state["visual_candidates"][0]["view_radius_yards"] = 160.
+--- a/tests/test_pit_run_20261014.py
++++ b/tests/test_pit_run_20261014.py
+@@ -1,6 +1,8 @@
+ """Live 2026-10-14 13:32-13:36 (Who Lurks in the Pit, Hrun's pit)."""
+ import math
+ from types import SimpleNamespace
++
++from wowbot.query_ports import NavigationQueryPorts
+ 
+ from wowbot.navigation import NavigationService
+ from wowbot.navigation.contracts import GlobalRoute
+@@ -43,8 +45,9 @@
+     rows = [{"x": x, "y": y, "z": z, "hint": sid} for sid, x, y, z in COCOONS]
+     state = _state()
+     assert _nearest(state, rows)["hint"] == 8000024
+-    world = SimpleNamespace(state=state, player_layer=lambda _state: 95.3)
+-    layered = QuestLocationPlanningPolicy.with_player_layer(world, state)
++    world = SimpleNamespace(state=state)
++    layered = QuestLocationPlanningPolicy.with_player_layer(world, state,
++        navigation_queries=NavigationQueryPorts(player_layer=lambda _state: 95.3))
+     assert layered["player_world_position"]["z"] == 95.3
+     assert state["player_world_position"].get("z") is None          # no mutation
+     assert _nearest(layered, rows)["hint"] == 8000022
+@@ -77,10 +80,10 @@
+     from wowbot.agent.world import WorldModel
+     world = WorldModel()
+     world.ingest(Observation.create({**state, "timestamp": 10., "frame_id": 1}, 10.))
+-    if layer is not None:
+-        world.__dict__["player_layer"] = lambda _state: layer
+     record = world.quest_model.records[55639]
+-    return QuestLocationPlanningPolicy().propose_objective(world, record.objectives[0], record, "55639")
++    queries = NavigationQueryPorts(player_layer=(lambda _state: layer) if layer is not None else None)
++    return QuestLocationPlanningPolicy(navigation_queries=queries).propose_objective(
++        world, record.objectives[0], record, "55639")
+ 
+ 
+ def test_no_separate_tdb_spawn_move_for_a_multi_floor_spawn_set():
+@@ -234,12 +237,11 @@
+ 
+ # --- 14:03-14:08: cocoons clicked from 7.4 / 16 yd ---------------------------------
+ 
+-def _pit_world(x, y, layer=62.7, **extra):
++def _pit_world(x, y, **extra):
+     from wowbot.agent.models import Observation
+     from wowbot.agent.world import WorldModel
+     world = WorldModel()
+     world.ingest(Observation.create({**_state(x=x, y=y), "timestamp": 10., "frame_id": 1, **extra}, 10.))
+-    world.__dict__["player_layer"] = lambda _state: layer
+     return world
+ 
+ 
+@@ -249,7 +251,8 @@
+     from wowbot.agent.models import Goal
+     from wowbot.agent.planner import Planner
+     from wowbot.agent.skills import SkillRegistry
+-    planner = Planner(SkillRegistry())       # no movement bindings: read the quest domain
++    planner = Planner(SkillRegistry(), navigation_queries=NavigationQueryPorts(
++        player_layer=lambda _state: 62.7))  # no movement bindings: read the quest domain
+     world = _pit_world(81.8, -2272.2)
+     candidates = planner.quest.propose(world, Goal.parse("Questelj", 10.))
+     move = next(p for p in candidates if p.parameters.get("purpose") == "APPROACH_QUEST_OBJECT_SPAWN")
+--- a/tests/test_quest_object_lock_20261014.py
++++ b/tests/test_quest_object_lock_20261014.py
+@@ -195,7 +195,9 @@
+     from wowbot.agent.models import Goal
+     from wowbot.agent.planner import Planner
+     from wowbot.agent.skills import SkillRegistry
+-    planner = Planner(SkillRegistry())
++    from wowbot.query_ports import NavigationQueryPorts
++    planner = Planner(SkillRegistry(), navigation_queries=NavigationQueryPorts(
++        player_layer=lambda _state: 62.7))
+     far = planner.quest.propose(_pit_world(81.8, -2272.2), Goal.parse("Questelj", 10.))
+     approach = next(p for p in far if p.parameters.get("purpose") == "APPROACH_QUEST_OBJECT_SPAWN")
+     assert approach.parameters["face_on_arrival"] is True

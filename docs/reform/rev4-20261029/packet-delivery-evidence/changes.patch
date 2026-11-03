@@ -1,0 +1,807 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,20 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P2/P3 authenticated delivery continuity — **OFFLINE_TESTED /
++retained-state parity PARTIAL**. V2 IPC signs the sender/context sequence;
++gaps, sender changes, mailbox loss and queued expiry invalidate continuity.
++Coalescing and duplicates do not invent loss. The common session provider
++requires a packet rebaseline; addon frames cannot repair it, and the existing
++input-freshness gate is revoked immediately. Old native query state cannot
++survive an identity-only replay. Legacy migration discards native fields but
++preserves positive current-entity recovery; V1 remains UNSEQUENCED. No source
++TTL was extended and no old sample was restamped. Selected regression:
++**3908 passed, 2 skipped, 10 unchanged deselections, 318 modules, exit 0**,
++173.00 s pytest. All 537 source and 627 test Python files parse; all 203
++numbered rows unchanged. Capture liveness/progress proof, applied watermarks,
++full unknown-layout handling and retained collection parity remain code gaps.
++No game/capture/input/live DB changes/new live acceptance; addon/Ymir unchanged.
++See [delivery checkpoint](reform/rev4-20261029/P2_PACKET_DELIVERY.md).
+ 
+ 2026-10-30 REV4 P9 persisted episode proof gate — **OFFLINE_TESTED / full
+ historical lineage migration PARTIAL**. Pattern promotion now resolves actual
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,20 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — authenticated IPC delivery continuity (offline only)
++
++V2 sender/context sequences are authenticated. Missing delivery, sender switch,
++mailbox loss and queued expiry revoke the native baseline; ordinary coalescing
++does not. Both fast/medium lanes use the common session provider. Addon cannot
++repair the loss, the input gate is revoked, and identity-only replay cannot
++revive old native quest/inventory data. Legacy positive snapshot recovery was
++preserved after seven regression failures; native fields are still discarded.
++
++Final selected regression: **3908 passed, 2 skipped, 10 unchanged deselections**,
++318 modules, 173.00 s pytest / 175.81 s runner, exit 0. All 537 source and 627
++test Python files parse. All 203 numbered rows persist. Source liveness/progress
++and complete retained-state parity remain incomplete; native TTLs unchanged.
++No game/capture/FULL_AI/input/live DB modification/new live acceptance;
++addon/Ymir unchanged. [Details/checkpoint](reform/rev4-20261029/P2_PACKET_DELIVERY.md).
+ 
+ ## 2026-10-30 — persisted episode proofs (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3894 passed, 2 skipped, 10 változatlan deselection, 317 modul, exit 0.
++Végső kijelölt regresszió: 3908 passed, 2 skipped, 10 változatlan deselection, 318 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -22,6 +22,9 @@
+ A [P9 epizód-proof kapu](P9_PERSISTED_EPISODE_PROOFS.md) tényleges tartós
+ bizonyítékot és eredeti forrásgyökeret követel meg; a teljes történeti lineage
+ migráció ettől még nyitott.
++A [helyi IPC-kézbesítés folytonossága](P2_PACKET_DELIVERY.md) is ellenőrzött:
++sorszámrés és valódi mailbox-kiesés natív field-invalidálást/rebaseline-t okoz;
++retained-state életjel és teljes parity még nem készült el.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -38,6 +38,10 @@
+ valóban mentett evidence, eredeti idő/scope és tartós forrásgyökér-dedup kell;
+ a régi policy és eltérő környezeti verzió nem újrafelhasználható. Ez nem a teljes
+ történeti import/retained-replay lineage migrációjának lezárása.
++Az új [hitelesített IPC-kézbesítési sorszám](P2_PACKET_DELIVERY.md) a helyi
++delta-kiesést is láthatóvá teszi: a szigorú mód packet-baseline-t kér, a régi
++migrációs mód pedig eldobja a natív mezőket és megtartja a pozitív snapshot-
++helyreállítást. Retained TTL/progress-watermark és teljes parity továbbra is nyitott.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -80,14 +84,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3894 passed, 2 skipped, 10 deselected; 317 modul; 156.13 s; exit 0** |
++| Végső kijelölt regresszió | **3908 passed, 2 skipped, 10 deselected; 318 modul; 173.00 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 536 source + 626 tests Python-fájl; 625 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 537 source + 627 tests Python-fájl; 626 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **317 kijelölt modul eredménye**, nem a teljes 625 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **318 kijelölt modul eredménye**, nem a teljes 626 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P2_PACKET_DELIVERY.md
++++ after/docs/reform/rev4-20261029/P2_PACKET_DELIVERY.md
+@@ -0,0 +1,85 @@
++# REV4 P2/P3 — hitelesített packetkézbesítés folytonossága
++
++2026-10-30, kijelölt `projekt`. Offline tesztelt kiegészítés a meglévő helyi
++IPC-hez; nem teljes retained-state/warm-replay implementáció.
++
++## A javított hiány
++
++A korábbi helyi UDP-envelope HMAC-kal hitelesített, selected-PID/session scoped
++volt, de nem hordozott küldőoldali kézbesítési sorszámot. Egy kieső delta így
++nem feltétlenül látszott. Erre nem lehetett volna hosszú életű, változatlan
++quest/inventory-állapotot alapozni.
++
++Az UdpJsonForwarder most `aipc.packet-envelope.v2` borítékot küld. A küldő
++véletlen helyi azonosítója és a contextenként növekvő sorszám is a HMAC része.
++Ezek nem játék-/auth-adatok és nem szerveres opcode-mezők. A régi V1 pozitív
++mintái kompatibilisek maradnak, de UNSEQUENCED státuszuk nem bizonyít teljes
++kézbesítést.
++
++Az inbox külön követi a kézbesítési állapotot. Sorszámrés, küldőcsere,
++protokollváltás, tényleges mailbox-kiesés és sorban lejáró minta explicit loss.
++Normális, azonos mezőre vonatkozó coalescing nem kiesés. Duplikált/késői
++datagram nem tekerteti vissza a sorszámot; egy utólag megérkező hiányzó csomag
++nem teszi utólag teljessé a korábbi állapotot. A rés sticky a következő
++hitelesített runtime contextig. Változatlan context configure nem törli.
++
++## Meglévő authority és helyreállítás
++
++A RuntimePacketSource a normál és a gyors movement-lane előtt ellenőrzi a
++kézbesítést. Kieséskor a közös SessionContextProvider GAP állapotú lesz és
++új packet-baseline-t kér. Egy új addon-frame sem javítja ki a hiányzó
++szerveres átmenetet. A meglévő `WorldModel.fresh()` inputkapu azonnal hamis,
++a scoped natív queryk pedig a régi quest/készlet/mezőbizonyítékot kizárják.
++
++Az endpoint új bootstrap contextet kap; a már meglévő producer identity-
++snapshotja helyreállíthatja az identitást/mapot. Ettől a korábbi questlog és
++inventory nem válik ismét ismertté. Baseline nélküli itemdelta nem gyárt új
++itemidentitást; új megfelelő saját CREATE helyreállítja a pozitív adatot.
++Az addon UI-frissesség és a bindings-authority továbbra is külön követelmény.
++
++Régi, SessionContextProvider nélküli migrációs adapter veszteség után a közös
++WorldModellel eldobatja a régi natív mezőket, és megtartja a meglévő aktuális-
++entitás snapshot-helyreállítását. Ebből nem állít teljes natív baseline-t vagy
++retained-state folytonosságot. A production runtime már a közös providert
++konstruálja. Nem került be új inputút vagy capture-folyamatindítás.
++
++## Ellenőrzés és határok
++
++Célzott kör: **138 pass**, tényleges HMAC/byte/inbox/adapter/WorldModel lánccal.
++Külön próbák: sorszámmódosítás aláírás nélkül, hibás stamp, 50 mozgás coalescing,
++duplikáció, rés/késői csomag, küldőcsere, V1-státusz, overflow/expiry;
++gyors és normál lane revokálás; addon nem javítja a rést; identity replay
++nem inventory-baseline; új CREATE helyreállít. Nincs kliensinput.
++
++A végső kijelölt regresszió **3908 passed, 2 skipped, 10 változatlan deselection,
++318 modul, exit 0**, pytest 173.00 s / runner 175.81 s. Mind az 537 source és
++627 test Python-fájl AST-je érvényes. A teljes 626 testmodulból a kijelölt 318
++futott; ez nem teljes repository-tesztfuttatási állítás.
++
++A nagy kör először hét legacy backlog-/queue-pressure regressziót talált:
++a providert nem használó migrációs ág túl széles tiltást kapott. A közös
++WorldModel-field invalidálás megőrzi a régi pozitív snapshot-helyreállítást,
++miközben a szigorú ág továbbra is packet-baseline-t követel. A javított célzott
++156-os, majd az új overflow-próbával bővített 57-es kör is zöld; átfednek,
++nem összeadandók. A legelső új teszt egyik elvárása két külön receipt-időt
++hasonlított, ezt a fixture-ben korrigáltuk. Minden tesztkimenet megmarad.
++
++Egy ellenőrző parancs véletlenül kétszer indította ugyanazt a nagy tesztet;
++mindkettőt leállítottuk, az összekeveredett kimenet nem eredmény. Külön final,
++majd a javítás után külön verified könyvtárban futott az elfogadott ellenőrzés.
++Az incident-jegyzék a checkpoint része, játék/capture/input nem volt érintett.
++
++[Forrás/diff/parancs/JUnit checkpoint](packet-delivery-evidence/verification.json).
++Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
++
++A sorszám a helyi kézbesítést követi, nem bizonyít minden hálózati csomagra
++veszteségmentes capture-t. A legutolsó elveszett datagram újabb kézbesítés
++nélkül nem észlelhető sorszámrésként. Időkorlátos forráséletjel/progress-proof,
++alkalmazott watermark, teljesebb unknown-layout érvénytelenítés és per-field
++retained-state követelmény még hátravan. A jelenlegi natív TTL-ek nem lettek
++megnövelve; a régi mezők ideje nem íródik át. Teljes native parity nincs késznek
++jelölve. A meglévő Ymir/packet worker a felhasználó következő szabályos
++újraindításakor tölti be az új Python-kódot; az asszisztens nem indította újra.
++
++Addon és pinned Ymir byte-változatlan. Nem indult WoW, capture vagy FULL_AI,
++nem változott éles memory DB, nincs új LIVE_VALIDATED állítás.
+--- before/src/wowbot/agent/packet_continuity.py
++++ after/src/wowbot/agent/packet_continuity.py
+@@ -33,11 +33,17 @@
+     token = (provider.process.generation, provider.capture_epoch, provider.continuity_generation)
+     if model.__dict__.get('_packet_continuity_token') == token:
+         return False
++    discard_fields(model, state)
++    model.__dict__['_packet_continuity_token'] = token
++    return True
++
++
++def discard_fields(model, state=None):
++    """Drop current native fields, retaining immutable source history/dedup."""
+     for key in tuple(model.__dict__):
+         if (key.startswith('_packet_') and key not in {'_packet_continuity_token', '_packet_event_ids'}
+                 or key in {'_power_context', '_entity_raw_maps'}):
+             model.__dict__.pop(key, None)
+-    model.__dict__['_packet_continuity_token'] = token
+     model.source_latest.pop('PACKET_TELEMETRY', None)
+     # This is eviction from current evidence, not deletion of the source trace.
+     for key, entries in tuple(model.evidence.items()):
+@@ -57,4 +63,3 @@
+                 state[key] = json_copy(model.addon_state[key])
+             else:
+                 state.pop(key, None)
+-    return True
+--- before/src/wowbot/agent/runtime_packet_source.py
++++ after/src/wowbot/agent/runtime_packet_source.py
+@@ -51,6 +51,9 @@
+         self._snapshot_attempts = 0
+         self._snapshot_healthy_since = None
+         self.last_accepted_at = None
++        self.delivery_losses = 0
++        self.delivery_loss_reason = None
++        self._delivery_loss_generation = 0
+         self.enabled = source is not None or os.environ.get("AIPC_PACKET_TELEMETRY", "0").lower() in {"1", "true", "yes", "on"}
+ 
+     def start(self):
+@@ -86,6 +89,7 @@
+ 
+     def _observations(self, payload, world, current):
+         from adapters.atomic_file import write_json_replace
++        self._observe_delivery(world)
+         state = {**world.addon_state, **(payload or {})}
+         if self.session_provider is not None:
+             self.session_provider.observe_addon(state)
+@@ -98,7 +102,7 @@
+             signature = {**(expected or {"selected_pid": self.pid, "bootstrap": True}),
+                          "process_generation": self.session_provider.process.generation}
+             self._configure(signature)
+-            return self._read_events(current)
++            return self._read_events(current, world)
+         evaluation = evaluate_addon_context(state)
+         self.context_status = evaluation.reason
+         self.context_state = evaluation.state
+@@ -110,7 +114,29 @@
+             self.context_state = ContextState.MISMATCH
+         signature = self.session_context.as_dict() if self.session_context else None
+         self._configure(signature)
+-        return self._read_events(current)
++        return self._read_events(current, world)
++
++    def _observe_delivery(self, world):
++        read = getattr(self.source, 'delivery_status', None)
++        if not callable(read):
++            return False  # old sources cannot claim retained-state continuity
++        status = read()
++        generation = status.get('loss_generation')
++        if type(generation) is not int or generation <= self._delivery_loss_generation:
++            return False
++        self.delivery_losses += generation-self._delivery_loss_generation
++        self._delivery_loss_generation = generation
++        self.delivery_loss_reason = status.get('last_loss')
++        if self.session_provider is None:
++            # Explicit migration mode retains its existing current-entity
++            # recovery, but never carries old native fields across a loss.
++            world.discard_packet_fields()
++        else:
++            world.session_context_provider = self.session_provider
++            self.session_provider.require_packet_baseline('ipc_delivery_discontinuity')
++            self._configure({'selected_pid':self.pid, 'bootstrap':True,
++                             'process_generation':self.session_provider.process.generation})
++        return self.session_provider is not None
+ 
+     def _configure(self, signature):
+         from adapters.atomic_file import write_json_replace
+@@ -131,15 +157,17 @@
+             except OSError:
+                 self.error = "packet_endpoint_write_failed"
+ 
+-    def _read_events(self, current):
++    def _read_events(self, current, world=None):
+         events = self.source.poll(limit=128)
+-        if self.context is None:
+-            return ()
+-        observations = []
+         take_stale = getattr(self.source, "take_stale_counts", None)
+         stale_total, stale_entity_count = take_stale() if callable(take_stale) else (0, 0)
+         self.stale_event_discards += stale_total
+         self.stale_entity_discards += stale_entity_count
++        if world is not None and self._observe_delivery(world):
++            return ()  # discard a batch that lost its complete delivery history
++        if self.context is None:
++            return ()
++        observations = []
+         stale_entities = stale_entity_count > 0
+         from wowbot.packetio.validation import ENTITY_EVENTS
+         for event in events:
+@@ -209,6 +237,9 @@
+         still polls and applies the same event (see
+         ``WorldPacketReducer.peek_own_movement``)."""
+         peek = getattr(self.source, "peek_movement", None)
++        if self._observe_delivery(world) or (self.session_provider is not None
++                and self.session_provider.expected(self.pid) is None):
++            return False
+         if self.closed or self.context is None or not callable(peek):
+             return False
+         from .world_packet_reducer import WorldPacketReducer
+@@ -268,6 +299,8 @@
+             "invalid_time_discards": self.invalid_time_discards,
+             'capture_epoch_discards': self.capture_epoch_discards,
+             'capture_epoch_error': self.capture_epoch_error,
++            'delivery_losses': self.delivery_losses,
++            'delivery_loss_reason': self.delivery_loss_reason,
+             'source_restart_required': self.capture_epoch_error == 'capture_epoch_missing',
+             "entity_snapshot_requests": self.entity_snapshot_requests,
+             "entity_snapshot_request_error": self.entity_snapshot_request_error,
+--- before/src/wowbot/agent/world.py
++++ after/src/wowbot/agent/world.py
+@@ -466,6 +466,12 @@
+         """
+         self._state_projector.rebuild(self)
+ 
++    def discard_packet_fields(self):
++        """Explicit sensor loss, including a legacy source without a provider."""
++        from .packet_continuity import discard_fields
++        discard_fields(self)
++        self._rebuild_state()
++
+     @staticmethod
+     def _screen_anchor_scene_valid(anchor: dict, state: dict) -> bool:
+         return WorldStateProjector.screen_anchor_scene_valid(anchor, state)
+--- before/src/wowbot/packetio/delivery.py
++++ after/src/wowbot/packetio/delivery.py
+@@ -0,0 +1,61 @@
++"""Local delivery continuity, separate from server facts and input authority."""
++import re
++
++
++def stamp(value):
++    if (not isinstance(value, dict) or set(value) != {'sender_id', 'sequence'}
++            or not isinstance(value.get('sender_id'), str)
++            or re.fullmatch('[a-f0-9]{32}', value['sender_id']) is None
++            or type(value.get('sequence')) is not int or not 0 < value['sequence'] < 2**63):
++        raise ValueError('invalid local stream stamp')
++    return dict(value)
++
++
++class DeliveryContinuity:
++    """Caller owns the inbox lock. Loss is sticky until a new IPC context."""
++    def __init__(self):
++        self.loss_generation = 0
++        self.last_loss = None
++        self.reset()
++
++    def reset(self):
++        self.sender_id = None
++        self.sequence = 0
++        self.state = 'UNSEEN'
++        self.retired = []
++
++    def lost(self, reason):
++        self.loss_generation += 1
++        self.last_loss = reason
++        self.state = 'GAP'
++
++    def accept(self, incoming):
++        if incoming is None:
++            if self.sender_id is not None:
++                self.lost('unsequenced_delivery')
++            elif self.state == 'UNSEEN':
++                self.state = 'UNSEQUENCED'
++            return True  # legacy positive samples never prove continuity
++        value = stamp(incoming)
++        sender, sequence = value['sender_id'], value['sequence']
++        if sender in self.retired:
++            return False
++        if sender != self.sender_id:
++            if self.sender_id is not None:
++                self.retired = [*self.retired[-7:], self.sender_id]
++                self.lost('sender_changed')
++            elif self.state == 'UNSEQUENCED':
++                self.lost('delivery_protocol_changed')
++            self.sender_id, self.sequence = sender, 0
++        if sequence <= self.sequence:
++            return False  # duplicate/out-of-order datagrams cannot rewind delivery
++        if sequence != self.sequence+1:
++            self.lost('sequence_gap')
++        elif self.state == 'UNSEEN':
++            self.state = 'CONTIGUOUS'
++        self.sequence = sequence
++        return True
++
++    def snapshot(self):
++        return {'state':self.state, 'sender_id':self.sender_id, 'sequence':self.sequence,
++                'loss_generation':self.loss_generation, 'last_loss':self.last_loss}
+--- before/src/wowbot/packetio/forwarder.py
++++ after/src/wowbot/packetio/forwarder.py
+@@ -4,6 +4,7 @@
+ import json
+ from pathlib import Path
+ import socket
++import secrets
+ import threading
+ import time
+ from typing import Iterable
+@@ -54,8 +55,16 @@
+         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+         self.sent = 0
+         self.dropped = 0
+-
+-    def emit(self, event: AgentPacketEvent) -> bool:
++        self._sender_id = secrets.token_hex(16)
++        self._delivery_sequence = 0
++        self._delivery_context = None
++        self._send_lock = threading.Lock()
++
++    def emit(self, event: AgentPacketEvent) -> bool:
++        with self._send_lock:
++            return self._emit(event)
++
++    def _emit(self, event: AgentPacketEvent) -> bool:
+         value = self.policy.prepare(event)
+         if value is None:
+             self.dropped += 1
+@@ -87,7 +96,12 @@
+                     and descriptor["context"].get("game_build") != event.provenance.get("game_build")):
+                 self.dropped += 1
+                 return False
+-            encoded = canonical(envelope(value, descriptor))
++            context_id = descriptor['context'].get('context_id')
++            if context_id != self._delivery_context:
++                self._delivery_context, self._delivery_sequence = context_id, 0
++            self._delivery_sequence += 1
++            encoded = canonical(envelope(value, descriptor, stream={
++                'sender_id':self._sender_id, 'sequence':self._delivery_sequence}))
+             address = descriptor["host"], descriptor["port"]
+         except (OSError, ValueError, TypeError, KeyError):
+             self.dropped += 1
+--- before/src/wowbot/packetio/inbox.py
++++ after/src/wowbot/packetio/inbox.py
+@@ -10,6 +10,7 @@
+ 
+ from .ipc import verify
+ from .validation import normalize_event
++from .delivery import DeliveryContinuity
+ 
+ 
+ class PacketEventInbox:
+@@ -45,6 +46,7 @@
+         self.received = self.rejected = self.dropped = self.coalesced = self.duplicates = 0
+         self.last_received_at = self.last_error = None
+         self._sequence = 0
++        self._delivery = DeliveryContinuity()
+         if autostart:
+             self._thread = threading.Thread(target=self._receive, name="aipc-packet-inbox", daemon=True)
+             self._thread.start()
+@@ -60,6 +62,7 @@
+                 self._stale_counts[:] = [0, 0]
+                 self._seen.clear()
+                 self._seen_set.clear()
++                self._delivery.reset()
+                 self.last_received_at = None  # an old context cannot look like fresh receipt
+                 self._descriptor["context"] = dict(context) if context else None
+             return {**self._descriptor, "context": dict(context) if context else None}
+@@ -92,6 +95,10 @@
+                 age = wall-event["timestamp"]
+                 if not -.1 <= age <= self.MAX_EVENT_AGE or event["timestamp"] < context["started_wall"]:
+                     raise ValueError("stale_or_future_packet")
++                stream = value.get('stream') if value.get('schema') == 'aipc.packet-envelope.v2' else None
++                if not self._delivery.accept(stream):
++                    self.duplicates += 1
++                    return False
+                 if event["event_id"] in self._seen_set:
+                     self.duplicates += 1
+                     return False
+@@ -119,6 +126,7 @@
+                     if len(self._states) >= 256 and key not in self._states:
+                         self._states.pop(next(iter(self._states)))
+                         self.dropped += 1
++                        self._delivery.lost('state_mailbox_overflow')
+                     self._states[key] = event
+                 elif movement:
+                     # Only the newest position per mover/server entity matters;
+@@ -133,6 +141,7 @@
+                     if len(self._movement) >= 256 and key not in self._movement:
+                         self._movement.pop(next(iter(self._movement)))
+                         self.dropped += 1
++                        self._delivery.lost('movement_mailbox_overflow')
+                     self._movement[key] = event
+                 else:
+                     if event["event_type"] == "MAP_CHANGED" or event["payload"].get("teleport"):
+@@ -142,6 +151,7 @@
+                             for key in obsolete: mailbox.pop(key)
+                     if len(self.queue) == self.queue.maxlen:
+                         self.dropped += 1
++                        self._delivery.lost('event_mailbox_overflow')
+                     self.queue.append(event)
+                 self.received += 1
+                 self.last_received_at = now
+@@ -179,6 +189,7 @@
+         if len(self._entities) >= self.queue.maxlen:
+             self._entities.pop(next(iter(self._entities)))
+             self.dropped += 1
++            self._delivery.lost('entity_mailbox_overflow')
+         self._entities[key] = event
+ 
+     def poll(self, limit=128):
+@@ -194,6 +205,7 @@
+                 self._stale_counts[0] += 1
+                 self._stale_counts[1] += int(event["event_type"] in ENTITY_EVENTS
+                                              and event.get("semantic_status") == "CONFIRMED")
++                self._delivery.lost('queued_sample_expired')
+                 return False
+             self.queue = deque((e for e in self.queue if fresh(e)), maxlen=self.queue.maxlen)
+             self._movement = {k: e for k, e in self._movement.items() if fresh(e)}
+@@ -234,7 +246,11 @@
+                 "queued": len(self.queue)+len(self._movement)+len(self._entities)+len(self._states),
+                 'queued_states': len(self._states),
+                 "queued_entities": len(self._entities), "last_received_at": self.last_received_at,
+-                "last_error": self.last_error}
++                "last_error": self.last_error, 'delivery':self._delivery.snapshot()}
++
++    def delivery_status(self):
++        with self._lock:
++            return self._delivery.snapshot()
+ 
+     def close(self):
+         self._stop.set()
+--- before/src/wowbot/packetio/ipc.py
++++ after/src/wowbot/packetio/ipc.py
+@@ -11,15 +11,21 @@
+     return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+ 
+ 
+-def envelope(event, descriptor):
++def envelope(event, descriptor, *, stream=None):
+     body = {"schema": "aipc.packet-envelope.v1", "context": descriptor["context"], "event": event}
++    if stream is not None:
++        from .delivery import stamp
++        body.update(schema='aipc.packet-envelope.v2', stream=stamp(stream))
+     return {**body, "signature": hmac.new(descriptor["ipc_key"].encode(), canonical(body), hashlib.sha256).hexdigest()}
+ 
+ 
+ def verify(value, descriptor):
+-    if not isinstance(value, dict) or value.get("schema") != "aipc.packet-envelope.v1":
++    if not isinstance(value, dict) or value.get("schema") not in {"aipc.packet-envelope.v1", "aipc.packet-envelope.v2"}:
+         raise ValueError("authenticated packet envelope required")
+     body = {k: value.get(k) for k in ("schema", "context", "event")}
++    if value['schema'] == 'aipc.packet-envelope.v2':
++        from .delivery import stamp
++        body['stream'] = stamp(value.get('stream'))
+     expected = hmac.new(descriptor["ipc_key"].encode(), canonical(body), hashlib.sha256).hexdigest()
+     if not hmac.compare_digest(expected, str(value.get("signature") or "")):
+         raise ValueError("invalid packet IPC signature")
+--- before/src/wowbot/session_context.py
++++ after/src/wowbot/session_context.py
+@@ -53,6 +53,7 @@
+         self.local_ui_ready = False
+         self.last_world_change_at = None
+         self._field_coverage = {}
++        self._packet_rebaseline_required = False
+ 
+     def observe_addon(self, state: Mapping) -> None:
+         from .packetio.context import evaluate_addon_context
+@@ -62,6 +63,8 @@
+                 self.local_ui_ready = False
+                 self.invalidate("loading_or_player_absent")
+             return
++        if self._packet_rebaseline_required:
++            return  # local UI cannot repair a missing world/quest/inventory delivery
+         if self.context and (self.source == "PACKET_BASELINE" or self.server_world_map_id is not None):
+             if (candidate.identity.character_guid != self.context.identity.character_guid
+                     or candidate.identity.game_build != self.context.identity.game_build):
+@@ -135,7 +138,13 @@
+         self._set(SessionContext(SessionIdentity(self.process.selected_pid, session_id, guid,
+                                                 source["game_build"]),
+                                  WorldContext(instance, ui_map, phase)), "PACKET_BASELINE")
++        self._packet_rebaseline_required = False
+         return True
++
++    def require_packet_baseline(self, reason):
++        """A lost semantic delivery may include a map/identity transition."""
++        self._packet_rebaseline_required = True
++        self.invalidate(reason)
+ 
+     def advance_world(self, event):
+         """Authenticated caller's server transition; UI readiness is separate."""
+@@ -207,6 +216,7 @@
+         return {"state": self.state.value, "reason": self.reason, "source": self.source,
+                 "revision": self.revision, "capture_epoch": self.capture_epoch,
+                 'continuity_generation': self.continuity_generation,
++                'packet_rebaseline_required': self._packet_rebaseline_required,
+                 "sequence": self.sequence, "process_generation": self.process.generation,
+                 'local_ui_ready': self.local_ui_ready, 'server_world_map_id': self.server_world_map_id,
+                 "context": self.expected(self.process.selected_pid),
+--- before/tests/test_packet_delivery_20261030.py
++++ after/tests/test_packet_delivery_20261030.py
+@@ -0,0 +1,212 @@
++"""Authenticated delivery gaps invalidate baselines; never operate a client."""
++import json
++import struct
++from collections import deque
++from types import SimpleNamespace
++
++import pytest
++
++from wowbot.agent.models import Observation
++from wowbot.agent.runtime_packet_source import RuntimePacketSource
++from wowbot.agent.world import WorldModel
++from wowbot.packetio.forwarder import UdpJsonForwarder
++from wowbot.packetio.inbox import PacketEventInbox
++from wowbot.packetio.ipc import canonical, envelope, verify
++from wowbot.session_context import BaselineState, ProcessIdentity, SessionContextProvider
++from test_packet_telemetry import context, event
++from test_packet_agent_bridge import addon, bridge
++from test_packet_codecs import decoded
++from test_session_bootstrap_20261029 import session_events
++from test_native_inventory_20261030 import (events, item_payload, create_payload, full_player_tail,
++                                          deliver_native, ready)
++from test_native_inventory_delta_20261030 import delta_payload
++
++SENDER = 'a'*32
++
++
++@pytest.fixture
++def inbox():
++    value = PacketEventInbox(77,port=0,autostart=False,clock=lambda:10.,wall_clock=lambda:1000.)
++    value.configure(context())
++    yield value
++    value.close()
++
++
++def send(inbox, value, sequence, *, sender=SENDER):
++    descriptor = inbox._descriptor
++    return inbox.ingest_datagram(canonical(envelope(value.to_dict(),descriptor,
++        stream={'sender_id':sender,'sequence':sequence})))
++
++
++def test_stream_stamp_is_authenticated_and_not_a_semantic_payload(inbox):
++    original = event().to_dict()
++    value = envelope(original,inbox._descriptor,stream={'sender_id':SENDER,'sequence':1})
++    assert verify(value,inbox._descriptor)==original
++    value['stream']['sequence']=2
++    assert not inbox.ingest_datagram(canonical(value))
++    assert inbox.delivery_status()['state']=='UNSEEN'
++    assert send(inbox,event(),1)
++    row = inbox.poll()[0]
++    assert 'sequence' not in row['payload'] and 'ipc_key' not in json.dumps(inbox.diagnostics())
++
++
++@pytest.mark.parametrize('value',[{'sender_id':'bad','sequence':1}, {'sender_id':SENDER,'sequence':True},
++    {'sender_id':SENDER,'sequence':0}, {'sender_id':SENDER,'sequence':2**63},
++    {'sender_id':SENDER,'sequence':1,'extra':1}])
++def test_invalid_local_stream_stamps_cannot_be_signed(value,inbox):
++    with pytest.raises(ValueError):
++        envelope(event().to_dict(),inbox._descriptor,stream=value)
++
++
++def test_sequenced_coalescing_is_lossless_and_duplicates_cannot_rewind_it(inbox):
++    for i in range(1,51):
++        assert send(inbox,event(timestamp=1000.+i*.001),i)
++    assert not send(inbox,event(timestamp=1000.001),1)
++    status = inbox.delivery_status()
++    assert status['state']=='CONTIGUOUS' and status['sequence']==50 and status['loss_generation']==0
++    assert len(inbox.poll())==1 and inbox.coalesced==49
++
++
++def test_gap_is_sticky_and_late_missing_packet_cannot_repair_old_baselines(inbox):
++    assert send(inbox,event(),1)
++    assert send(inbox,event(timestamp=1000.002),3)
++    assert not send(inbox,event(timestamp=1000.001),2)
++    assert send(inbox,event(timestamp=1000.003),4)
++    assert inbox.delivery_status()['state']=='GAP'
++    assert inbox.delivery_status()['last_loss']=='sequence_gap'
++    before = inbox.delivery_status()['loss_generation']
++    inbox.configure(context(context_id='new'))
++    assert send(inbox,event(timestamp=1000.004),1)
++    assert inbox.delivery_status()['state']=='CONTIGUOUS'
++    assert inbox.delivery_status()['loss_generation']==before
++
++
++def test_first_missing_sequence_sender_switch_and_legacy_mode_have_explicit_status(inbox):
++    assert send(inbox,event(),2)
++    assert inbox.delivery_status()['state']=='GAP'
++    inbox.configure(context(context_id='new'))
++    assert send(inbox,event(),1)
++    assert send(inbox,event(timestamp=1000.001),1,sender='b'*32)
++    assert inbox.delivery_status()['last_loss']=='sender_changed'
++    assert not send(inbox,event(timestamp=1000.002),2)
++    inbox.configure(context(context_id='legacy'))
++    assert inbox.ingest_datagram(canonical(envelope(event().to_dict(),inbox._descriptor)))
++    assert inbox.delivery_status()['state']=='UNSEQUENCED'
++
++
++def test_queue_overflow_and_expiry_are_delivery_losses_not_silent_partial_state():
++    inbox = PacketEventInbox(77,port=0,max_queue=1,autostart=False,clock=lambda:10.,wall_clock=lambda:1000.)
++    try:
++        inbox.configure(context())
++        assert send(inbox,event('QUEST_COMPLETED',body={'quest_id':1}),1)
++        assert send(inbox,event('QUEST_COMPLETED',body={'quest_id':2}),2)
++        assert inbox.delivery_status()['last_loss']=='event_mailbox_overflow'
++        inbox._clock=lambda:12.1
++        assert inbox.poll()==[]
++        assert inbox.delivery_status()['last_loss']=='queued_sample_expired'
++    finally:
++        inbox.close()
++
++
++def test_legacy_loss_discards_old_native_fields_but_accepts_new_positive_events(bridge):
++    ready(bridge)
++    decoder = deliver_native(bridge,item_payload())
++    assert bridge.world.query.owned_item_count(12345,10.)['count']==7
++    bridge.inbox.queue=deque(maxlen=1)
++    descriptor = json.loads(bridge.adapter.path.read_text())
++    _, values = events(item_payload(qty=8),decoder)
++    changed = next(e for e in values if e.event_type=='OWN_ITEM_UPDATE')
++    assert bridge.inbox.ingest_datagram(canonical(envelope(changed.to_dict(),descriptor)))
++    latest = decoded('SMSG_QUEST_UPDATE_COMPLETE',struct.pack('<I',55639)+b'\x80',build=70575)[-1]
++    assert bridge.inbox.ingest_datagram(canonical(envelope(latest.to_dict(),descriptor)))
++    observations = bridge.adapter.observations(None,bridge.world,10.)
++    assert len(observations)==1 and bridge.world.ingest(observations[0])
++    assert bridge.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    assert bridge.adapter.error is None and bridge.adapter.delivery_losses==1
++
++
++@pytest.fixture
++def native(tmp_path):
++    provider = SessionContextProvider(ProcessIdentity(77,'0000000000000001',70575))
++    world = WorldModel(session_context_provider=provider)
++    world.ingest(Observation.create(addon(game_build='70575'),9.1))
++    inbox = PacketEventInbox(77,port=0,autostart=False,clock=lambda:10.,wall_clock=lambda:1000.)
++    adapter = RuntimePacketSource(77,tmp_path,source=inbox,session_provider=provider,wall_clock=lambda:999.)
++    adapter.observations(None,world,10.)
++    state = SimpleNamespace(provider=provider,world=world,inbox=inbox,adapter=adapter,
++                            sequence=0,context_id=None)
++    def feed(value, *, skip=0, poll=True):
++        descriptor = json.loads(adapter.path.read_text())
++        if descriptor['context']['context_id']!=state.context_id:
++            state.context_id, state.sequence = descriptor['context']['context_id'], 0
++        state.sequence+=1+skip
++        assert inbox.ingest_datagram(canonical(envelope(value.to_dict(),descriptor,
++            stream={'sender_id':SENDER,'sequence':state.sequence})))
++        if poll:
++            for obs in adapter.observations(None,world,10.):world.ingest(obs)
++    state.feed=feed
++    decoder, record = session_events(build=70575)
++    baseline = decoder.decode_all(record)[-1]
++    state.decoder, state.baseline = decoder, baseline
++    feed(baseline)
++    for packet in (create_payload(player_tail=full_player_tail()),item_payload()):
++        _, values = events(packet,decoder)
++        for value in values:
++            if value.event_type.startswith('OWN_'):feed(value)
++    assert world.query.owned_item_count(12345,10.)['count']==7
++    assert world.query.quest_presence(123456,10.)['state']=='ABSENT'
++    yield state
++    adapter.close()
++
++
++@pytest.mark.parametrize('fast',[False,True])
++def test_delivery_gap_revokes_native_baselines_and_addon_cannot_repair_it(native,fast):
++    value = events(delta_payload(quantity=11),native.decoder)[1][-1]
++    native.feed(value,skip=1,poll=False)
++    if fast:
++        assert native.adapter.peek_own_movement(native.world,10.) is False
++    else:
++        assert native.adapter.observations(None,native.world,10.)==()
++    assert native.provider.state is BaselineState.GAP
++    assert not native.world.fresh(10.)  # the existing input gate is revoked immediately
++    assert native.provider.diagnostics()['packet_rebaseline_required']
++    assert native.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    assert native.world.query.quest_presence(123456,10.)['state']=='UNKNOWN'
++    native.provider.observe_addon(native.world.addon_state)
++    assert native.provider.state is BaselineState.GAP
++    assert native.adapter.context['bootstrap'] is True
++    assert native.world.last_received==9.1
++    # A fresh identity replay restores identity, not old inventory/quest state.
++    native.feed(native.baseline)
++    assert native.provider.state is BaselineState.READY
++    assert native.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    assert native.world.query.quest_presence(123456,10.)['state']=='UNKNOWN'
++    native.feed(events(delta_payload(quantity=12),native.decoder)[1][-1])
++    assert native.world.query.owned_item_count(12345,10.)['status']=='UNKNOWN'
++    native.feed(events(item_payload(qty=13),native.decoder)[1][-1])
++    assert native.world.query.owned_item_count(12345,10.)['count']==13
++    assert native.adapter.diagnostics()['delivery_losses']>0
++
++
++def test_forwarder_signs_every_attempt_and_resets_sequence_only_for_new_context(tmp_path):
++    decoder, record = session_events(build=70575)
++    value = decoder.decode_all(record)[-1]
++    descriptor = {'context':context(game_build=70575),'host':'127.0.0.1','port':12345,'ipc_key':'x'*40}
++    class Socket:
++        def __init__(self):self.sent=[]
++        def sendto(self,data,address):self.sent.append(json.loads(data))
++        def close(self):pass
++    forwarder = UdpJsonForwarder(descriptor_path=tmp_path/'endpoint.json')
++    forwarder.socket.close()
++    forwarder.socket=Socket()
++    forwarder._current_descriptor=lambda:descriptor
++    try:
++        assert forwarder.emit(value) and forwarder.emit(value)
++        assert [v['stream']['sequence'] for v in forwarder.socket.sent]==[1,2]
++        assert all(v['schema']=='aipc.packet-envelope.v2' for v in forwarder.socket.sent)
++        for sent in forwarder.socket.sent:assert verify(sent,descriptor)['event_id']==value.event_id
++        descriptor['context']={**descriptor['context'],'context_id':'new'}
++        assert forwarder.emit(value)
++        assert forwarder.socket.sent[-1]['stream']['sequence']==1
++    finally:
++        forwarder.close()

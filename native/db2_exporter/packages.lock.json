@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "DBCD": {
+        "type": "Direct",
+        "requested": "[2.3.0, )",
+        "resolved": "2.3.0",
+        "contentHash": "10bnkPbcNCPUVrTIwohN0O7u9BJ6IFIC5QgTAcKP4/6h5Ny4bvQMVFtm6WfhCb0PX8YRxSLPWfCLMXVRSOrbEA==",
+        "dependencies": {
+          "DBCD.IO": "2.3.0",
+          "DBDefsLib": "1.1.0"
+        }
+      },
+      "DBCD.IO": {
+        "type": "Transitive",
+        "resolved": "2.3.0",
+        "contentHash": "3F7lMdgg02qxFwJ1hllxeVzM8hDXYLrEqT+MYhIiT+qeR3KBAhfo8UXTYEnnZcb49BLQtVEqFvlE6urw5Ud1Pw=="
+      },
+      "DBDefsLib": {
+        "type": "Transitive",
+        "resolved": "1.1.0",
+        "contentHash": "tpC29aZ+xnoiYxvPVzGehk6S1MiUWv4hdyK9QQyX5ZsFqDiwm2r7wBDFEmpcH2xy3uMs+4KM1t58UgWl/cfWxQ=="
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "src_python_files": 536,
+  "tests_python_files": 625,
+  "test_modules": 624,
+  "numbered_coverage_rows": 203,
+  "addon_packages_identical": true,
+  "ymir_sha256": "77cc8a63b94ee52c47090290a69f3d6fa3db3995ded3c7534c886c85dcbec6b9"
+}

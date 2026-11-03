@@ -77,6 +77,11 @@ class WorldStateProjector:
         for key, values in combined.items():
             if values or any(key in projection for projection in projections):
                 model.state[key] = values
+        from .world_packet_reducer import WorldPacketReducer
+        WorldPacketReducer.project(model, model.state)
+        if not model.runtime_profile.visual:
+            self._structured_only(model)
+            return
         self._project_vehicle_bar(model.state)
         self._project_fast_actionbar(model.state)
         self._project_camera(model.state)
@@ -115,6 +120,11 @@ class WorldStateProjector:
             return
         for key, value in fast_delta.items():
             model.state[key] = _copy(value)
+        from .world_packet_reducer import WorldPacketReducer
+        WorldPacketReducer.project(model, model.state)
+        if not model.runtime_profile.visual:
+            self._structured_only(model)
+            return
         self._project_vehicle_bar(model.state)
         self._project_fast_actionbar(model.state)
         self._project_camera(model.state)
@@ -133,6 +143,26 @@ class WorldStateProjector:
             model.__dict__.get("mouseover_object_memory") or {})
         model.state["confirmed_entity_semantics"] = _copy(model.mouseover_entity_semantics)
         model.state["quest_turn_in_names"] = _copy(model.__dict__.get("quest_turn_in") or {})
+
+    def _structured_only(self, model):
+        state = model.state
+        for key in (*self._LIST_FIELDS, 'world3d_batch', 'local_traversability', 'scene_geometry',
+                    'world3d_interaction_candidates', 'world3d_ego_motion', 'visual_cross_view_hypotheses'):
+            state.pop(key, None)
+        state['runtime_profile'] = model.runtime_profile.value
+        state['server_mode'] = {**(state.get('server_mode') or {}), 'selected': True, 'enabled': True}
+        self._project_vehicle_bar(state)
+        self._project_fast_actionbar(state)
+        from wowbot.combat.contracts import CharacterProfile
+        state['character_profile'] = CharacterProfile.from_state(state).diagnostic()
+        from .fight_statistics import expected_fight_seconds
+        fight = expected_fight_seconds(model)
+        if fight is not None:
+            state['character_profile']['expected_fight_seconds'] = fight
+        self._project_confirmed_semantics(model)
+        state['confirmed_corpse_anchors'] = [_copy(anchor) for anchor in model.corpse_anchors.values()]
+        state['owned_corpse_guids'] = list(model.owned_corpse_guids)
+        state['quest_turn_in_names'] = _copy(model.__dict__.get('quest_turn_in') or {})
 
     @staticmethod
     def _project_fast_actionbar(state: dict) -> None:
@@ -232,6 +262,9 @@ class WorldStateProjector:
         fire them.  Addon 0.9.49 exports them as ``vehicle_bar``; combat and
         skill availability keep reading ``actionbar``.
         """
+        from .actionbar_context import project_skyriding_actionbar
+        if project_skyriding_actionbar(state):
+            return
         bar = state.get("vehicle_bar")
         actions = [action for action in (bar or {}).get("actions") or ()
                    if isinstance(action, dict) and action.get("action")]
@@ -279,7 +312,7 @@ class WorldStateProjector:
                    if colours is None or marker.get("colour") in colours]
         if len(markers) != 1:
             return            # none, or ambiguous: no position rather than a wrong one
-        from wowbot.vision.minimap_quest_area import offsets_to_world
+        from wowbot.coordinates import offsets_to_world
         rotate = bool(candidate.get("rotate_minimap", geometry.get("rotate_minimap")))
         (wx, wy), = offsets_to_world([markers[0]["offset"]], player_x=px, player_y=py,
                                      view_radius_yards=view, rotate=rotate,

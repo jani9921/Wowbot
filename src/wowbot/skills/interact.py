@@ -1,6 +1,8 @@
 """Canonical bounded M0 Interact/Talk FSM backed by ActiveSkillRuntime."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
 
 from wowbot.agent.models import Command
@@ -36,6 +38,17 @@ class InteractSkill:
     def commands_for(intent: Intent) -> tuple[Command, ...]:
         return (Command("BIND", "INTERACTTARGET"),)
 
+    @staticmethod
+    def _note_interact(context: dict, world: dict, now: float) -> None:
+        """Fence feedback per press without replacing the quest/attempt baseline."""
+        context["last_interact_at"] = now
+        context["feedback_baseline"] = {key: world.get(key) for key in (
+            "monotonic_time", "ui_error", "ui_error_at", "ui_error_code", "ui_error_sequence")}
+        context["feedback_baseline"]["events"] = [
+            {"sequence": event["sequence"]} for event in world.get("events") or ()
+            if isinstance(event, dict) and isinstance(event.get("sequence"), int)]
+
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         if state.intent.parameters.get("activation_source") == "SOFT_INTERACT":
             return self._begin_soft_interact(state, world_state)
@@ -69,7 +82,12 @@ class InteractSkill:
             return SkillResult(SkillStatus.FAILURE, FailureReason.NOT_INTERACTABLE,
                                replan_required=True)
         context = state.skill_context["interaction"]
-        hover_points = self._hover_points(world_state, expected)
+        # A rescue NPC on a circling drake (2026-10-21) has no screen anchor
+        # worth hovering: press Interact on the selected unit directly.
+        from .hover_confirm import pointer_acquisition_retired
+        hover_points = (() if state.intent.parameters.get("no_hover")
+                        or pointer_acquisition_retired(world_state)
+                        else self._hover_points(world_state, expected))
         # Two clocks: telemetry sample times (for hover freshness) and the
         # agent clock that verify() receives as ``now``.  Timers compared in
         # verify() must use the agent clock; a lagging telemetry timestamp
@@ -85,7 +103,7 @@ class InteractSkill:
             return SkillResult(SkillStatus.RUNNING, commands=(self._hover_command(hover_points[0]),))
         context["hover_verified"] = bool(hover_points)
         state.phase = InteractPhase.INTERACT.value
-        context["last_interact_at"] = now
+        self._note_interact(context, world_state, now)
         return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent))
 
     def _begin_soft_interact(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
@@ -109,6 +127,7 @@ class InteractSkill:
             return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_NOT_FOUND,
                                retryable=True, replan_required=True)
         state.phase = InteractPhase.INTERACT.value
+        self._note_interact(state.skill_context["interaction"], world_state, state.attempt.started_at)
         return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent))
 
     @staticmethod
@@ -183,20 +202,13 @@ class InteractSkill:
         mouse = world_state.get("mouseover") or {}
         sample_time = number(world_state.get("mouseover_sample_time", world_state.get("monotonic_time")))
         confidence = number(mouse.get("identity_confidence"))
-        target = world_state.get("target") or {}
-        expected_track = ((target.get("screen_position") or {}).get("track_id")
-                          or target.get("visual_track_id"))
-        observed_track = (mouse.get("visual_track_id")
-                          or (mouse.get("screen_position") or {}).get("track_id"))
-        track_matches = not (expected_track and observed_track
-                             and str(expected_track) != str(observed_track))
         return bool(expected and str(mouse.get("guid") or "") == str(expected)
                     and (confidence is None or confidence >= .75)
-                    and track_matches
                     and sample_time is not None and sample_time >= not_before)
 
     @staticmethod
-    def _visual_approach_request(world_state: dict, expected: str | None, now: float) -> dict | None:
+    def _visual_approach_request(world_state: dict, expected: str | None, now: float,
+                                 *, range_failures: int = 1) -> dict | None:
         """Return a verified screen-space fallback, never a guessed location."""
         if not expected:
             return None
@@ -225,19 +237,33 @@ class InteractSkill:
             "visual_signature": anchor.get("visual_signature"),
             "screen_position": dict(anchor),
             "ready_bbox_height": .13,
+            "range_failures": max(1, range_failures),
             "requested_at": now,
         }
 
     @staticmethod
-    def _world_approach_request(world_state: dict, expected: str | None) -> dict | None:
+    def _world_approach_request(world_state: dict, expected: str | None,
+                                *, recipient: str = "TARGET") -> dict | None:
         """Gate NavigationService.move_to_entity on live target identity."""
         if not expected:
             return None
+        from wowbot.agent.packet_entity_facts import interaction_position
+        from wowbot.runtime.skill_identity import check_interaction_recipient, soft_interact
+        if recipient == "SOFT_INTERACT":
+            now = number(world_state.get("monotonic_time"))
+            if (now is None or soft_interact(world_state) is None
+                    or not check_interaction_recipient({"guid": expected}, world_state, now)
+                    or interaction_position(world_state, expected) is None):
+                return None
+            return {"kind": "WORLD_ENTITY", "expected_guid": str(expected),
+                    "stop_distance": 2., "recipient": "SOFT_INTERACT"}
         target = world_state.get("target") or {}
         player = world_state.get("player_world_position") or {}
         position = target.get("world_position") or {}
         if str(target.get("guid") or "") != str(expected):
             return None
+        if not position and interaction_position(world_state, expected) is not None:
+            return {"kind": "WORLD_ENTITY", "expected_guid": str(expected), "stop_distance": 2.}
         if None in {number(player.get("x")), number(player.get("y")),
                     number(position.get("x")), number(position.get("y"))}:
             return None
@@ -247,7 +273,9 @@ class InteractSkill:
             return None
         return {"kind": "WORLD_ENTITY", "expected_guid": str(expected), "stop_distance": 4.5}
 
-    def resume_after_approach(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
+    @identity_guarded
+    def resume_after_approach(self, state: ActiveSkillState, world_state: dict,
+                              *, now: float | None = None) -> SkillResult:
         """Finish the APPROACH→FACE hand-off without replacing this attempt."""
         context = state.skill_context.setdefault("interaction", {})
         expected = context.get("expected_guid")
@@ -257,6 +285,8 @@ class InteractSkill:
                                retryable=True, replan_required=True)
         context.pop("approach_request", None)
         context["approach_completed"] = True
+        self._note_interact(context, world_state,
+                            now if now is not None else number(world_state.get("monotonic_time")) or state.started_at)
         # The actual client interaction remains the authoritative range and
         # facing check.  FACE is recorded explicitly; a concrete facing error
         # below gets one bounded NavigationService correction.
@@ -265,6 +295,52 @@ class InteractSkill:
         return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                            metadata={"post_approach_interact": True})
 
+    # Live 2026-10-21 10:57:08: Interact on Archivist Rellid started a cast and
+    # freed him ~3.5 s later; INTERACT had failed no_response at 1.8 s.
+    RESCUE_CREDIT_SECONDS = 5.
+
+    @staticmethod
+    def _rescue_credit(state: ActiveSkillState, world_state: dict) -> bool:
+        params = state.intent.parameters
+        if not InteractSkill._credit_purpose(params) or params.get("quest_id") is None:
+            return False
+        from wowbot.verification.quest import fast_digest_progress
+        quest_id, before = str(params["quest_id"]), state.before_snapshot or {}
+        if params.get('item_id') is not None and params.get('objective_id'):
+            from wowbot.verification.quest import QuestProgressVerifier
+            objective_id = str(params['objective_id'])
+            if ':' not in objective_id:
+                objective_id = f'{quest_id}:{objective_id}'
+            return QuestProgressVerifier().assess(before, world_state,
+                objective_ids=(objective_id,)).changed
+        if fast_digest_progress(before, world_state, (quest_id,)):
+            return True
+
+        def done(snapshot):
+            for quest in snapshot.get("active_quests") or ():
+                if isinstance(quest, dict) and str(quest.get("quest_id")) == quest_id:
+                    return (sum(1 for row in quest.get("objectives") or ()
+                                if isinstance(row, dict) and row.get("is_complete") is True)
+                            + (quest.get("is_complete") is True))
+            return None
+        old, new = done(before), done(world_state)
+        return old is not None and new is not None and new > old
+
+    @staticmethod
+    def _credit_purpose(params: dict) -> bool:
+        """Interactions verified by quest credit, not by a window (2026-10-23:
+        picking up the Infused Dragon Egg opens nothing)."""
+        purpose = str(params.get("purpose") or "")
+        return purpose.startswith("RESCUE_") or purpose in {"OBJECTIVE_PICKUP", "OBJECTIVE_SPELLCLICK"}
+
+    def _rescue_pending(self, state: ActiveSkillState, context: dict, now: float) -> bool:
+        if (not self._credit_purpose(state.intent.parameters)
+                and state.intent.parameters.get("interaction_kind") != "RIDE"):
+            return False
+        pressed = number(context.get("last_interact_at")) or state.attempt.started_at
+        return now-pressed < self.RESCUE_CREDIT_SECONDS and now < state.attempt.deadline
+
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         context = state.skill_context.setdefault("interaction", {})
         expected = context.get("expected_guid")
@@ -278,32 +354,58 @@ class InteractSkill:
             context.pop("ui_retry_not_before", None)
             context["direct_interaction_retries"] = int(
                 context.get("direct_interaction_retries") or 0) + 1
-            context["last_interact_at"] = now
+            self._note_interact(context, world_state, now)
             state.phase = InteractPhase.INTERACT.value
             return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                                metadata={"interaction_recovery": "WAIT_AND_RETRY"})
         target = world_state.get("target") or {}
+        reacquire_hover = context.get("reacquire_hover")
+        if reacquire_hover and str(target.get("guid") or "") != str(expected or ""):
+            from .hover_confirm import hover_confirm_step
+            outcome, commands = hover_confirm_step(
+                reacquire_hover, world_state, now, expected_guid=str(expected or ""),
+                deadline=state.attempt.deadline)
+            if outcome in {"CLICK", "HOVER", "WAIT"}:
+                return SkillResult(SkillStatus.RUNNING, commands=commands,
+                                   metadata={"interaction_recovery": "REACQUIRE_EXPECTED"})
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
+                               retryable=True, replan_required=True)
         if (context.get("reacquire_pending")
                 and str(target.get("guid") or "") == str(expected or "")):
             context["reacquire_pending"] = False
-            context["last_interact_at"] = now
+            context.pop("reacquire_hover", None)
+            self._note_interact(context, world_state, now)
             state.phase = InteractPhase.INTERACT.value
             return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                                metadata={"interaction_recovery": "REACQUIRED_EXPECTED"})
         if context.pop("await_post_los_interact", False):
-            context["last_interact_at"] = now
+            self._note_interact(context, world_state, now)
             state.phase = InteractPhase.INTERACT.value
             return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                                metadata={"interaction_recovery": "POST_LOS_RETRY"})
         hover_points = context.get("hover_points") or ()
         if hover_points and not context.get("hover_verified"):
             state.phase = InteractPhase.VERIFY_HOVER.value
-            if self._fresh_hover(world_state, expected, float(
-                    context.get("hover_sample_not_before", context.get("hover_sent_at", now)))):
+            following = context.get("pointer_follow") or {}
+            if self._fresh_hover(world_state, expected, max(float(
+                    context.get("hover_sample_not_before", context.get("hover_sent_at", now))),
+                    following.get("sent_at", -float("inf")))):
                 context["hover_verified"] = True
                 state.phase = InteractPhase.INTERACT.value
+                self._note_interact(context, world_state, now)
                 return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                                    metadata={"hover_verified": True})
+            if now >= state.attempt.deadline:
+                return SkillResult(SkillStatus.FAILURE, FailureReason.LOW_CONFIDENCE,
+                                   retryable=True, replan_required=True)
+            if str(target.get("guid") or "") != str(expected or ""):
+                return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_LOST,
+                                   retryable=True, replan_required=True)
+            from wowbot.agent.pointer_tracking import follow_pointer
+            track_id = target.get("visual_track_id") or (target.get("screen_position") or {}).get("track_id")
+            command = follow_pointer(context.setdefault("pointer_follow", {}), world_state, track_id, now)
+            if command is not None:
+                return SkillResult(SkillStatus.RUNNING, commands=(command,))
             # Addon mouseover is asynchronous. Do not skip across candidates
             # until the current pointer position had a bounded chance to emit.
             if now - float(context.get("hover_sent_at", now)) < .12:
@@ -323,11 +425,16 @@ class InteractSkill:
                                metadata={"hover_sample": index + 1})
         if context.pop("await_post_face_interact", False):
             state.phase = InteractPhase.INTERACT.value
+            self._note_interact(context, world_state, now)
             return SkillResult(SkillStatus.RUNNING, commands=self.commands_for(state.intent),
                                metadata={"post_face_interact": True})
         state.phase = InteractPhase.WAIT_RESULT.value
+        if self._rescue_credit(state, world_state):
+            state.phase = InteractPhase.SUCCESS.value
+            return SkillResult(SkillStatus.SUCCESS, evidence=("rescue_objective_progress",))
         result = self.verifier.evaluate(
-            state.before_snapshot, world_state, expected_guid=expected,
+            {**(state.before_snapshot or {}), **(context.get("feedback_baseline") or {})},
+            world_state, expected_guid=expected,
             expected_result=state.intent.parameters.get("expected_result"))
         context["result_classification"] = self.result_classifier.classify(
             result.reason, state.before_snapshot, world_state).value
@@ -335,17 +442,33 @@ class InteractSkill:
             state.before_snapshot, world_state).value
         state.phase = InteractPhase.CLASSIFY_RESULT.value
         if result.success:
+            if (state.intent.parameters.get('item_id') is not None
+                    and state.intent.parameters.get('objective_id')
+                    and self._credit_purpose(state.intent.parameters)):
+                if self._rescue_pending(state, context, now):
+                    return SkillResult(SkillStatus.RUNNING,
+                        metadata={'interaction_recovery': 'AWAIT_OBJECTIVE_ITEM_CREDIT'})
+                return SkillResult(SkillStatus.FAILURE, FailureReason.NO_RESPONSE,
+                                   retryable=True, replan_required=True)
             state.phase = InteractPhase.SUCCESS.value
             return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence,
                                metadata={"interaction_result": context["result_classification"],
                                          "interaction_effect": context["interaction_effect"]})
+        if result.reason in {None, FailureReason.NO_RESPONSE} and self._rescue_pending(state, context, now):
+            return SkillResult(SkillStatus.RUNNING, metadata={"interaction_recovery":
+                "AWAIT_VEHICLE_ENTRY" if state.intent.parameters.get("interaction_kind") == "RIDE"
+                else "AWAIT_RESCUE_CREDIT"})
         if result.reason is FailureReason.OUT_OF_RANGE:
             if context.get("approach_attempts", 0) >= self.recovery_policy.REPOSITION_BUDGET:
                 state.phase = InteractPhase.FAILED.value
                 return SkillResult(SkillStatus.FAILURE, result.reason,
                                    retryable=True, replan_required=True)
-            request = (self._world_approach_request(world_state, expected)
-                       or self._visual_approach_request(world_state, expected, now))
+            request = (self._world_approach_request(
+                           world_state, expected or context.get("soft_guid"),
+                           recipient="SOFT_INTERACT" if context.get("soft_guid") else "TARGET")
+                       or self._visual_approach_request(
+                           world_state, expected, now,
+                           range_failures=int(context.get("approach_attempts", 0)) + 1))
             if request:
                 context["approach_attempts"] = context.get("approach_attempts", 0) + 1
                 context["approach_request"] = request
@@ -390,14 +513,17 @@ class InteractSkill:
             anchor = (world_state.get("confirmed_mouseover_anchors") or {}).get(str(expected or ""))
             sample = number((anchor or {}).get("sample_time"))
             x, y = number((anchor or {}).get("x")), number((anchor or {}).get("y"))
-            if (count < self.recovery_policy.REACQUIRE_BUDGET
+            from .hover_confirm import pointer_acquisition_retired
+            if (count < self.recovery_policy.REACQUIRE_BUDGET and not pointer_acquisition_retired(world_state)
                     and x is not None and y is not None and sample is not None
                     and 0 <= now-sample <= 1.5):
                 context["reacquire_retries"] = count + 1
                 context["reacquire_pending"] = True
+                context["reacquire_hover"] = {"hover_point": (x, y), "hovers": 1,
+                                               "hovered_at": now}
                 state.phase = InteractPhase.RECOVER.value
                 return SkillResult(SkillStatus.RUNNING,
-                                   commands=(Command("CLICK", x=x, y=y),),
+                                   commands=(Command("HOVER", x=x, y=y),),
                                    metadata={"interaction_recovery": "REACQUIRE_EXPECTED",
                                              "attempt": count})
         if result.reason is FailureReason.NO_RESPONSE:

@@ -188,15 +188,39 @@ class Supervisor:
         # Supervisor with skip enabled and separately query the decision.
         self.cinematic_skip_policy = CinematicSkipPolicy(enabled=cinematic_skip_enabled)
 
+    @classmethod
+    def combat_admissible(cls, skill: str, parameters: dict | None = None) -> bool:
+        """The same survival gate at planning and active-skill boundaries.
+
+        WAIT is input-free. TARGET and a named combat instruction can recover
+        the selected attacker; an ordinary quest route cannot. Local combat
+        approach remains owned by the committed combat skill/navigation.
+        """
+        # A quest vehicle fights with its own buttons (2026-10-23): pressing
+        # one and closing in on the attacker are its combat.
+        return (skill in cls._COMBAT_SKILLS
+                or skill in {"TARGET", "WAIT", "FOLLOW_INSTRUCTION", "VEHICLE_ABILITY"}
+                or skill == "VISUAL_APPROACH"
+                and (parameters or {}).get("purpose") == "COMBAT"
+                or skill in {"MOVE", "RECOVER"}
+                and (parameters or {}).get("purpose") in {"VEHICLE_ATTACK_APPROACH", "VEHICLE_AIM", "VEHICLE_DESCEND",
+                                                           "COMBAT_LANDING"}
+                # Attacked on a mount (2026-10-26): getting off is the fight.
+                or skill == "DISMOUNT" and (parameters or {}).get("purpose") == "COMBAT_DISMOUNT")
+
     def evaluate(self, state: dict[str, Any], active: ActiveSkillState | None,
                  now: float) -> SupervisorDirective:
         # Priority order follows V4: death, hard UI block, survival combat,
         # then retain the current skill. A running skill is never displaced by
         # an ordinary perception or planner suggestion.
         if state.get("is_dead") or state.get("is_ghost"):
+            entering = self._state is not SupervisorState.DEATH_RECOVERY
             self.enter(SupervisorState.DEATH_RECOVERY, now, "player_dead", state, active)
-            return self._directive(SupervisorDirectiveKind.BLOCK, FailureReason.PLAYER_DEAD,
-                                   active is not None, "PLAYER_DIED", now)
+            if entering:
+                return self._directive(SupervisorDirectiveKind.BLOCK, FailureReason.PLAYER_DEAD,
+                                       active is not None, "PLAYER_DIED", now)
+            return SupervisorDirective(SupervisorDirectiveKind.BLOCK, FailureReason.PLAYER_DEAD,
+                                       active is not None)
         if state.get("disconnected") or state.get("connection_lost"):
             self.enter(SupervisorState.DISCONNECT_RECOVERY, now, "connection_lost", state, active)
             return self._directive(SupervisorDirectiveKind.BLOCK, FailureReason.TELEMETRY_STALE,
@@ -246,7 +270,8 @@ class Supervisor:
             self._last_resume_reason = "recovery_stabilized_replan_required"
         self.enter(self._operating_state(state, active), now, "runtime_observation",
                    state, active, current_complete=True)
-        if active and state.get("is_in_combat") and active.skill_type not in self._COMBAT_SKILLS:
+        if (active and state.get("is_in_combat")
+                and not self.combat_admissible(active.skill_type, active.intent.parameters)):
             return self._directive(SupervisorDirectiveKind.REPLAN, FailureReason.INTERRUPTED,
                                    True, "COMBAT_STARTED", now, suspend_active=True)
         return SupervisorDirective(SupervisorDirectiveKind.CONTINUE)
@@ -325,6 +350,11 @@ class Supervisor:
         currently authorized. Disabled by default (see `__init__`); a caller
         still owns actually pressing the skip input."""
         return self.cinematic_skip_policy.evaluate(cinematic_playing=cinematic_playing, now=now)
+
+    @property
+    def loop_replan_pending(self) -> bool:
+        """A latched signal must be supervised before admitting a new skill."""
+        return self._loop_escalation is not None
 
     def notify_loop(self, decision: Any, now: float) -> None:
         """Latch the strongest loop evidence for the next supervision tick."""

@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING
 
+from wowbot.evidence_contracts import Evidence
+
 from .entity_belief import EntityBelief, fuse_identity
 from .evidence_freshness import FreshnessTier, classify
 from .models import json_copy as deepcopy, number
@@ -16,7 +18,6 @@ from .supertrack_navigation_cue import NavigationCueSource, resolve_navigation_c
 from .soft_targeting import SoftTargetHint, SoftTargetMatch, observe_soft_targets, use_as_candidate_hint
 from .ui_context import PrimaryPanel, UiContext, UiContextResolver
 from .world_entities import EntityIdentity, LocationCluster, LocationObservation, RoleObservation
-from wowbot.vision.models import MapMarker
 
 # V4-009: map each Evidence.source this model actually produces onto the
 # spec's named lifetime categories. Approximate by source alone (the exact
@@ -51,7 +52,8 @@ class WorldQuery:
         # blur the same WorldModel/agent boundary this codebase enforces
         # elsewhere (WorldModel never owns control authority).
         keys = ("map_id", "map_context", "position", "orientation", "health", "max_health", "power",
-                "max_power", "is_mounted", "is_in_combat", "is_dead", "is_ghost", "is_casting")
+                "max_power", "is_mounted", "mount_capability", "is_in_combat", "is_dead",
+                "is_ghost", "is_casting")
         result = {key: self.model.state.get(key) for key in keys}
         result["moving"] = bool(self.model.state.get("is_moving"))
         result["vehicle"] = bool(self.model.state.get("in_vehicle")
@@ -63,10 +65,169 @@ class WorldQuery:
     def target(self) -> dict:
         return deepcopy(self.model.state.get("target") or {})
 
+    def field_resolution(self, key: str, now: float):
+        from wowbot.field_sources import FieldSourceResolver
+        from .packet_continuity import eligible_evidence
+        return FieldSourceResolver().resolve(key, eligible_evidence(self.model,self.model.evidence.get(key, ())), now,
+                                             context={"session_id": self.model.session_id})
+
+    def quest_pois(self, quest_id, now: float | None = None, *, objective_id=None, objective_index=None) -> tuple[dict, ...]:
+        """The owned full packet geometry, copied only for the requested objective.
+
+        A query does not turn polygons into targets or fill unknown heights.
+        """
+        from .world_packet_reducer import QUEST_POI_MAX_AGE, _context, _poi_scope
+        from .packet_continuity import current
+        if not current(self.model):
+            return ()
+        if now is None:
+            now = max(self.model.last_received,
+                      (self.model.__dict__.get('_packet_status') or {}).get('last_received_at', 0.))
+        scope = self.model.__dict__.get('_packet_poi_context')
+        if not scope or _poi_scope(_context(self.model, self.model.addon_state, scope['selected_pid'])) != scope:
+            return ()
+        record = (self.model.__dict__.get('_packet_quest_pois') or {}).get(str(quest_id)) or {}
+        sampled = record.get('sampled_at')
+        if (record.get('verified') is not True or type(sampled) not in {int, float}
+                or not 0 <= now-sampled <= QUEST_POI_MAX_AGE):
+            return ()
+        return tuple(deepcopy({**blob, 'sample_time': sampled, 'source': 'PACKET_QUEST_POI'})
+                     for blob in record.get('blobs') or ()
+                     if (objective_id is None or str(blob.get('objective_id')) == str(objective_id))
+                     and (objective_index is None or blob.get('objective_index') == objective_index))
+
+    def quest_poi_status(self, quest_id, now: float | None = None) -> str:
+        """Which gate of ``quest_pois`` holds the quest's server POI back (diagnostic only)."""
+        from .world_packet_reducer import QUEST_POI_MAX_AGE, _context, _poi_scope
+        from .packet_continuity import current
+        if not current(self.model):
+            return 'continuity_not_current'
+        if now is None:
+            now = max(self.model.last_received,
+                      (self.model.__dict__.get('_packet_status') or {}).get('last_received_at', 0.))
+        scope = self.model.__dict__.get('_packet_poi_context')
+        if not scope:
+            return 'no_poi_scope'
+        if _poi_scope(_context(self.model, self.model.addon_state, scope['selected_pid'])) != scope:
+            return 'poi_scope_mismatch'
+        record = (self.model.__dict__.get('_packet_quest_pois') or {}).get(str(quest_id))
+        if not record:
+            return f"no_record:{len(self.model.__dict__.get('_packet_quest_pois') or {})}_quests"
+        sampled = record.get('sampled_at')
+        if record.get('verified') is not True or type(sampled) not in {int, float}:
+            return 'unverified'
+        if not 0 <= now-sampled <= QUEST_POI_MAX_AGE:
+            return f'age:{round(now-sampled)}'
+        return f"ok:{len(record.get('blobs') or ())}_blobs"
+
+    def quest_objective_pois(self, quest_id, objective, now: float | None = None) -> tuple[dict, ...]:
+        """Exact native objective identity precedes the legacy UI-row hint."""
+        raw = getattr(objective, 'raw', None) or {}
+        native = raw.get('server_objective_id')
+        if native is not None:
+            definition = self.quest_definition(quest_id, now)
+            if (definition['status'] != 'OBSERVED_REFERENCE'
+                    or definition['observation_id'] != raw.get('server_definition_evidence')):
+                return ()
+        key = str(objective.objective_id)
+        exact = native or raw.get('quest_objective_id') or (key if key.isdigit() else None)
+        if exact is not None:
+            return self.quest_pois(quest_id, now, objective_id=exact)
+        suffix = key.removeprefix(str(quest_id)+':')
+        return (self.quest_pois(quest_id, now, objective_index=int(suffix))
+                if key != suffix and suffix.isdigit() else ())
+
     def reference_entity(self, npc_id: int) -> dict | None:
         """Contextual memory/reference hint, never a current target identity."""
         knowledge = self.model.state.get("reference_knowledge") or {}
         return deepcopy((knowledge.get("entities") or {}).get(str(npc_id)))
+
+    def quest_log_slots(self, now: float, *, quest_id=None) -> dict:
+        """Own native slots; storage indices are not UI objective ordinals."""
+        from .packet_quest_log import view
+        from .world_packet_reducer import _context
+        return view(self.model, self.model.state, now,
+                    lambda pid: _context(self.model, self.model.state, pid), quest_id=quest_id)
+
+    def quest_presence(self, quest_id: int, now: float) -> dict:
+        if type(quest_id) is not int or not 0 < quest_id < 2**31:
+            raise ValueError('positive quest ID required')
+        result = self.quest_log_slots(now, quest_id=quest_id)
+        present = any(row['fields'].get('quest_id', {}).get('value') == quest_id for row in result['slots'])
+        state = ('PRESENT' if present else 'ABSENT' if result['membership'] == 'COMPLETE' else 'UNKNOWN')
+        return {'state':state, 'source':'PACKET_QUEST_LOG', 'membership':result['membership'],
+                'baseline_observed_at':result['baseline_observed_at']}
+
+    def native_inventory(self, now: float, *, item_id=None) -> dict:
+        """Owned native items, not client bag indices or an absence proof."""
+        from .packet_inventory import view
+        from .world_packet_reducer import _context
+        return view(self.model,self.model.state,now,lambda pid:_context(self.model,self.model.state,pid),
+                    item_id=item_id)
+
+    def packet_stream_progress(self,now: float) -> dict:
+        """Applied local control watermark; neither input nor world freshness."""
+        from .runtime_packet_progress import view
+        return view(self.model,now)
+
+    def owned_item_count(self, item_id: int, now: float) -> dict:
+        """A sampled lower bound of known owned stacks; carried state unknown."""
+        if type(item_id) is not int or not 0 < item_id < 2**32:
+            raise ValueError('positive item ID required')
+        rows=self.native_inventory(now,item_id=item_id)['items']
+        return {'item_id':item_id,'status':'OBSERVED_LOWER_BOUND' if rows else 'UNKNOWN',
+                'count':sum(r['stack_count'] for r in rows) if rows else None,
+                'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY',
+                'evidence':[r['observation_id'] for r in rows],
+                'sample_times':[r['sample_time'] for r in rows],
+                'identity_evidence':[r['identity_evidence'] for r in rows],
+                'identity_sample_times':[r['identity_sample_time'] for r in rows]}
+
+    def quest_definition(self, quest_id, now: float | None = None) -> dict:
+        """Observed, scoped quest structure; not an active/reward/actor fact."""
+        from .server_quest_definitions import scope, view
+        from .world_packet_reducer import _context
+        owner = self.model.quest_model
+        stored = owner.__dict__.get('_server_definition_scope')
+        context = _context(self.model, self.model.state, stored['selected_pid']) if stored else None
+        if self.model.state.get('loading') or self.model.state.get('player_present') is False:
+            context = None
+        provider = self.model.session_context_provider
+        generation = provider.process.generation if provider is not None else None
+        if now is None:
+            now = max(self.model.last_received,
+                      (self.model.__dict__.get('_packet_status') or {}).get('last_received_at', 0.))
+        return view(owner, quest_id, scope(context, generation), now)
+
+    def quest_objective_storage(self, quest_id, objective_id, now: float) -> dict:
+        """Join an exact global objective ID to its reviewed storage field.
+
+        A numeric storage sample does not assert objective/quest completion;
+        bit objectives, conditional amounts and unsupported storage remain
+        explicit unknowns rather than guessed UI-row counts.
+        """
+        unknown = {'status':'UNKNOWN', 'quest_id':quest_id, 'objective_id':objective_id}
+        definition = self.quest_definition(quest_id, now)
+        if definition['status'] != 'OBSERVED_REFERENCE':
+            return unknown
+        rows = definition['definition']['objectives']
+        matches = [r for r in rows if str(r['objective_id']) == str(objective_id)]
+        if len(matches) != 1:
+            return unknown
+        row = matches[0]
+        storage = row['storage_index']
+        if not 0 <= storage < 24 or sum(r['storage_index'] == storage for r in rows) != 1:
+            return unknown
+        slots = self.quest_log_slots(now, quest_id=quest_id)['slots']
+        if len(slots) != 1 or str(storage) not in slots[0]['progress']:
+            return unknown
+        fact = slots[0]['progress'][str(storage)]
+        return {**unknown, 'status':'OBSERVED_STORAGE', 'storage_index':storage,
+                'value':fact['value'], 'sample_time':fact['observed_at'],
+                'observation_id':fact['observation_id'], 'complete':None,
+                'definition_evidence':definition['observation_id'],
+                'definition_sample_time':definition['sample_time'],
+                'required_amount':row['amount'], 'raw_type':row['raw_type']}
 
     def reference_quest(self, quest_id: int) -> dict | None:
         """Imported quest details; live progress remains in QuestModel."""
@@ -214,7 +375,10 @@ class WorldQuery:
             result.append(RoleObservation(**deepcopy(raw)))
         return result
 
-    def map_markers(self, surface: str | None = None) -> list[MapMarker]:
+    def map_markers(self, surface: str | None = None) -> list["MapMarker"]:
+        # Legacy map-CV markers only; imported lazily so the SERVER path
+        # loads no wowbot.vision module (REV4 2026-10-31).
+        from wowbot.vision.models import MapMarker
         result = []
         for item in self.model.state.get("visual_candidates", []):
             if item.get("source") not in {"MINIMAP_CV", "WORLD_MAP_CV"}:
@@ -303,6 +467,12 @@ class WorldQuery:
 
     def typed_belief(self, key: str, now: float | None = None) -> Belief:
         return self.model.typed_belief(key, self.model.last_received if now is None else now)
+
+    def evidence(self, key: str, now: float | None = None, *, include_inactive: bool = False) -> tuple[Evidence, ...]:
+        """Immutable source records; values decode to isolated JSON copies."""
+        current = self.model.last_received if now is None else now
+        return tuple(entry for entry in self.model.evidence.get(key, ())
+                     if include_inactive or entry.is_fresh(current))
 
     def contradiction_history(self, key: str | None = None) -> list[ContradictionRecord]:
         return [deepcopy(item) for item in self.model.contradiction_history

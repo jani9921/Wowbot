@@ -1,0 +1,21 @@
+F....................................................................... [ 73%]
+..........................                                               [100%]
+================================== FAILURES ===================================
+________ test_stream_stamp_is_authenticated_and_not_a_semantic_payload ________
+
+inbox = <wowbot.packetio.inbox.PacketEventInbox object at 0x000001EBF9DCDE80>
+
+    def test_stream_stamp_is_authenticated_and_not_a_semantic_payload(inbox):
+        value = envelope(event().to_dict(),inbox._descriptor,stream={'sender_id':SENDER,'sequence':1})
+>       assert verify(value,inbox._descriptor)==event().to_dict()
+E       AssertionError: assert {'event_id': ....6341197, ...} == {'event_id': ....6342838, ...}
+E         
+E         Omitting 12 identical items, use -vv to show
+E         Differing items:
+E         {'received_at': 1793369431.6341197} != {'received_at': 1793369431.6342838}
+E         Use -v to get more diff
+
+tests\test_packet_delivery_20261030.py:40: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_packet_delivery_20261030.py::test_stream_stamp_is_authenticated_and_not_a_semantic_payload
+1 failed, 97 passed in 2.61s

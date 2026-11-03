@@ -9,7 +9,9 @@ import math
 import time
 from functools import lru_cache
 from copy import deepcopy
+from wowbot.query_ports import TravelCostPort
 from .models import number
+from .ui_zones import same_zone
 
 
 def _finite(value):
@@ -73,8 +75,19 @@ def _geometry_points(key):
 
 
 def _failed(reference, hint):
+    # A failed way of travelling does not refute the destination. Live
+    # 2026-10-28: not-mounted + no-route results hid the Z=313 turn-in for
+    # a day, after which a heightless API pin routed to the floor below it.
+    # Keep supported-stuck / target rejection suppression in its context;
+    # only capability/planning failures are excluded, including legacy rows.
+    def refutes_location(row):
+        reason = str(row.get('reason') or '').lower()
+        return (reason not in {'required_navmesh_route_unavailable', 'interrupted',
+                                   'reach_cancelled', 'telemetry_unavailable'}
+                and not reason.startswith(('skyriding_', 'flight_', 'telemetry_', 'sensor_')))
     return sum(r.get('kind')=='HINT_OUTCOME' and r.get('hint_id')==hint
-               and r.get('outcome')=='FAILURE' and r.get('observed_at',0)>=time.time()-86400
+               and r.get('outcome')=='FAILURE' and refutes_location(r)
+               and r.get('observed_at',0)>=time.time()-86400
                for r in reference.get('learned') or ()) >= 2
 
 
@@ -102,7 +115,7 @@ def _poi_regions(state, reference, matches):
     for poi in reference.get('pois') or ():
         if (not matches(poi) or poi.get('geometry_ambiguous') or poi.get('geometry_mixed_build')
                 or poi.get('world_map_id') != player.get('instance_id')
-                or poi.get('ui_map_id') != state.get('map_id')
+                or not same_zone(poi.get('ui_map_id'), state.get('map_id'))
                 or any(v not in (None,0) for v in (poi.get('conditions') or {}).values())):
             continue
         hint = 'poi:'+str(poi['poi_id'])
@@ -170,7 +183,16 @@ def _spawn_regions(state, reference, matches, *, allow_unknown_phase=False):
     return result
 
 
-def _nearest(state, candidates):
+# User 2026-10-20 ("csináld meg mind": PixelBuddy's FindPathBatch takes the
+# first reachable of several spawns): the BATCH_CANDIDATES nearest by straight
+# line are re-ranked by navmesh walking length -- a spawn across a cliff or a
+# river loses to a nearby reachable one, one without any path to any that has
+# one. The owning caller supplies NavigationService.walk_cost explicitly;
+# without a provider (no mmaps, offline replay) the geometric choice stays.
+BATCH_CANDIDATES = 5
+
+
+def _nearest(state, candidates, *, travel_cost: TravelCostPort | None = None):
     player = state.get('player_world_position') or {}
     px,py = _finite(player.get('x')),_finite(player.get('y'))
     if px is None or py is None or not candidates:
@@ -182,7 +204,18 @@ def _nearest(state, candidates):
         if pz is not None and z is not None:
             return (0 if abs(z-pz)<=8 else 1, math.hypot(xy,z-pz))
         return (1,xy)
-    return min(candidates,key=distance)
+    ranked = sorted(candidates,key=distance)
+    if travel_cost is None or len(ranked) < 2:
+        return ranked[0]
+    walks = []
+    for row in ranked[:BATCH_CANDIDATES]:
+        try:
+            cost = travel_cost(state,row)
+        except Exception:
+            cost = None
+        if cost is not None:
+            walks.append((distance(row)[0], cost, len(walks), row))
+    return min(walks)[3] if walks else ranked[0]
 
 
 def objective_zone_contains_player(state, quest_id, objective_id, *, margin_yards=6.):
@@ -194,51 +227,98 @@ def objective_zone_contains_player(state, quest_id, objective_id, *, margin_yard
     """
     reference = ((state.get('reference_knowledge') or {}).get('quests') or {}).get(str(quest_id)) or {}
     player = state.get('player_world_position') or {}
-    px, py, pz = (_finite(player.get(k)) for k in ('x', 'y', 'z'))
+    px, py = (_finite(player.get(k)) for k in ('x', 'y'))
     if px is None or py is None or player.get('instance_id') is None:
         return None
     oid = str(objective_id or '')
     index = oid.split(':', 1)[1] if oid.startswith(str(quest_id)+':') else None
-    ids = {str(o.get('objective_id')) for o in reference.get('objectives') or ()
-           if str(o.get('objective_id')) == oid
-           or index is not None and str(o.get('order')) == index}
+    from .quest_reference_matching import reference_objectives
+    live = next((q for q in state.get('active_quests') or ()
+                 if str(q.get('quest_id')) == str(quest_id)), {})
+    current = next((row for i, row in enumerate(live.get('objectives') or ())
+                    if str(row.get('objective_id', f'{quest_id}:{i}')) == oid), {})
+    rows = reference.get('objectives') or ()
+    matched = reference_objectives(quest_id, oid, current.get('description'), rows)
+    ids = {str(o.get('objective_id')) for o in matched}
     ids.add(oid)
     known = False
     for poi in reference.get('pois') or ():
         if (str(poi.get('objective_id')) not in ids
-                and (index is None or str(poi.get('objective_index')) != index)):
+                and (rows or index is None or str(poi.get('objective_index')) != index)):
             continue
-        if (poi.get('geometry_ambiguous') or poi.get('geometry_mixed_build')
-                or poi.get('world_map_id') != player.get('instance_id')
-                or poi.get('ui_map_id') != state.get('map_id')
-                or any(v not in (None, 0) for v in (poi.get('conditions') or {}).values())):
-            continue
-        points = poi.get('points') or []
-        if not geometry_points(points):
-            continue
-        vertices = [(_finite(p.get('x')), _finite(p.get('y')), _finite(p.get('z')))
-                    for p in points]
-        if len(vertices) > 1 and vertices[0][:2] == vertices[-1][:2]:
-            vertices.pop()
-        if not vertices:
-            continue
-        known = True
-        heights = [z for _x, _y, z in vertices if z not in (None, 0)]
-        floor_matches = (pz is None or not heights or min(abs(pz-z) for z in heights) <= 15.)
-        if len(vertices) == 1:
-            horizontal = math.hypot(px-vertices[0][0], py-vertices[0][1])
-            if horizontal <= margin_yards and floor_matches:
-                return True
-            continue
-        xy = [{'x': x, 'y': y} for x, y, _z in vertices]
-        if _inside(px, py, xy) and floor_matches:
+        inside = _poi_zone_contains_player(state, poi, margin_yards=margin_yards)
+        if inside is True:
             return True
-        if floor_matches:
-            for a, b in zip(vertices, vertices[1:]+vertices[:1]):
-                vx, vy = b[0]-a[0], b[1]-a[1]
-                scale = max(0., min(1., ((px-a[0])*vx+(py-a[1])*vy) / (vx*vx+vy*vy)))
-                if math.hypot(px-(a[0]+scale*vx), py-(a[1]+scale*vy)) <= margin_yards:
-                    return True
+        known = known or inside is not None
+    return False if known else None
+
+
+def _poi_zone_contains_player(state, poi, *, margin_yards):
+    """Shared geometry gate, never proof of identity, arrival Z or credit."""
+    player = state.get('player_world_position') or {}
+    px, py, pz = (_finite(player.get(k)) for k in ('x', 'y', 'z'))
+    if (px is None or py is None or player.get('instance_id') is None
+            or poi.get('geometry_ambiguous') or poi.get('geometry_mixed_build')
+            or poi.get('world_map_id') != player.get('instance_id')
+            or not same_zone(poi.get('ui_map_id'), state.get('map_id'))
+            or any(v not in (None, 0) for v in (poi.get('conditions') or {}).values())):
+        return None
+    points = poi.get('points') or []
+    if not geometry_points(points):
+        return None
+    vertices = [(_finite(p.get('x')), _finite(p.get('y')), _finite(p.get('z')))
+                for p in points]
+    if len(vertices) > 1 and vertices[0][:2] == vertices[-1][:2]:
+        vertices.pop()
+    if not vertices:
+        return None
+    heights = [z for _x, _y, z in vertices if z not in (None, 0)]
+    if pz is not None and heights and min(abs(pz-z) for z in heights) > 15.:
+        return False
+    if len(vertices) == 1:
+        return math.hypot(px-vertices[0][0], py-vertices[0][1]) <= margin_yards
+    xy = [{'x': x, 'y': y} for x, y, _z in vertices]
+    if _inside(px, py, xy):
+        return True
+    for a, b in zip(vertices, vertices[1:]+vertices[:1]):
+        vx, vy = b[0]-a[0], b[1]-a[1]
+        length_sq = vx*vx+vy*vy
+        scale = (max(0., min(1., ((px-a[0])*vx+(py-a[1])*vy) / length_sq))
+                 if length_sq > 0. else 0.)
+        if math.hypot(px-(a[0]+scale*vx), py-(a[1]+scale*vy)) <= margin_yards:
+            return True
+    return False
+
+
+def quest_zone_contains_player(state, quest_id, live_location, *, margin_yards=6.):
+    """An API pin and player share a validated TDB search polygon.
+
+    A quest can expose both QUEST_POI and TASK_QUEST_POI at different points
+    inside one area (21:39 live run). Neither is an exact interaction target.
+    This quest-level gate suppresses redundant travel to its other area pin;
+    objective-specific locations, floor resolution and completion stay with
+    their existing owners. Hidden TDB objective indices are not renumbered.
+    """
+    player = state.get('player_world_position') or {}
+    if (live_location.get('coordinate_space') != 'WORLD_YARDS'
+            or live_location.get('instance_id') != player.get('instance_id')
+            or not same_zone(live_location.get('map_id', live_location.get('ui_map_id')), state.get('map_id'))
+            or any(_finite(live_location.get(k)) is None for k in ('x', 'y'))):
+        return None
+    reference = ((state.get('reference_knowledge') or {}).get('quests') or {}).get(str(quest_id)) or {}
+    known = False
+    for poi in reference.get('pois') or ():
+        index = number(poi.get('objective_index'))
+        if (index is None or index < 0 or index == 32
+                or poi.get('geometry_kind') != 'POLYGON_CANDIDATE'
+                or len(poi.get('points') or ()) < 3):
+            continue
+        inside = _poi_zone_contains_player(state, poi, margin_yards=margin_yards)
+        if inside is None or not _live_point_matches_poi(live_location, poi):
+            continue
+        if inside:
+            return True
+        known = True
     return False if known else None
 
 
@@ -254,7 +334,7 @@ def _live_objective_points(state, quest_id, objective):
         point = world_point(source)
         if (point and point.get('instance_id') ==
                 (state.get('player_world_position') or {}).get('instance_id')
-                and point.get('map_id') == state.get('map_id')):
+                and same_zone(point.get('map_id'), state.get('map_id'))):
             result.append(point)
     return result
 
@@ -283,7 +363,7 @@ def _live_point_matches_poi(point, poi, *, margin_yards=20.):
     return False
 
 
-def objective_region(state, quest_id, objective):
+def objective_region(state, quest_id, objective, *, travel_cost: TravelCostPort | None = None):
     # Static POIs describe all possible sites, including already completed
     # stages. Live quest progress is the authority for whether this objective
     # may still supply a destination at all.
@@ -294,19 +374,20 @@ def objective_region(state, quest_id, objective):
         return None
     oid = str(objective.objective_id)
     index = oid.split(':',1)[1] if oid.startswith(str(quest_id)+':') else None
-    matched = [o for o in reference.get('objectives') or () if str(o.get('objective_id'))==oid
-               or index is not None and str(o.get('order'))==index]
+    from .quest_reference_matching import reference_objectives
+    rows = reference.get('objectives') or ()
+    matched = reference_objectives(quest_id, oid, getattr(objective, 'description', ''), rows)
     ids = {str(o['objective_id']) for o in matched} | {oid}
     def poi_for_objective(p):
         return (str(p.get('objective_id')) in ids
-                or not matched and index is not None
+                or not rows and index is not None
                 and str(p.get('objective_index')) == index)
     live_points = _live_objective_points(state, quest_id, objective)
     matching_pois = [p for p in reference.get('pois') or ()
                      if poi_for_objective(p) and not p.get('geometry_ambiguous')
                      and not p.get('geometry_mixed_build')
                      and p.get('world_map_id') == (state.get('player_world_position') or {}).get('instance_id')
-                     and p.get('ui_map_id') == state.get('map_id')
+                     and same_zone(p.get('ui_map_id'), state.get('map_id'))
                      and not any(v not in (None, 0) for v in (p.get('conditions') or {}).values())]
     # A current client POI contradicting every matching TDB POI wins. Static
     # data can refine the live location, never silently override it.
@@ -398,7 +479,7 @@ def objective_region(state, quest_id, objective):
                 return None
     elif exact_spawns and count is not None and count > 0:
         return None
-    return _nearest(state,candidates)
+    return _nearest(state,candidates, travel_cost=travel_cost)
 
 
 def _role_spawn_height(reference, role, npc_id, point, radius=20.):
@@ -420,12 +501,13 @@ def _role_spawn_height(reference, role, npc_id, point, radius=20.):
     return None if best is None else best[1]
 
 
-def role_region(state, quest_id, role, *, live_location=None):
+def role_region(state, quest_id, role, *, live_location=None,
+                travel_cost: TravelCostPort | None = None):
     reference = ((state.get('reference_knowledge') or {}).get('quests') or {}).get(str(quest_id)) or {}
     from .planning_types import world_point
     live = world_point(live_location)
     if live and (live.get('instance_id') != (state.get('player_world_position') or {}).get('instance_id')
-                 or live.get('map_id') != state.get('map_id')):
+                 or not same_zone(live.get('map_id'), state.get('map_id'))):
         live = None
     def agrees(candidate):
         return (live is None or math.hypot(candidate['x']-live['x'], candidate['y']-live['y']) <= 35.)
@@ -457,4 +539,4 @@ def role_region(state, quest_id, role, *, live_location=None):
     if not candidates and role=='QUEST_ENDER':
         candidates = _poi_regions(state,reference,lambda p: p.get('objective_index')==-1)
     candidates = [candidate for candidate in candidates if agrees(candidate)]
-    return _nearest(state,candidates)
+    return _nearest(state,candidates, travel_cost=travel_cost)

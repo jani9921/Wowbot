@@ -1,0 +1,22 @@
+{
+  "src_python_files": 557,
+  "tests_python_files": 633,
+  "test_modules": 632,
+  "numbered_coverage_rows": 203,
+  "addon_packages_identical": true,
+  "ymir_sha256": "77cc8a63b94ee52c47090290a69f3d6fa3db3995ded3c7534c886c85dcbec6b9",
+  "selected_regression": {
+    "passed": 4015,
+    "skipped": 2,
+    "unchanged_deselections": 10,
+    "modules": 324,
+    "exit_code": 0,
+    "seconds": 166.8732988999691
+  },
+  "source_archive_files": 1229,
+  "numbered_rows_unchanged": 203,
+  "scope": "source/tests/addon/static references/reports only; no live memory/PKT/user configuration",
+  "full_test_repository_claim": false,
+  "new_live_acceptance": false,
+  "client_input": false
+}

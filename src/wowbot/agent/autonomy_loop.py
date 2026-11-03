@@ -23,7 +23,7 @@ class RuntimePhase(StrEnum):
 
 TARGET_SKILLS = {"TARGET", "APPROACH_TARGET", "VISUAL_APPROACH", "REACQUIRE_TARGET", "REACH_OBJECT", "COMBAT", "DEFEND", "LOOT", "TALK",
                  "INTERACT", "ASSIST", "USE_ON_TARGET", "OBJECT_USE", "FOLLOW_INSTRUCTION"}
-TRANSIENT_SKILLS = {"INSPECT", "SEEK_VISUAL_CUE", "OPEN_MAP", "CLOSE_MAP", "CLOSE_DIALOG", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "VEHICLE_ABILITY", "EXIT_VEHICLE", "REPAIR",
+TRANSIENT_SKILLS = {"INSPECT", "SEEK_VISUAL_CUE", "OPEN_MAP", "CLOSE_MAP", "CLOSE_DIALOG", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION", "VEHICLE_ABILITY", "EXIT_VEHICLE", "REPAIR",
                     "CAMERA_CONTROL",
                     "BUY_VENDOR", "SELL_VENDOR", "OPEN_BAGS", "MOUNT", "DISMOUNT",
                     "GATHER", "HERB", "MINE", "FISH", "USE", "OBJECT_USE", "USE_ON_TARGET"}
@@ -148,7 +148,7 @@ class AutonomousLoop:
         if skill in {"RECOVER", "ESCAPE"}:
             return RuntimePhase.RECOVERING
         if skill in {"TALK", "INTERACT", "LOOT", "ASSIST", "USE_ON_TARGET", "OBJECT_USE", "USE",
-                     "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "GATHER", "HERB", "MINE", "FISH", "REPAIR",
+                     "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION", "GATHER", "HERB", "MINE", "FISH", "REPAIR",
                      "BUY_VENDOR", "SELL_VENDOR", "OPEN_BAGS"}:
             return RuntimePhase.INTERACTING
         return RuntimePhase.TARGET_COMMITTED if committed else RuntimePhase.REPLANNING
@@ -267,6 +267,14 @@ class AutonomousLoop:
         self._event("TARGET_COMMITTED", now, "late_target_identity_verified",
                     target_guid=commitment.target_guid)
 
+    @staticmethod
+    def _vehicle_combat_move(proposal: Proposal, world) -> bool:
+        state, params = world.state or {}, proposal.parameters
+        return (state.get("vehicle_controls") is True and state.get("in_vehicle") is True
+                and proposal.skill == "MOVE"
+                and params.get("purpose") in {"VEHICLE_AIM", "VEHICLE_ATTACK_APPROACH"}
+                and bool(params.get("server_entity_guid")))
+
     def _matching(self, proposal: Proposal, world) -> bool:
         commitment = self.commitment
         if not commitment:
@@ -274,6 +282,7 @@ class AutonomousLoop:
         params = proposal.parameters
         if ((getattr(world, "state", None) or {}).get("vehicle_controls")
                 and (proposal.skill == "VEHICLE_ABILITY"
+                     or self._vehicle_combat_move(proposal, world)
                      or (proposal.skill == "VISUAL_APPROACH"
                          and params.get("purpose") in {"VEHICLE_AIM", "VEHICLE_ATTACK"}))):
             # Live 2026-10-04 17:40 (Giant Boar, 3/8 in 310 s): a TARGET
@@ -360,7 +369,8 @@ class AutonomousLoop:
             return proposal.skill == "ACQUIRE_TARGET" or bool(refs.intersection(commitment.objective_refs))
         return proposal.key == commitment.reference or bool(refs.intersection(commitment.objective_refs))
 
-    def choose(self, proposals: list[Proposal], preferred: Proposal, goal, world, now: float) -> Proposal:
+    def choose(self, proposals: list[Proposal], preferred: Proposal, goal, world, now: float, *,
+               scores: dict | None = None) -> Proposal:
         self._promote_late_acquired_target(world, now)
         if world.state.get("is_in_combat"):
             # Live-observed 2026-09-13: a quest-relevant fight uses the
@@ -380,7 +390,8 @@ class AutonomousLoop:
             # ...) stays -- _matching() already scopes those to the committed
             # target's own guid/track_id, so leaving them in is not the risk.
             proposals = [proposal for proposal in proposals
-                         if proposal.skill not in {"MOVE", "FOLLOW", "REACH_LOCATION"}]
+                         if proposal.skill not in {"MOVE", "FOLLOW", "REACH_LOCATION"}
+                         or self._vehicle_combat_move(proposal, world)]
         safety = [proposal for proposal in proposals if proposal.skill in SAFETY_SKILLS]
         if safety:
             chosen = max(safety, key=lambda proposal: proposal.priority)
@@ -406,6 +417,23 @@ class AutonomousLoop:
             if self.commitment:
                 self.commitment.last_updated = now
             return chosen
+        # Loss of a quest vehicle invalidates its old on-foot kill/location
+        # commitment. The planner supplies only a memory-grounded prerequisite;
+        # keep normal safety/dialog precedence and execution authority.
+        if not world.state.get("is_in_combat") and world.state.get("in_vehicle") is False:
+            requirements = {(r["quest_id"], r["boarding_objective_id"])
+                            for r in world.state.get("vehicle_requirements") or ()}
+            resume = [p for p in proposals
+                      if p.skill in {"MOVE", "INTERACT", "WAIT", "CLOSE_MAP"}
+                      and (str(p.parameters.get("quest_id")), p.parameters.get("vehicle_prerequisite"))
+                      in requirements]
+            if resume:
+                chosen = max(resume, key=lambda p: (p.priority, p.confidence))
+                if self.commitment and not self._matching(chosen, world):
+                    self._release("VEHICLE_REQUIRED", now, "restore_quest_vehicle_before_objective")
+                self._set_phase(self._phase_for(chosen.skill, bool(self.commitment)), now,
+                                "restore_quest_vehicle")
+                return chosen
         # A ridden vehicle's own attack/aim preempts commitment bookkeeping
         # (live 2026-10-04 17:58: after Trample killed the committed cadaver
         # the loop chose an unexecutable "target_click_retry" TARGET for 11 s
@@ -413,6 +441,7 @@ class AutonomousLoop:
         if (world.state or {}).get("vehicle_controls"):
             vehicle = [proposal for proposal in proposals
                        if proposal.skill in {"VEHICLE_ABILITY", "EXIT_VEHICLE"}
+                       or self._vehicle_combat_move(proposal, world)
                        or (proposal.skill == "VISUAL_APPROACH"
                            and proposal.parameters.get("purpose") in {"VEHICLE_AIM", "VEHICLE_ATTACK"})]
             if vehicle:
@@ -481,6 +510,24 @@ class AutonomousLoop:
             elif (self.commitment.objective_refs and
                   self.commitment.quest_signature != world.quest_signature(world.state)):
                 self._release("QUEST_STATE_CHANGED", now, "quest_progress_or_state_changed")
+        if self._advance_location_playbook(proposals, preferred, world, scores):
+            self._release("PLAYBOOK_STEP_READY", now, "verified_quest_playbook_step_or_alternative_ready")
+        if self.commitment and scores and self._better_objective(proposals, preferred, world, now, scores):
+            # Live 2026-10-27 16:10: a courtyard Qalashi walk (committed at
+            # 16:10:27) hid the usable South Siege Arbalest on our own wall
+            # level that appeared at 16:10:32; the walk never ended.
+            self._release("BETTER_OBJECTIVE", now, "clearly_better_objective_target")
+        if (preferred.skill == "MOUNT" and "mount_capability" in preferred.evidence
+                and "long_move" in preferred.evidence
+                and not world.state.get("is_in_combat")):
+            # TravelModePolicy has checked capability, binding, context and
+            # on-foot work. Preparing its long route must not be replaced by
+            # the matching LOCATION commitment's on-foot MOVE.
+            self._set_phase(self._phase_for(preferred.skill, bool(self.commitment)), now,
+                            "prepare_long_route_travel")
+            if self.commitment:
+                self.commitment.last_updated = now
+            return preferred
         if self.commitment:
             target = world.query.target()
             if self.commitment.kind == "TARGET":
@@ -545,6 +592,17 @@ class AutonomousLoop:
                 matches = [proposal for proposal in proposals if self._matching(proposal, world)]
                 if matches:
                     chosen = max(matches, key=lambda proposal: (proposal.priority, proposal.confidence))
+                    guided = matches
+                    if scores and self.commitment.kind == "TARGET":
+                        guided = [item for item in matches if
+                                  (scores.get(item.key, {}).get("quest_playbook") or {}).get("target_ref")
+                                  == self.commitment.target_guid]
+                    if scores and any((scores.get(item.key, {}).get("quest_playbook") or {}).get("episode_failures")
+                                      for item in guided):
+                        # Retain target identity, but honor the grounded
+                        # alternative ranking inside this same commitment.
+                        chosen = max(guided, key=lambda item: (
+                            scores.get(item.key, {}).get("total", item.priority), item.confidence))
                     self._set_phase(self._phase_for(chosen.skill, True), now, "continue_committed_subgoal")
                     self.commitment.last_updated = now
                     return chosen
@@ -562,6 +620,36 @@ class AutonomousLoop:
         self._commit(preferred, goal, world, now)
         self._set_phase(self._phase_for(preferred.skill, True), now, "execute_committed_subgoal")
         return preferred
+
+    def _advance_location_playbook(self, proposals, preferred, world, scores) -> bool:
+        """An ended approach cannot hold a ready same-objective action in WAIT.
+
+        This runs only at a planning boundary. It releases a location intent,
+        never a target identity, input lease or the skill's failure budget.
+        """
+        commitment = self.commitment
+        if (commitment is None or commitment.kind != "LOCATION" or not scores
+                or world.state.get("is_in_combat") or world.state.get("is_casting")
+                or preferred not in proposals or preferred.skill in {"WAIT", "WAIT_EVENT"}):
+            return False
+        guide = (scores.get(preferred.key) or {}).get("quest_playbook") or {}
+        related = {str(guide.get("quest_id")), f"quest:{guide.get('quest_id')}", str(guide.get("objective_id"))}
+        if not guide or not related.intersection(commitment.objective_refs):
+            return False
+        return (guide.get("selection") == "try_available_alternative"
+                or (guide.get("step") != "APPROACH" and "APPROACH" in guide.get("verified_predecessors", ())))
+
+    def _better_objective(self, proposals, preferred, world, now: float, scores: dict) -> bool:
+        from .objective_choice import PREEMPT_MIN_SECONDS, better_than_commitment
+        commitment = self.commitment
+        if (world.state.get("is_in_combat") or now-commitment.selected_at < PREEMPT_MIN_SECONDS
+                or self._matching(preferred, world)):
+            return False
+        if (commitment.kind == "TARGET"
+                and str((world.state.get("target") or {}).get("guid") or "") == str(commitment.target_guid)):
+            return False                        # the selected unit itself stays ours
+        matching = [proposal for proposal in proposals if self._matching(proposal, world)]
+        return better_than_commitment(preferred, matching, scores)
 
     def on_execute(self, proposal: Proposal, now: float) -> None:
         self._set_phase(self._phase_for(proposal.skill, bool(self.commitment)), now, "skill_started")

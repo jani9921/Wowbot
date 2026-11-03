@@ -29,10 +29,14 @@ local questRevision = 0
 local lastQuestSignature = ""
 local killedCorpses = {}
 local eventSequence = 0
+-- Durable, bounded acknowledgements. Hover/movement churn must not evict
+-- QUEST_TURNED_IN before the Python verifier has observed it.
+local questTurnInReceipts = {}
 local latestEvent
 local previousState = {}
 local cache = {}
-local dirty = { actionbar = true, quests = true, quest_ui = true, inventory = true }
+local dirty = { actionbar = true, quests = true, quest_ui = true, inventory = true,
+    mount_capability = true }
 local questUIHint = {open = false, action = "", observed_at = 0}
 -- PREPARED 2026-09-14, UNTESTED LIVE. Mirrors questUIHint's fast-lane
 -- pattern so COMBAT/DEFEND's success check (skills.py verify()) no longer
@@ -41,7 +45,7 @@ local questUIHint = {open = false, action = "", observed_at = 0}
 -- before this is trusted as the primary signal.
 local combatHint = {spell_id = 0, at = 0}
 
-local ADDON_VERSION = "0.9.63"
+local ADDON_VERSION = "0.9.84"
 local PROTOCOL_VERSION = "AIPC5"
 local SCHEMA_VERSION = 4
 local SNAPSHOT_INTERVAL = 0.2
@@ -168,6 +172,32 @@ local function emitEvent(eventType, payload, source)
     end
     AIPlayerControllerExportDB.latest_event = latestEvent
     AIPlayerControllerExportDB.last_event_sequence = eventSequence
+    if latestEvent.event_type == "QUEST_TURNED_IN" then
+        local questID = safeNumber(latestEvent.payload.quest_id)
+        if questID > 0 then
+            questTurnInReceipts[#questTurnInReceipts + 1] = {
+                quest_id = questID, sequence = eventSequence, at = nowSeconds()}
+            while #questTurnInReceipts > 8 do table.remove(questTurnInReceipts, 1) end
+        end
+    elseif latestEvent.event_type == "QUEST_ACCEPTED" then
+        -- Reaccepting a repeatable quest starts a new lifecycle. An agent
+        -- restarted now must not apply that quest's previous turn-in receipt.
+        local questID = safeNumber(latestEvent.payload.quest_id)
+        for i=#questTurnInReceipts,1,-1 do
+            if questTurnInReceipts[i].quest_id == questID then
+                table.remove(questTurnInReceipts, i)
+            end
+        end
+    end
+end
+
+local function readQuestTurnInReceipts(limit)
+    local result = {}
+    for i=math.max(1, #questTurnInReceipts-limit+1),#questTurnInReceipts do
+        local row = questTurnInReceipts[i]
+        result[#result+1] = {quest_id=row.quest_id, sequence=row.sequence, at=row.at}
+    end
+    return result
 end
 
 local function initializeDatabase()
@@ -224,6 +254,7 @@ end
 -- slow-lane actionbar entries by id in combat_controller.py, not by slot
 -- position, since ACTIONBUTTON1-12 only reflect the *currently displayed*
 -- bar page (see readActionbar()'s own page-gating below).
+local actionbarRevision = 1
 local function activeOverridePage()
     local function has(api, legacy)
         local fn = (C_ActionBar and C_ActionBar[api]) or _G[legacy or api]
@@ -239,11 +270,33 @@ local function activeOverridePage()
     return nil, nil
 end
 
-local function readFastActionbar()
+-- 0.9.76 (user 2026-10-25, the Skyriding lessons 65118/65120/65133): on a
+-- Skyriding mount the main bar is bonus bar 5 (page 6+5) with Surge Forward,
+-- Skyward Ascent, Whirling Surge ...  Exported apart from the vehicle bar.
+local function skyridingBarPage()
+    local offset = safeNumber(safeCall(GetBonusBarOffset), 0)
+    if offset == 5 then return 6 + offset end
+    return nil
+end
+
+local function activeActionbarContext()
+    local page, kind = activeOverridePage()
+    if not page then
+        page = skyridingBarPage()
+        if page then kind = "SKYRIDING" end
+    end
+    if not page then
+        page = safeNumber(safeCall((C_ActionBar and C_ActionBar.GetActionBarPage) or GetActionBarPage), 1)
+        kind = page == 1 and "NORMAL" or "PAGED"
+    end
+    return {page = page, kind = kind, revision = actionbarRevision}
+end
+
+local function readFastActionbar(context)
     local result = {}
     -- 0.9.49: on a vehicle/override bar the fast lane follows that page, so
     -- range/usability for the boar's charge is fresh (not 2-4 s old).
-    local page = activeOverridePage()
+    local page = (context or activeActionbarContext()).page
     local firstSlot = (page and page > 0) and ((page - 1) * 12) or 0
     for index = 1, 4 do
         local slot = firstSlot + index
@@ -271,8 +324,29 @@ local function readFastActionbar()
     return result
 end
 
-local function readActionbar()
+local function mountActionInfo(mountID)
+    if not (C_MountJournal and mountID and mountID > 0 and mountID < 268435455) then return nil end
+    -- safeCall keeps 11 values; isSteadyFlight is the 13th.
+    local info = {pcall(C_MountJournal.GetMountInfoByID, mountID)}
+    if not info[1] then return nil end
+    local name, isActive, isUsable, isCollected, isSteadyFlight =
+        info[2], info[5], info[6], info[12], info[14]
+    local mountTypeID
+    if C_MountJournal.GetMountInfoExtraByID then
+        local _, _, _, _, typeID = safeCall(C_MountJournal.GetMountInfoExtraByID, mountID)
+        mountTypeID = optionalNumber(typeID)
+    end
+    return {
+        mount_id = mountID, mount_name = accessible(name) and name or nil,
+        mount_type_id = mountTypeID, mount_usable = optionalBool(isUsable),
+        mount_collected = optionalBool(isCollected), mount_active = optionalBool(isActive),
+        mount_steady_flight = optionalBool(isSteadyFlight),
+    }
+end
+
+local function readActionbar(context)
     local result = {}
+    context = context or activeActionbarContext()
     local function bindingAction(slot)
         if slot >= 1 and slot <= 12 then return "ACTIONBUTTON" .. slot end
         if slot >= 61 and slot <= 72 then return "MULTIACTIONBAR1BUTTON" .. (slot - 60) end
@@ -310,8 +384,7 @@ local function readActionbar()
             local cooldown = C_ActionBar and C_ActionBar.GetActionCooldown and safeCall(C_ActionBar.GetActionCooldown, slot) or nil
             local binding = bindingAction(slot)
             -- ACTIONBUTTON1..12 execute the currently displayed page only.
-            local page = safeNumber(safeCall((C_ActionBar and C_ActionBar.GetActionBarPage) or GetActionBarPage), 1)
-            if slot <= 12 and page ~= 1 then binding = nil end
+            if slot <= 12 and context.page ~= 1 then binding = nil end
             local primaryKey, secondaryKey = safeCall(GetBindingKey, binding)
             local cooldownStart = type(cooldown) == "table" and optionalNumber(cooldown.startTime) or nil
             local cooldownDuration = type(cooldown) == "table" and optionalNumber(cooldown.duration) or nil
@@ -332,6 +405,7 @@ local function readActionbar()
                 cooldown_start = cooldownStart,
                 cooldown_duration = cooldownDuration,
                 cooldown_remaining = cooldownStart and cooldownDuration and math.max(0, cooldownStart+cooldownDuration-nowSeconds()) or nil,
+                mount = actionType == "summonmount" and mountActionInfo(optionalNumber(id)) or nil,
             }
         end
     end
@@ -342,10 +416,11 @@ end
 -- ridden Giant Boar replaces the main bar with its own abilities (override /
 -- vehicle page).  ACTIONBUTTON1..12 then fire that page; the normal bar
 -- export above only showed the player's own, unusable spells.
-local function readVehicleBar()
+local function readVehicleBar(forcedPage, forcedKind)
     local page, kind = activeOverridePage()
+    if forcedPage then page, kind = forcedPage, forcedKind end
     if not page or page <= 0 then return nil end
-    local result = {page = page, kind = kind, actions = {}}
+    local result = {page = page, kind = kind, revision = actionbarRevision, actions = {}}
     for index = 1, 12 do
         local slot = (page - 1) * 12 + index
         local actionType, id
@@ -387,7 +462,7 @@ local function readVehicleBar()
                 in_range = optionalBool(safeCall((C_ActionBar and C_ActionBar.IsActionInRange) or IsActionInRange, slot, "target")),
                 cooldown_start = cooldownStart, cooldown_duration = cooldownDuration,
                 cooldown_remaining = cooldownStart and cooldownDuration and math.max(0, cooldownStart+cooldownDuration-nowSeconds()) or nil,
-                source = "VEHICLE_BAR",
+                source = kind == "SKYRIDING" and "SKYRIDING_BAR" or "VEHICLE_BAR",
             }
         end
     end
@@ -463,30 +538,47 @@ local function bagsAreOpen()
     return false
 end
 
+local collectionCoverage = {active_quests = "UNKNOWN", inventory = "UNKNOWN"}
+local collectionRetryAt = {}
+
 local function readInventory()
     local result = { items = {}, total_slots = 0, free_slots = 0 }
+    collectionCoverage.inventory = "UNKNOWN"
     if not C_Container then return result end
+    collectionCoverage.inventory = "COMPLETE"
     for bag = 0, 5 do
-        local slots = safeNumber(safeCall(C_Container.GetContainerNumSlots, bag), 0)
+        local rawSlots = safeCall(C_Container.GetContainerNumSlots, bag)
+        if not accessible(rawSlots) or type(rawSlots) ~= "number" then collectionCoverage.inventory = "PARTIAL" end
+        local slots = safeNumber(rawSlots, 0)
         local free = safeNumber(safeCall(C_Container.GetContainerNumFreeSlots, bag), 0)
         result.total_slots = result.total_slots + slots
         result.free_slots = result.free_slots + free
         for slot = 1, slots do
-            local info = safeCall(C_Container.GetContainerItemInfo, bag, slot)
+            local ok, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
+            if not ok then info = nil; collectionCoverage.inventory = "PARTIAL" end
             if type(info) == "table" then
                 local itemID = safeNumber(info.itemID)
-                local itemName, _, quality, itemLevel, _, itemType, _, maxStack, _, _, sellPrice = safeCall(GetItemInfo, itemID)
+                -- 0.9.76 (live 2026-10-25, Stocking Up on Supplies): the global
+                -- GetItemInfo/IsEquippableItem are gone in Retail 11+, so every
+                -- bag item read sell price 0 and nothing was ever sold.
+                local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+                local itemName, _, quality, itemLevel, _, itemType, _, maxStack, _, _, sellPrice = safeCall(getInfo, itemID)
                 local questInfo = C_Container.GetContainerItemQuestInfo and safeCall(C_Container.GetContainerItemQuestInfo, bag, slot) or nil
                 local x, y = inventoryButtonPoint(bag, slot)
                 result.items[#result.items + 1] = {
                     bag = bag, slot = slot, item_id = itemID,
                     item_name = safeText(itemName, ""), count = safeNumber(info.stackCount, 1),
-                    quality = safeNumber(quality), item_level = safeNumber(itemLevel),
+                    quality = safeNumber(quality, safeNumber(info.quality)), item_level = safeNumber(itemLevel),
                     item_type = safeText(itemType, ""), max_stack = safeNumber(maxStack, 1),
                     sell_price = safeNumber(sellPrice),
                     is_quest_item = type(questInfo) == "table" and bool(questInfo.isQuestItem) or false,
                     is_locked = bool(info.isLocked),
-                    is_equippable = bool(IsEquippableItem and safeCall(IsEquippableItem, itemID)),
+                    is_equippable = bool(safeCall((C_Item and C_Item.IsEquippableItem) or IsEquippableItem, itemID)),
+                    -- The client's own "cannot be sold" flag; known even before
+                    -- the item info is cached.
+                    has_no_value = optionalBool(info.hasNoValue),
+                    -- 0.9.83: a lootable bag container (P8.4 COLLECT_CONTAINER).
+                    has_loot = optionalBool(info.hasLoot),
                     x = x, y = y, coordinate_space = x and "CLIENT_BOTTOM_LEFT" or nil,
                 }
             end
@@ -498,7 +590,7 @@ end
 local function readControlBindings()
     local result = {}
     for _, action in ipairs({"MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT",
-        "JUMP", "INTERACTTARGET", "TARGETNEARESTENEMY", "TOGGLEWORLDMAP", "TOGGLEQUESTLOG", "OPENALLBAGS",
+        "JUMP", "PITCHUP", "PITCHDOWN", "INTERACTTARGET", "TARGETNEARESTENEMY", "TOGGLEWORLDMAP", "TOGGLEQUESTLOG", "OPENALLBAGS",
         "EXTRAACTIONBUTTON1"}) do
         local primary, secondary = safeCall(GetBindingKey, action)
         result[action] = {primary=safeText(primary, ""), secondary=safeText(secondary, ""), source="GET_BINDING_KEY"}
@@ -508,18 +600,108 @@ end
 
 local function readPlayerMovement()
     local speed = safeNumber(safeCall(GetUnitSpeed, "player"), 0)
+    local flying = bool(safeCall(IsFlying))
+    local gliding, forwardSpeed
+    if flying and C_PlayerInfo and C_PlayerInfo.GetGlidingInfo then
+        local isGliding, _, glideSpeed = safeCall(C_PlayerInfo.GetGlidingInfo)
+        gliding, forwardSpeed = optionalBool(isGliding), optionalNumber(glideSpeed)
+    end
     local indoors = safeCall(IsIndoors)
     if type(indoors) ~= "boolean" then indoors = nil end
     return {
         speed = speed,
         moving = speed > 0,
         running = speed > 0 and not bool(safeCall(IsSwimming)) and not bool(safeCall(IsFlying)),
-        flying = bool(safeCall(IsFlying)),
+        flying = flying,
+        -- 0.9.76: Skyriding feedback while airborne only (absent on foot).
+        pitch = flying and optionalNumber(safeCall(GetUnitPitch, "player")) or nil,
+        gliding = gliding,
+        forward_speed = forwardSpeed,
         swimming = bool(safeCall(IsSwimming)),
         falling = bool(safeCall(IsFalling)),
         -- A failed/secret API call is unknown, not evidence that we are outside.
         indoors = indoors,
     }
+end
+
+local RIDING_SPELL_IDS = {33388, 33391, 34090, 34091, 90265}
+-- Expert/Artisan/Master riding: the ones that allow flying.
+local FLYING_RIDING_SPELL_IDS = {34090, 34091, 90265}
+
+-- 0.9.76 (user 2026-10-25: "first plain riding in the air"): where flying is
+-- allowed, whether the character glides (Skyriding style) and which mount an
+-- action-bar slot summons.  Read-only Retail APIs; unknown stays nil.
+local function readFlightContext()
+    local gliding, canGlide
+    if C_PlayerInfo and C_PlayerInfo.GetGlidingInfo then
+        local isGliding, glide = safeCall(C_PlayerInfo.GetGlidingInfo)
+        gliding, canGlide = optionalBool(isGliding), optionalBool(glide)
+    end
+    local flyable = safeCall(IsFlyableArea)
+    local advanced = safeCall(IsAdvancedFlyableArea)
+    return {
+        flyable_area = type(flyable) == "boolean" and flyable or nil,
+        advanced_flyable_area = type(advanced) == "boolean" and advanced or nil,
+        gliding = gliding, can_glide = canGlide,
+    }
+end
+
+
+local function playerKnowsSpell(spellID)
+    for _, checker in ipairs({IsSpellKnownOrOverridesKnown, IsPlayerSpell, IsSpellKnown}) do
+        if type(checker) == "function" and bool(safeCall(checker, spellID)) then
+            return true
+        end
+    end
+    return false
+end
+
+local function readMountCapability()
+    local result = {
+        source = "MOUNT_JOURNAL_AND_SPELLBOOK",
+        observed_at = nowSeconds(),
+        journal_available = false,
+        collected_mount_count = 0,
+        usable_mount_count = 0,
+        has_collected_mount = false,
+        riding_skill_known = false,
+        riding_capability_confirmed = false,
+        flying_riding_known = false,
+        known_riding_spell_ids = {},
+    }
+    if C_MountJournal and type(C_MountJournal.GetMountIDs) == "function"
+            and type(C_MountJournal.GetMountInfoByID) == "function" then
+        local mountIDs = safeCall(C_MountJournal.GetMountIDs)
+        if type(mountIDs) == "table" then
+            result.journal_available = true
+            for _, mountID in ipairs(mountIDs) do
+                local _, _, _, _, isUsable, _, _, _, _, _, isCollected =
+                    safeCall(C_MountJournal.GetMountInfoByID, mountID)
+                if bool(isCollected) then
+                    result.collected_mount_count = result.collected_mount_count + 1
+                    if bool(isUsable) then
+                        result.usable_mount_count = result.usable_mount_count + 1
+                    end
+                end
+            end
+        end
+    end
+    for _, spellID in ipairs(RIDING_SPELL_IDS) do
+        if playerKnowsSpell(spellID) then
+            result.riding_skill_known = true
+            result.known_riding_spell_ids[#result.known_riding_spell_ids + 1] = spellID
+        end
+    end
+    for _, spellID in ipairs(FLYING_RIDING_SPELL_IDS) do
+        if playerKnowsSpell(spellID) then result.flying_riding_known = true end
+    end
+    local mountedNow = bool(safeCall(IsMounted))
+    result.has_collected_mount = result.collected_mount_count > 0 or mountedNow
+    -- A collected mount reported usable by Retail is direct capability
+    -- evidence even if a future patch changes the passive riding spell IDs.
+    result.riding_capability_confirmed =
+        result.riding_skill_known or result.usable_mount_count > 0 or mountedNow
+    return result
 end
 
 local function headerMatch(haystack, needle)
@@ -669,13 +851,18 @@ end
 
 local function readQuests()
     local quests = {}
+    collectionCoverage.active_quests = "UNKNOWN"
     if not C_QuestLog or not C_QuestLog.GetNumQuestLogEntries then return quests end
     local zoneName = GetZoneText and safeText(GetZoneText(), "") or ""
     local subzoneName = GetSubZoneText and safeText(GetSubZoneText(), "") or ""
     local currentHeader = ""
-    local entryCount = safeNumber(safeCall(C_QuestLog.GetNumQuestLogEntries), 0)
+    local rawCount = safeCall(C_QuestLog.GetNumQuestLogEntries)
+    if not accessible(rawCount) or type(rawCount) ~= "number" then return quests end
+    local entryCount = safeNumber(rawCount, 0)
+    collectionCoverage.active_quests = "COMPLETE"
     for index = 1, entryCount do
         local info = safeCall(C_QuestLog.GetInfo, index)
+        if type(info) ~= "table" then info = nil; collectionCoverage.active_quests = "PARTIAL" end
         if info then
             if bool(info.isHeader) then
                 currentHeader = accessible(info.title) and info.title or currentHeader
@@ -689,7 +876,8 @@ local function readQuests()
             local specialItemLink = GetQuestLogSpecialItemInfo and safeCall(GetQuestLogSpecialItemInfo, index) or nil
             local specialItemID = accessible(specialItemLink) and tonumber(tostring(specialItemLink):match("item:(%d+)")) or nil
             local specialItemName = accessible(specialItemLink) and tostring(specialItemLink):match("%[(.-)%]") or nil
-            local raw = C_QuestLog.GetQuestObjectives and safeCall(C_QuestLog.GetQuestObjectives, questID) or {}
+            local raw = C_QuestLog.GetQuestObjectives and safeCall(C_QuestLog.GetQuestObjectives, questID)
+            local objectivesCoverage = type(raw) == "table" and "COMPLETE" or "UNKNOWN"
             if type(raw) ~= "table" then raw = {} end
             for _, objective in ipairs(raw) do
                 local objectiveText = safeText(objective.text, "")
@@ -760,6 +948,9 @@ local function readQuests()
                 is_campaign = questIsCampaign(questID),
                 is_accepted = true,
                 is_complete = optionalBool(readyForTurnIn),
+                -- 0.9.82 (REV4 P8.4): a failed quest (escort NPC died, timer ran
+                -- out) is FAILED in the log; it must not be held or worked as ACTIVE.
+                is_failed = C_QuestLog.IsFailed and optionalBool(safeCall(C_QuestLog.IsFailed, questID)) or nil,
                 completion_log_text = completionLogText and string.sub(safeText(completionLogText, ""), 1, 300) or nil,
                 waypoint = waypointX and waypointY and {
                     map_id = safeNumber(waypointMap), x = safeNumber(waypointX), y = safeNumber(waypointY),
@@ -767,6 +958,7 @@ local function readQuests()
                     world_position = waypointWorld,
                 } or nil,
                 objectives = objectives,
+                objectives_coverage = objectivesCoverage,
                 special_item = specialItemID and {item_id = specialItemID, item_name = safeText(specialItemName, ""), source = "QUEST_LOG_SPECIAL_ITEM"} or nil,
             }
         end
@@ -803,6 +995,20 @@ end
 -- blind visual search.  Cached per map for 5 s; quest lines load async.
 local mapPoiCache = {mapID = nil, at = -1000, data = nil}
 local questLineRequestAt = {}
+
+local function invalidateMapPOIs(event)
+    if event == "QUESTLINE_UPDATE" then
+        -- Async reply: reread it, but never recursively issue a new request.
+        mapPoiCache.at = -1000
+    elseif event == "QUEST_TURNED_IN" or event == "QUEST_ACCEPTED"
+            or event == "QUEST_REMOVED" or event == "ZONE_CHANGED_NEW_AREA"
+            or event == "PLAYER_ENTERING_WORLD" then
+        -- Quest availability changed. The previous request describes the old
+        -- state; do not defer the next public query by its 15-second throttle.
+        mapPoiCache.at = -1000
+        questLineRequestAt = {}
+    end
+end
 
 local function poiPosition(position)
     if not position or not accessible(position) then return nil, nil end
@@ -1036,6 +1242,41 @@ local function readDeathRecovery()
     return result
 end
 
+-- 0.9.81 (live 2026-10-31, Murder Was The Case 26209): a gossip row ("Maybe a
+-- couple copper will loosen your tongue...") makes the server ask for a money
+-- confirmation.  Read-only: only the GOSSIP_CONFIRM popup's Accept button as a
+-- click point and the asked amount in copper; no popup text is exported.
+-- Python presses it only right after its own quest gossip row, for a small sum.
+local function moneyOf(frame)
+    if not frame then return nil end
+    for _, key in ipairs({"staticMoney", "money"}) do
+        local value = frame[key]
+        if accessible(value) and type(value) == "number" then return value end
+    end
+    return nil
+end
+
+local function readGossipConfirm()
+    for index = 1, 4 do
+        local popup = _G["StaticPopup" .. index]
+        if popup and frameIsShown(popup) then
+            local which = popup.which
+            if accessible(which) and which == "GOSSIP_CONFIRM" then
+                local button = _G["StaticPopup" .. index .. "Button1"] or popup.button1 or
+                    (popup.ButtonContainer and popup.ButtonContainer.Button1)
+                local x, y = framePoint(button)
+                if x and y then
+                    local money = moneyOf(popup.moneyFrame) or moneyOf(popup.MoneyFrame)
+                        or moneyOf(_G["StaticPopup" .. index .. "MoneyFrame"])
+                    return {open = true, x = x, y = y, money = money,
+                            enabled = not button.IsEnabled or bool(safeCall(button.IsEnabled, button))}
+                end
+            end
+        end
+    end
+    return nil
+end
+
 local function readExtraAction()
     -- This is a pure UI/control observation. It deliberately exports the
     -- client action token rather than inventing a key; Python can act only if
@@ -1073,6 +1314,159 @@ local function readExtraAction()
     }
 end
 
+-- 0.9.83 (REV4 P8.4 EMOTE, user 2026-11-02): one secure button the user binds
+-- once (Key Bindings > AI Player Controller > "AIPC: quest emote").  Out of
+-- combat the addon puts on it the emote an open quest objective names
+-- ("Dance with ...", "/cheer", "Salute given"); the agent targets the NPC and
+-- presses the binding.  Every client emote command is known (EMOTEn_CMDm).
+BINDING_HEADER_AIPC = "AI Player Controller"
+_G["BINDING_NAME_CLICK AIPCEmoteButton:LeftButton"] = "AIPC: quest action (emote / failed quest)"
+local EMOTE_FALLBACK = {"agree", "applaud", "beg", "bow", "bye", "cheer", "chicken", "clap", "congratulate",
+    "cry", "cuddle", "curtsey", "dance", "flex", "flirt", "greet", "hello", "hug", "introduce", "kiss",
+    "kneel", "laugh", "no", "nod", "point", "praise", "roar", "rude", "salute", "shy", "sit", "sleep",
+    "smile", "soothe", "talk", "thank", "train", "violin", "wave", "whistle", "yes"}
+local emoteCommands
+local function emoteCatalog()
+    if emoteCommands then return emoteCommands end
+    emoteCommands = {}
+    for i = 1, 1000 do
+        local token = rawget(_G, "EMOTE" .. i .. "_TOKEN")
+        if type(token) == "string" and accessible(token) then
+            for n = 1, 4 do
+                local cmd = rawget(_G, "EMOTE" .. i .. "_CMD" .. n)
+                if type(cmd) == "string" and accessible(cmd) and string.sub(cmd, 1, 1) == "/" then
+                    local word = string.lower(string.sub(cmd, 2))
+                    if string.match(word, "^%a+$") and not emoteCommands[word] then
+                        emoteCommands[word] = {token = token, command = "/" .. word}
+                    end
+                end
+            end
+        end
+    end
+    for _, word in ipairs(EMOTE_FALLBACK) do
+        if not emoteCommands[word] then emoteCommands[word] = {token = string.upper(word), command = "/" .. word} end
+    end
+    return emoteCommands
+end
+
+local function emoteInWord(catalog, word)
+    if catalog[word] then return catalog[word] end
+    for _, suffix in ipairs({"s", "es", "d", "ed", "ing"}) do
+        if #word > #suffix + 1 and string.sub(word, -#suffix) == suffix then
+            local stem = string.sub(word, 1, -#suffix - 1)
+            if catalog[stem] then return catalog[stem] end
+            if catalog[stem .. "e"] then return catalog[stem .. "e"] end            -- danced, dancing
+            local last = string.sub(stem, -1)
+            if #stem > 2 and string.sub(stem, -2, -2) == last and catalog[string.sub(stem, 1, -2)] then
+                return catalog[string.sub(stem, 1, -2)]                             -- hugged
+            end
+        end
+    end
+    return nil
+end
+
+-- The objective's own verb only: an explicit "/cheer", or its first word
+-- ("Dance with Tommy Joe"), or one of its last two ("Salute given",
+-- "Soldiers cheered").  The agent re-checks the word in the same text.
+local function emoteForText(text)
+    if type(text) ~= "string" or not accessible(text) then return nil end
+    local catalog = emoteCatalog()
+    local explicit = string.match(string.lower(text), "/(%a+)")
+    if explicit and catalog[explicit] then return catalog[explicit], explicit end
+    local body = string.lower(string.gsub(text, "^%s*%d+%s*/%s*%d+%s*", ""))
+    local words = {}
+    for word in string.gmatch(body, "%a+") do words[#words + 1] = word end
+    for _, index in ipairs({1, #words, #words - 1}) do
+        local word = words[index]
+        local found = word and emoteInWord(catalog, word)
+        if found then return found, word end
+    end
+    return nil
+end
+
+local emoteButton, emoteChoice, emotePending
+-- 0.9.84 (REV4 P8.4): a FAILED quest (escort died, timer ran out) comes
+-- first: the same button abandons it, so the giver offers it again.
+local function failedQuest()
+    if not C_QuestLog or not C_QuestLog.GetNumQuestLogEntries or not C_QuestLog.IsFailed then return nil end
+    local count = safeNumber(safeCall(C_QuestLog.GetNumQuestLogEntries), 0)
+    for index = 1, math.min(count, 60) do
+        local info = safeCall(C_QuestLog.GetInfo, index)
+        local questID = type(info) == "table" and not info.isHeader and safeNumber(info.questID) or nil
+        if questID and safeCall(C_QuestLog.IsFailed, questID) == true then return questID end
+    end
+    return nil
+end
+
+local function chooseEmote()
+    if not C_QuestLog or not C_QuestLog.GetNumQuestLogEntries then return nil end
+    local failed = failedQuest()
+    if failed then return {kind = "ABANDON_FAILED", quest_id = failed} end
+    local count = safeNumber(safeCall(C_QuestLog.GetNumQuestLogEntries), 0)
+    for index = 1, math.min(count, 60) do
+        local info = safeCall(C_QuestLog.GetInfo, index)
+        local questID = type(info) == "table" and not info.isHeader and safeNumber(info.questID) or nil
+        if questID then
+            local objectives = safeCall(C_QuestLog.GetQuestObjectives, questID)
+            if type(objectives) == "table" then
+                for objectiveIndex, objective in ipairs(objectives) do
+                    if type(objective) == "table" and not objective.finished then
+                        local found, word = emoteForText(objective.text)
+                        if found then
+                            return {kind = "EMOTE", emote = found.token, command = found.command, word = word,
+                                    quest_id = questID, objective_index = objectiveIndex - 1}
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function applyEmoteButton()
+    if InCombatLockdown and InCombatLockdown() then emotePending = true return end
+    emotePending = false
+    if not emoteButton then
+        emoteButton = CreateFrame("Button", "AIPCEmoteButton", UIParent, "SecureActionButtonTemplate")
+        emoteButton:SetAttribute("type", "macro")
+        local keyDown = C_CVar and C_CVar.GetCVarBool and safeCall(C_CVar.GetCVarBool, "ActionButtonUseKeyDown")
+        emoteButton:RegisterForClicks(keyDown and "AnyDown" or "AnyUp")
+        -- Abandon is not a protected action: the insecure PreClick does it,
+        -- only for a quest the log still reports FAILED, never in combat.
+        emoteButton:SetScript("PreClick", function()
+            local choice = emoteChoice
+            if not choice or choice.kind ~= "ABANDON_FAILED" or (InCombatLockdown and InCombatLockdown()) then return end
+            if safeCall(C_QuestLog.IsFailed, choice.quest_id) ~= true then return end
+            safeCall(C_QuestLog.SetSelectedQuest, choice.quest_id)
+            safeCall(C_QuestLog.SetAbandonQuest)
+            safeCall(C_QuestLog.AbandonQuest)
+        end)
+    end
+    emoteChoice = chooseEmote()
+    emoteButton:SetAttribute("macrotext", emoteChoice and emoteChoice.kind == "EMOTE" and emoteChoice.command or "")
+end
+
+local emoteEvents = CreateFrame("Frame")
+for _, event in ipairs({"PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "PLAYER_REGEN_ENABLED"}) do
+    emoteEvents:RegisterEvent(event)
+end
+emoteEvents:SetScript("OnEvent", function() pcall(applyEmoteButton) end)
+
+function namespace.ReadEmoteAction()
+    local choice = emoteChoice
+    local primary, secondary = safeCall(GetBindingKey, "CLICK AIPCEmoteButton:LeftButton")
+    return {
+        binding = "CLICK AIPCEMOTEBUTTON:LEFTBUTTON",
+        applied = emoteButton ~= nil and not emotePending,
+        kind = choice and choice.kind or "",
+        emote = choice and choice.emote or "", command = choice and choice.command or "",
+        word = choice and choice.word or "",
+        quest_id = choice and choice.quest_id or 0, objective_index = choice and choice.objective_index or -1,
+        binding_primary = safeText(primary, ""), binding_secondary = safeText(secondary, ""),
+    }
+end
+
 local function targetScreenPosition()
     if not C_NamePlate or not C_NamePlate.GetNamePlateForUnit then return nil end
     local plate = safeCall(C_NamePlate.GetNamePlateForUnit, "target")
@@ -1086,14 +1480,34 @@ end
 local function normalizedQuestRowText(value)
     if not accessible(value) or type(value) ~= "string" then return "" end
     local text = safeText(value, "")
-    text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "")
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[%w_]+:", "")
+    text = text:gsub("|r", ""):gsub("|T.-|t", "")
     text = text:gsub("|A.-|a", "")
     text = text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
-    return text:gsub("^%(Quest%)%s*", "")
+    return text:gsub("^%([Qq][Uu][Ee][Ss][Tt]%)%s*", "")
+end
+
+local function gossipOptionFlags(option)
+    -- Retail renders QUEST_PREPEND from this API flag, not from option.name.
+    -- Use the running client's enum; never guess a build-specific bit value.
+    local function unsigned(value)
+        value = optionalNumber(value)
+        if not value or value ~= value or value < 0 or value > 4294967295
+           or value ~= math.floor(value) then return nil end
+        return value
+    end
+    local flags = unsigned(option.flags)
+    if not flags then return nil, nil end
+    local labelMask = _G.Enum and _G.Enum.GossipOptionRecFlags
+        and unsigned(_G.Enum.GossipOptionRecFlags.QuestLabelPrepend) or nil
+    if not labelMask or labelMask == 0 then return flags, nil end
+    local marked = _G.FlagsUtil and safeCall(_G.FlagsUtil.IsSet, flags, labelMask)
+    if type(marked) ~= "boolean" then return flags, nil end
+    return flags, marked
 end
 
 local function questRowPoint(questID, title, gossipOptionID)
-    local foundX, foundY
+    local foundX, foundY, foundText
     local wantedID = optionalNumber(questID)
     local wantedOptionID = optionalNumber(gossipOptionID)
     local wantedTitle = normalizedQuestRowText(title)
@@ -1103,7 +1517,12 @@ local function questRowPoint(questID, title, gossipOptionID)
         local directID = optionalNumber(value.questID or value.questId)
         if wantedID and directID == wantedID then return true end
         local directOptionID = optionalNumber(value.gossipOptionID or value.gossipOptionId)
-        if wantedOptionID and directOptionID == wantedOptionID then return true end
+        if wantedOptionID and directOptionID then return directOptionID == wantedOptionID end
+        -- Retail wraps optionInfo in .info. A shared sizing/prototype button
+        -- elsewhere in elementData must not lend another row its identity.
+        local info = accessible(value.info) and type(value.info) == "table" and value.info or nil
+        local infoOptionID = info and optionalNumber(info.gossipOptionID or info.gossipOptionId)
+        if wantedOptionID and infoOptionID then return infoOptionID == wantedOptionID end
         local directTitle = normalizedQuestRowText(value.title or value.name or value.text)
         if wantedTitle ~= "" and directTitle == wantedTitle then return true end
         local matched = false
@@ -1122,18 +1541,29 @@ local function questRowPoint(questID, title, gossipOptionID)
     end
     local function frameTextMatches(candidate)
         local function matches(value)
-            return wantedTitle ~= "" and normalizedQuestRowText(value) == wantedTitle
+            if wantedTitle ~= "" and normalizedQuestRowText(value) == wantedTitle then
+                return safeText(value, "")
+            end
         end
-        if candidate.GetText and matches(safeCall(candidate.GetText, candidate)) then return true end
-        if candidate.Text and candidate.Text.GetText
-           and matches(safeCall(candidate.Text.GetText, candidate.Text)) then return true end
-        local matched = false
+        local matched
+        local function consider(value)
+            local text = matches(value)
+            if not text then return end
+            local plain = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[%w_]+:", "")
+            plain = plain:gsub("|r", ""):gsub("^%s+", "")
+            if not matched or plain:match("^%([Qq][Uu][Ee][Ss][Tt]%)") then matched = text end
+        end
+        if candidate.GetText then consider(safeCall(candidate.GetText, candidate)) end
+        if candidate.Text and candidate.Text.GetText then
+            consider(safeCall(candidate.Text.GetText, candidate.Text))
+        end
+        local fontString = candidate.GetFontString and safeCall(candidate.GetFontString, candidate)
+        if fontString and fontString.GetText then consider(safeCall(fontString.GetText, fontString)) end
         if candidate.GetRegions then
             pcall(function()
                 for _, region in ipairs({candidate:GetRegions()}) do
-                    if region and region.GetText and matches(safeCall(region.GetText, region)) then
-                        matched = true
-                        break
+                    if region and region.GetText then
+                        consider(safeCall(region.GetText, region))
                     end
                 end
             end)
@@ -1145,10 +1575,23 @@ local function questRowPoint(questID, title, gossipOptionID)
         local data = candidate.GetElementData and safeCall(candidate.GetElementData, candidate) or nil
         local candidateID = optionalNumber(candidate.questID or candidate.questId)
         local candidateOptionID = optionalNumber(candidate.gossipOptionID or candidate.gossipOptionId)
+        local dataOptionID = accessible(data) and type(data) == "table"
+            and optionalNumber(data.gossipOptionID or data.gossipOptionId) or nil
+        local info = accessible(data) and type(data) == "table" and accessible(data.info)
+            and type(data.info) == "table" and data.info or nil
+        local infoOptionID = info and optionalNumber(info.gossipOptionID or info.gossipOptionId)
+        if wantedOptionID and ((candidateOptionID and candidateOptionID ~= wantedOptionID)
+            or (dataOptionID and dataOptionID ~= wantedOptionID)
+            or (infoOptionID and infoOptionID ~= wantedOptionID)) then return end
+        local displayed = frameTextMatches(candidate)
         if (wantedID and candidateID == wantedID)
            or (wantedOptionID and candidateOptionID == wantedOptionID)
-           or dataMatches(data, 0, {}) or frameTextMatches(candidate) then
+           or dataMatches(data, 0, {}) or displayed then
             foundX, foundY = framePoint(candidate)
+            -- 0.9.74: the visible row can add "(Quest)" while GetOptions()
+            -- returns the undecorated API name. Preserve only displayed text
+            -- whose normalized body matches this same option/quest title.
+            foundText = displayed
         end
     end
     local scrollBoxes = {}
@@ -1159,7 +1602,7 @@ local function questRowPoint(questID, title, gossipOptionID)
     for _, scrollBox in ipairs(scrollBoxes) do
         if scrollBox and scrollBox.ForEachFrame then pcall(function() scrollBox:ForEachFrame(inspect) end) end
     end
-    if foundX then return foundX, foundY end
+    if foundX then return foundX, foundY, foundText end
     local roots = {}
     if _G.GossipFrame then roots[#roots + 1] = _G.GossipFrame end
     if _G.QuestFrameGreetingPanel then roots[#roots + 1] = _G.QuestFrameGreetingPanel end
@@ -1171,7 +1614,7 @@ local function questRowPoint(questID, title, gossipOptionID)
         end
     end
     for _, root in ipairs(roots) do walk(root, 0) end
-    return foundX, foundY
+    return foundX, foundY, foundText
 end
 
 -- Read-only Retail gossip sensor. A conversation option is not a quest offer
@@ -1193,9 +1636,52 @@ local function readSingleGossipOption()
     local optionID = optionalNumber(option.gossipOptionID or option.gossipOptionId)
     local name = safeText(option.name, "")
     if not optionID or optionID <= 0 or name == "" then return nil end
-    local x, y = questRowPoint(nil, name, optionID)
+    local x, y, displayName = questRowPoint(nil, name, optionID)
     if not x or not y or x <= 0 or x >= 1 or y <= 0 or y >= 1 then return nil end
-    return {id = optionID, name = name, x = x, y = y}
+    local flags, questLabel = gossipOptionFlags(option)
+    return {id = optionID, name = name, x = x, y = y,
+            flags = flags, quest_label_prepend = questLabel,
+            display_name = displayName and string.sub(displayName, 1, 160) or nil}
+end
+
+-- 0.9.73 (live 2026-10-21 15:52:59, Cataloger Jakes): his window listed a
+-- quest and two options ("Can I see the Renown items you have for sale?",
+-- the Dragonscale Expedition standing); the lone-option rule exported
+-- nothing, so Python saw an empty window, closed it and reopened it.  Every
+-- option is exported with its icon (vendor 132060) and its visible row.
+local GOSSIP_OPTION_LIMIT = 8
+local function readGossipOptions()
+    if not frameIsShown(_G.GossipFrame) or not C_GossipInfo or not C_GossipInfo.GetOptions then
+        return nil
+    end
+    local options = safeCall(C_GossipInfo.GetOptions)
+    if type(options) ~= "table" or #options == 0 then return nil end
+    local available = _G.Enum and _G.Enum.GossipOptionStatus
+        and optionalNumber(_G.Enum.GossipOptionStatus.Available)
+    local result = {}
+    for index, option in ipairs(options) do
+        if index > GOSSIP_OPTION_LIMIT then break end
+        if type(option) == "table" then
+            local optionID = optionalNumber(option.gossipOptionID or option.gossipOptionId)
+            local name = safeText(option.name, "")
+            if optionID and optionID > 0 and name ~= "" then
+                local status = optionalNumber(option.status)
+                local flags, questLabel = gossipOptionFlags(option)
+                local row = {id = optionID, name = string.sub(name, 1, 120),
+                             flags = flags, quest_label_prepend = questLabel,
+                             icon = optionalNumber(option.icon),
+                             available = not (status and available and status ~= available)}
+                local x, y, displayName = questRowPoint(nil, name, optionID)
+                if x and y and x > 0 and x < 1 and y > 0 and y < 1 then
+                    row.x, row.y = x, y
+                    row.display_name = displayName and string.sub(displayName, 1, 160) or nil
+                end
+                result[#result + 1] = row
+            end
+        end
+    end
+    if #result == 0 then return nil end
+    return result
 end
 
 local function rewardChoiceFrame(index)
@@ -1317,7 +1803,20 @@ local function readVendorUI()
         or optionalNumber(C_MerchantFrame and C_MerchantFrame.GetNumItems
                           and safeCall(C_MerchantFrame.GetNumItems)) or 0
     local page = optionalNumber(_G.MerchantFrame.page) or 1
-    for i = 1, math.min(numItems, 10) do
+    -- 0.9.73: a Renown vendor lists more than one page.  Every item (up to
+    -- 40) is named; only the current page's buttons have a point, and the
+    -- page buttons are exported so Python can turn to the wanted item.
+    local perPage = optionalNumber(_G.MERCHANT_ITEMS_PER_PAGE) or 10
+    result.page, result.num_items = page, numItems
+    for _, pager in ipairs({{"next", _G.MerchantNextPageButton}, {"prev", _G.MerchantPrevPageButton}}) do
+        local button = pager[2]
+        local enabled = button and (not button.IsEnabled or safeCall(button.IsEnabled, button))
+        if button and frameIsShown(button) and enabled ~= false then
+            local px, py = framePoint(button)
+            result[pager[1] .. "_x"], result[pager[1] .. "_y"] = px, py
+        end
+    end
+    for i = 1, math.min(numItems, 40) do
         local name, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost
         local info = C_MerchantFrame and C_MerchantFrame.GetItemInfo
             and safeCall(C_MerchantFrame.GetItemInfo, i) or nil
@@ -1330,7 +1829,8 @@ local function readVendorUI()
                 safeCall(GetMerchantItemInfo, i)
         end
         if accessible(name) and name then
-            local button = page == 1 and _G["MerchantItem" .. i .. "ItemButton"] or nil
+            local onPage = i - (page - 1) * perPage
+            local button = onPage >= 1 and onPage <= perPage and _G["MerchantItem" .. onPage .. "ItemButton"] or nil
             local bx, by
             if button and frameIsShown(button) then bx, by = framePoint(button) end
             result.items[#result.items + 1] = {
@@ -1350,6 +1850,7 @@ local function readQuestUI()
     local result = {open = false, entries = {}, reward_choices = {}, reward_selected_index = 0,
                     action = "", x = 0, y = 0, quest_id = 0}
     result.open = frameIsShown(_G.GossipFrame) or frameIsShown(_G.QuestFrame)
+    result.npc_guid = result.open and safeCall(UnitGUID, "npc") or false
     -- QUEST_DETAIL tells us which action is expected, but it is not proof
     -- that the dialog is still on screen.  In live testing the player could
     -- walk past an NPC, Retail closed QuestFrame, and this ten-second hint
@@ -1470,6 +1971,10 @@ local function readQuestUI()
             result.x, result.y = result.gossip_option.x, result.gossip_option.y
         end
     end
+    if result.open and frameIsShown(_G.GossipFrame) then
+        result.gossip_options = readGossipOptions()
+    end
+    result.gossip_confirm = readGossipConfirm()
     return result
 end
 
@@ -1482,6 +1987,12 @@ end
 -- almost entirely instead of just tolerating it.
 local function readFastCombatHint()
     local result = {spell_id = 0, at = 0}
+    -- Exact own channel identity distinguishes a moving quest mechanic
+    -- (Pulling Weeds) from an ordinary cast. Secret/inaccessible values
+    -- remain absent through the existing safeCall/safeNumber boundary.
+    local channelName, _, _, _, _, _, _, channelSpell = safeCall(UnitChannelInfo, "player")
+    result.channel_spell_id = channelName and safeNumber(channelSpell) or 0
+    result.channel_at = nowSeconds()
     if combatHint.spell_id ~= 0 and nowSeconds() - combatHint.at <= 10 then
         result.spell_id = combatHint.spell_id
         result.at = combatHint.at
@@ -1677,6 +2188,12 @@ local function npcIdFromGuid(guid)
     return nil
 end
 
+local function objectIdFromGuid(guid)
+    if not accessible(guid) or type(guid) ~= "string" or guidType(guid) ~= "OBJECT" then return nil end
+    local id = guid:match("^GameObject%-%d+%-%d+%-%d+%-%d+%-(%d+)%-%x+$")
+    return id and tonumber(id) or nil
+end
+
 local function safeUnitCall(fn, unit, ...)
     if not fn or not unit or not unitExists(unit) then return nil end
     local ok, a, b, c, d, e = pcall(fn, unit, ...)
@@ -1695,6 +2212,7 @@ local function readUnitType(unit, guid)
     if kind == "PET" then return "PET" end
     if kind == "VEHICLE" then return "VEHICLE" end
     if kind == "NPC" then return "NPC" end
+    if kind == "OBJECT" then return "GAMEOBJECT" end
     local unitType = safeUnitCall(UnitCreatureType, unit)
     if unitType then return "NPC" end
     return kind
@@ -1758,13 +2276,23 @@ local function readUnit(unit)
     local health = safeUnitCall(UnitHealth, unit)
     local maxHealth = safeUnitCall(UnitHealthMax, unit)
     local x, y, z, instanceID = safeUnitCall(UnitPosition, unit)
+    -- 0.9.71 (live 2026-10-21, Archivist Rellid on a circling drake): the API
+    -- gives no NPC position; CheckInteractDistance (index 3, ~10 yd) says when
+    -- a selected friendly unit is close enough to Interact with.  Selected
+    -- target only; nil when the client refuses to answer.
+    local interactNear = nil
+    if unit == "target" and CheckInteractDistance then
+        interactNear = optionalBool(safeUnitCall(CheckInteractDistance, unit, 3))
+    end
     return {
         exists = true,
+        interact_near = interactNear,
         unit = unit,
         name = name,
         realm = realm,
         guid = guid,
         npc_id = npcID,
+        object_id = objectIdFromGuid(guid),
         unit_type = unitType,
         level = level,
         classification = classification,
@@ -1800,6 +2328,7 @@ local function readSoftTargets()
                 source_unit = unitToken,
                 guid = unit.guid,
                 npc_id = unit.npc_id,
+                object_id = unit.object_id,
                 name = unit.name,
                 unit_type = unit.unit_type,
                 reaction = unit.reaction,
@@ -1814,14 +2343,14 @@ local function readSoftTargets()
             -- Cocoon) is a soft-interact target too, but UnitExists() is
             -- false for it; its GUID and name still identify it, and the
             -- Interact key uses it.
-            local guid = safeUnitCall(UnitGUID, unitToken)
+            local guid = safeCall(UnitGUID, unitToken)
             if guid and guidType(guid) == "OBJECT" then
-                local name = safeUnitCall(UnitName, unitToken)
-                local objectID = guid:match("^[^%-]+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-%x+$")
+                local name = safeCall(UnitName, unitToken)
+                local objectID = objectIdFromGuid(guid)
                 result[#result + 1] = {
                     source_unit = unitToken,
                     guid = guid,
-                    object_id = objectID and tonumber(objectID) or nil,
+                    object_id = objectID,
                     name = name,
                     unit_type = "GAMEOBJECT",
                     evidence_role = "CANDIDATE_HINT",
@@ -1831,6 +2360,44 @@ local function readSoftTargets()
         end
     end
     return result
+end
+
+-- Public API only. A failed/secret result is unknown, never "no recipient".
+local function readInteractGuid()
+    if type(UnitGUID) ~= "function" then return nil end
+    local ok, guid = pcall(UnitGUID, "softinteract")
+    if not ok or not accessible(guid) then return nil end
+    if guid == nil then
+        -- A present unit with an unavailable GUID is NOT an empty recipient.
+        if safeCall(UnitExists, "softinteract") == false then return false end
+        return nil
+    end
+    if type(guid) == "string" and #guid > 0 then return guid end
+    return nil
+end
+
+local function readQuestItemTarget(quests, target, sampled)
+    -- Usability/cooldown also describe self-activated tools with no selected
+    -- unit. A missing GUID still grants no unit-range/Interact permission.
+    local items = {}
+    for _, quest in ipairs(quests or {}) do
+        local id = quest.special_item and optionalNumber(quest.special_item.item_id)
+        if id and quest.is_complete ~= true then
+            local inRange = optionalBool(safeCall(C_Item and C_Item.IsItemInRange, id, "target"))
+            local usable = optionalBool(safeCall(C_Item and C_Item.IsUsableItem, id))
+            local start, duration, enabled = safeCall(C_Item and C_Item.GetItemCooldown, id)
+            start, duration = optionalNumber(start), optionalNumber(duration)
+            enabled = optionalBool(enabled)
+            local remaining
+            if start and duration and enabled == true then
+                remaining = math.floor(math.max(0, start + duration - sampled) * 100 + .5) / 100
+            end
+            items[#items + 1] = {quest_id=quest.quest_id, item_id=id,
+                in_range=inRange, is_usable=usable, cooldown_remaining=remaining}
+            if #items >= 4 then break end -- bounded; omitted items remain unknown
+        end
+    end
+    return {guid=target and target.guid or nil, sample_time=sampled, items=items}
 end
 
 local function readNameplates()
@@ -1972,7 +2539,7 @@ local function readMouseover(activeQuests)
     unit.tooltip_data = metadata
     unit.identity_source = identitySource
     unit.item_id = metadata and metadata.item_id or nil
-    unit.object_id = metadata and metadata.object_id or nil
+    unit.object_id = (metadata and metadata.object_id) or unit.object_id or objectIdFromGuid(unit.guid)
     local questRelated, questID = activeQuestTooltipMatch(text, activeQuests)
     unit.quest_related = questRelated or nil
     unit.quest_id = questID
@@ -2073,11 +2640,22 @@ local function readMapMouseover()
 end
 
 local function cachedValue(name, reader)
-    if dirty[name] or cache[name] == nil then
+    local coverageKey = name == "quests" and "active_quests" or name
+    local incomplete = collectionCoverage[coverageKey] and collectionCoverage[coverageKey] ~= "COMPLETE"
+    local retry = incomplete and nowSeconds() - (collectionRetryAt[name] or -10) >= 1
+    if dirty[name] or cache[name] == nil or retry then
         cache[name] = reader()
+        collectionRetryAt[name] = nowSeconds()
         dirty[name] = false
     end
     return cache[name]
+end
+
+-- snapshot already uses namespace and is at Lua 5.1's 60-upvalue limit.
+-- Keep additional collection state behind that existing reference.
+namespace.ReadCollectionCoverage = function(quests)
+    return {active_quests = collectionCoverage.active_quests,
+        inventory = collectionCoverage.inventory, quest_revision = updateQuestRevision(quests)}
 end
 
 local function snapshot()
@@ -2093,10 +2671,12 @@ local function snapshot()
     local quests = cachedValue("quests", readQuests)
     local questUI = readQuestUI()
     local vendorUI = readVendorUI()
-    local actionbar = readActionbar()
+    local actionbarContext = activeActionbarContext()
+    local actionbar = readActionbar(actionbarContext)
     local inventory = cachedValue("inventory", readInventory)
     local nameplates = readNameplates()
     local movement = readPlayerMovement()
+    local mountCapability = cachedValue("mount_capability", readMountCapability)
     local _, classToken = safeUnitCall(UnitClass, "player")
     local _, raceToken = safeUnitCall(UnitRace, "player")
     local gameVersion, gameBuild = safeCall(GetBuildInfo)
@@ -2162,7 +2742,9 @@ local function snapshot()
         class = classToken,
         race = raceToken,
         is_casting = casting ~= nil,
+        combat_hint = readFastCombatHint(),
         is_mounted = bool(safeCall(IsMounted)),
+        mount_capability = mountCapability,
         is_in_combat = bool(safeUnitCall(UnitAffectingCombat, "player")),
         is_dead = bool(safeUnitCall(UnitIsDead, "player")),
         is_ghost = bool(safeUnitCall(UnitIsGhost, "player")),
@@ -2176,10 +2758,15 @@ local function snapshot()
         vehicle_guid = unitExists("vehicle") and safeText(safeUnitCall(UnitGUID, "vehicle"), "") or nil,
         camera_distance = GetCameraZoom and safeNumber(safeCall(GetCameraZoom)) or nil,
         movement = movement,
+        flight = readFlightContext(),
+        actionbar_context = actionbarContext,
+        actionbar_snapshot_context = actionbarContext,
+        skyriding_bar = actionbarContext.kind == "SKYRIDING"
+            and readVehicleBar(actionbarContext.page, "SKYRIDING") or false,
         current_target = targetName,
         target = target and {
             guid = target.guid,
-            npc_id = target.npc_id,
+            npc_id = target.npc_id, object_id = target.object_id,
             name = target.name,
             level = target.level,
             classification = target.classification,
@@ -2193,6 +2780,8 @@ local function snapshot()
             screen_position = targetScreenPosition(),
         } or nil,
         soft_targets = readSoftTargets(),
+        interact_guid = readInteractGuid(),
+        quest_item_target = readQuestItemTarget(quests, target, nowSeconds()),
         visible_units = target and {{
             guid = target.guid,
             name = targetName,
@@ -2206,12 +2795,15 @@ local function snapshot()
         control_bindings = readControlBindings(),
         binding_catalog_page = namespace.BindingCatalogPage(),
         active_quests = quests,
+        collection_coverage = namespace.ReadCollectionCoverage(quests),
         quest_text = readQuestText(quests),
         quest_locations = readQuestLocations(telemetryMapID),
         map_pois = readMapPOIs(telemetryMapID),
         quest_state_revision = updateQuestRevision(quests),
+        quest_turn_in_receipts = readQuestTurnInReceipts(8),
         quest_ui = questUI,
         extra_action = readExtraAction(),
+        emote_action = namespace.ReadEmoteAction(),
         death_recovery = readDeathRecovery(),
         vendor_ui = vendorUI,
         tutorial_hint = AIPlayerControllerExportDB.settings.debug and readTutorialHint() or "",
@@ -2449,21 +3041,18 @@ local function pixelPayload(data)
     return payload:sub(1, PIXEL_MAX_BYTES)
 end
 
--- STATE starts at the client top and is 12 physical pixels shorter than the
--- old strip. FAST keeps its former cell budget in a separate, compact frame
+-- STATE starts at the client top as a thin, wide 3-pixel-cell strip.
+-- FAST keeps its former cell budget in a separate, compact frame
 -- under the minimap, away from the quest dialog and tracker header.
 -- LEGACY: the former single 128-column strip, for windows too narrow.
-local PIXEL_ROWS = 29
+local PIXEL_ROWS = 11
 local LANE_FAST_COLUMNS = 64
 local LANE_FAST_ROWS = 112
 local LANE_MIN_STATE_COLUMNS = 64
--- 0.9.63: the STATE lane is 128 columns wide and as tall as one 1024-byte
--- page needs (33 rows): 512x132 px in the top-left corner, the legacy
--- strip's footprint.  The 0.9.61 lane ran up to 448 columns (~1800 px) along
--- the whole top edge for the same 1024-byte page; the detector had to mask
--- that whole band, so close NPC heads and "!"/"?" symbols went unseen
--- (live 2026-10-08: approach overshoot, failing INSPECT hovers).
-local LANE_MAX_STATE_COLUMNS = 128
+-- 0.9.64: same 1024-byte page, up to 384 columns of 3 px: 1152x33 px
+-- instead of 512x132. Keep changed-byte repainting and the FAST lane intact.
+local LANE_MAX_STATE_COLUMNS = 384
+local LANE_STATE_CELL_PIXELS = 3
 local LANE_STATE_PACKET_CAPACITY = 1024
 local LANE_FAST_TOP_PIXELS = 300
 local LANE_FAST_RIGHT_PIXELS = 8
@@ -2495,9 +3084,11 @@ local function computePixelLayout()
             right = math.min(physicalWidth, clusterLeft * scale / unitsPerPixel - 8)
         end
     end
-    local state = math.min(LANE_MAX_STATE_COLUMNS, math.floor((right - margin) / 4))
+    local state = math.min(LANE_MAX_STATE_COLUMNS,
+        math.floor((right - margin) / LANE_STATE_CELL_PIXELS))
     if state < LANE_MIN_STATE_COLUMNS then return {mode = "LEGACY"} end
-    return {mode = "LANES", cell = 4 * unitsPerPixel, margin = margin * unitsPerPixel,
+    return {mode = "LANES", cell = LANE_STATE_CELL_PIXELS * unitsPerPixel,
+        margin = margin * unitsPerPixel,
         fastCell = 3 * unitsPerPixel,
         fastTop = LANE_FAST_TOP_PIXELS * unitsPerPixel,
         fastRight = LANE_FAST_RIGHT_PIXELS * unitsPerPixel,
@@ -2608,6 +3199,16 @@ end
 
 local function layoutPixelFrame()
     if not pixelFrame or not fastPixelFrame then return end
+    -- TOOLTIP strata alone is insufficient: GameTooltip's text regions can
+    -- have a higher frame level and corrupt FAST exactly while hovering a
+    -- unit (live 2026-10-18). Configure once per layout, never every sample.
+    -- Keep the tooltip itself intact; telemetry still reads its public data.
+    for _, bridge in ipairs({pixelFrame, fastPixelFrame}) do
+        bridge:SetFrameStrata("TOOLTIP")
+        if bridge.SetFrameLevel then bridge:SetFrameLevel(10000) end
+        if bridge.EnableMouse then bridge:EnableMouse(false) end
+        if bridge.EnableMouseMotion then bridge:EnableMouseMotion(false) end
+    end
     for _, lane in ipairs(pixelLayout.lanes or {legacyLane}) do hideLane(lane) end
     pixelLayout = computePixelLayout()
     if pixelFrame.ClearAllPoints then pixelFrame:ClearAllPoints() end
@@ -2703,15 +3304,18 @@ local function readFastState(data)
     result.mouseover = readMouseover(data.active_quests)
     local target = readUnit("target")
     result.target = target and {
-        guid = target.guid, npc_id = target.npc_id, name = target.name,
+        guid = target.guid, npc_id = target.npc_id, object_id = target.object_id, name = target.name,
         level = target.level, classification = target.classification,
         reaction = target.reaction, health = target.health,
         max_health = target.max_health, attackable = target.is_attackable,
         dead = target.is_dead, lootable = target.lootable, unit_type = target.unit_type,
+        interact_near = target.interact_near,
         world_position = target.world_position,
         screen_position = targetScreenPosition(),
     } or nil
     result.soft_targets = readSoftTargets()
+    result.interact_guid = readInteractGuid()
+    result.quest_item_target = readQuestItemTarget(data.active_quests, target, sampleTime)
     result.cursor_position = readCursorPosition()
     result.map_mouseover = readMapMouseover()
     result.quest_ui = readFastQuestUI()
@@ -2719,7 +3323,8 @@ local function readFastState(data)
     result.combat_hint = readFastCombatHint()
     result.bags_open = bagsAreOpen()
     result.world_map_open = _G.WorldMapFrame and bool(safeCall(_G.WorldMapFrame.IsShown, _G.WorldMapFrame)) or false
-    result.actionbar_fast = readFastActionbar()
+    result.actionbar_context = activeActionbarContext()
+    result.actionbar_fast = readFastActionbar(result.actionbar_context)
     -- Compact quest progress on the FAST lane. This reuses the already read
     -- snapshot and lets the controller see quest acceptance/progress without
     -- waiting for the next multi-page STATE assembly.
@@ -2736,6 +3341,7 @@ local function readFastState(data)
         }
     end
     result.quest_digest = digest
+    result.quest_turn_in_receipts = readQuestTurnInReceipts(4)
     result.quest_state_revision = data.quest_state_revision
     return result
 end
@@ -2862,8 +3468,6 @@ local function createPanel()
         fastPixelFrame:SetScale(1 / parentScale)
     end
     layoutPixelFrame()
-    pixelFrame:SetFrameStrata("TOOLTIP")
-    fastPixelFrame:SetFrameStrata("TOOLTIP")
     pixelFrame:Show()
 end
 
@@ -2901,6 +3505,8 @@ end
 for _, eventName in ipairs({
     "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN",
     "QUEST_REMOVED", "QUEST_WATCH_UPDATE", "ACTIONBAR_SLOT_CHANGED", "SPELLS_CHANGED",
+    "ACTIONBAR_PAGE_CHANGED", "UPDATE_BONUS_ACTIONBAR", "UPDATE_OVERRIDE_ACTIONBAR",
+    "UPDATE_VEHICLE_ACTIONBAR", "UPDATE_SHAPESHIFT_FORM",
     "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
     "UI_ERROR_MESSAGE", "GOSSIP_SHOW", "GOSSIP_CLOSED", "QUEST_GREETING", "QUEST_DETAIL",
     "QUEST_PROGRESS", "QUEST_COMPLETE", "QUEST_FINISHED", "BAG_UPDATE_DELAYED", "LOOT_OPENED", "LOOT_CLOSED",
@@ -2910,7 +3516,7 @@ for _, eventName in ipairs({
     "LOADING_SCREEN_ENABLED", "LOADING_SCREEN_DISABLED", "UPDATE_BINDINGS",
     "MERCHANT_SHOW", "MERCHANT_CLOSED", "MERCHANT_UPDATE",
     "CHAT_MSG_MONSTER_SAY", "CHAT_MSG_MONSTER_YELL", "QUESTLINE_UPDATE",
-    "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED",
+    "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED", "NEW_MOUNT_ADDED",
 }) do
     safeCall(frame.RegisterEvent, frame, eventName)
 end
@@ -2921,10 +3527,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
         return
     end
     if event == "UPDATE_BINDINGS" or event == "PLAYER_ENTERING_WORLD" then namespace.InvalidateBindings() end
-    if event == "QUESTLINE_UPDATE" or event == "QUEST_TURNED_IN" or event == "QUEST_ACCEPTED"
-            or event == "ZONE_CHANGED_NEW_AREA" then
-        mapPoiCache.at = -1000
-    end
+    invalidateMapPOIs(event)
     if event == "LOADING_SCREEN_ENABLED" then isLoading = true end
     if event == "LOADING_SCREEN_DISABLED" or event == "PLAYER_ENTERING_WORLD" then isLoading = false end
     if event == "UI_ERROR_MESSAGE" then
@@ -2987,7 +3590,18 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end)
         print("|cff55ff55AIPC Export loaded.|r /aipc show")
     end
-    if event == "ACTIONBAR_SLOT_CHANGED" or event == "SPELLS_CHANGED" then dirty.actionbar = true end
+    if event == "ACTIONBAR_SLOT_CHANGED" or event == "SPELLS_CHANGED"
+            or event == "ACTIONBAR_PAGE_CHANGED" or event == "UPDATE_BONUS_ACTIONBAR"
+            or event == "UPDATE_OVERRIDE_ACTIONBAR" or event == "UPDATE_VEHICLE_ACTIONBAR"
+            or event == "UPDATE_SHAPESHIFT_FORM" or event == "PLAYER_MOUNT_DISPLAY_CHANGED"
+            or event == "PLAYER_ENTERING_WORLD" then
+        actionbarRevision = actionbarRevision + 1
+        dirty.actionbar = true
+    end
+    if event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED"
+            or event == "PLAYER_MOUNT_DISPLAY_CHANGED" or event == "NEW_MOUNT_ADDED" then
+        dirty.mount_capability = true
+    end
     if event:find("^QUEST_") then dirty.quests = true; dirty.quest_ui = true end
     if event == "GOSSIP_SHOW" or event == "GOSSIP_CLOSED" then dirty.quest_ui = true end
     if event == "BAG_UPDATE_DELAYED" or event == "CHAT_MSG_LOOT" then dirty.inventory = true end

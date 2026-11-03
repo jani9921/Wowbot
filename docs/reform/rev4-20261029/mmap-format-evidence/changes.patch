@@ -1,0 +1,832 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,17 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P1-E binary format follow-up — **OFFLINE_TESTED**.
++Python and native MMAP loaders share checked Trinity v16 / Detour v7 map/tile
++headers, distinct version fields, bounded parameters and section sizes.
++Malformed/truncated/CRC data produces ERROR, unsupported versions produce
++VERSION_MISMATCH, missing files remain MISSING_DATA; walking-excluded water is
++NO_ROUTE. Cached failures retain their cause, native rejects unknown formats
++before DLL loading, and typed WorldGeometry queries retain the status.
++Final selected regression: **3815 passed, 2 skipped, 10 unchanged deselections,
++312 modules, exit 0**, pytest 135.62 s. All 532 source and 621 test Python files
++parse. All 203 numbered rows remain unchanged. This is not full geometry
++semantic validation, live route acceptance, or full REV4 completion.
++See [format checkpoint and limits](reform/rev4-20261029/P1E_MMAP_FORMATS.md).
+ 
+ 2026-10-30 REV4 P3 native quest definitions and P2 epoch lanes —
+ **OFFLINE_TESTED / full baseline and consumer parity PARTIAL**. The reviewed
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,19 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — MMAP/Detour format failures (offline only)
++
++The existing Python/native loaders now share static v16/v7 header/section
++validation. An unreadable/malformed tile or an unsupported version no longer
++looks like a proven missing route; typed query diagnostics retain the real
++cause, including on cached calls. A normal complete route and walking-excluded
++water remain distinct. Public Trinity format source is pinned by commit/hash.
++
++Selected regression: **3815 passed, 2 skipped, 10 unchanged deselections**,
++312 modules, 135.62 s pytest / 138.49 s runner, exit 0. All 532 source and
++621 test Python files parse. No game/Ymir/capture/FULL_AI/input, no new live
++acceptance; addon and pinned Ymir unchanged. The 203 numbered rows persist.
++Full geometry semantic validation and other previously open REV4 gates remain
++open. [Details/checkpoint](reform/rev4-20261029/P1E_MMAP_FORMATS.md).
+ 
+ ## 2026-10-30 — native quest definitions and epoch lanes (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,12 +5,14 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3798 passed, 2 skipped, 10 változatlan deselection, 311 modul, exit 0.
++Végső kijelölt regresszió: 3815 passed, 2 skipped, 10 változatlan deselection, 312 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+ a javított 0.9.80 telepítve, user-reload és sikeres betöltés visszaigazolása még nyitott.
+ Az általános százalékbecslés helyett konkrét lezárt és nyitott kapukat követünk.
++Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
++[P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+ SERVER pixeltransport-próba elkészült: [P3/P4 provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
+ Saját questlog slotok és a reprodukált folytonossági cache-hiba javítása:
+--- before/docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md
++++ after/docs/reform/rev4-20261029/P1E_MMAP_FORMATS.md
+@@ -0,0 +1,73 @@
++# REV4 P1-E — MMAP/Detour formátum és hibadiagnózis
++
++2026-10-30. A kijelölt `projekt`, **OFFLINE_TESTED**. Nem új router:
++a meglévő Python és natív Detour loader kapott közös statikus formátumellenőrzést.
++Új élő útvonal-, recovery- vagy érkezésigazolás nincs.
++
++## Feltárt ok és változás
++
++A Python tile parser az egyik wrapper-verziót nem ellenőrizte, és a hibás
++fejlécet/csonka tile-t üres poligonlistaként adta vissza. Ebből gyakran
++`no_route_tiles` lett, tehát hibás geometriai adat és hiányzó út nem vált külön.
++A natív loader is ellenőrizetlenül továbbadta a verziómezőket, a root mmap
++paramétereit pedig csak részben olvasta. Egy korábbi komment a dtVersion és
++mmapVersion jelentését is felcserélte.
++
++A közös `mmap_format` olvasó a már támogatott Trinity **MMAP v16 / Detour v7**
++fájlt ellenőrzi. Ez fájlformátum, nem WoW kliensbuild vagy a dataset tartalmi
++revíziója. Másik verzió nincs automatikusan kompatibilisnek nyilvánítva.
++
++- Root map: magic, verzió, minimális hossz, véges origin és pozitív/bounded
++  paraméterek; korábbi 36-byte paraméterprefix és a 40-byte, offmesh-listás
++  v16 fejléc méretei. Ismeretlen/csonka kiegészítés nem lesz útalap.
++- Tile: wrapper magic, **külön dtVersion és mmapVersion**, adathossz, belső
++  Detour magic/verzió, számlálók, véges headerértékek és szekcióméretek.
++  A natív ABI előtti minimumlink/detail/offmesh-konzisztencia külön ellenőrzött.
++- Python oldalon a beolvasott vertexek végesek. A natív DLL előtt a méret- és
++  szekciókapu fut; ismeretlen verzióhoz nem hívunk DLL tile-betöltést.
++- Csonka/rossz adatok és ZIP member CRC/read hibák ERROR, eltérő verzió
++  VERSION_MISMATCH, hiányzó adat MISSING_DATA. Létező, de járási flaggel kizárt
++  víz nem hiányzó adat: NO_ROUTE. Egy bizonyított teljes folyosó továbbra is READY.
++- Részben betöltött, hibás tile-ok melletti sikertelen natív/Python keresés
++  nem igazolja a földrajzi elérhetetlenséget. A hiba bounded diagnózisként
++  megmarad a warm/cached lekérdezésben is. A sikeres teljes út feltételei,
++  walking policy, arrival verifier és input-owner nem változtak.
++- A WorldGeometry/GeometryResult adapter átveszi a kifejezett formátumstátuszt,
++  nem alakítja NO_ROUTE-vá. Magasabb réteg így a tényleges okot kapja a recoveryhez.
++
++## Elsődleges formátumforrás
++
++A [TrinityCore MMapDefines.h konkrét commitja](https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/common/mmaps_common/MMapDefines.h)
++rögzíti a wrapper mezősorrendet, v16 értéket és root/offmesh struktúrákat.
++A [projektben vendorizált Detour](../../../native/recastnavigation/Detour/Include/DetourNavMesh.h)
++és a hozzá tartozó `DetourNavMesh.cpp` adja a v7/64-bit polyref méreteket.
++A primary forrás és a vendorizált fájlok SHA-256 manifestje a checkpoint része.
++A loader nem frissít kódot vagy formátumot hálózatról.
++
++## Ellenőrzés
++
++A célzott geometriai kör 53 pass; az utána hozzáadott ZIP CRC eset is benne van
++a végső széles körben. A minimális route-fixture korábban szöveget írt a map
++fejléc helyére; most valódi szintetikus v16 root headerrel dolgozik.
++
++Végső kijelölt regresszió: **3815 passed, 2 skipped, 10 változatlan deselection,
++312 modul, exit 0**, pytest 135.62 s / runner 138.49 s. Az összes 532 source és
++621 test Python-fájl AST-je érvényes; a teljes teszttár 620 testmodulja közül a
++kijelölt 312 futott. Az új modul benne van, új kizárás nincs.
++
++Rögzített esetek: rossz root/tile magic, eltérő wrapper vagy mesh verzió,
++csonka fejléc/szekció, NaN, hibás offmesh hossz, CRC hiba, hiányzó tile,
++víz/walking filter, normál route, cached diagnózis, natív DLL előtti elutasítás.
++
++[Checkpoint, forrás-ZIP, diff és ellenőrzési manifest](mmap-format-evidence/verification.json).
++A 203 számozott coverage-sor és az előző checkpointok megmaradtak.
++Az addon 0.9.80 és a pinned Ymir hash változatlan. Nem indult kliens/capture/
++FULL_AI, nem ment játékinput, nem történt új live validáció.
++
++## Határok
++
++Ez nem minden bináris fájl szemantikai épségének vagy minden geometriai adat
++aktuális játékbeli helyességének bizonyítása. MAPS/VMAPS parser, teljes offmesh
++útvonalvégrehajtás, horizontális LOS és ismeretlen dataset revision ettől nem
++kapott új képességet. A már jelzett saját quest/progress/inventory-, combat-
++provider-, történeti lineage- és élő kalibrációs kapuk továbbra is nyitottak.
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -1,111 +1,113 @@
+-# REV4 P1-E–P9 — bekötött működés és ellenőrzési kapuk
+-
+-2026-10-30, Europe/Budapest. Aktív munkamappa: a felhasználó által kijelölt `projekt`.
+-
+-**A P1-E–P9 kódos integrációs kör OFFLINE_TESTED. A teljes REV4 elfogadása PARTIAL; új LIVE_VALIDATED állítás nincs.** A meglévő működésre épülő bekötések elkészültek; a hiányzó provider-/role-lefedettség és az élő kapuk külön szerepelnek. Ez nem jelenti minden class/spec, questmechanika vagy packetmező támogatását.
+-
+-A közös AutonomousAgent → WorldModel/query → Planner → aktív skill → végrehajtó → verifier lánc megmaradt. A navigáció, a skill-owner, a resource lease és a dispatcher nem kapott párhuzamos versenytársat. Az asszisztens nem indított WoW-ot, Ymir-t, capture-t vagy FULL_AI-t, és nem küldött kliensinputot.
+-
+-**Aktuális kiegészítés:** a felhasználó 0.9.79 betöltési hibája javítva 0.9.80-ban;
+-a valódi Lua 5.1/LuaJIT fordítás és teljes TOC-betöltési próba most már a regresszió része.
+-Az új addon telepítve, felhasználói /reload és sikeres élő betöltés visszaigazolása nyitott.
+-Az asszisztens nem indított játékot/capture-t és nem küldött inputot; a felhasználó elindította a játékot.
+-Öt NPC cast-opcode adatútja is bekötve, a hiányzó interruptibility/hazard adatok UNKNOWN állapotúak.
+-Részletek és források: [P7 packet casts és addonhiba](P7_PACKET_CASTS.md).
+-Az általános százalékbecslést felváltotta a konkrét provider-/elfogadásikapu-nyilvántartás:
+-[saját HP-baseline, resource/profile adatút és valódi pixeltransport-próba](P3_PROVIDER_CLOSURE.md).
+-Elkészült a saját natív questslot-prefix és a stream-GAP utáni cache-öröklés
+-javítása is: [P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A slot nem
+-helyettesíti a questdefiníciót vagy a UI-objective igazolt storage-kapcsolatát.
+-Az ezt követő [natív questdefiníció-bekötés](P3_SERVER_QUEST_DEFINITIONS.md)
+-elkészült: exact/egyértelmű objective-kötés, storage-lekérdezés és közös
+-runtime/helykeresési POI-query. A teljes progress/CREATE/inventory paritás
+-továbbra is nyitott. Gyors és közepes packet-lane azonos korszakvédelmet használ.
+-
+-P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+-delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+-késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
+-sem COMPLETE. A következő körben a saját HP **CREATE-baseline-ja**, típusos
+-resource- és profil-prefix is elkészült; ez még nem teljes own-player-paritás.
+-Részletek: [saját HP és forrásidő](P3_OWN_HEALTH.md), [provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
+-
+-## 1. Fázisonkénti eredmény
+-
+-| Fázis | Tényleges bekötés | Elfogadási határ |
+-|---|---|---|
+-| P1-E — geometria | A GeometryResult megkülönbözteti a kész/részleges/nincs út/hiányzó adat/verzióhiba/hibás bemenet állapotokat. A WorldGeometryService, GlobalNavigator és walk-cost query ezt fogyasztja. A typed READY válaszra is érvényes a koordináta-, költség- és mapellenőrzés; legacy total_cost kompatibilis. | Ismeretlen revision UNKNOWN marad. A bináris MMAP parser minden régi tile-hibája még nem ad külön verzióhiba-diagnózist. VMAP függőleges felszín nem bizonyít vízszintes LOS-t. |
+-| P2 — session | A SessionContextProvider kezeli a selected PID-et, dokumentált OS-folyamat-élettartamot/buildet, karakter-GUID-ot, capture-korszakot, world/mapot és baseline/gap állapotot. A korrelált normalizált login-baseline addon nélkül is létrehozza az identitást. A RuntimePacketSource és WorldPacketReducer ugyanazt fogyasztja. | Az OS-metadata és új login-packet útvonal offline tesztelt, élőben újrapróbálandó. A baseline saját identitás/map, nem teljes questlog/inventory/HP. Ezekre megjelölt addon-migrációs forrás marad. |
+-| P3 — authority/teljesség | A FieldSourceResolver mezőnként választ és kezeli az ellentmondást. A packet objective-POI teljes geometriája külön scoped queryn olvasható. A quest/inventory producer és fogyasztók COMPLETE/PARTIAL/UNKNOWN lefedettséget kezelnek; FAST quest-revision nem igazol régi STATE-listát. | Nincs találgatott teljes packet questlog-/inventory-/own-health baseline. A teljes consumer-paritás és az addon mezőnkénti karcsúsítása nem zárható le. Ebben a körben addonmező nem lett törölve. |
+-| P4 — server runtime | A SERVER profil nem konstruál Search/VisualApproach skillt, perceptiont, detektort, trackert, vizuális adatgyűjtőt vagy recognition-workert. A közös koordináták külön modulban vannak. Teljes konstruktor/status/close és a valódi PixelSensor/dekóder/reassembly/buffer → WorldModel STATE/FAST lánc importtiltó subprocess-próbán átmegy. | A képet adó OS hívás szintetikus BGRA-forrás, az executor inputmentes. A tényleges Windows GDI/DXGI és élő szerveres lánc külön live-kapu. Detektorok explicit legacy profilban elérhetők. |
+-| P5 — Travel | Az immutable TravelRequest tartja az eredeti célt a horizon/landing/ground folytatásokon át. A TripPlan/TripLeg/TransitionSystem/TripExecutor a meglévő NavigationService fölött követ. Érkezéshez friss, helyes map/XY, ismert cél esetén helyes szint, szükség szerint touchdown/facing kell. A zónakeresési hop LEG_COMPLETE, nem végső célérkezés. | A tényleges mozgási/mount/flight átmeneteket a meglévő kontrollerek végzik. A teljes vegyes út és barlang/tető/leesés próba még nincs újravalidálva. |
+-| P6 — idő/kockázat | A RouteScore külön ETA-, harc-, átmenet-, bizonytalanság- és várható recovery-másodperceket ad. Automatikus repülés mellett csak bizonyított MMAP-korridor versenyez gyalogos alternatívaként. A DangerMap megtartja az eredetet, sample-időt, mapot és Z-t. | Speed/fight/transition értékek deklarált becslések, nem élőn illesztett paraméterek. Régi/másik szintű hostile nem lesz friss harci költség. DangerMap-pontszám nem másodperc. |
+-| P7 — Combat | Tényleges karakter/actionbar adatokból CharacterProfile készül. A meglévő AbilityRuleEngine/CombatSkill CombatArbitratorral választ a már jogosult képességek között. Exact GUID/cast/spell, frissesség, interruptible, deadline és actual bar/binding számít; kritikus túlélés előre kerülhet. Profilváltás nem örökít régi lokális cooldown-becslést. | Teljes enemy-cast/hazard/CC/talent packet-provider és minden class/spec/tank/healer/PvP szerep nincs megvalósítva. Ismeretlen cast nem jogosít megszakításra; természetes castvég nem interrupt-siker. Első live-kapu a használt solo karakterprofil. |
+-| P8 — mechanikák | Egy MechanicResolver a meglévő osztályozót használja. MechanicContract és QuestExecutionGraph jeleníti meg a belső lépéseket és várt bizonyítékot a meglévő QuestGraph/runtime mellett. QuestTargetContext szétválasztja a fizikai actor/object/spell-target és technikai credit ID szerepét; a közös skill identity kapu fogyasztja. | Explicit élő questkapcsolat felülírhat statikus actorlistát, generikus sárga jel nem. Csak explicit követési mód kap támogatott escort playbookot. A mechanikák reprezentatív élő questpróbái hátravannak. |
+-| P9 — LLM/tanulás | Szigorú aipc.llm-plan.v1 séma, scoped readonly referenciák/eszközök, ismert jelölt-/skill-/objective-/item-/evidence-ID, aszinkron válasz, bounded cache és újravalidálás. Tanulható epizódhoz sikeres goal-verifier és összekötött action/előtte/utána/evidence kell. Manual/session-határ kizárja. Kijelölt verifier-evidence manifestek a közös writerrel SQLite-ba kerülnek. | LLM nélkül a szokásos planner működik. Régi, bizonyíték nélküli minták megmaradnak, de nem újrafelhasználhatók. A teljes történeti TDB/import/memory lineage migráció, élő kalibráció és hosszú összehasonlítás nincs lezárva. |
+-
+-## 2. Fontos részletek és regressziójavítások
+-
+-- Saját GUID csak azonos kapcsolaton korrelált CMSG_PLAYER_LOGIN és SMSG_LOGIN_VERIFY_WORLD alapján keletkezik. Build/opcode/layout allowlist, selected PID, OS-élettartam és lokális IPC-hitelesítés külön ellenőrzés. Nem került be játékállapot-memóriaolvasó, injektálás vagy kulcskinyerés. A rögzített Ymir EXE nem változott.
+-- Meleg replay saját identitást és aktuális mapot ad; nem fiatalít meg régi mozgást, HP-t, inventoryt vagy quest-creditet. Verified cosmetic-map kapcsolat megtartja az addon navigációs instance-át. Valódi mapváltás után packet receipt nem frissíti az addon UI-t.
+-- Objective-POI aktuális objective/world szerint szűrt. Többpontos alakzat keresési terület, poligoncsúcs nem bizonyított objektum. Z=0 nem automatikusan valós padló. A status nem másol minden tickben teljes poligonokat.
+-- Részleges questlista pozitív tagjai frissülhetnek; kimaradók nem lesznek ABSENT és nem kapnak új sample-időt. Hibás listaalakra egy külön COMPLETE címke sem elég. Hiányos/elöregedett inventory nem jogosít bag-coordinate itemhasználatra; hiányos lista vendor iteminputra sem.
+-- Az első teljes regresszió hét hibát talált: keresési spiral/fall-off hop téves final-arrival kapuja; régi LOS-provider total_cost neve; UNRESOLVED playbook által elfedett canonical horizon; általános normalizált POI és pontos TDB-jelölt sorrendje; runtime modulméret-kapu. Ezek javítva, a régi tesztek benne maradtak a végső zöld körben. A vision-composition külön helperbe került.
+-- RouteScore csak automatikus módválasztást befolyásol; explicit flight kérés jelentése megmarad. Rövid földi alternatíva csak igazolt járható korridorral versenyezhet.
+-- Az LLM nem kap tetszőleges SQL-/fájl-/hálózat-/inputeszközt. Readonly snapshot bounded, játékos-entitások nem céljelöltek. A válasz felhasználás előtt az aktuális scoped referenciákkal egyezik.
+-
+-## 3. Addon és telepítési állapot
+-
+-Mindkét csomag azonos: addon/AIPlayerControllerExport és addon/AIPlayerControllerExport-12.1.0. Új verzió **0.9.80-12.1.0**, Interface **120100**. A snapshot collection_coverage és objective-szintű objectives_coverage mezőket küld; API-hiba/hozzáférhetetlenség nem üres, teljes lista. Hiányos cached collection legfeljebb másodpercenként passzívan újraolvasódik. Snapshot- és FAST-mezők nem lettek elvéve, sávgeometria ebben a körben nem változott.
+-
+-Teljes Lua-források Lua 5.1/LuaJIT/Lua 5.4 compile-only módban ellenőrizve, és teljes TOC betöltve hamis API-val. **A 0.9.80 bemásolva a játék meglévő AddOns mappájába**, előtte a hibás telepített négy fájl külön elmentve. Az asszisztens /reload-ot nem küldött; a felhasználó kapott erre utasítást. Sikeres élő betöltési visszaigazolás még nincs.
+-
+-## 4. Ellenőrzés és mérés
+-
+-| Ellenőrzés | Eredmény |
+-|---|---|
+-| Végső kijelölt regresszió | **3798 passed, 2 skipped, 10 deselected; 311 modul; 145.91 s; exit 0** |
+-| Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 531 source + 620 tests Python-fájl; 619 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+-| Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+-| IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+-| Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+-
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **311 kijelölt modul eredménye**, nem a teljes 619 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+-
+-Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+-
+-| Verzió | Mediánok mediánja | p95-ek mediánja |
+-|---|---:|---:|
+-| P1-D baseline | 0.91175 ms | 1.66820 ms |
+-| Korábbi P1-E–P9, NPC cast- és HP-projectionnel | 1.14520 ms | 2.34480 ms |
+-
+-Növekmény kb. 0.23345 ms medián és 0.67660 ms p95. Nem élő FPS-mérés, nem route-speed/fight kalibráció, nem a SERVER profil teljes játékmenet alatti gyorsulásának állítása. A korábbi mérési körök külön megmaradtak.
+-
+-## 5. Nyitott megvalósítási feladatok
+-
+-Ezek **kód-/provider-hiányok**, nem pusztán még le nem futtatott élő tesztek:
+-
+-1. Teljes packet own-player/questlog/inventory baseline és minden consumer paritása; csak ezután addonmezők törlése. Addig a megjelölt addonforrás kell.
+-2. Teljes buildspecifikus enemy-cast/hazard/CC/talent provider és további class/spec/role kapuk. Ismeretlen információt a mostani szerződés nem tölt ki.
+-3. Teljes történeti SQLite/TDB/import lineage migráció. Most kijelölt verifier-evidence manifestek tartósulnak, a hiányzó történeti eredet UNKNOWN.
+-4. Nem támogatott questmechanikák konkrét handlerei, a bináris geometria minden verzió-/adatkülönbségének pontos diagnosztikája. Szerződés/playbook önmagában nem teljes handler.
+-5. Élőn illesztett utazási/harc-/recovery-kalibráció és hosszú összehasonlító mérés. A mostani default súlyok becslések.
+-
+-A történeti V4/Design követelmények nem változtak automatikusan teljesítettre. A coverage ledger mind a **203 számozott sorát** és korábbi bizonyítékait megőrzi.
+-
+-## 6. Felhasználói élő próbák sorrendje
+-
+-1. **P2:** selected PID/build, hideg belépés, már futó capture melletti GUI-újraindítás; addon reload/loading/reconnect/mapváltás. Figyelendő: provider state/source/coverage, local_ui_ready és streamfrissesség. Régi packetből ne legyen új karakter-/input-authority.
+-2. **P3/P4:** 0.9.80 betöltés/pixelstrip, több quest/inventoryváltozás, FAST/STATE revision eltérés; SERVER profilban nincs YOLO/perception. Ismeretlen lista ne töröljön questet és ne kattintson régi bag-slotra.
+-3. **P5/P6:** séta/mount/steady/skyriding/vegyes út, barlang/spirál/nagy Z/tető/leszállás/leesés, cancel/combat. Eredeti cél megmarad; köztes hop nem végső siker. RouteScore összetevők követhetők.
+-4. **P7:** tényleges karakter/bar/binding, két mozgó cél, range/facing/resource/túlélés. Interrupt csak exact cast-adattal, külön bizonyított megszakítással fogadható el.
+-5. **P8:** talk→duel, item→hatás→credit, vehicle/visszaülés, explicit escort, scene/conversation, több objective/felvétel/leadás. Fizikai szereplő és technikai credit ID külön, siker saját verifierből.
+-6. **P9:** először LLM nélkül, majd adviserrel ugyanaz a támogatott lánc; stale/hibás terv, MANUAL és sessioncsere. Csak bizonyított és kézzel meg nem szakított epizód tanulható.
+-
+-Minden próbáról trace és tényleges eredmény kerül a LIVE_VALIDATION.md-be. A felhasználó a live operátor; a lista nem engedély automatikus kliensvezérlés indítására.
+-
+-## 7. Mentés és reprodukció
+-
+-Az [evidence könyvtár](p1e-p9-evidence/) tartalmazza a **P1-E előtti, már P1-D-t tartalmazó** scoped baseline-t, az új forrás/test/addon állapotot, byte-hasheket, unified diffet, pontos parancsot/kizárásokat, JUnit/logeredményeket, benchmarkot és AST/coverage ellenőrzést. Memóriaadatbázis, képek, telemetria, auth/session anyag és játékállapot nincs a mentésben. Ez forrás/addon checkpoint, nem teljes felhasználói adat-/konfigurációmentés.
+-
+-A jelenlegi checkpoint nem írja felül a baseline-t. A runtime Ymir backend hash-ellenőrzése olvasás; az EXE nem módosult.
++# REV4 P1-E–P9 — bekötött működés és ellenőrzési kapuk
++
++2026-10-30, Europe/Budapest. Aktív munkamappa: a felhasználó által kijelölt `projekt`.
++
++**A P1-E–P9 kódos integrációs kör OFFLINE_TESTED. A teljes REV4 elfogadása PARTIAL; új LIVE_VALIDATED állítás nincs.** A meglévő működésre épülő bekötések elkészültek; a hiányzó provider-/role-lefedettség és az élő kapuk külön szerepelnek. Ez nem jelenti minden class/spec, questmechanika vagy packetmező támogatását.
++
++A közös AutonomousAgent → WorldModel/query → Planner → aktív skill → végrehajtó → verifier lánc megmaradt. A navigáció, a skill-owner, a resource lease és a dispatcher nem kapott párhuzamos versenytársat. Az asszisztens nem indított WoW-ot, Ymir-t, capture-t vagy FULL_AI-t, és nem küldött kliensinputot.
++
++**Aktuális kiegészítés:** a felhasználó 0.9.79 betöltési hibája javítva 0.9.80-ban;
++a valódi Lua 5.1/LuaJIT fordítás és teljes TOC-betöltési próba most már a regresszió része.
++Az új addon telepítve, felhasználói /reload és sikeres élő betöltés visszaigazolása nyitott.
++Az asszisztens nem indított játékot/capture-t és nem küldött inputot; a felhasználó elindította a játékot.
++Öt NPC cast-opcode adatútja is bekötve, a hiányzó interruptibility/hazard adatok UNKNOWN állapotúak.
++Részletek és források: [P7 packet casts és addonhiba](P7_PACKET_CASTS.md).
++Az általános százalékbecslést felváltotta a konkrét provider-/elfogadásikapu-nyilvántartás:
++[saját HP-baseline, resource/profile adatút és valódi pixeltransport-próba](P3_PROVIDER_CLOSURE.md).
++Elkészült a saját natív questslot-prefix és a stream-GAP utáni cache-öröklés
++javítása is: [P2/P3 native questlog](P2_P3_NATIVE_QUESTLOG.md). A slot nem
++helyettesíti a questdefiníciót vagy a UI-objective igazolt storage-kapcsolatát.
++Az ezt követő [natív questdefiníció-bekötés](P3_SERVER_QUEST_DEFINITIONS.md)
++elkészült: exact/egyértelmű objective-kötés, storage-lekérdezés és közös
++runtime/helykeresési POI-query. A teljes progress/CREATE/inventory paritás
++továbbra is nyitott. Gyors és közepes packet-lane azonos korszakvédelmet használ.
++Közös Python/natív [MMAP/Detour formátumellenőrzés](P1E_MMAP_FORMATS.md) is
++elkészült; hibás adat és verzióeltérés nem lesz bizonyított NO_ROUTE.
++
++P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
++delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
++késve érkező régi STATE nem fiatalítja meg a HP-t. A teljes saját player-baseline továbbra
++sem COMPLETE. A következő körben a saját HP **CREATE-baseline-ja**, típusos
++resource- és profil-prefix is elkészült; ez még nem teljes own-player-paritás.
++Részletek: [saját HP és forrásidő](P3_OWN_HEALTH.md), [provider-kiegészítés](P3_PROVIDER_CLOSURE.md).
++
++## 1. Fázisonkénti eredmény
++
++| Fázis | Tényleges bekötés | Elfogadási határ |
++|---|---|---|
++| P1-E — geometria | GeometryResult és a meglévő két MMAP loader közös v16/v7 map/tile format-ellenőrzése. A WorldGeometryService, GlobalNavigator és walk-cost query megőrzi a kész/részleges/nincs út/hiányzó adat/verzió-/adathiba állapotot. Typed READY-re is érvényes a koordináta-/költség-/mapellenőrzés. | Ismeretlen dataset revision UNKNOWN marad; formátumellenőrzés nem teljes geometriai szemantikai validáció. VMAP függőleges felszín nem horizontális LOS. Élő útvonal/recovery/arrival újrapróbálás nyitott. |
++| P2 — session | A SessionContextProvider kezeli a selected PID-et, dokumentált OS-folyamat-élettartamot/buildet, karakter-GUID-ot, capture-korszakot, world/mapot és baseline/gap állapotot. A korrelált normalizált login-baseline addon nélkül is létrehozza az identitást. A RuntimePacketSource és WorldPacketReducer ugyanazt fogyasztja. | Az OS-metadata és új login-packet útvonal offline tesztelt, élőben újrapróbálandó. A baseline saját identitás/map, nem teljes questlog/inventory/HP. Ezekre megjelölt addon-migrációs forrás marad. |
++| P3 — authority/teljesség | A FieldSourceResolver mezőnként választ és kezeli az ellentmondást. A packet objective-POI teljes geometriája külön scoped queryn olvasható. A quest/inventory producer és fogyasztók COMPLETE/PARTIAL/UNKNOWN lefedettséget kezelnek; FAST quest-revision nem igazol régi STATE-listát. | Nincs találgatott teljes packet questlog-/inventory-/own-health baseline. A teljes consumer-paritás és az addon mezőnkénti karcsúsítása nem zárható le. Ebben a körben addonmező nem lett törölve. |
++| P4 — server runtime | A SERVER profil nem konstruál Search/VisualApproach skillt, perceptiont, detektort, trackert, vizuális adatgyűjtőt vagy recognition-workert. A közös koordináták külön modulban vannak. Teljes konstruktor/status/close és a valódi PixelSensor/dekóder/reassembly/buffer → WorldModel STATE/FAST lánc importtiltó subprocess-próbán átmegy. | A képet adó OS hívás szintetikus BGRA-forrás, az executor inputmentes. A tényleges Windows GDI/DXGI és élő szerveres lánc külön live-kapu. Detektorok explicit legacy profilban elérhetők. |
++| P5 — Travel | Az immutable TravelRequest tartja az eredeti célt a horizon/landing/ground folytatásokon át. A TripPlan/TripLeg/TransitionSystem/TripExecutor a meglévő NavigationService fölött követ. Érkezéshez friss, helyes map/XY, ismert cél esetén helyes szint, szükség szerint touchdown/facing kell. A zónakeresési hop LEG_COMPLETE, nem végső célérkezés. | A tényleges mozgási/mount/flight átmeneteket a meglévő kontrollerek végzik. A teljes vegyes út és barlang/tető/leesés próba még nincs újravalidálva. |
++| P6 — idő/kockázat | A RouteScore külön ETA-, harc-, átmenet-, bizonytalanság- és várható recovery-másodperceket ad. Automatikus repülés mellett csak bizonyított MMAP-korridor versenyez gyalogos alternatívaként. A DangerMap megtartja az eredetet, sample-időt, mapot és Z-t. | Speed/fight/transition értékek deklarált becslések, nem élőn illesztett paraméterek. Régi/másik szintű hostile nem lesz friss harci költség. DangerMap-pontszám nem másodperc. |
++| P7 — Combat | Tényleges karakter/actionbar adatokból CharacterProfile készül. A meglévő AbilityRuleEngine/CombatSkill CombatArbitratorral választ a már jogosult képességek között. Exact GUID/cast/spell, frissesség, interruptible, deadline és actual bar/binding számít; kritikus túlélés előre kerülhet. Profilváltás nem örökít régi lokális cooldown-becslést. | Teljes enemy-cast/hazard/CC/talent packet-provider és minden class/spec/tank/healer/PvP szerep nincs megvalósítva. Ismeretlen cast nem jogosít megszakításra; természetes castvég nem interrupt-siker. Első live-kapu a használt solo karakterprofil. |
++| P8 — mechanikák | Egy MechanicResolver a meglévő osztályozót használja. MechanicContract és QuestExecutionGraph jeleníti meg a belső lépéseket és várt bizonyítékot a meglévő QuestGraph/runtime mellett. QuestTargetContext szétválasztja a fizikai actor/object/spell-target és technikai credit ID szerepét; a közös skill identity kapu fogyasztja. | Explicit élő questkapcsolat felülírhat statikus actorlistát, generikus sárga jel nem. Csak explicit követési mód kap támogatott escort playbookot. A mechanikák reprezentatív élő questpróbái hátravannak. |
++| P9 — LLM/tanulás | Szigorú aipc.llm-plan.v1 séma, scoped readonly referenciák/eszközök, ismert jelölt-/skill-/objective-/item-/evidence-ID, aszinkron válasz, bounded cache és újravalidálás. Tanulható epizódhoz sikeres goal-verifier és összekötött action/előtte/utána/evidence kell. Manual/session-határ kizárja. Kijelölt verifier-evidence manifestek a közös writerrel SQLite-ba kerülnek. | LLM nélkül a szokásos planner működik. Régi, bizonyíték nélküli minták megmaradnak, de nem újrafelhasználhatók. A teljes történeti TDB/import/memory lineage migráció, élő kalibráció és hosszú összehasonlítás nincs lezárva. |
++
++## 2. Fontos részletek és regressziójavítások
++
++- Saját GUID csak azonos kapcsolaton korrelált CMSG_PLAYER_LOGIN és SMSG_LOGIN_VERIFY_WORLD alapján keletkezik. Build/opcode/layout allowlist, selected PID, OS-élettartam és lokális IPC-hitelesítés külön ellenőrzés. Nem került be játékállapot-memóriaolvasó, injektálás vagy kulcskinyerés. A rögzített Ymir EXE nem változott.
++- Meleg replay saját identitást és aktuális mapot ad; nem fiatalít meg régi mozgást, HP-t, inventoryt vagy quest-creditet. Verified cosmetic-map kapcsolat megtartja az addon navigációs instance-át. Valódi mapváltás után packet receipt nem frissíti az addon UI-t.
++- Objective-POI aktuális objective/world szerint szűrt. Többpontos alakzat keresési terület, poligoncsúcs nem bizonyított objektum. Z=0 nem automatikusan valós padló. A status nem másol minden tickben teljes poligonokat.
++- Részleges questlista pozitív tagjai frissülhetnek; kimaradók nem lesznek ABSENT és nem kapnak új sample-időt. Hibás listaalakra egy külön COMPLETE címke sem elég. Hiányos/elöregedett inventory nem jogosít bag-coordinate itemhasználatra; hiányos lista vendor iteminputra sem.
++- Az első teljes regresszió hét hibát talált: keresési spiral/fall-off hop téves final-arrival kapuja; régi LOS-provider total_cost neve; UNRESOLVED playbook által elfedett canonical horizon; általános normalizált POI és pontos TDB-jelölt sorrendje; runtime modulméret-kapu. Ezek javítva, a régi tesztek benne maradtak a végső zöld körben. A vision-composition külön helperbe került.
++- RouteScore csak automatikus módválasztást befolyásol; explicit flight kérés jelentése megmarad. Rövid földi alternatíva csak igazolt járható korridorral versenyezhet.
++- Az LLM nem kap tetszőleges SQL-/fájl-/hálózat-/inputeszközt. Readonly snapshot bounded, játékos-entitások nem céljelöltek. A válasz felhasználás előtt az aktuális scoped referenciákkal egyezik.
++
++## 3. Addon és telepítési állapot
++
++Mindkét csomag azonos: addon/AIPlayerControllerExport és addon/AIPlayerControllerExport-12.1.0. Új verzió **0.9.80-12.1.0**, Interface **120100**. A snapshot collection_coverage és objective-szintű objectives_coverage mezőket küld; API-hiba/hozzáférhetetlenség nem üres, teljes lista. Hiányos cached collection legfeljebb másodpercenként passzívan újraolvasódik. Snapshot- és FAST-mezők nem lettek elvéve, sávgeometria ebben a körben nem változott.
++
++Teljes Lua-források Lua 5.1/LuaJIT/Lua 5.4 compile-only módban ellenőrizve, és teljes TOC betöltve hamis API-val. **A 0.9.80 bemásolva a játék meglévő AddOns mappájába**, előtte a hibás telepített négy fájl külön elmentve. Az asszisztens /reload-ot nem küldött; a felhasználó kapott erre utasítást. Sikeres élő betöltési visszaigazolás még nincs.
++
++## 4. Ellenőrzés és mérés
++
++| Ellenőrzés | Eredmény |
++|---|---|
++| Végső kijelölt regresszió | **3815 passed, 2 skipped, 10 deselected; 312 modul; 135.62 s; exit 0** |
++| Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
++| Teljes Python AST | 532 source + 621 tests Python-fájl; 620 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
++| IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
++| Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
++
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **312 kijelölt modul eredménye**, nem a teljes 620 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++
++Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
++
++| Verzió | Mediánok mediánja | p95-ek mediánja |
++|---|---:|---:|
++| P1-D baseline | 0.91175 ms | 1.66820 ms |
++| Korábbi P1-E–P9, NPC cast- és HP-projectionnel | 1.14520 ms | 2.34480 ms |
++
++Növekmény kb. 0.23345 ms medián és 0.67660 ms p95. Nem élő FPS-mérés, nem route-speed/fight kalibráció, nem a SERVER profil teljes játékmenet alatti gyorsulásának állítása. A korábbi mérési körök külön megmaradtak.
++
++## 5. Nyitott megvalósítási feladatok
++
++Ezek **kód-/provider-hiányok**, nem pusztán még le nem futtatott élő tesztek:
++
++1. Teljes packet own-player/questlog/inventory baseline és minden consumer paritása; csak ezután addonmezők törlése. Addig a megjelölt addonforrás kell.
++2. Teljes buildspecifikus enemy-cast/hazard/CC/talent provider és további class/spec/role kapuk. Ismeretlen információt a mostani szerződés nem tölt ki.
++3. Teljes történeti SQLite/TDB/import lineage migráció. Most kijelölt verifier-evidence manifestek tartósulnak, a hiányzó történeti eredet UNKNOWN.
++4. Nem támogatott questmechanikák konkrét handlerei, a bináris geometria minden verzió-/adatkülönbségének pontos diagnosztikája. Szerződés/playbook önmagában nem teljes handler.
++5. Élőn illesztett utazási/harc-/recovery-kalibráció és hosszú összehasonlító mérés. A mostani default súlyok becslések.
++
++A történeti V4/Design követelmények nem változtak automatikusan teljesítettre. A coverage ledger mind a **203 számozott sorát** és korábbi bizonyítékait megőrzi.
++
++## 6. Felhasználói élő próbák sorrendje
++
++1. **P2:** selected PID/build, hideg belépés, már futó capture melletti GUI-újraindítás; addon reload/loading/reconnect/mapváltás. Figyelendő: provider state/source/coverage, local_ui_ready és streamfrissesség. Régi packetből ne legyen új karakter-/input-authority.
++2. **P3/P4:** 0.9.80 betöltés/pixelstrip, több quest/inventoryváltozás, FAST/STATE revision eltérés; SERVER profilban nincs YOLO/perception. Ismeretlen lista ne töröljön questet és ne kattintson régi bag-slotra.
++3. **P5/P6:** séta/mount/steady/skyriding/vegyes út, barlang/spirál/nagy Z/tető/leszállás/leesés, cancel/combat. Eredeti cél megmarad; köztes hop nem végső siker. RouteScore összetevők követhetők.
++4. **P7:** tényleges karakter/bar/binding, két mozgó cél, range/facing/resource/túlélés. Interrupt csak exact cast-adattal, külön bizonyított megszakítással fogadható el.
++5. **P8:** talk→duel, item→hatás→credit, vehicle/visszaülés, explicit escort, scene/conversation, több objective/felvétel/leadás. Fizikai szereplő és technikai credit ID külön, siker saját verifierből.
++6. **P9:** először LLM nélkül, majd adviserrel ugyanaz a támogatott lánc; stale/hibás terv, MANUAL és sessioncsere. Csak bizonyított és kézzel meg nem szakított epizód tanulható.
++
++Minden próbáról trace és tényleges eredmény kerül a LIVE_VALIDATION.md-be. A felhasználó a live operátor; a lista nem engedély automatikus kliensvezérlés indítására.
++
++## 7. Mentés és reprodukció
++
++Az [evidence könyvtár](p1e-p9-evidence/) tartalmazza a **P1-E előtti, már P1-D-t tartalmazó** scoped baseline-t, az új forrás/test/addon állapotot, byte-hasheket, unified diffet, pontos parancsot/kizárásokat, JUnit/logeredményeket, benchmarkot és AST/coverage ellenőrzést. Memóriaadatbázis, képek, telemetria, auth/session anyag és játékállapot nincs a mentésben. Ez forrás/addon checkpoint, nem teljes felhasználói adat-/konfigurációmentés.
++
++A jelenlegi checkpoint nem írja felül a baseline-t. A runtime Ymir backend hash-ellenőrzése olvasás; az EXE nem módosult.
+--- before/src/wowbot/geometry_contracts.py
++++ after/src/wowbot/geometry_contracts.py
+@@ -67,6 +67,8 @@
+ 
+ def _failure(diagnostics):
+     reason = str(diagnostics.get("reason") or "unclassified_geometry_result")
++    if diagnostics.get('geometry_status') in {'ERROR','VERSION_MISMATCH','MISSING_DATA'}:
++        return GeometryStatus(diagnostics['geometry_status']), reason
+     if diagnostics.get("partial") is True:
+         return GeometryStatus.PARTIAL, reason
+     if reason in {"map_header_missing", "no_route_tiles", "tile_missing", "missing_tile"}:
+@@ -75,7 +77,7 @@
+         return GeometryStatus.VERSION_MISMATCH, reason
+     if reason in {"invalid_world_endpoint", "invalid_world_map"}:
+         return GeometryStatus.INVALID_INPUT, reason
+-    if reason in {"endpoint_not_on_mesh", "no_polygon_path", "walking_segment_grade_rejected", "route_blocked"}:
++    if reason in {"endpoint_not_on_mesh", "no_polygon_path", "walking_segment_grade_rejected", "route_blocked", 'walking_flags_excluded'}:
+         return GeometryStatus.NO_ROUTE, reason
+     return GeometryStatus.UNKNOWN, reason
+ 
+--- before/src/wowbot/navigation/detour_native.py
++++ after/src/wowbot/navigation/detour_native.py
+@@ -20,6 +20,9 @@
+ import os
+ from pathlib import Path
+ import struct
++from zipfile import BadZipFile
++
++from .mmap_format import MMapFormatError, map_parameters, tile_mesh
+ 
+ MMAP_MAGIC = 0x4D4D4150
+ _BIN = Path(__file__).resolve().parents[3] / "native" / "bin"
+@@ -108,31 +111,32 @@
+     def __init__(self, lib, source, instance_id: int) -> None:
+         self.lib, self.instance_id = lib, int(instance_id)
+         header = source.read(f"{self.instance_id:04d}.mmap")
+-        magic, _version = struct.unpack_from("<2I", header)
+-        if magic != MMAP_MAGIC:
+-            raise NativeDetourUnavailable("bad .mmap header")
+-        origin = struct.unpack_from("<3f", header, 8)
+-        tile_width, tile_height = struct.unpack_from("<2f", header, 20)
+-        max_tiles, max_polys = struct.unpack_from("<2i", header, 28)
++        origin,tile_width,tile_height,max_tiles,max_polys = map_parameters(header)
+         self.handle = lib.aipc_nav_create(_vec(origin), tile_width, tile_height,
+                                           max_tiles, max_polys, 65535)
+         if not self.handle:
+             raise NativeDetourUnavailable("dtNavMesh init failed")
+         prefix = f"{self.instance_id:04d}_"
+         self.tiles = self.failed_tiles = 0
++        self.data_errors = []
+         for name in sorted(source.names(prefix, ".mmtile")):
+-            data = source.read(name)
+-            if len(data) < 20:
++            try:
++                mesh,_header = tile_mesh(source.read(name),for_native=True)
++            except (MMapFormatError, OSError, BadZipFile) as error:
++                self.failed_tiles += 1
++                if len(self.data_errors) < 16:
++                    diagnostic = (error.diagnostic() if isinstance(error,MMapFormatError)
++                                  else {'geometry_status':'ERROR','reason':'tile_read_failed'})
++                    self.data_errors.append({**diagnostic,'tile':name})
+                 continue
+-            tile_magic, _mv, _dv, size, _liquids = struct.unpack_from("<5I", data)
+-            if tile_magic != MMAP_MAGIC or size + 20 > len(data):
+-                self.failed_tiles += 1
+-                continue
+-            status = lib.aipc_nav_add_tile(self.handle, data[20:20 + size], size)
++            status = lib.aipc_nav_add_tile(self.handle, bytes(mesh), len(mesh))
+             if status & STATUS_SUCCESS:
+                 self.tiles += 1
+             else:
+                 self.failed_tiles += 1
++                if len(self.data_errors) < 16:
++                    self.data_errors.append({'geometry_status':'ERROR','reason':'native_tile_rejected',
++                                             'tile':name})
+ 
+     def close(self) -> None:
+         if self.handle:
+--- before/src/wowbot/navigation/mmap_format.py
++++ after/src/wowbot/navigation/mmap_format.py
+@@ -0,0 +1,78 @@
++"""Checked Trinity MMAP v16 / Detour v7 serialization, shared by both routers.
++
++The wrapper order is magic, dtVersion, mmapVersion, byte count, liquid/padding;
++these two versions are not interchangeable. No route/input authority here.
++"""
++import math
++import struct
++
++MMAP_MAGIC = 0x4D4D4150
++DETOUR_MAGIC = 0x444E4156
++MMAP_VERSION = 16
++DETOUR_VERSION = 7
++
++
++class MMapFormatError(ValueError):
++    def __init__(self, reason, *, version=False):
++        super().__init__(reason)
++        self.reason = reason
++        self.status = 'VERSION_MISMATCH' if version else 'ERROR'
++
++    def diagnostic(self):
++        return {'geometry_status':self.status, 'reason':self.reason}
++
++
++def map_parameters(data):
++    if len(data) < 36:
++        raise MMapFormatError('map_header_truncated')
++    magic,version = struct.unpack_from('<2I',data)
++    if magic != MMAP_MAGIC:
++        raise MMapFormatError('map_magic_mismatch')
++    if version != MMAP_VERSION:
++        raise MMapFormatError('map_version_mismatch',version=True)
++    origin = struct.unpack_from('<3f',data,8)
++    width,height = struct.unpack_from('<2f',data,20)
++    tiles,polys = struct.unpack_from('<2i',data,28)
++    if (not all(math.isfinite(v) for v in (*origin,width,height)) or width <= 0 or height <= 0
++            or not 0 < tiles <= 2**20 or not 0 < polys <= 2**24):
++        raise MMapFormatError('map_parameters_invalid')
++    # Both the prior 36-byte parameter-only header and the v16 extension
++    # carrying OffMeshData[44 bytes] have the same reviewed parameter prefix.
++    if len(data) != 36:
++        if len(data) < 40:
++            raise MMapFormatError('map_extension_truncated')
++        count = struct.unpack_from('<I',data,36)[0]
++        if count > 1_000_000 or 40+count*44 != len(data):
++            raise MMapFormatError('map_offmesh_size_invalid')
++    return origin,width,height,tiles,polys
++
++
++def tile_mesh(data, *, for_native=False):
++    if len(data) < 20:
++        raise MMapFormatError('tile_header_truncated')
++    magic,detour,version,size = struct.unpack_from('<4I',data)
++    if magic != MMAP_MAGIC:
++        raise MMapFormatError('tile_magic_mismatch')
++    if detour != DETOUR_VERSION or version != MMAP_VERSION:
++        raise MMapFormatError('tile_version_mismatch',version=True)
++    if size < 100 or size+20 > len(data):
++        raise MMapFormatError('tile_size_invalid')
++    mesh = memoryview(data)[20:20+size]
++    header = struct.unpack_from('<15i10f',mesh)
++    if header[0] != DETOUR_MAGIC:
++        raise MMapFormatError('mesh_magic_mismatch')
++    if header[1] != DETOUR_VERSION:
++        raise MMapFormatError('mesh_version_mismatch',version=True)
++    counts = header[6:14]
++    if (any(v < 0 or v > 4_000_000 for v in counts) or not header[6] or not header[7]
++            or header[6] > 2_000_000 or not 0 <= header[14] <= header[6]
++            or not all(math.isfinite(v) for v in header[15:])):
++        raise MMapFormatError('mesh_header_invalid')
++    # Detour v7, 64-bit dtPolyRef ABI: poly32/link16/detail12/BV16/offmesh36.
++    required = 100+sum(n*width for n,width in zip(counts,(32,12,16,12,12,4,16,36)))
++    if required > size:
++        raise MMapFormatError('mesh_sections_truncated')
++    if for_native and (header[9] != header[14] or header[14]+header[13] != header[6]
++                       or header[8] == 0):
++        raise MMapFormatError('mesh_native_sections_invalid')
++    return mesh,header
+--- before/src/wowbot/navigation/mmap_navmesh.py
++++ after/src/wowbot/navigation/mmap_navmesh.py
+@@ -18,6 +18,8 @@
+ import time
+ from typing import Iterable
+ import zipfile
++
++from .mmap_format import MMapFormatError, map_parameters, tile_mesh
+ 
+ 
+ MMAP_MAGIC = 0x4D4D4150
+@@ -136,6 +138,7 @@
+                                        tuple[NavPolygon, ...]]] = OrderedDict()
+         self.last_diagnostics: dict = {"available": True, "source": str(self.source.path)}
+         self.last_surface_projection: dict = {}
++        self._tile_errors: OrderedDict[tuple[int, int, int], dict] = OrderedDict()
+ 
+     @classmethod
+     def from_environment(cls) -> TrinityMMapNavMesh | None:
+@@ -179,6 +182,11 @@
+             self.last_surface_projection = {
+                 "status": "UNAVAILABLE", "reason": "map_header_missing",
+                 "instance_id": instance_id}
++            return None
++        problem = self._map_problem(instance_id)
++        if problem:
++            self.last_surface_projection = {**problem, 'status':problem['geometry_status'],
++                                            'instance_id':instance_id}
+             return None
+         dt = self._world_to_detour(point)
+         grid = self._world_grid(point)
+@@ -405,6 +413,10 @@
+             self.last_diagnostics = {"available": False, "reason": "map_header_missing",
+                                      "instance_id": instance_id}
+             return None
++        problem = self._map_problem(instance_id)
++        if problem:
++            self.last_diagnostics = {**problem, 'available':False, 'instance_id':instance_id}
++            return None
+         start_dt = self._world_to_detour(start)
+         end_dt = self._world_to_detour(destination)
+         if start_dt is None or end_dt is None:
+@@ -413,7 +425,10 @@
+             return None
+         native = self._native_map(instance_id)
+         if native is not None:
+-            return self._native_find_path(native, instance_id, start, destination, start_dt, end_dt)
++            result = self._native_find_path(native, instance_id, start, destination, start_dt, end_dt)
++            if result is None and getattr(native, 'data_errors', ()):
++                self._route_data_error(native.data_errors)
++            return result
+         tile_coords = self._corridor_tiles(start, destination)
+         graph_key = (instance_id, tile_coords)
+         graph = self._graph_cache.get(graph_key)
+@@ -433,10 +448,14 @@
+             while len(self._graph_cache) > 3:
+                 self._graph_cache.popitem(last=False)
+         polygons, adjacency, portals, tile_count = graph
++        tile_errors = [self._tile_errors[(instance_id,x,y)] for x,y in tile_coords
++                       if (instance_id,x,y) in self._tile_errors]
+         if not polygons:
+-            self.last_diagnostics = {"available": True, "reason": "no_route_tiles",
++            self.last_diagnostics = {"available": True,
++                                     "reason": "walking_flags_excluded" if tile_count else "no_route_tiles",
+                                      "instance_id": instance_id,
+                                      "requested_tiles": len(tile_coords)}
++            self._route_data_error(tile_errors)
+             return None
+         start_z_known = start.get("z_known") is not False and "z" in start
+         end_z_known = destination.get("z_known") is not False and "z" in destination
+@@ -447,6 +466,7 @@
+         if start_key is None or end_key is None:
+             self.last_diagnostics = {"available": True, "reason": "endpoint_not_on_mesh",
+                                      "instance_id": instance_id, "tile_count": tile_count}
++            self._route_data_error(tile_errors)
+             return None
+         # C_Map.GetWorldPosFromMapPos deliberately provides only X/Y. Snap
+         # that endpoint onto the selected walkable polygon instead of
+@@ -461,6 +481,7 @@
+             self.last_diagnostics = {"available": True, "reason": "no_polygon_path",
+                                      "instance_id": instance_id, "tile_count": tile_count,
+                                      "polygon_count": len(polygons)}
++            self._route_data_error(tile_errors)
+             return None
+         anchors_dt = self._string_pull(chain, polygons, portals, start_dt, end_dt)
+         anchors = tuple(self._detour_to_world(point, instance_id) for point in anchors_dt)
+@@ -1032,24 +1053,34 @@
+         # Deterministic per-map tile identity; Python's salted hash would make
+         # diagnostics and route construction needlessly process-dependent.
+         tile_key = instance_id * 10_000 + grid_x * 100 + grid_y
+-        return self._parse_tile(self.source.read(name), tile_key)
++        try:
++            return self._parse_tile(self.source.read(name), tile_key)
++        except (MMapFormatError, OSError, zipfile.BadZipFile) as error:
++            diagnostic = (error.diagnostic() if isinstance(error, MMapFormatError)
++                          else {'geometry_status':'ERROR','reason':'tile_read_failed'})
++            self._tile_errors[(instance_id,grid_x,grid_y)] = {**diagnostic, 'tile':name}
++            while len(self._tile_errors) > 128:
++                self._tile_errors.popitem(last=False)
++            return ()
++
++    @lru_cache(maxsize=64)
++    def _map_problem(self, instance_id):
++        try:
++            map_parameters(self.source.read(f'{instance_id:04d}.mmap'))
++        except MMapFormatError as error:
++            return error.diagnostic()
++        except (OSError, zipfile.BadZipFile):
++            return {'geometry_status':'ERROR','reason':'map_read_failed'}
++        return None
++
++    def _route_data_error(self, errors):
++        if errors:
++            chosen = next((e for e in errors if e['geometry_status']=='VERSION_MISMATCH'), errors[0])
++            self.last_diagnostics.update(chosen, invalid_tile_count=len(errors))
+ 
+     @staticmethod
+     def _parse_tile(data: bytes, tile_key: int) -> tuple[NavPolygon, ...]:
+-        if len(data) < 116:
+-            return ()
+-        magic, mmap_version, detour_version, data_size, _uses_liquids = struct.unpack_from("<5I", data)
+-        if magic != MMAP_MAGIC or data_size + 20 > len(data):
+-            return ()
+-        mesh = memoryview(data)[20:20 + data_size]
+-        # Current TrinityCore tiles use the Detour header variant containing
+-        # x, y and layer before userId (15 ints total).
+-        header = struct.unpack_from("<15i10f", mesh, 0)
+-        # The tile wrapper records both Trinity's mmap serialization version
+-        # and the Detour ABI version. dtMeshHeader.version is the serialized
+-        # mesh format (the former), not DT_NAVMESH_VERSION from the wrapper.
+-        if header[0] != DETOUR_NAVMESH_MAGIC or header[1] != mmap_version:
+-            return ()
++        mesh, header = tile_mesh(data)
+         poly_count, vert_count = header[6], header[7]
+         if poly_count <= 0 or vert_count <= 0 or poly_count > 2_000_000 or vert_count > 4_000_000:
+             return ()
+@@ -1058,6 +1089,8 @@
+         if polygon_offset + poly_count * 32 > len(mesh):
+             return ()
+         raw_vertices = struct.unpack_from(f"<{vert_count * 3}f", mesh, vertex_offset)
++        if not all(math.isfinite(v) for v in raw_vertices):
++            raise MMapFormatError('mesh_vertices_nonfinite')
+         vertices = tuple(tuple(raw_vertices[index:index+3])
+                          for index in range(0, len(raw_vertices), 3))
+         result = []
+--- before/tests/test_mmap_format_20261030.py
++++ after/tests/test_mmap_format_20261030.py
+@@ -0,0 +1,110 @@
++"""Binary format failures remain distinct from a proven unreachable route."""
++import struct
++import zipfile
++
++import pytest
++
++from wowbot.geometry_contracts import GeometryStatus, query_path
++from wowbot.navigation.mmap_navmesh import MMapDataSource, TrinityMMapNavMesh
++from wowbot.navigation.mmap_format import MMapFormatError, map_parameters, tile_mesh
++from wowbot.navigation.detour_native import NativeDetourMap
++from test_mmap_navmesh import _tile, _map_header
++
++START={'x':-449.7,'y':-2614.,'z':0.}
++END={'x':-448.3,'y':-2614.,'z':0.}
++
++
++def changed(data, offset, value, fmt='I'):
++    result=bytearray(data)
++    struct.pack_into('<'+fmt,result,offset,value)
++    return bytes(result)
++
++
++def mesh(tmp_path, *, header=None, tile=None):
++    (tmp_path/'2175.mmap').write_bytes(_map_header() if header is None else header)
++    if tile is not None:(tmp_path/'2175_32_36.mmtile').write_bytes(tile)
++    owner=TrinityMMapNavMesh(tmp_path,tile_padding=0)
++    owner.use_native=False
++    return owner
++
++
++@pytest.mark.parametrize('data,status,reason',[
++    (b'short',GeometryStatus.ERROR,'map_header_truncated'),
++    (changed(_map_header(),0,0),GeometryStatus.ERROR,'map_magic_mismatch'),
++    (changed(_map_header(),4,999),GeometryStatus.VERSION_MISMATCH,'map_version_mismatch'),
++    (changed(_map_header(),8,float('nan'),'f'),GeometryStatus.ERROR,'map_parameters_invalid'),
++    (changed(_map_header(),36,1),GeometryStatus.ERROR,'map_offmesh_size_invalid'),
++])
++def test_bad_map_header_cannot_fall_back_to_unchecked_python_route(tmp_path,data,status,reason):
++    owner=mesh(tmp_path,header=data,tile=_tile())
++    result=query_path(owner,2175,START,END)
++    assert result.status is status and result.reason==reason and result.value is None
++    assert owner.project_position(2175,START) is None
++    assert owner.last_surface_projection['reason']==reason
++    owner.close()
++
++
++@pytest.mark.parametrize('data,status,reason',[
++    (b'short',GeometryStatus.ERROR,'tile_header_truncated'),
++    (changed(_tile(),0,0),GeometryStatus.ERROR,'tile_magic_mismatch'),
++    (changed(_tile(),4,8),GeometryStatus.VERSION_MISMATCH,'tile_version_mismatch'),
++    (changed(_tile(),8,17),GeometryStatus.VERSION_MISMATCH,'tile_version_mismatch'),
++    (changed(_tile(),24,16),GeometryStatus.VERSION_MISMATCH,'mesh_version_mismatch'),
++    (_tile()[:-1],GeometryStatus.ERROR,'tile_size_invalid'),
++    (changed(_tile(),20+8*4,99999),GeometryStatus.ERROR,'mesh_sections_truncated'),
++    (changed(_tile(),120,float('nan'),'f'),GeometryStatus.ERROR,'mesh_vertices_nonfinite'),
++])
++def test_bad_tile_returns_specific_format_failure_including_on_cached_graph(tmp_path,data,status,reason):
++    owner=mesh(tmp_path,tile=data)
++    for _ in range(2):
++        result=query_path(owner,2175,START,END)
++        assert result.status is status and result.reason==reason and result.value is None
++    owner.close()
++
++
++def test_missing_tile_disallowed_water_and_complete_route_have_distinct_results(tmp_path):
++    owner=mesh(tmp_path)
++    assert query_path(owner,2175,START,END).status is GeometryStatus.MISSING_DATA
++    owner.close()
++    water=tmp_path/'water';water.mkdir()
++    owner=mesh(water,tile=_tile(flags=4))
++    assert query_path(owner,2175,START,END).status is GeometryStatus.NO_ROUTE
++    owner.close()
++    land=tmp_path/'land';land.mkdir()
++    owner=mesh(land,tile=_tile())
++    assert query_path(owner,2175,START,END).status is GeometryStatus.READY
++    owner.close()
++
++
++def test_trinity_wrapper_and_mesh_versions_are_not_swapped():
++    _,header=tile_mesh(_tile())
++    assert header[1]==7  # dtMeshHeader.version, not mmapVersion=16
++    assert map_parameters(_map_header())==map_parameters(_map_header()[:36])
++    with pytest.raises(MMapFormatError):tile_mesh(changed(_tile(),4,16))
++
++
++def test_native_loader_rejects_unknown_version_before_calling_dll(tmp_path):
++    mesh(tmp_path,tile=changed(_tile(),8,17)).close()
++    class Library:
++        calls=0
++        def aipc_nav_create(self,*args):return 1
++        def aipc_nav_add_tile(self,*args):self.calls+=1;return 1<<30
++        def aipc_nav_destroy(self,*args):pass
++    source=MMapDataSource(tmp_path)
++    lib=Library()
++    native=NativeDetourMap(lib,source,2175)
++    assert lib.calls==0 and native.tiles==0 and native.failed_tiles==1
++    assert native.data_errors[0]['geometry_status']=='VERSION_MISMATCH'
++    native.close();source.close()
++
++
++def test_corrupted_archive_member_is_data_error_instead_of_no_route(tmp_path,monkeypatch):
++    owner=mesh(tmp_path,tile=_tile())
++    read=owner.source.read
++    def damaged(name):
++        if name.endswith('.mmtile'):raise zipfile.BadZipFile('CRC failure')
++        return read(name)
++    monkeypatch.setattr(owner.source,'read',damaged)
++    result=query_path(owner,2175,START,END)
++    assert result.status is GeometryStatus.ERROR and result.reason=='tile_read_failed'
++    owner.close()
+--- before/tests/test_mmap_navmesh.py
++++ after/tests/test_mmap_navmesh.py
+@@ -34,8 +34,12 @@
+     return struct.pack("<5I", MMAP_MAGIC, 7, 16, len(mesh), 1) + mesh
+ 
+ 
++def _map_header():
++    return struct.pack('<2I3f2f2iI',MMAP_MAGIC,16,0.,0.,0.,533.3333,533.3333,4096,32768,0)
++
++
+ def test_trinity_mmap_routes_verified_world_yards_through_polygon_graph(tmp_path: Path):
+-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
++    (tmp_path / "2175.mmap").write_bytes(_map_header())
+     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
+     navmesh = TrinityMMapNavMesh(tmp_path)
+ 
+@@ -57,7 +61,7 @@
+ 
+ 
+ def test_default_walking_filter_does_not_route_over_water(tmp_path: Path):
+-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
++    (tmp_path / "2175.mmap").write_bytes(_map_header())
+     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile(flags=4))
+     start = {"x": -449.7, "y": -2614.0, "z": 0.}
+     end = {"x": -448.3, "y": -2614.0, "z": 0.}
+@@ -74,7 +78,7 @@
+ 
+ 
+ def test_polygon_astar_avoids_live_unwalkable_45_degree_cliff(tmp_path: Path):
+-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
++    (tmp_path / "2175.mmap").write_bytes(_map_header())
+     navmesh = TrinityMMapNavMesh(tmp_path)
+     start, cliff, detour_a, detour_b, destination = range(5)
+     polygons = {
+@@ -98,7 +102,7 @@
+ 
+ 
+ def test_player_xy_is_projected_to_a_navmesh_surface_height(tmp_path: Path):
+-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
++    (tmp_path / "2175.mmap").write_bytes(_map_header())
+     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
+     navmesh = TrinityMMapNavMesh(tmp_path)
+ 
+@@ -116,7 +120,7 @@
+ 
+ 
+ def test_surface_projection_reuses_bounded_spatial_index(tmp_path: Path):
+-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
++    (tmp_path / "2175.mmap").write_bytes(_map_header())
+     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
+     navmesh = TrinityMMapNavMesh(tmp_path)
+ 

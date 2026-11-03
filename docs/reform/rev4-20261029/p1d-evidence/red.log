@@ -1,0 +1,95 @@
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+________ test_an_evidence_value_cannot_be_fresh_before_it_is_received _________
+
+    def test_an_evidence_value_cannot_be_fresh_before_it_is_received():
+        value = evidence()
+>       assert not value.is_fresh(9.)
+E       assert not True
+E        +  where True = is_fresh(9.0)
+E        +    where is_fresh = Evidence(observation_id='obs', correlation_id='frame', source='WORLD3D', at=10.0, expires=12.0, value_json='"A"', conf...rame', sensor_tier='PERCEPTION', tier_rank=2, kind='', related_entity=None, related_quest=None, related_objective=None).is_fresh
+
+tests\test_evidence_lineage_20261029.py:22: AssertionError
+___ test_future_received_evidence_cannot_enter_a_current_belief_or_snapshot ___
+
+    def test_future_received_evidence_cannot_enter_a_current_belief_or_snapshot():
+        world = WorldModel()
+        claim(world, "future", at=10.)
+>       assert world.belief("claim", 1.)["value"] is None
+E       AssertionError: assert 'A' is None
+
+tests\test_evidence_lineage_20261029.py:29: AssertionError
+____________ test_rewrapped_copies_with_the_same_root_are_one_vote ____________
+
+    def test_rewrapped_copies_with_the_same_root_are_one_vote():
+        world = WorldModel()
+        for index in range(3):
+            claim(world, f"copy:{index}", provenance={"independence_group": f"wrapper:{index}",
+                "root_observation_ids": ["original-packet"]})
+        belief = world.belief("claim", 1.1)
+>       assert len(belief["evidence"]) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len(['aa7baea29abecfc2d95419b2', 'b470c484a2cbf1cbc5f3ed3f', '606d41c14434a6ac7775b7e3'])
+
+tests\test_evidence_lineage_20261029.py:39: AssertionError
+_ test_partly_overlapping_ancestry_cannot_make_three_independent_observations _
+
+    def test_partly_overlapping_ancestry_cannot_make_three_independent_observations():
+        world = WorldModel()
+        for frame, roots in (("A", ["root-A"]), ("AB", ["root-A", "root-B"]), ("B", ["root-B"])):
+            claim(world, frame, provenance={"root_observation_ids": roots})
+        belief = world.belief("claim", 1.1)
+>       assert len(belief["evidence"]) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len(['f8eb449a8d80955d7a59542b', 'bb06a5c5079ce593bbfb61e8', '7b08af842da2a00da9bb8211'])
+
+tests\test_evidence_lineage_20261029.py:49: AssertionError
+______ test_local_view_and_cross_view_of_the_same_capture_are_correlated ______
+
+    def test_local_view_and_cross_view_of_the_same_capture_are_correlated():
+        world = WorldModel()
+        for source in ("WORLD3D", "WORLD3D_LOCAL_VIEW", "CROSS_VIEW"):
+            claim(world, "one-capture", source=source)
+        belief = world.belief("claim", 1.1)
+>       assert len(belief["evidence"]) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len(['d8cf9f62abcdcda6c6609496', 'ed0d3209e7b3dd6117cabb2f', '4b06bf7f42251bbbed682a5f'])
+
+tests\test_evidence_lineage_20261029.py:58: AssertionError
+________ test_equal_weight_copies_of_one_origin_keep_the_newer_sample _________
+
+    def test_equal_weight_copies_of_one_origin_keep_the_newer_sample():
+        world = WorldModel()
+        provenance = {"independence_group": "one-origin"}
+        claim(world, "old", "old", at=1., provenance=provenance)
+        claim(world, "new", "new", at=2., provenance=provenance)
+>       assert world.belief("claim", 2.)["value"] == "new"
+E       AssertionError: assert 'old' == 'new'
+E         
+E         - new
+E         + old
+
+tests\test_evidence_lineage_20261029.py:67: AssertionError
+_____ test_delayed_derived_observation_does_not_restart_the_original_ttl ______
+
+    def test_delayed_derived_observation_does_not_restart_the_original_ttl():
+        world = WorldModel()
+        claim(world, "late-copy", at=10., provenance={"observed_at_monotonic": 1.,
+              "parent_observation_id": "old-parent", "root_observation_ids": ["old-parent"]})
+>       assert world.belief("claim", 10.)["value"] is None
+E       AssertionError: assert 'A' is None
+
+tests\test_evidence_lineage_20261029.py:74: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_evidence_lineage_20261029.py::test_an_evidence_value_cannot_be_fresh_before_it_is_received
+FAILED tests/test_evidence_lineage_20261029.py::test_future_received_evidence_cannot_enter_a_current_belief_or_snapshot
+FAILED tests/test_evidence_lineage_20261029.py::test_rewrapped_copies_with_the_same_root_are_one_vote
+FAILED tests/test_evidence_lineage_20261029.py::test_partly_overlapping_ancestry_cannot_make_three_independent_observations
+FAILED tests/test_evidence_lineage_20261029.py::test_local_view_and_cross_view_of_the_same_capture_are_correlated
+FAILED tests/test_evidence_lineage_20261029.py::test_equal_weight_copies_of_one_origin_keep_the_newer_sample
+FAILED tests/test_evidence_lineage_20261029.py::test_delayed_derived_observation_does_not_restart_the_original_ttl
+7 failed in 0.76s
+Exception ignored in: <function Console.__del__ at 0x000002533729C540>
+Traceback (most recent call last):
+  File "C:\Users\<user>\AppData\Roaming\Python\Python313\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

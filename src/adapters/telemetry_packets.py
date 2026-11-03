@@ -8,7 +8,7 @@ import zlib
 import time
 
 
-ARRAYS = {"actionbar", "active_quests", "quest_locations", "killed_corpses", "events", "visible_units"}
+ARRAYS = {"actionbar", "active_quests", "quest_locations", "killed_corpses", "events", "visible_units", "soft_targets", "quest_turn_in_receipts"}
 
 
 def _num(value, default=0.0):
@@ -21,6 +21,48 @@ def _num(value, default=0.0):
 
 FAST_SAMPLE_TIME_KEYS = ("fast_sample_time", "target_sample_time",
                          "mouseover_sample_time", "cursor_sample_time")
+
+
+def _complete_item_control(value: dict, sample_time) -> None:
+    """Expand only this packet's co-sampled compact item/recipient evidence."""
+    if "interact_guid" in value:
+        guid = value.pop("interact_guid")
+        if guid is not False and (not isinstance(guid, str) or not guid or len(guid) > 128):
+            raise ValueError("invalid public Interact recipient")
+        rows = value.get("soft_targets") or []
+        if not isinstance(rows, list):
+            rows = []
+        soft = next((row for row in rows if isinstance(row, dict)
+                     and row.get("source_unit") == "softinteract"), None)
+        if soft is not None and soft.get("guid") != guid:
+            # The two public reads straddled a recipient change. Neither one
+            # authorizes F7 in this frame; await the next coherent sample.
+            value.update(soft_targets=[], soft_targets_sample_time=None)
+        else:
+            rows = [row for row in rows if isinstance(row, dict) and row.get("source_unit") != "softinteract"]
+            if guid:
+                rows.append(soft or {"source_unit": "softinteract", "guid": guid,
+                                     "evidence_role": "CANDIDATE_HINT", "confirmed": False})
+            value.update(soft_targets=rows, soft_targets_sample_time=sample_time)
+    proof = value.get("quest_item_target")
+    if isinstance(proof, list):
+        target_guid = (value.get("target") or {}).get("guid")
+        items = []
+        for row in proof[:4]:
+            if (not isinstance(row, list) or len(row) != 5
+                    or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in row[:2])
+                    or type(row[2]) is not int or type(row[3]) is not int
+                    or row[2] not in (-1, 0, 1) or row[3] not in (-1, 0, 1)):
+                raise ValueError("invalid quest item readiness row")
+            cooldown = row[4]
+            if (isinstance(cooldown, bool) or not isinstance(cooldown, (int, float))
+                    or not math.isfinite(cooldown) or cooldown < -1):
+                raise ValueError("invalid quest item cooldown")
+            items.append({"quest_id": row[0], "item_id": row[1],
+                          "in_range": None if row[2] == -1 else bool(row[2]),
+                          "is_usable": None if row[3] == -1 else bool(row[3]),
+                          "cooldown_remaining": None if cooldown < 0 else cooldown})
+        value["quest_item_target"] = {"guid": target_guid, "sample_time": sample_time, "items": items}
 
 
 def _stamp_world_position(value: dict) -> None:
@@ -37,9 +79,23 @@ def _stamp_world_position(value: dict) -> None:
 def _complete_fast_sample(value: dict) -> None:
     """Restore what bounded FAST variants (addon 0.9.38+) leave out."""
     sample_time = value.get("monotonic_time")
+    _stamp_health_sample(value)
+    _complete_item_control(value, sample_time)
     if sample_time is not None:
-        for key in FAST_SAMPLE_TIME_KEYS:
-            value.setdefault(key, sample_time)
+        value.setdefault("fast_sample_time", sample_time)
+        for field in ("target", "mouseover", "cursor"):
+            source_key = "cursor_position" if field == "cursor" else field
+            if source_key in value:
+                value.setdefault(field + "_sample_time", sample_time)
+        if "soft_targets" in value:
+            value.setdefault("soft_targets_sample_time", sample_time)
+        ui = value.get("quest_ui")
+        fields = ("open", "action", "quest_id", "x", "y")
+        if isinstance(ui, dict) and all(key in ui for key in fields):
+            # Record the actual bounded FAST payload before any full-state
+            # merge. An omitted/carried-over button must never be restamped.
+            value["quest_ui_fast_evidence"] = {
+                **{key: ui[key] for key in fields}, "sample_time": sample_time}
     position = value.get("player_world_position")
     if isinstance(position, dict):
         position.setdefault("source", "C_MAP_PLAYER_WORLD_POS")
@@ -49,7 +105,32 @@ def _complete_fast_sample(value: dict) -> None:
     _stamp_world_position(value)
 
 
+def _stamp_health_sample(value):
+    if ('health' in value or 'max_health' in value) and value.get('monotonic_time') is not None:
+        value.setdefault('health_sample_time', value['monotonic_time'])
+    if any(k in value for k in ('power', 'max_power', 'power_type')) and value.get('monotonic_time') is not None:
+        value.setdefault('power_sample_time', value['monotonic_time'])
+
+
+def _normalize_unit_position(unit) -> None:
+    """Retail addon UnitPosition height is unknown, even when numeric.
+
+    Keep available XY/identity. Exact server XYZ lives in packet_entities and
+    is resolved separately; an addon clock or z_known flag cannot supply Z.
+    """
+    position = unit.get("world_position") if isinstance(unit, dict) else None
+    if isinstance(position, dict) and position.get("source") == "UNIT_POSITION":
+        position.pop("z", None)
+        position.update(z_known=False, z_observed=False, z_estimated=False,
+                        z_source="RETAIL_UNIT_POSITION_Z_UNAVAILABLE")
+
+
 def normalize(value: dict) -> dict:
+    _stamp_health_sample(value)
+    # Full snapshots carry the same public recipient, with their original
+    # source clock. Never stamp a retained full-state item proof with FAST time.
+    if value.get("transport_kind") != "FAST" and "interact_guid" in value:
+        _complete_item_control(value, value.get("state_sample_time", value.get("monotonic_time")))
     # Addon 0.9.61 sent a secret UnitHealth("player") as 0 on every FAST
     # packet: a living player at 0 health is unknown health, never 0 %.
     if (value.get("health") == 0 and value.get("is_dead") is not True
@@ -63,6 +144,22 @@ def normalize(value: dict) -> dict:
     for key in ("quest_ui", "extra_action", "inventory", "position", "target", "mouseover", "map_mouseover", "combat_hint", "map_context"):
         if value.get(key) and not isinstance(value[key], dict):
             raise ValueError(f"AIPC5 {key} must be an object")
+    for key in ("target", "mouseover"):
+        _normalize_unit_position(value.get(key))
+    for key in ("visible_units", "soft_targets"):
+        for unit in value.get(key, ()):
+            _normalize_unit_position(unit)
+    # The public tooltip's typed object/item ID is identity, not presentation
+    # text. Older full snapshots nested it even when the compact top-level
+    # field was absent. Never use the untyped generic tooltip `id` as NPC ID.
+    for key in ("target", "mouseover"):
+        unit = value.get(key)
+        if isinstance(unit, dict) and isinstance(unit.get("tooltip_data"), dict):
+            for identity_key in ("object_id", "item_id"):
+                if unit.get(identity_key) in (None, "", 0, "0"):
+                    observed = unit["tooltip_data"].get(identity_key)
+                    if observed not in (None, "", 0, "0"):
+                        unit[identity_key] = observed
     pois = value.get("map_pois")
     if pois is not None:
         # Optional map-API knowledge (addon 0.9.37): a malformed list drops
@@ -110,7 +207,7 @@ def normalize(value: dict) -> dict:
     value["target_is_dead"] = target.get("dead", target.get("is_dead"))
     value["dead_corpses"] = value.get("killed_corpses", [])
     value["quest_ui_open"] = ui.get("open", False)
-    for key in ("action", "x", "y", "quest_id", "gossip_option"):
+    for key in ("action", "x", "y", "quest_id", "gossip_option", "npc_guid"):
         value["quest_ui_" + key] = ui.get(key)
     value["quest_ui_entries"] = ui.get("entries", [])
     # PREPARED 2026-09-14, UNTESTED LIVE (needs the corresponding addon
@@ -224,6 +321,8 @@ class PacketAssembler:
             if not isinstance(value, dict):
                 raise ValueError("AIPC5 FAST must be object")
             _complete_fast_sample(value)
+            if isinstance(value.get("quest_ui_fast_evidence"), dict):
+                value["quest_ui_fast_evidence"]["received_at"] = now
             self._restore_timestamp(value)
             self.last_fast = seq
             self.last_fast_payload = value
@@ -285,6 +384,9 @@ class PacketAssembler:
             else:
                 result = dict(self.full)
         result["session_id"] = f"{session}:{result.get('character_guid') or result.get('character_name')}"
+        if isinstance(result.get("quest_ui_fast_evidence"), dict):
+            result["quest_ui_fast_evidence"] = {
+                **result["quest_ui_fast_evidence"], "session_id": result["session_id"]}
         result["frame_id"] = f"{session}:{kind}:{seq}"
         result["state_age"] = now - self.full_received_at
         result["state_sequence"] = self.last_full

@@ -10,6 +10,8 @@ from .navigation_situation import NavigationSituationPolicy
 class NavigationProposalAdapter:
     """Return a navigation-ready proposal; never start movement or input."""
 
+    SUBJECT_SEARCH_PURPOSES = frozenset({"SEARCH_RESCUE_OBJECTIVE", "SEARCH_QUEST_ITEM_SUBJECT"})
+
     def __init__(self, navigation, registry=None, map_search_policy=None) -> None:
         self.navigation = navigation
         self.registry = registry
@@ -56,6 +58,10 @@ class NavigationProposalAdapter:
                     confidence=proposal.confidence, evidence=proposal.evidence)
             proposal = guarded
         if not self.navigation.permits(world, proposal.parameters, now):
+            rescue_search = proposal.parameters.get("purpose") in self.SUBJECT_SEARCH_PURPOSES
+            if rescue_search and proposal.parameters.get("search_region_id") and proposal.parameters.get("search_cell_id"):
+                self.navigation.mark_search_cell_visited(
+                    proposal.parameters["search_region_id"], proposal.parameters["search_cell_id"], now)
             # Live 2026-10-05 12:25: Alaria's pin (38 yd west) was briefly
             # blocked; the "alternative" was the Harpy pin 155 yd east, so the
             # agent walked east for the 5 s cooldown and back (user: "oda-vissza
@@ -66,6 +72,8 @@ class NavigationProposalAdapter:
             alternatives = [
                 item for item in proposals
                 if item.key != proposal.key
+                and not (rescue_search and item.parameters.get("purpose") in self.SUBJECT_SEARCH_PURPOSES
+                         and item.parameters.get("quest_id") == proposal.parameters.get("quest_id"))
                 and (item.confidence >= .55
                      or item.skill in {"WAIT", "INSPECT", "DEFEND", "ESCAPE", "COMBAT"})
                 and (item.skill not in {"MOVE", "FOLLOW"}
@@ -130,9 +138,28 @@ class NavigationProposalAdapter:
             return None
         if not same_instance:
             return None
+        # A flying vehicle (live 2026-10-23, the Ruby Whelpling) flies
+        # straight: it has no walking route, and none is needed.
+        # A ``flight`` MOVE (own flying mount, 2026-10-25) keeps the navmesh
+        # requirement: the global planner tries its flight plan first, and a
+        # trip it cannot plan on the ground walks the mmap, never a straight
+        # line.  Airborne it always gets a flight (or empty) route.
+        from .vehicle_combat_planning import flying
+        direct = ((parameters.get("direct_flight") is True
+                   and flying(world.state)
+                   and world.state.get("in_vehicle") is True)
+                  or bool(parameters.get("flight_path")))
+        if parameters.get("flight_path"):
+            from wowbot.navigation.flight_path import FlightPath
+            try:
+                path = FlightPath.from_dict(parameters["flight_path"])
+            except (TypeError, ValueError, KeyError):
+                return None
+            if path.instance_id != int(destination_instance):
+                return None
         parameters.update({"instance_id": int(destination_instance),
                            "world_map_id": int(destination_instance),
-                           "require_navmesh": True})
+                           "require_navmesh": not direct})
         return Proposal.make(proposal.skill, proposal.reason, parameters,
                              proposal.confidence, proposal.priority, proposal.evidence)
 
@@ -324,6 +351,9 @@ class NavigationProposalAdapter:
 
     def _search_waypoint(self, proposal: Proposal, world, now: float,
                          *, last_result: dict | None = None) -> Proposal:
+        if (proposal.skill == "MOVE" and proposal.parameters.get("purpose") in self.SUBJECT_SEARCH_PURPOSES
+                and isinstance(proposal.parameters.get("search_area"), dict)):
+            return self._rescue_area_search(proposal, world, now, last_result or {})
         if world.state.get("active_quests") and self._roam["generation"]:
             self._roam = self._new_roam()   # the next no-quest search starts fresh
         if (proposal.skill == "SEEK_VISUAL_CUE"
@@ -390,4 +420,69 @@ class NavigationProposalAdapter:
              **({"scan_while_moving": True,
                  "scan_units": proposal.parameters.get("scan_units") is True}
                 if proposal.parameters.get("zone_sweep") else {})},
+            proposal.confidence, proposal.priority, proposal.evidence)
+
+    def _rescue_area_search(self, proposal: Proposal, world, now: float, last: dict) -> Proposal:
+        """Use the canonical finite coverage, no camera sweep or input owner."""
+        from hashlib import sha256
+        from .models import canonical
+        params, state = proposal.parameters, world.state
+        purpose = params["purpose"]
+        area = params["search_area"]
+        fingerprint = sha256(canonical(area).encode()).hexdigest()[:16]
+        region_id = ":".join(map(str, (purpose, state.get("session_id"), state.get("phase"), area.get("instance_id"),
+                                      params.get("quest_id"), params.get("objective_id"), fingerprint)))
+        searches = self.__dict__.setdefault("_rescue_searches", {})
+        if region_id not in searches:
+            if len(searches) >= 16:
+                searches.pop(next(iter(searches)))
+            searches[region_id] = {"started": now, "cell": None, "seen_action": last.get("action_id")}
+        search = searches[region_id]
+        self.navigation.begin_search_region(region_id, area)
+        cell = search["cell"]
+        if cell is not None and (now-cell[1] >= 40. or (
+                last.get("action_id") != search.get("seen_action")
+                and last.get("purpose") == purpose and last.get("outcome") == "FAILURE")):
+            self.navigation.mark_search_cell_visited(region_id, cell[0], now)
+            search["cell"] = None
+        search["seen_action"] = last.get("action_id")
+        self.navigation.observe_search_region(region_id, state, now, target_detected=False)
+        waypoint = None
+        if now-search["started"] < 240.:
+            for _ in range(64):
+                waypoint = self.navigation.next_search_waypoint(region_id, state)
+                if waypoint is None:
+                    break
+                # A destroyed actor here is absence evidence, not another
+                # rescue target. OUT_OF_RANGE is deliberately not spent.
+                used = any(isinstance(actor, dict) and str(actor.get("entry_id"))
+                           in set(params.get("expected_npc_ids") or ())
+                           and isinstance(actor.get("removed"), dict)
+                           and actor["removed"].get("reason") == "DESTROYED"
+                           and isinstance(actor.get("position"), dict)
+                           and str(actor.get("map_id")) == str(area.get("instance_id"))
+                           and math.hypot(actor["position"]["x"]-waypoint["x"],
+                                          actor["position"]["y"]-waypoint["y"]) <= 6.
+                           and (waypoint.get("z") is None or abs(actor["position"]["z"]-waypoint["z"]) <= 5.)
+                           for actor in (state.get("packet_entities") or {}).values())
+                used = used or any(
+                    str(p.get("instance_id")) == str(area.get("instance_id"))
+                    and math.hypot(p["x"]-waypoint["x"], p["y"]-waypoint["y"]) <= 3.
+                    and waypoint.get("z") is not None and abs(p["z"]-waypoint["z"]) <= 3.
+                    for p in params.get("excluded_search_points") or ())
+                if not used:
+                    break
+                self.navigation.mark_search_cell_visited(region_id, waypoint["search_cell_id"], now)
+                waypoint = None
+        if waypoint is None:
+            return Proposal.make("WAIT", "Quest: a korlátos keresési pontok elfogytak; friss céladatra vár",
+                {"purpose": purpose, "quest_id": params.get("quest_id"),
+                 "objective_id": params.get("objective_id"), "blocked_reason": "OBJECTIVE_SEARCH_EXHAUSTED",
+                 "waiting_for": ["SERVER_ENTITY", "QUEST_PROGRESS", "NEW_SEARCH_GEOMETRY"]},
+                proposal.confidence, proposal.priority, proposal.evidence + ("rescue_search_exhausted",))
+        if search["cell"] is None or search["cell"][0] != waypoint["search_cell_id"]:
+            search["cell"] = (waypoint["search_cell_id"], now)
+        return Proposal.make("MOVE", proposal.reason,
+            {**params, **waypoint, "purpose": purpose, "stop_distance": 3.,
+             "require_navmesh": True, "z_source": "TDB_SEARCH_HINT" if waypoint.get("z") is not None else None},
             proposal.confidence, proposal.priority, proposal.evidence)

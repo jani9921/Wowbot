@@ -1,0 +1,601 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,19 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 own collection invalidation — **OFFLINE_TESTED / native
++quest/inventory parity PARTIAL**. Unknown own PlayerData/fragment updates now
++emit a narrow, build-specific questlog invalidation. Proven unchanged masks
++do not read private fields, rejuvenate clocks or invalidate known membership.
++Questlog and inventory-root barriers preserve only newer concrete fields;
++one newer slot no longer keeps an entire older collection COMPLETE. Older or
++equal-time snapshots cannot revive invalidated fields; newer complete data can
++restore membership. UI progress and input authority are unchanged. Selected
++regression: **3916 passed, 2 skipped, 10 unchanged deselections, 319 modules,
++exit 0**, 141.02 s pytest. All 537 source and 628 test Python files parse;
++203 numbered rows unchanged. Outer-record decode loss, retained progress/
++applied-watermark and complete consumer parity remain code gaps. No game/
++capture/input/live DB changes/new live acceptance; addon/Ymir unchanged. See
++[collection invalidation checkpoint](reform/rev4-20261029/P3_QUEST_LOG_INVALIDATION.md).
+ 
+ 2026-10-30 REV4 P2/P3 authenticated delivery continuity — **OFFLINE_TESTED /
+ retained-state parity PARTIAL**. V2 IPC signs the sender/context sequence;
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,20 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — native collection invalidation barriers (offline only)
++
++Unknown own PlayerData/fragment changes invalidate old native quest membership.
++Proven unchanged masks preserve original sample times without private reads.
++Questlog and inventory-root invalidation is field-wise: newer positive fields
++survive, but cannot rescue an older complete collection. Older/equal snapshots
++cannot resurrect invalidated state; newer complete snapshots can restore it.
++UI quest progress and input authority remain unchanged.
++
++Final selected regression: **3916 passed, 2 skipped, 10 unchanged deselections**,
++319 modules, 141.02 s pytest / 143.86 s runner, exit 0. All 537 source and 628
++test Python files parse. All 203 numbered rows persist. Outer decode-loss,
++retained-state/progress witness and full consumer parity remain incomplete.
++No game/capture/FULL_AI/input/live DB modification/new live acceptance;
++addon/Ymir unchanged. [Details/checkpoint](reform/rev4-20261029/P3_QUEST_LOG_INVALIDATION.md).
+ 
+ ## 2026-10-30 — authenticated IPC delivery continuity (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3908 passed, 2 skipped, 10 változatlan deselection, 318 modul, exit 0.
++Végső kijelölt regresszió: 3916 passed, 2 skipped, 10 változatlan deselection, 319 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -25,6 +25,9 @@
+ A [helyi IPC-kézbesítés folytonossága](P2_PACKET_DELIVERY.md) is ellenőrzött:
+ sorszámrés és valódi mailbox-kiesés natív field-invalidálást/rebaseline-t okoz;
+ retained-state életjel és teljes parity még nem készült el.
++A [questlog- és root-collection invalidálása](P3_QUEST_LOG_INVALIDATION.md)
++mezőnként megőrzi az újabb bizonyítékot, az ismeretlenné vált régi tagokat
++eldobja. A teljes progress/retained-state/consumer paritás még nem kész.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -42,6 +42,10 @@
+ delta-kiesést is láthatóvá teszi: a szigorú mód packet-baseline-t kér, a régi
+ migrációs mód pedig eldobja a natív mezőket és megtartja a pozitív snapshot-
+ helyreállítást. Retained TTL/progress-watermark és teljes parity továbbra is nyitott.
++Az [ismeretlen saját questfrissítések](P3_QUEST_LOG_INVALIDATION.md) most már
++explicit UNKNOWN/invalidation eseményt adnak. Questlog és inventory-root
++mezőnkénti barrierrel védi a régi teljes collectiont; egyetlen új slot nem
++teszi ismertté a régi többit. Retained teljesparitás továbbra sincs lezárva.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -84,14 +88,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3908 passed, 2 skipped, 10 deselected; 318 modul; 173.00 s; exit 0** |
++| Végső kijelölt regresszió | **3916 passed, 2 skipped, 10 deselected; 319 modul; 141.02 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 537 source + 627 tests Python-fájl; 626 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 537 source + 628 tests Python-fájl; 627 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **318 kijelölt modul eredménye**, nem a teljes 626 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **319 kijelölt modul eredménye**, nem a teljes 627 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_QUEST_LOG_INVALIDATION.md
++++ after/docs/reform/rev4-20261029/P3_QUEST_LOG_INVALIDATION.md
+@@ -0,0 +1,83 @@
++# REV4 P3 — ismeretlen saját questfrissítés és collection barrier
++
++2026-10-30, kijelölt `projekt`. Offline tesztelt részadatút; teljes retained
++quest-progress/consumer-paritás továbbra sincs késznek jelölve.
++
++## Bekötés
++
++Ha a kiválasztott saját karakter PlayerData-frissítésének QuestLog-része nem
++olvasható a vizsgált prefix szerint, új `OWN_QUEST_LOG_INVALIDATED` esemény
++megy a közös decoder → normalizálás → IPC → WorldModel adatúton. Ez nem új
++questtény, hanem az előző teljes állapot használhatóságának elvesztése.
++
++Külön, kizárólag erre engedett `WPP_12_1_QUEST_LOG_INVALIDATION_V1` layout és
++70340-es buildcsalád kell. A szűk payload csak saját mover GUID és world map;
++nincs továbbított ismeretlen byte vagy személyes szöveg. Másik karakter/map
++nem törölheti a saját állapotot. Ismeretlen saját fragment-változás a quest- és
++inventory-collectiont is érvényteleníti; részleges CREATE nem állít baseline-t.
++
++A PlayerData maszkból bizonyítottan változatlan QuestLog sem invalidálódik,
++sem nem kap új sample-időt: az olvasó ilyenkor a privát, más mezőkhöz tartozó
++payload olvasása nélkül visszatér. Root nélküli quest-slot child maszk hibás.
++
++## WorldModel-szabály
++
++Az érvénytelenítés időkorlátot/barriert hagy a scope-hoz tartozó collectionben.
++A nála régebbi vagy azonos idejű snapshot/delta nem állítja vissza az elveszett
++állapotot. A később megfigyelt részadat pozitív PARTIAL tagságot adhat;
++teljes, helyes baseline ismét COMPLETE tagságot adhat.
++
++Későn beérkező invalidálás nem fiatalít és nem töröl indokolatlanul frissebb
++mezőket: az invalidálásnál újabb konkrét tények megmaradnak. Az ismeretlenné
++vált régi mezők viszont eltűnnek, ezért egyetlen frissebb slot nem menti meg
++a teljes régi listát. Az ABSENT bizonyítékhoz továbbra is a teljes friss,
++azonos scope-ú collection kell. Az UNKNOWN nem questleadás, abandon vagy
++questteljesítés; a kliens/UI QuestModel progress változatlan marad.
++
++Ugyanez a mezőnkénti szabály az inventory root-listában is érvényes. A korábbi
++root-ág egyetlen frissebb slot miatt az egész régebbi invalidálást kihagyta;
++így a többi régi hely indokolatlanul COMPLETE maradhatott. Most az invalidálás
++idejénél régebbi/azonos helyek eltűnnek, és csak az újabb konkrét slotok
++maradnak PARTIAL állapotban. Az invalidálásnál frissebb teljes 105 helyes
++snapshot viszont továbbra is COMPLETE lehet. Azonos idejű, sorrendben nem
++bizonyított visszaállítás konzervatívan UNKNOWN marad.
++
++## Ellenőrzés
++
++Célzott első kör: **106 pass**, szintetikus WPP-byteokkal, hitelesített IPC-vel és
++valódi WorldModel/queryval. Külön próba: layout/direction gate, hiányzó prefix,
++előző ABSENT elvesztése, régi snapshot elutasítása, friss részadat majd teljes
++baseline, mezőnként késői invalidálás, változatlan maszk eredetideje, privát
++fragment-tail kihagyása és másik world elutasítása.
++
++Hat korábbi fixture-elvárás az egyetlen diagnosztikai eseményt, illetve a HP-
++prefix után közvetlenül következő profilt várta. Ezek most az új explicit
++UNKNOWN eseményt is ellenőrzik; a HP/profile értékellenőrzések megmaradtak.
++Nem került ki teszt vagy korábbi hibakizárás.
++A készlet-root korrekcióval és a profilpróbával bővített célzott kör **138 pass**;
++az invalidálásnál frissebb teljes snapshot megőrzése és a régi mezők eldobása
++külön teszt. Ezek a körök átfednek, nem összeadandók.
++
++A végső kijelölt regresszió **3916 passed, 2 skipped, 10 változatlan deselection,
++319 modul, exit 0**, pytest 141.02 s / runner 143.86 s. Mind az 537 source és
++628 test Python-fájl AST-je érvényes; a teljes 627 testmodulból a kijelölt 319
++futott, ez nem teljes repository-tesztfuttatási állítás.
++
++Az első célzott kör öt korábbi fixture-elváráson, az első nagy kör a hatodik
++profil-fixture eseménylistáján állt meg; az explicit új UNKNOWN esemény most
++mindegyikben ellenőrzött. A payload-/HP/profile értékellenőrzések megmaradtak.
++A készlet-root teljeslistát tévesen megtartó ága külön viselkedési javítás.
++
++[Forrás/diff/parancs/JUnit checkpoint](quest-invalidation-evidence/verification.json).
++Mind a 203 számozott coverage-sor és a korábbi checkpointok megmaradnak.
++
++## Határok
++
++Teljesen olvashatatlan külső UPDATE_OBJECT rekord, teljes natív retained-
++baseline/progress witness, alkalmazott watermark és minden objective-kind
++canonical progress-projekciója továbbra is nyitott. Ez a javítás az ismert
++saját PlayerData/fragment jelzés körében zárja le a régi hamis teljes listát;
++nem találgatja a többi packet tartalmát. A natív TTL-ek változatlanok.
++
++Nem indult WoW/Ymir/capture/FULL_AI, nem ment kliensinput. Addon és pinned
++Ymir byte-változatlan, éles memory DB nem módosult, új LIVE_VALIDATED nincs.
+--- before/src/wowbot/agent/packet_inventory.py
++++ after/src/wowbot/agent/packet_inventory.py
+@@ -21,17 +21,19 @@
+     def fact(value):
+         return {'value':json_copy(value),'observed_at':sampled,'observation_id':observation.observation_id}
+     if kind in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED'}:
+-        if sampled < record['root_barrier']:
++        if sampled <= record['root_barrier']:
+             return
+-        if kind == 'OWN_INVENTORY_INVALIDATED' or body.get('sample_kind') == 'CREATE':
++        if kind == 'OWN_INVENTORY_INVALIDATED':
++            record['root_barrier'] = sampled
++            record['roots'] = {key:value for key,value in record['roots'].items()
++                               if value['observed_at'] > sampled}
++            if record['root_baseline_time'] is not None and record['root_baseline_time'] <= sampled:
++                record['root_baseline_time'] = None
++        elif body.get('sample_kind') == 'CREATE':
+             if sampled < record['roots_time']:
+-                return  # an older whole snapshot/invalidation cannot undo a newer delta
++                return  # an older whole snapshot cannot undo a newer delta
+             record['roots'] = {}
+-            record['root_baseline_time'] = None
+-            if kind == 'OWN_INVENTORY_INVALIDATED':
+-                record['root_barrier'] = sampled
+-            else:
+-                record['root_baseline_time'] = sampled
++            record['root_baseline_time'] = sampled
+         if kind == 'OWN_INVENTORY_ROOTS':
+             for index,item_guid in body['root_slots']:
+                 key = str(index)
+--- before/src/wowbot/agent/packet_quest_log.py
++++ after/src/wowbot/agent/packet_quest_log.py
+@@ -10,13 +10,40 @@
+ MAX_AGE = 2.
+ 
+ 
+-def remember(model, body, observation, sampled, context):
++def _record(model, sampled, context):
+     scope = SessionContext.from_mapping(context).entity_scope()
+     record = model.__dict__.get('_packet_quest_log')
+     if record is None or record['scope'] != scope:
+         record = {'scope':scope, 'slots':{}, 'baseline_observed_at':None,
+-                  'baseline_sample_kind':None, 'observed_at':sampled}
++                  'baseline_sample_kind':None, 'observed_at':sampled, 'invalidated_at':float('-inf')}
+         model.__dict__['_packet_quest_log'] = record
++    return record
++
++
++def invalidate(model, observation, sampled, context):
++    record = _record(model,sampled,context)
++    if sampled <= record['invalidated_at']:
++        return
++    record['invalidated_at'] = sampled
++    for index, slot in tuple(record['slots'].items()):
++        for group in ('fields','progress'):
++            slot[group] = {key:fact for key,fact in slot[group].items() if fact['observed_at'] > sampled}
++        if not slot['fields'] and not slot['progress']:
++            del record['slots'][index]
++    if record['baseline_observed_at'] is not None and record['baseline_observed_at'] <= sampled:
++        record['baseline_observed_at'] = record['baseline_sample_kind'] = None
++    record['observed_at'] = max(record['observed_at'],sampled)
++    model.add_evidence('quest_log_invalidated',True,observation,confidence=1.,ttl=MAX_AGE)
++    provider = getattr(model,'session_context_provider',None)
++    if provider is not None:
++        provider.observe_field_coverage('questlog','PARTIAL' if record['slots'] else 'UNKNOWN',
++                                        sampled,context=context)
++
++
++def remember(model, body, observation, sampled, context):
++    record = _record(model,sampled,context)
++    if sampled <= record['invalidated_at']:
++        return
+     for raw in body['slots']:
+         index, quest_id = raw[:2]
+         old = record['slots'].get(index)
+--- before/src/wowbot/agent/world_packet_reducer.py
++++ after/src/wowbot/agent/world_packet_reducer.py
+@@ -554,10 +554,14 @@
+                 generation = provider.process.generation if provider is not None else None
+                 remember_definition(model.quest_model, kind, body, definition_scope(expected, generation),
+                                     obs, sampled, safe['provenance'])
+-            if (kind == 'OWN_QUEST_LOG_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
++            if (kind in {'OWN_QUEST_LOG_UPDATE','OWN_QUEST_LOG_INVALIDATED'}
++                    and same_player(body.get('mover_guid'), expected['character_guid'])
+                     and same_world_map(body['world_map_id'], expected['instance_id'])):
+-                from .packet_quest_log import remember as remember_quest_log
+-                remember_quest_log(model, body, obs, sampled, expected)
++                from .packet_quest_log import remember as remember_quest_log, invalidate as invalidate_quest_log
++                if kind == 'OWN_QUEST_LOG_INVALIDATED':
++                    invalidate_quest_log(model,obs,sampled,expected)
++                else:
++                    remember_quest_log(model,body,obs,sampled,expected)
+             if (kind == 'OWN_PROFILE_UPDATE' and same_player(body.get('mover_guid'), expected['character_guid'])
+                     and same_world_map(body['world_map_id'], expected['instance_id'])):
+                 from .packet_own_profile import remember as remember_profile
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -400,6 +400,7 @@
+                 "payload_layout": ("WPP_12_1_QUEST_DEFINITION_REVIEWED_V1" if event_type in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'} else
+                                    ("WPP_12_1_OWN_INVENTORY_REVIEWED_V2" if payload.get('sample_kind')=='VALUES'
+                                     else "WPP_12_1_OWN_INVENTORY_REVIEWED_V1") if event_type in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'} else
++                                   'WPP_12_1_QUEST_LOG_INVALIDATION_V1' if event_type == 'OWN_QUEST_LOG_INVALIDATED' else
+                                    ("WPP_12_1_QUEST_LOG_REVIEWED_V2" if payload.get('sample_kind') == 'CREATE'
+                                     else "WPP_12_1_QUEST_LOG_REVIEWED_V1") if event_type == 'OWN_QUEST_LOG_UPDATE' else
+                                    "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+@@ -640,6 +641,9 @@
+                     events.append(('OWN_QUEST_LOG_UPDATE', {'mover_guid': row['guid'],
+                         'world_map_id': struct.unpack_from('<H', data)[0], 'slots': row['quest_log_slots'],
+                         **({'sample_kind':'CREATE'} if row['kind'] == 'CREATED' else {})}))
++                elif row.get('quest_log_invalidated') or row['kind']=='CREATED':
++                    events.append(('OWN_QUEST_LOG_INVALIDATED', {'mover_guid':row['guid'],
++                        'world_map_id':world_map}))
+                 profile = {k: row[k] for k in ('race_id', 'class_id', 'player_class_id', 'power_type', 'level') if k in row}
+                 if row['kind'] in {'VALUES', 'CREATED'} and profile:
+                     events.append(('OWN_PROFILE_UPDATE', {'mover_guid': row['guid'],
+--- before/src/wowbot/packetio/player_quest_log.py
++++ after/src/wowbot/packetio/player_quest_log.py
+@@ -7,6 +7,8 @@
+ SLOT_COUNT = 175
+ PROGRESS_COUNT = 24
+ LAYOUT = 'WPP_12_1_QUEST_LOG_REVIEWED_V1'
++EVENTS = frozenset({'OWN_QUEST_LOG_UPDATE', 'OWN_QUEST_LOG_INVALIDATED'})
++INVALIDATION_LAYOUT = 'WPP_12_1_QUEST_LOG_INVALIDATION_V1'
+ 
+ 
+ def _skip_guid(cursor):
+@@ -52,6 +54,11 @@
+     words = [cursor.bits(32) if present >> i & 1 else 0 for i in range(11)]
+     changed = lambda bit: bool(words[bit//32] >> (bit % 32) & 1)
+     full = cursor.bit()  # noPartyMemberChangesMask
++    slot_changes = any(changed(i) for i in range(54,54+SLOT_COUNT))
++    if slot_changes and not changed(53):
++        raise ValueError('unrooted quest slot mask')
++    if not slot_changes:
++        return []  # mask proves QuestLog unchanged, without reading private fields
+     supported = {0, 1, 2, *range(9, 25), *range(26, 32), 50, 51, 52}
+     if (not changed(53) or any(changed(i) and i not in supported for i in range(53))
+             or any(changed(i) for i in (*range(1, 3), *range(9, 25), *range(26, 32))) and not changed(0)
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -474,7 +474,8 @@
+     c = _Bits(blob)
+     c.u8()                       # IsOwned
+     if c.u8():                   # HasFragmentUpdates
+-        return {}                # fragment-set changes are not tracked here
++        return ({'inventory_invalidated':True, 'quest_log_invalidated':True}
++                if own_player else {})  # fragment-set changes are not reviewed
+     bit_count = sum(1+(f in _INDIRECT) for f in fragments if f in _UPDATEABLE)
+     changed = c.take((bit_count+7)//8)
+     index = 0
+@@ -482,7 +483,8 @@
+         if fragment not in _UPDATEABLE:
+             continue
+         if fragment != _CG_OBJECT:
+-            return {}            # an updateable fragment precedes CGObject
++            return ({'inventory_invalidated':True, 'quest_log_invalidated':True}
++                    if own_player else {})
+         set_ = lambda i: bool(changed[i//8] >> (i % 8) & 1)
+         if not set_(index) or not set_(index+1):
+             return {}
+@@ -490,6 +492,8 @@
+         result = {}
+         if own_player and update_type & 0x80:
+             result['inventory_invalidated'] = True  # cleared only after reviewed InvSlots handling
++        if own_player and update_type & 0x40:
++            result['quest_log_invalidated'] = True
+         if update_type & 1:      # ObjectData
+             c.reset()
+             mask = c.bits(4)
+@@ -531,12 +535,15 @@
+             from .player_quest_log import read_slots
+             try:
+                 slots = read_slots(c)
++                if slots is not None:
++                    result.pop('quest_log_invalidated',None)
+                 if slots:
+                     result['quest_log_slots'] = slots
+             except ValueError:
+                 pass             # no partly decoded quest slot collection
+         return result
+-    return {}
++    return ({'inventory_invalidated':True, 'quest_log_invalidated':True}
++            if own_player else {})
+ 
+ 
+ def _values_dynamic_flags(blob: bytes, fragments: tuple[int, ...]) -> int | None:
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -3,6 +3,7 @@
+ 
+ import math
+ import re
++from .player_quest_log import EVENTS as QUEST_LOG_EVENTS, INVALIDATION_LAYOUT as QUEST_INVALIDATION_LAYOUT
+ from .own_inventory_codec import EVENTS as INVENTORY_EVENTS, LAYOUT as INVENTORY_LAYOUT
+ from .spell_cast import CAST_EVENTS, SPELL_LAYOUT
+ 
+@@ -18,6 +19,7 @@
+     'OWN_PROFILE_UPDATE': {'mover_guid', 'world_map_id', 'sample_kind', 'race_id', 'class_id',
+                            'player_class_id', 'power_type', 'level'},
+     'OWN_QUEST_LOG_UPDATE': {'mover_guid', 'world_map_id', 'slots', 'sample_kind'},
++    'OWN_QUEST_LOG_INVALIDATED': {'mover_guid', 'world_map_id'},
+     'QUEST_DEFINITION': {'quest_id','definition'},
+     'QUEST_DEFINITION_UNAVAILABLE': {'quest_id'},
+     "QUEST_POI_UPDATE": {"quest_id", "blobs", "capture_timestamp"},
+@@ -66,7 +68,7 @@
+ SCENE_EVENTS = frozenset({"SCENE_STARTED", "SCENE_ENDED", "SCENE_EVENT"})
+ CAPTURE_70575_EVENTS = SCENE_EVENTS | {"MOVEMENT_ROOT", "GOSSIP_SELECTED", "QUEST_POI_UPDATE"}
+ _LAYOUT_EVENTS = {
+-    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-INVENTORY_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
++    "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-INVENTORY_EVENTS-QUEST_LOG_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
+     INVENTORY_LAYOUT: INVENTORY_EVENTS,
+     'WPP_12_1_OWN_INVENTORY_REVIEWED_V2': INVENTORY_EVENTS,
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+@@ -76,6 +78,7 @@
+     'WPP_12_1_OWN_PROFILE_REVIEWED_V1': frozenset({'OWN_PROFILE_UPDATE'}),
+     'WPP_12_1_QUEST_LOG_REVIEWED_V1': frozenset({'OWN_QUEST_LOG_UPDATE'}),
+     'WPP_12_1_QUEST_LOG_REVIEWED_V2': frozenset({'OWN_QUEST_LOG_UPDATE'}),
++    QUEST_INVALIDATION_LAYOUT: frozenset({'OWN_QUEST_LOG_INVALIDATED'}),
+     'WPP_12_1_QUEST_DEFINITION_REVIEWED_V1': frozenset({'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}),
+     SPELL_LAYOUT: CAST_EVENTS,
+     "RETAIL_70448_CAPTURE_VERIFIED_V1": ENTITY_EVENTS,
+@@ -210,11 +213,12 @@
+             raise ValueError('own health baseline requires both fields')
+         if safe_body.get('sample_kind') == 'CREATE' and safe_provenance.get('payload_layout') != 'WPP_12_1_OWN_UNIT_REVIEWED_V2':
+             raise ValueError('own health baseline requires reviewed create layout')
+-    if kind == 'OWN_QUEST_LOG_UPDATE':
++    if kind in QUEST_LOG_EVENTS:
+         guid = safe_body.get('mover_guid')
+         if (not isinstance(guid, str) or int(guid[:16], 16) >> 58 != 2 or int(guid[16:], 16) == 0
+                 or event['direction'] != 'SERVER_TO_CLIENT' or 'world_map_id' not in safe_body):
+             raise ValueError('quest log requires own identity and world context')
++    if kind == 'OWN_QUEST_LOG_UPDATE':
+         if safe_body.get('sample_kind') not in {None,'CREATE','VALUES'}:
+             raise ValueError('invalid quest slot sample kind')
+         if (safe_body.get('sample_kind') == 'CREATE'
+@@ -318,7 +322,7 @@
+             and (event.get("event_type") != "QUEST_POI_UPDATE" or source.get("semantic_ground_truth") is True)
+             and source.get("producer") == "PktEventDecoder" and source.get("container") == "PKT_V3_1"
+             and family is not None
+-            and (event.get('event_type') not in INVENTORY_EVENTS | {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE'}
++            and (event.get('event_type') not in INVENTORY_EVENTS | QUEST_LOG_EVENTS | {'OWN_UNIT_UPDATE', 'OWN_PROFILE_UPDATE'}
+                  or family.defining_build == 70340)
+             and source.get("opcode_defining_build") == family.defining_build
+             and source.get("opcode_table_sha256") == family.sha256
+--- before/tests/test_native_inventory_roots_20261030.py
++++ after/tests/test_native_inventory_roots_20261030.py
+@@ -85,6 +85,7 @@
+     assert bridge.world.query.native_inventory(10.2)['root_membership'] == 'UNKNOWN'
+     deliver_native(bridge, create_payload(player_tail=full_player_tail()), at=10.1)
+     deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.1)
++    deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.2)
+     assert bridge.world.query.native_inventory(10.2)['root_membership'] == 'UNKNOWN'
+     deliver_native(bridge, root_payload([(24, ITEM)]), decoder=decoder, at=10.3)
+     result = bridge.world.query.native_inventory(10.3)
+@@ -99,10 +100,19 @@
+     deliver_native(bridge, root_payload([(24, ZERO)]), decoder=decoder, at=10.1)
+     deliver_native(bridge, root_payload([(23, ZERO)], tail=b'unknown'), decoder=decoder, at=10.1)
+     result = bridge.world.query.native_inventory(10.2)
+-    assert result['root_membership'] == 'COMPLETE'
+-    assert result['root_slots'][23:25] == [[23, ZERO], [24, ITEM]]
+-    assert result['root_slot_evidence']['23']['observed_at'] == 10.1
++    assert result['root_membership'] == 'PARTIAL'
++    assert result['root_slots'] == [[24, ITEM]]
++    assert result['root_baseline_time'] is None
+     assert result['root_slot_evidence']['24']['observed_at'] == 10.2
++
++
++def test_invalidation_older_than_a_complete_newer_root_snapshot_does_not_erase_it(bridge):
++    decoder = baseline(bridge)
++    deliver_native(bridge, create_payload(player_tail=full_player_tail()), decoder=decoder, at=10.2)
++    deliver_native(bridge, root_payload([(23, ZERO)],tail=b'unknown'), decoder=decoder, at=10.1)
++    result = bridge.world.query.native_inventory(10.2)
++    assert result['root_membership']=='COMPLETE' and result['root_baseline_time']==10.2
++    assert len(result['root_slots'])==105
+ 
+ 
+ def test_conflicting_merged_roots_are_unknown_until_a_verified_move_resolves_them(bridge):
+--- before/tests/test_native_quest_log_20261030.py
++++ after/tests/test_native_quest_log_20261030.py
+@@ -151,7 +151,9 @@
+     assert not any(e.event_type == 'OWN_QUEST_LOG_UPDATE' for e in decoder.decode_all(record))
+     for extra in ((0,3),(0,25),(32,36),(32,47)):
+         decoder,record = quest_event(extra_bits=extra)
+-        assert len(decoder.decode_all(record)) == 1
++        values = decoder.decode_all(record)
++        assert [e.event_type for e in values] == ['PACKET_OPCODE_OBSERVED','OWN_QUEST_LOG_INVALIDATED']
++        assert 'slots' not in values[-1].payload
+ 
+ 
+ def test_other_player_or_unverified_login_never_calls_private_quest_reader(monkeypatch):
+--- before/tests/test_own_baseline_20261030.py
++++ after/tests/test_own_baseline_20261030.py
+@@ -29,7 +29,8 @@
+ def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+     rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
+     assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
+-    rows = rows[1:]
++    assert rows[1][0] == 'OWN_QUEST_LOG_INVALIDATED'  # no quest baseline in this prefix fixture
++    rows = rows[2:]
+     assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                       'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                       'power_type': 1, 'level': 70})
+--- before/tests/test_own_profile_20261030.py
++++ after/tests/test_own_profile_20261030.py
+@@ -43,7 +43,7 @@
+     decoder, record = own_event()
+     events = decoder.decode_all(replace(record, payload=create_payload()))
+     assert [e.event_type for e in events] == ['PACKET_OPCODE_OBSERVED', 'OWN_INVENTORY_INVALIDATED',
+-                                             'OWN_PROFILE_UPDATE', 'OWN_UNIT_UPDATE']
++                                             'OWN_QUEST_LOG_INVALIDATED', 'OWN_PROFILE_UPDATE', 'OWN_UNIT_UPDATE']
+     assert all(verified_semantics(normalize_event(e.to_dict())) for e in events[1:])
+ 
+ 
+--- before/tests/test_quest_log_invalidation_20261030.py
++++ after/tests/test_quest_log_invalidation_20261030.py
+@@ -0,0 +1,102 @@
++"""An unread own quest delta cannot leave a complete/absent membership proof."""
++from dataclasses import replace
++import struct
++
++import pytest
++
++from wowbot.packetio.validation import normalize_event, verified_semantics
++from test_packet_agent_bridge import bridge, deliver
++from test_native_quest_log_20261030 import setup, send, slot, quest_event
++from test_native_inventory_20261030 import RAW_ME, packed
++from test_own_health_packets_20261030 import own_event
++
++
++def unknown(*, at=10.1, **options):
++    decoder, record = quest_event(at=at,extra_bits=(0,3),**options)
++    return next(e for e in decoder.decode_all(record) if e.event_type=='OWN_QUEST_LOG_INVALIDATED')
++
++
++def invalidate(bridge, *, at=10.1, **options):
++    bridge.inbox._clock=lambda:at
++    bridge.inbox._wall_clock=lambda:1000.+at-10.
++    return deliver(bridge,unknown(at=at,**options),at=at)
++
++
++def full(bridge, *, at=10.):
++    return send(bridge,[slot(i,55639 if i==3 else 0) for i in range(175)],at=at)
++
++
++def test_invalidation_has_own_build_specific_layout_and_no_private_body():
++    event = unknown()
++    assert verified_semantics(normalize_event(event.to_dict()))
++    assert set(event.payload)=={'mover_guid','world_map_id'}
++    assert event.provenance['payload_layout']=='WPP_12_1_QUEST_LOG_INVALIDATION_V1'
++    wrong = event.to_dict()
++    wrong['provenance']['payload_layout']='WPP_12_1_REVIEWED_PREFIX_V1'
++    assert not verified_semantics(normalize_event(wrong))
++    wrong['direction']='CLIENT_TO_SERVER'
++    with pytest.raises(ValueError):normalize_event(wrong)
++
++
++def test_unknown_prefix_revokes_old_membership_without_mutating_ui_quest_progress(bridge):
++    setup(bridge);full(bridge)
++    assert bridge.world.query.quest_presence(88719,10.)['state']=='ABSENT'
++    invalidate(bridge)
++    assert bridge.world.query.quest_presence(88719,10.1)['state']=='UNKNOWN'
++    assert bridge.world.query.quest_presence(55639,10.1)['state']=='UNKNOWN'
++    assert bridge.world.query.quest_log_slots(10.1)['baseline_observed_at'] is None
++    assert bridge.world.quest_model.records[55639].current_state=='ACTIVE'
++    assert bridge.world.quest_model.records[55639].objectives[0].current_count==0
++    assert bridge.world.last_received==9.1
++
++
++def test_invalidation_is_a_barrier_against_older_snapshot_but_allows_fresh_partial_then_full(bridge):
++    setup(bridge);full(bridge)
++    invalidate(bridge,at=10.2)
++    full(bridge,at=10.1)
++    assert bridge.world.query.quest_presence(88719,10.2)['state']=='UNKNOWN'
++    send(bridge,[slot(4,88719)],at=10.3)
++    assert bridge.world.query.quest_presence(88719,10.3)['state']=='PRESENT'
++    assert bridge.world.query.quest_presence(55639,10.3)['state']=='UNKNOWN'
++    full(bridge,at=10.4)
++    assert bridge.world.query.quest_presence(88719,10.4)['state']=='ABSENT'
++    assert bridge.world.query.quest_presence(55639,10.4)['state']=='PRESENT'
++
++
++def test_delayed_invalidation_preserves_only_newer_fields_not_the_old_complete_collection(bridge):
++    setup(bridge);full(bridge)
++    send(bridge,[slot(3,55639)],at=10.2)
++    invalidate(bridge,at=10.1)
++    view = bridge.world.query.quest_log_slots(10.2)
++    assert view['membership']=='PARTIAL' and view['known_slots']==1
++    assert bridge.world.query.quest_presence(55639,10.2)['state']=='PRESENT'
++    assert bridge.world.query.quest_presence(88719,10.2)['state']=='UNKNOWN'
++
++
++def test_mask_proven_unchanged_questlog_does_not_refresh_or_invalidate_original_slots(bridge):
++    setup(bridge);full(bridge)
++    decoder, record = quest_event([],full=False,extra_bits=(0,3),private_prefix=b'NOT_EXPORTED',at=11.9)
++    values = decoder.decode_all(record)
++    assert not any(e.event_type.startswith('OWN_QUEST_LOG') for e in values)
++    assert bridge.world.query.quest_log_slots(11.9)['baseline_observed_at']==10.
++    assert bridge.world.query.quest_presence(55639,12.1)['state']=='UNKNOWN'
++
++
++def test_unreviewed_fragment_change_invalidates_own_collections_without_reading_its_tail():
++    decoder, record = own_event()
++    blob=bytes((0,1))+b'PRIVATE_TAIL_NOT_READ'
++    block=b'\0'+packed(RAW_ME)+struct.pack('<I',len(blob))+blob
++    payload=struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
++    values=decoder.decode_all(replace(record,payload=payload))
++    assert {e.event_type for e in values}=={'PACKET_OPCODE_OBSERVED','OWN_INVENTORY_INVALIDATED','OWN_QUEST_LOG_INVALIDATED'}
++    assert 'PRIVATE_TAIL' not in str([e.to_dict() for e in values])
++
++
++def test_other_world_invalidation_does_not_erase_this_worlds_membership(bridge):
++    setup(bridge);full(bridge)
++    event=unknown()
++    event=replace(event,payload={**event.payload,'world_map_id':1})
++    bridge.inbox._clock=lambda:10.1
++    bridge.inbox._wall_clock=lambda:1000.1
++    deliver(bridge,event,at=10.1)
++    assert bridge.world.query.quest_presence(88719,10.1)['state']=='ABSENT'

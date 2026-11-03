@@ -1,0 +1,54 @@
+{
+  "baseline": [
+    {
+      "samples": 220,
+      "median_ms": 0.4605,
+      "p95_ms": 0.7546,
+      "snapshot_bytes": 53887
+    },
+    {
+      "samples": 220,
+      "median_ms": 0.46375,
+      "p95_ms": 0.7435,
+      "snapshot_bytes": 53887
+    },
+    {
+      "samples": 220,
+      "median_ms": 0.4586,
+      "p95_ms": 0.8351,
+      "snapshot_bytes": 53887
+    }
+  ],
+  "current": [
+    {
+      "samples": 220,
+      "median_ms": 0.88575,
+      "p95_ms": 1.5949,
+      "snapshot_bytes": 73214
+    },
+    {
+      "samples": 220,
+      "median_ms": 0.88845,
+      "p95_ms": 1.6034,
+      "snapshot_bytes": 73214
+    },
+    {
+      "samples": 220,
+      "median_ms": 0.8801,
+      "p95_ms": 1.545,
+      "snapshot_bytes": 73214
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "median_of_medians_ms": 0.4605,
+      "median_p95_ms": 0.7546,
+      "snapshot_bytes": 53887
+    },
+    "current": {
+      "median_of_medians_ms": 0.88575,
+      "median_p95_ms": 1.5949,
+      "snapshot_bytes": 73214
+    }
+  }
+}

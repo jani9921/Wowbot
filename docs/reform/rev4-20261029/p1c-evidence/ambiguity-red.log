@@ -1,0 +1,97 @@
+FF..F..FFF                                                               [100%]
+================================== FAILURES ===================================
+____ test_incomplete_blank_catalog_cannot_bind_either_visible_item[False] _____
+
+first_complete = False
+
+    @pytest.mark.parametrize("first_complete", [False, True])
+    def test_incomplete_blank_catalog_cannot_bind_either_visible_item(first_complete):
+        value = two_items()
+        if first_complete:
+            value["active_quests"][0]["objectives"][0].update(current=3, is_complete=True)
+>       assert collect_creature_sources(value) == {}
+E       AssertionError: assert {'990401': [{...id': 990501}]} == {}
+E         
+E         Left contains 1 more item:
+E         {'990401': [{'item_id': 990301,
+E                      'objective_id': '990201:0',
+E                      'quest_id': '990201',
+E                      'reference_objective_id': 990501}]}
+E         Use -v to get more diff
+
+tests\test_collect_relation_ambiguity_20261029.py:24: AssertionError
+_____ test_incomplete_blank_catalog_cannot_bind_either_visible_item[True] _____
+
+first_complete = True
+
+    @pytest.mark.parametrize("first_complete", [False, True])
+    def test_incomplete_blank_catalog_cannot_bind_either_visible_item(first_complete):
+        value = two_items()
+        if first_complete:
+            value["active_quests"][0]["objectives"][0].update(current=3, is_complete=True)
+        assert collect_creature_sources(value) == {}
+>       assert kill_objective_entries(value) == {}
+E       AssertionError: assert {'990401': ('..., '990201:1')} == {}
+E         
+E         Left contains 1 more item:
+E         {'990401': ('990201', '990201:1')}
+E         Use -v to get more diff
+
+tests\test_collect_relation_ambiguity_20261029.py:25: AssertionError
+___ test_single_visible_item_and_single_blank_row_need_no_fabricated_order ____
+
+    def test_single_visible_item_and_single_blank_row_need_no_fabricated_order():
+        value = state()
+        value["reference_knowledge"]["quests"][str(QUEST)]["objectives"][0].pop("order")
+>       assert collect_creature_sources(value)[str(ENTRY)][0]["item_id"] == ITEM
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: '990401'
+
+tests\test_collect_relation_ambiguity_20261029.py:44: KeyError
+_ test_disabling_ordinal_matching_keeps_exact_id_and_text[123-other-expected0] _
+
+oid = 123, text = 'other', expected = [123]
+
+    @pytest.mark.parametrize("oid,text,expected", [(123, "other", [123]),
+        ("7:0", "0/1 Amber", [123]), ("7:0", "", [])])
+    def test_disabling_ordinal_matching_keeps_exact_id_and_text(oid, text, expected):
+        rows = [{"objective_id": 123, "order": 0, "description": "Amber"}]
+>       found = reference_objectives(7, oid, text, rows, allow_ordinal=False)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: reference_objectives() got an unexpected keyword argument 'allow_ordinal'
+
+tests\test_collect_relation_ambiguity_20261029.py:72: TypeError
+_ test_disabling_ordinal_matching_keeps_exact_id_and_text[7:0-0/1 Amber-expected1] _
+
+oid = '7:0', text = '0/1 Amber', expected = [123]
+
+    @pytest.mark.parametrize("oid,text,expected", [(123, "other", [123]),
+        ("7:0", "0/1 Amber", [123]), ("7:0", "", [])])
+    def test_disabling_ordinal_matching_keeps_exact_id_and_text(oid, text, expected):
+        rows = [{"objective_id": 123, "order": 0, "description": "Amber"}]
+>       found = reference_objectives(7, oid, text, rows, allow_ordinal=False)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: reference_objectives() got an unexpected keyword argument 'allow_ordinal'
+
+tests\test_collect_relation_ambiguity_20261029.py:72: TypeError
+___ test_disabling_ordinal_matching_keeps_exact_id_and_text[7:0--expected2] ___
+
+oid = '7:0', text = '', expected = []
+
+    @pytest.mark.parametrize("oid,text,expected", [(123, "other", [123]),
+        ("7:0", "0/1 Amber", [123]), ("7:0", "", [])])
+    def test_disabling_ordinal_matching_keeps_exact_id_and_text(oid, text, expected):
+        rows = [{"objective_id": 123, "order": 0, "description": "Amber"}]
+>       found = reference_objectives(7, oid, text, rows, allow_ordinal=False)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: reference_objectives() got an unexpected keyword argument 'allow_ordinal'
+
+tests\test_collect_relation_ambiguity_20261029.py:72: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_incomplete_blank_catalog_cannot_bind_either_visible_item[False]
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_incomplete_blank_catalog_cannot_bind_either_visible_item[True]
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_single_visible_item_and_single_blank_row_need_no_fabricated_order
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_disabling_ordinal_matching_keeps_exact_id_and_text[123-other-expected0]
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_disabling_ordinal_matching_keeps_exact_id_and_text[7:0-0/1 Amber-expected1]
+FAILED tests/test_collect_relation_ambiguity_20261029.py::test_disabling_ordinal_matching_keeps_exact_id_and_text[7:0--expected2]
+6 failed, 4 passed in 0.94s

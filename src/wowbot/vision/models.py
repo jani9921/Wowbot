@@ -16,17 +16,8 @@ class FeatureType(StrEnum):
     ZONE_BOUNDARY = "ZONE_BOUNDARY"
 
 
-@dataclass(frozen=True, slots=True)
-class MapPoint: 
-    x: float
-    y: float
-
-
-@dataclass(frozen=True, slots=True)
-class WorldPosition:
-    x: float
-    y: float
-    z: float = 0.0
+# Moved to the shared coordinate contract (REV4, 2026-10-30); re-exported.
+from wowbot.coordinates import MapPoint, WorldPosition  # noqa: E402,F401
 
 
 @dataclass(frozen=True, slots=True)

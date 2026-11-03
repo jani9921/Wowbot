@@ -1,0 +1,14 @@
+[
+  {
+    "file": "MapBuilder.cpp",
+    "sha256": "72dd44c242c8cb4c2b08ee478d6a74b98463d34c18b1c12ec8dddc226712a461",
+    "bytes": 21767,
+    "url": "https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/src/tools/mmaps_generator/MapBuilder.cpp"
+  },
+  {
+    "file": "TrinityDetourNavMesh.h",
+    "sha256": "201732481a638843164065b8fde938621c3e9d44fe1e067dc1cc5f602c4fbf18",
+    "bytes": 32019,
+    "url": "https://raw.githubusercontent.com/TrinityCore/TrinityCore/f439120b1f8c4f5a5c3fc0deb6aa01bf971e4fdf/dep/recastnavigation/Detour/Include/DetourNavMesh.h"
+  }
+]

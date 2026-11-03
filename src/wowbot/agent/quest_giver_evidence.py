@@ -170,7 +170,10 @@ def selected_npc_shows_quest_symbol(state: dict, guid: str) -> bool:
 
 
 def quest_symbol_visible(state: dict) -> bool:
-    return any(is_symbol(item) for item in _world3d(state))
+    # ``recent_quest_symbol_visible``: a "!" seen moments ago (see
+    # TargetPlanningPolicy.SYMBOL_HOLD_SECONDS) still counts.
+    return (state.get("recent_quest_symbol_visible") is True
+            or any(is_symbol(item) for item in _world3d(state)))
 
 
 def near_api_quest_giver(state: dict, radius: float = API_GIVER_RADIUS_YARDS) -> bool:
@@ -183,8 +186,30 @@ def near_api_quest_giver(state: dict, radius: float = API_GIVER_RADIUS_YARDS) ->
     return bool(records) and records[0][0] <= radius
 
 
+def server_marker_allows(state: dict, guid: str) -> bool | None:
+    """The server's own "!" / yellow "?" for this unit (Ymir), or None if unknown.
+
+    Per-player QuestGiverStatus beats every visual or map heuristic: live
+    2026-10-19 the server showed Captain Garrick's "!" that the TDB lacked,
+    and Henry Garrick with only a grey "?" left after two accepts.
+    """
+    from .packet_entity_facts import entity, quest_marker
+    marker = quest_marker(state, guid)
+    if marker is not None:
+        return bool(marker.get("quest_available") or marker.get("reward_ready"))
+    # The create block's NpcFlags (viewer-dependent): without QuestGiver
+    # (0x2) the unit cannot open a quest dialog for this character at all.
+    flags = ((entity(state, guid) or {}).get("info") or {}).get("npc_flags")
+    if type(flags) is int and not flags & 0x2:
+        return False
+    return None
+
+
 def quest_search_allows_npc(state: dict, guid: str) -> bool:
     """With no active quest: may this hovered friendly NPC be selected?"""
+    server = server_marker_allows(state, guid)
+    if server is not None:
+        return server
     if npc_shows_quest_symbol(state, guid):
         return True
     from .quest_creature_memory import remembered_creature
@@ -193,7 +218,36 @@ def quest_search_allows_npc(state: dict, guid: str) -> bool:
         # (quest_creature_memory) -- also when its "!" is not detected
         # (live 2026-10-05: Henry Garrick's campaign "!" never was).
         return True
-    return not quest_symbol_visible(state) and near_api_quest_giver(state)
+    return (not quest_symbol_visible(state) and near_api_quest_giver(state)
+            and not known_other_than_pin_starters(state, guid))
+
+
+def known_other_than_pin_starters(state: dict, guid: str,
+                                  radius: float = API_GIVER_RADIUS_YARDS) -> bool:
+    """The nearby "!" pins' starters are all known (TDB/learned) and this NPC
+    is none of them.
+
+    Live 2026-10-13 05:54: next to Alaria's pin (starter 156803) the agent
+    hovered, selected, approached and talked to Bjorn (156891), who had
+    nothing to give; Alaria was selected only when the cursor happened to
+    drift onto her.
+    """
+    from .quest_creature_memory import npc_id_from_guid
+    npc_id = npc_id_from_guid(guid)
+    records = [record for distance, record, _destination in reachable_records(state, "available_quests")
+               if distance <= radius]
+    if npc_id is None or not records:
+        return False
+    quests = (state.get("reference_knowledge") or {}).get("quests") or {}
+    starters: set[str] = set()
+    for record in records:
+        known = {str(row.get("npc_id")) for row in
+                 (quests.get(str(record.get("quest_id"))) or {}).get("quest_roles") or ()
+                 if isinstance(row, dict) and row.get("role") == "QUEST_STARTER"}
+        if not known:
+            return False            # an unknown starter: any NPC may be it
+        starters |= known
+    return str(npc_id) not in starters
 
 
 # Objective kinds that are done at (or with) a friendly NPC.  UNKNOWN keeps
@@ -275,6 +329,31 @@ def ender_of_unfinished_quest_only(state: dict, guid: str) -> bool:
     return unfinished and not finished
 
 
+def objective_named_unit(state: dict, guid: str, unit_name: str | None = None) -> bool:
+    """A friendly unit the client ties to an open quest whose objective names it.
+
+    Live 2026-10-20 08:48: "0/1 Meredy Huntswell rescued" is a KILL objective
+    (the credit comes when Bloodbeak dies at the end of the event), but the
+    event starts by talking to Meredy.  The cursor rested on her 76 times
+    (quest_related, quest 55763) and no friendly-NPC rule admitted her.
+    """
+    unit = next((value for value in (state.get("mouseover"), state.get("target"))
+                 if isinstance(value, dict) and str(value.get("guid") or "") == str(guid)), None)
+    if not unit or unit.get("quest_related") is not True:
+        return False
+    quest = next((value for value in state.get("active_quests") or ()
+                  if isinstance(value, dict) and str(value.get("quest_id")) == str(unit.get("quest_id"))
+                  and value.get("is_complete") is not True), None)
+    if quest is None:
+        return False
+    from .quest_semantics import npc_referenced_by_objective
+    probe = {**unit, "name": unit_name or unit.get("name"),
+             "attackable": unit.get("attackable", unit.get("is_attackable"))}
+    return any(isinstance(objective, dict) and objective.get("is_complete") is not True
+               and npc_referenced_by_objective(objective, probe)
+               for objective in quest.get("objectives") or ())
+
+
 def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
                           unit_name: str | None = None, npc_subjects=None) -> bool:
     """May questing select / talk to this friendly NPC right now?
@@ -291,6 +370,8 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
     quests = [quest for quest in state.get("active_quests") or () if isinstance(quest, dict)]
     if not quests:
         return quest_search_allows_npc(state, guid)
+    if objective_named_unit(state, guid, unit_name):
+        return True          # named by an open objective and quest-linked by the client
     if {str(kind).upper() for kind in objective_types} & NPC_OBJECTIVE_TYPES:
         if npc_subjects is None:
             return True
@@ -303,9 +384,15 @@ def friendly_npc_relevant(state: dict, guid: str, objective_types, *,
         # objectives (cocoons), which no friendly NPC serves.
         if unnamed or (names and subject_matches_name(list(names), unit_name)):
             return True
+    from .quest_creature_memory import remembered_creature
+    server = server_marker_allows(state, guid)
+    if server is not None:
+        # The server says whether this unit has a quest to give or to take
+        # back; a "!"-like glyph, a remembered ender role or a nearby
+        # turn-in pin cannot override it.  A quest vehicle still can.
+        return server or bool(remembered_creature(state, guid, name=unit_name, roles=("VEHICLE",)))
     if npc_shows_quest_symbol(state, guid) and not ender_of_unfinished_quest_only(state, guid):
         return True
-    from .quest_creature_memory import remembered_creature
     if remembered_creature(state, guid, name=unit_name, roles=("ENDER", "VEHICLE")):
         return True          # the remembered ender of a finished quest / the quest's vehicle
     complete = {str(quest.get("quest_id")) for quest in quests if quest.get("is_complete") is True}

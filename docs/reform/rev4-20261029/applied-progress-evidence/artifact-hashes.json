@@ -1,0 +1,114 @@
+{
+  "files": [
+    {
+      "path": "baseline.json",
+      "bytes": 215072,
+      "sha256": "543e889975ae7c2bb50467c6063b23949cf54b8ccd0125fc86f1d08c6b57362a"
+    },
+    {
+      "path": "baseline.zip",
+      "bytes": 3666067,
+      "sha256": "27241858e9542774b1d38e1c24dcec40bc56b4e39325f75cfcda83dedc889b0a"
+    },
+    {
+      "path": "changes.json",
+      "bytes": 4617,
+      "sha256": "8546407335a027d73ca4e8bf48872ab03876f1824f3f6a40a88672042a8031ac"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 53830,
+      "sha256": "730adfe419f1949bd16c9bba6dc8492f85a67907015fd80996da263b444330d8"
+    },
+    {
+      "path": "combined-applied-progress-1-command.json",
+      "bytes": 31950,
+      "sha256": "506c0920add1a0e445a4a2e1fb0c059bbded0f1d0503073b181f7c4683b4ce5e"
+    },
+    {
+      "path": "combined-applied-progress-1-junit.xml",
+      "bytes": 620519,
+      "sha256": "d16338cce930fcae90349bfa2c5baa67b1339f9a7bd4b37921a3749d33a405ef"
+    },
+    {
+      "path": "combined-applied-progress-1-result.json",
+      "bytes": 232,
+      "sha256": "f28c96887068f6776e0cc66bcaef3d96346d809979ee018deb45744a238bcf4d"
+    },
+    {
+      "path": "combined-applied-progress-1.log",
+      "bytes": 4515,
+      "sha256": "caa18d9f82b22aa9b0c5b2528701faf803d5235db8222ff82b5bad879fad36b0"
+    },
+    {
+      "path": "current-files.json",
+      "bytes": 215815,
+      "sha256": "44a42b2a57a5a08bd88c7e4fba35effc7b7252fef93c2df45e1fcb9d716022c4"
+    },
+    {
+      "path": "current-source.zip",
+      "bytes": 3678259,
+      "sha256": "e209209cc7e448798ba1e03ef74b4df1763303fd47aceeb6b11e1edf3de2fa9e"
+    },
+    {
+      "path": "progress-policy.json",
+      "bytes": 574,
+      "sha256": "cbaf28b0b75a9ab42227e4158d83a719d47a9146b3f4fdbd31647ff58e7badaf"
+    },
+    {
+      "path": "progress-test-1-junit.xml",
+      "bytes": 17059,
+      "sha256": "cb8a09be5136546393748c34a9369433d1be3e14e08d5533c988d6901fc91301"
+    },
+    {
+      "path": "progress-test-1.log",
+      "bytes": 183,
+      "sha256": "8109ea342dcd497890e2796d75a9bdbf7438e6b9663dfb0412f56a4729d872e2"
+    },
+    {
+      "path": "progress-test-2-junit.xml",
+      "bytes": 22217,
+      "sha256": "fa704355d13a68c8557f8b09edd3643020642ba5c3b6264d56e901ca4d5048f8"
+    },
+    {
+      "path": "progress-test-2.log",
+      "bytes": 3706,
+      "sha256": "5edbae0bf164ce4822e8e99cea47a35e287f5a82594c5a9a3593489c58921ae6"
+    },
+    {
+      "path": "progress-test-3-junit.xml",
+      "bytes": 31469,
+      "sha256": "8e77304e80d1c27c9fd69299cd7ff11695f3b956d34e98126d232db99ea75009"
+    },
+    {
+      "path": "progress-test-3.log",
+      "bytes": 264,
+      "sha256": "191735f3f580d27eeec2c5dd5906169531b450bd61c5730e4d1aec5f115bf9cb"
+    },
+    {
+      "path": "run_combined.py",
+      "bytes": 2196,
+      "sha256": "4f378c80c96f5820f0346a1c0dc3ec00ddd96a517eea52bc0bfa8263d978036b"
+    },
+    {
+      "path": "save_progress_checkpoint.py",
+      "bytes": 5663,
+      "sha256": "8e446ff4fa40862ef2b639d9eaaf3000d2c3ceea8d69705314e27bd4f834609c"
+    },
+    {
+      "path": "source-verification.json",
+      "bytes": 242,
+      "sha256": "a8cc23af5fee92e57f0bc9d33132999cefe06111d3fd8894847ed48715b84743"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 700,
+      "sha256": "54f380721939880d4c84843f074ab4e2246d634dad39a730092169fb20b8cd37"
+    },
+    {
+      "path": "verify_closure.py",
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf"
+    }
+  ]
+}

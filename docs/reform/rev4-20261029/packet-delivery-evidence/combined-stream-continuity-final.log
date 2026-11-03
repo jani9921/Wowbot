@@ -1,0 +1,198 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+....................................................................s... [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+..........FFF.FF.F...................................................... [ 51%]
+.................................................................F...... [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+................................s....................................... [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+.....................                                                    [100%]
+================================== FAILURES ===================================
+_ test_eight_second_startup_backlog_requests_fresh_snapshot_then_reaches_world _
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD49DD950>, <wowbot.packetio.inbox....livery object at 0x0000022CD6797CB0>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD6797B60>)
+
+    def test_eight_second_startup_backlog_requests_fresh_snapshot_then_reaches_world(setup):
+        clock, world, inbox, adapter, delivery, sink = setup
+        for event in creates():
+            assert sink.emit(event)
+        before = delivery.descriptor()
+        clock.update(wall=1008., mono=18.)
+        assert adapter.observations(None, world, 18.) == ()
+        assert not world.state.get("packet_entities")
+        status = adapter.diagnostics()
+>       assert status["stale_entity_discards"] == len(creates())
+E       AssertionError: assert 0 == 19
+E        +  where 19 = len([AgentPacketEvent(event_id='569c0c6013c1da37731abb50', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17...mantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': 'a2f0dd75280d06782ab5a928'}, confidence=1.0), ...])
+E        +    where [AgentPacketEvent(event_id='569c0c6013c1da37731abb50', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17...mantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': 'a2f0dd75280d06782ab5a928'}, confidence=1.0), ...] = creates()
+
+tests\test_packet_backlog_recovery_20261021.py:78: AssertionError
+_ test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed[event0] _
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD6CD2D50>, <wowbot.packetio.inbox....livery object at 0x0000022CD6CD3390>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD6CD39D0>)
+event = AgentPacketEvent(event_id='eed12b490ba3b6ebfdc39ef2', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=179...', 'semantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': '5f496d5e8010773285e02748'}, confidence=1.0)
+
+    @pytest.mark.parametrize("event", [
+        decoded(build=70448)[-1],
+        decoded("SMSG_QUEST_UPDATE_COMPLETE", struct.pack("<I", 55639) + b"\x80", build=70448)[-1],
+    ])
+    def test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed(setup, event):
+        clock, world, inbox, adapter, delivery, sink = setup
+        assert sink.emit(event)
+        clock.update(wall=1008., mono=18.)
+        assert adapter.observations(None, world, 18.) == ()
+>       assert adapter.diagnostics()["stale_event_discards"] == 1
+E       assert 0 == 1
+
+tests\test_packet_backlog_recovery_20261021.py:104: AssertionError
+_ test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed[event1] _
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD6CD3250>, <wowbot.packetio.inbox....livery object at 0x0000022CD6CD25D0>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD6CD2490>)
+event = AgentPacketEvent(event_id='5a4d8dd0b535e7cca53d4655', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=179...', 'semantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': '2a8e61373f34f96bd4b47401'}, confidence=1.0)
+
+    @pytest.mark.parametrize("event", [
+        decoded(build=70448)[-1],
+        decoded("SMSG_QUEST_UPDATE_COMPLETE", struct.pack("<I", 55639) + b"\x80", build=70448)[-1],
+    ])
+    def test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed(setup, event):
+        clock, world, inbox, adapter, delivery, sink = setup
+        assert sink.emit(event)
+        clock.update(wall=1008., mono=18.)
+        assert adapter.observations(None, world, 18.) == ()
+>       assert adapter.diagnostics()["stale_event_discards"] == 1
+E       assert 0 == 1
+
+tests\test_packet_backlog_recovery_20261021.py:104: AssertionError
+___ test_new_snapshot_never_revives_an_entity_removed_from_producers_cache ____
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD6CD1D10>, <wowbot.packetio.inbox....livery object at 0x0000022CD673AC40>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD673AEA0>)
+
+    def test_new_snapshot_never_revives_an_entity_removed_from_producers_cache(setup):
+        clock, world, inbox, adapter, delivery, sink = setup
+        original = creates()[0]
+        assert sink.emit(original)
+        for observation in adapter.observations(None, world, 10.):
+            assert world.ingest(observation)
+        removed = replace(original, event_id="c" * 24, event_type="ENTITY_REMOVED",
+            payload={"entity_guid": original.payload["entity_guid"], "entry_id": original.payload["entry_id"],
+                     "removal": "OUT_OF_RANGE"})
+        assert sink.emit(removed)
+        clock.update(wall=1008., mono=18.)
+        assert adapter.observations(None, world, 18.) == ()
+        count = len(delivery.sent)
+        sink.emit(heartbeat(1008.))
+>       assert len(delivery.sent) == count + 1
+E       AssertionError: assert 2 == (2 + 1)
+E        +  where 2 = len([AgentPacketEvent(event_id='569c0c6013c1da37731abb50', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17..., 'semantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': 'acbc1daf0ae95a816347932a'}, confidence=1.0)])
+E        +    where [AgentPacketEvent(event_id='569c0c6013c1da37731abb50', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17..., 'semantic_ground_truth': True, 'file_offset': 66, 'semantic_record_id': 'acbc1daf0ae95a816347932a'}, confidence=1.0)] = <test_packet_backlog_recovery_20261021.Delivery object at 0x0000022CD673AC40>.sent
+
+tests\test_packet_backlog_recovery_20261021.py:140: AssertionError
+___ test_failed_recovery_descriptor_write_does_not_break_the_packet_sensor ____
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD6CD16D0>, <wowbot.packetio.inbox....livery object at 0x0000022CD869DEB0>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD869DFD0>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022CAC6E2C10>
+
+    def test_failed_recovery_descriptor_write_does_not_break_the_packet_sensor(setup, monkeypatch):
+        clock, world, inbox, adapter, delivery, sink = setup
+        for event in creates():
+            sink.emit(event)
+        clock.update(wall=1008., mono=18.)
+        def fail(*args, **kwargs):
+            raise OSError("private error text must not be exposed")
+        monkeypatch.setattr("adapters.atomic_file.write_json_replace", fail)
+        assert adapter.observations(None, world, 18.) == ()
+        status = adapter.diagnostics()
+>       assert status["entity_snapshot_request_error"] == "entity_snapshot_request_failed"
+E       AssertionError: assert None == 'entity_snapshot_request_failed'
+
+tests\test_packet_backlog_recovery_20261021.py:157: AssertionError
+_ test_failed_snapshot_request_is_retried_after_cooldown_even_with_empty_inbox _
+
+setup = ({'wall': 1008.0, 'mono': 18.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD67AA0D0>, <wowbot.packetio.inbox....livery object at 0x0000022CD66D6140>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD66D56A0>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022CACD4BC40>
+
+    def test_failed_snapshot_request_is_retried_after_cooldown_even_with_empty_inbox(setup, monkeypatch):
+        clock, world, inbox, adapter, delivery, sink = setup
+        for event in creates():
+            sink.emit(event)
+        clock.update(wall=1008., mono=18.)
+        from adapters.atomic_file import write_json_replace
+        def fail(*args, **kwargs):
+            raise OSError("offline fault")
+        monkeypatch.setattr("adapters.atomic_file.write_json_replace", fail)
+        assert adapter.observations(None, world, 18.) == ()
+>       assert adapter.diagnostics()["entity_snapshot_request_pending"]
+E       assert False
+
+tests\test_packet_backlog_recovery_20261021.py:182: AssertionError
+___________ test_a_thousand_stale_states_cannot_hide_a_fresh_entity ___________
+
+setup = ({'wall': 1003.0, 'mono': 13.0}, <wowbot.agent.world.WorldModel object at 0x0000022CD4E211D0>, <wowbot.packetio.inbox....livery object at 0x0000022CD6AD5B80>, <wowbot.packetio.forwarder.SnapshotReplayForwarder object at 0x0000022CD8710E50>)
+
+    def test_a_thousand_stale_states_cannot_hide_a_fresh_entity(setup):
+        clock, world, inbox, adapter, delivery, sink = setup
+        for index in range(1000):
+            assert sink.emit(entity(index))
+        clock.update(wall=1003., mono=13.)
+        assert sink.emit(entity(2000, stamp=1003.))
+        result = adapter.observations(None, world, 13.)
+>       assert len(result) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\test_packet_queue_pressure_20261022.py:41: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_eight_second_startup_backlog_requests_fresh_snapshot_then_reaches_world
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed[event0]
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_old_movement_and_quest_credit_are_dropped_not_restamped_or_replayed[event1]
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_new_snapshot_never_revives_an_entity_removed_from_producers_cache
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_failed_recovery_descriptor_write_does_not_break_the_packet_sensor
+FAILED tests/test_packet_backlog_recovery_20261021.py::test_failed_snapshot_request_is_retried_after_cooldown_even_with_empty_inbox
+FAILED tests/test_packet_queue_pressure_20261022.py::test_a_thousand_stale_states_cannot_hide_a_fresh_entity
+7 failed, 3900 passed, 2 skipped, 10 deselected in 165.18s (0:02:45)

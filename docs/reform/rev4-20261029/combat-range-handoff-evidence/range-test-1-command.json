@@ -1,0 +1,23 @@
+{
+  "command": [
+    "C:\\Python313\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-combat-range-handoff-20261030\\range-test-1-temp",
+    "--junitxml",
+    "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-combat-range-handoff-20261030\\range-test-1-junit.xml",
+    "tests/test_combat_range_handoff_20261030.py",
+    "tests/test_m0_combat_loot_skills.py",
+    "tests/test_m0_engine_combat_local_recovery.py",
+    "tests/test_ability_rule_engine.py",
+    "tests/test_combat_local_cooldowns_20261003.py",
+    "tests/test_combat_runtime_runner.py",
+    "tests/test_combat_fast_lane.py",
+    "tests/test_combat_package_boundary_20261030.py"
+  ]
+}

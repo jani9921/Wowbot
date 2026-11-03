@@ -36,6 +36,7 @@ MERGE_YARDS = 15.        # a learned row this close to a TDB spawn confirms it
 ROLE_NAMES = {"GIVER": "QUEST_STARTER", "ENDER": "QUEST_ENDER"}
 LEARNED_BUILD = -1
 GUID_BASE = 9_000_000_000
+PACKET_SOURCE = "YMIR_PACKET"
 LEARNED_POI_IDX1 = 90    # quest_poi.Idx1 of a learned area (TDB uses small ones)
 
 # Verbatim column lists of the TDB 1210.26091 SQLite tables.
@@ -139,6 +140,21 @@ class LearnedWorld:
     def record_spawn(self, kind, entry, name, position, *, phase=None, source="LIVE", at=None):
         """Merge one observation into the entity's place within 8 yd
         (running-mean position), or add a new TDB-shaped spawn row."""
+        return self.record_spawns([(kind, entry, name, position, phase, at)], source=source) > 0
+
+    def record_spawns(self, observations, *, source="LIVE") -> int:
+        """``record_spawn`` for many (kind, entry, name, position, phase, at)
+        in one transaction; returns how many were stored."""
+        stored = 0
+        with self._lock, self._db as db:
+            for kind, entry, name, position, phase, at in observations:
+                stored += self._merge_spawn(db, kind, entry, name, position, phase, source,
+                                            time.time() if at is None else at)
+        if stored:
+            self._changed()
+        return stored
+
+    def _merge_spawn(self, db, kind, entry, name, position, phase, source, at) -> bool:
         table = SPAWN_TABLES.get(kind)
         entry = int(entry) if entry not in (None, "") else 0
         name = str(name or "").strip()
@@ -150,37 +166,34 @@ class LearnedWorld:
             return False
         if position.get("z_known") is False:
             z = None
-        at = time.time() if at is None else at
-        with self._lock, self._db as db:
-            if not name and entry > 0:
-                # A LOOT outcome often has no target name any more (live
-                # 2026-10-10): the entry's known name keeps one row per place.
-                known = db.execute(
-                    f"SELECT r.name FROM {table} t JOIN learned_row r ON r.table_name=? AND r.guid=t.guid"
-                    " WHERE t.id=? AND r.name<>'' ORDER BY r.seen_count DESC LIMIT 1",
-                    (table, entry)).fetchone()
-                name = known[0] if known else name
-            rows = db.execute(
-                f"SELECT t.guid, t.position_x, t.position_y, t.position_z, r.seen_count FROM {table} t"
-                " JOIN learned_row r ON r.table_name=? AND r.guid=t.guid"
-                " WHERE t.map=? AND t.id=? AND (t.id<>0 OR r.name=? COLLATE NOCASE)",
-                (table, int(world_map), entry, name)).fetchall()
-            near = [r for r in rows if math.hypot(r[1]-x, r[2]-y) <= CELL_YARDS]
-            phase_id = int(phase) if str(phase or "").lstrip("-").isdigit() else 0
-            if near:
-                guid, ox, oy, oz, n = min(near, key=lambda r: math.hypot(r[1]-x, r[2]-y))
-                mz = oz if z is None else z if oz is None else (oz*n+z)/(n+1)
-                db.execute(f"UPDATE {table} SET position_x=?, position_y=?, position_z=?, PhaseId=?"
-                           " WHERE guid=?", ((ox*n+x)/(n+1), (oy*n+y)/(n+1), mz, phase_id, guid))
-                self._seen(db, table, guid, name=name or None, source=source, at=at)
-            else:
-                guid = self._next_guid(db)
-                db.execute(f"INSERT INTO {table} (guid, id, map, spawnDifficulties, phaseUseFlags,"
-                           " PhaseId, PhaseGroup, terrainSwapMap, position_x, position_y, position_z,"
-                           " VerifiedBuild) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                           (guid, entry, int(world_map), "0", 0, phase_id, 0, -1, x, y, z, LEARNED_BUILD))
-                self._seen(db, table, guid, name=name or None, source=source, at=at)
-        self._changed()
+        if not name and entry > 0:
+            # A LOOT outcome often has no target name any more (live
+            # 2026-10-10): the entry's known name keeps one row per place.
+            known = db.execute(
+                f"SELECT r.name FROM {table} t JOIN learned_row r ON r.table_name=? AND r.guid=t.guid"
+                " WHERE t.id=? AND r.name<>'' ORDER BY r.seen_count DESC LIMIT 1",
+                (table, entry)).fetchone()
+            name = known[0] if known else name
+        rows = db.execute(
+            f"SELECT t.guid, t.position_x, t.position_y, t.position_z, r.seen_count FROM {table} t"
+            " JOIN learned_row r ON r.table_name=? AND r.guid=t.guid"
+            " WHERE t.map=? AND t.id=? AND (t.id<>0 OR r.name=? COLLATE NOCASE)",
+            (table, int(world_map), entry, name)).fetchall()
+        near = [r for r in rows if math.hypot(r[1]-x, r[2]-y) <= CELL_YARDS]
+        phase_id = int(phase) if str(phase or "").lstrip("-").isdigit() else 0
+        if near:
+            guid, ox, oy, oz, n = min(near, key=lambda r: math.hypot(r[1]-x, r[2]-y))
+            mz = oz if z is None else z if oz is None else (oz*n+z)/(n+1)
+            db.execute(f"UPDATE {table} SET position_x=?, position_y=?, position_z=?, PhaseId=?"
+                       " WHERE guid=?", ((ox*n+x)/(n+1), (oy*n+y)/(n+1), mz, phase_id, guid))
+            self._seen(db, table, guid, name=name or None, source=source, at=at)
+        else:
+            guid = self._next_guid(db)
+            db.execute(f"INSERT INTO {table} (guid, id, map, spawnDifficulties, phaseUseFlags,"
+                       " PhaseId, PhaseGroup, terrainSwapMap, position_x, position_y, position_z,"
+                       " VerifiedBuild) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                       (guid, entry, int(world_map), "0", 0, phase_id, 0, -1, x, y, z, LEARNED_BUILD))
+            self._seen(db, table, guid, name=name or None, source=source, at=at)
         return True
 
     def record_role(self, kind, entry, quest_id, role, name=None, *, source="LIVE", at=None):
@@ -331,7 +344,8 @@ class LearnedWorld:
                 "name": name_ or "", "world_map_id": world_map_id, "x": x, "y": y, "z": z,
                 "z_known": z is not None, "context": {"PhaseId": phase or None},
                 "coordinate_space": "WORLD_YARDS", "belief": "LEARNED", "source": "LEARNED_SPAWN",
-                "location_kind": "OBSERVER_POSITION", "seen_count": seen,
+                "location_kind": "SERVER_POSITION" if source == PACKET_SOURCE else "OBSERVER_POSITION",
+                "seen_count": seen,
                 "first_seen": first, "last_seen": last, "evidence_source": source,
                 "verified_build": LEARNED_BUILD, "confirmed": False, "navigation_trusted": False})
         return result
@@ -396,3 +410,73 @@ def merge_spawns(tdb_rows, learned_rows):
         if not near:
             result.append(dict(learned))
     return result
+
+
+class PacketSpawnLearner:
+    """Exact server positions of the creatures/objects the server shows.
+
+    User 2026-10-21: "a Ymirbol kozbe nemtudjuk tolteni a sajat tdb-nk?
+    Akkor a waking shores is tele lenne kovetkezonek".  TDB 1210 has almost
+    no Waking Shores spawns; every CREATURE/GAMEOBJECT the server sends (Ymir
+    ``packet_entities``: its own position, not the observer's) is merged into
+    the learned TDB once per GUID per session.  The loop only queues rows; a
+    background thread writes them in one transaction every FLUSH_SECONDS
+    (live 2026-09-30: SQLite writes on the loop stalled the agent).  Players,
+    pets and corpses are never recorded.
+    """
+
+    FLUSH_SECONDS = 10.
+    FLUSH_ROWS = 400
+    REMEMBERED_GUIDS = 50_000
+
+    def __init__(self, learned: LearnedWorld) -> None:
+        self.learned = learned
+        self._recorded: set[str] = set()
+        self._pending: list[tuple] = []
+        self._flushed_at: float | None = None
+        self._writer: threading.Thread | None = None
+        self.stored = 0
+        self.error: str | None = None
+
+    def observe(self, state: dict, now: float) -> None:
+        from .packet_entity_facts import UNIT_LOOTABLE, best_position
+        entities = state.get("packet_entities")
+        if isinstance(entities, dict):
+            for guid, value in entities.items():
+                if (guid in self._recorded or not isinstance(value, dict) or value.get("removed")
+                        or value.get("kind") not in SPAWN_TABLES or value.get("entry_id") in (None, "")):
+                    continue
+                if (value.get("kind") == "CREATURE"
+                        and int(number((value.get("dynamic_flags") or {}).get("value")) or 0) & UNIT_LOOTABLE):
+                    continue
+                point = best_position(value)
+                if point is None or point.get("instance_id") is None:
+                    continue
+                self._recorded.add(guid)
+                self._pending.append((value["kind"], value["entry_id"], None, point, None, time.time()))
+            if len(self._recorded) > self.REMEMBERED_GUIDS:
+                self._recorded.clear()
+        if self._pending and (self._flushed_at is None or now-self._flushed_at >= self.FLUSH_SECONDS
+                              or len(self._pending) >= self.FLUSH_ROWS):
+            self.flush(now)
+
+    def flush(self, now: float, *, wait: bool = False) -> None:
+        if self._writer is not None and self._writer.is_alive():
+            if not wait:
+                return
+            self._writer.join()
+        rows, self._pending, self._flushed_at = self._pending, [], now
+        if not rows:
+            return
+
+        def write() -> None:
+            try:
+                self.stored += self.learned.record_spawns(rows, source=PACKET_SOURCE)
+            except Exception as error:      # learning must never stop the agent
+                self.error = f"{type(error).__name__}: {error}"
+
+        self._writer = threading.Thread(target=write, name="learned-spawn-writer", daemon=True)
+        self._writer.start()
+        if wait:
+            self._writer.join()
+

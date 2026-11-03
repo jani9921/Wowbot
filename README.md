@@ -1,14 +1,30 @@
 # WoW Retail AI agent 
 
 Autonomous questing agent for World of Warcraft Retail 12.1.
-It reads the game through its own addon (pixel-strip telemetry), sees the 3D world with a
-YOLO detector, plans with a shared WorldModel / planner / skill architecture and drives the
-client with ordinary keyboard and mouse input for the selected process only. No memory
-reading, injection or secret-value bypasses.
+The current launcher selects the **SERVER** runtime profile: allowlisted packet events
+and structured addon telemetry feed the shared world model, planner, skills and
+verification. Target identity uses server GUIDs and entity IDs. The agent drives only
+the explicitly selected client through ordinary keyboard and mouse input.
+
+**2026-11-03 source snapshot:** the REV4 migration, the latest combat/navigation
+component split, quest-mechanic work and the November 2 golem-item fix are included.
+See [the snapshot notes](docs/PUBLIC_SNAPSHOT_20261103.md) for current prerequisites,
+scope and validation. This is an in-development snapshot, not a claim that every
+quest or migration acceptance gate is live-validated.
+
+The build-specific, hash-pinned Ymir backend is a separately supplied local dependency;
+its executable, raw captures and local databases are not distributed in this source
+repository. SERVER does not start YOLO/World3D workers. Legacy vision tools and models
+remain in the tree while their remaining dependencies are retired.
 
 **📋 [Változások: bug fixes + implementációk](#változások-bug-fixes--implementációk)** — what the live tests found, how it was fixed and what was added, day by day.
 
 ## Install
+The installer instructions below include historical vision setup. The current SERVER
+profile also requires the matching capture backend/Npcap and local navigation/reference
+data described in [the snapshot notes](docs/PUBLIC_SNAPSHOT_20261103.md); the wizard alone
+does not supply all of those dependencies.
+
 1. Python 3.13 (64-bit) on Windows 10/11.
 2. Run `INSTALL_WIZARD.bat` → "Minden egyben telepítés" (all-in-one):
    Python packages (CUDA torch on NVIDIA, `onnxruntime-directml` on AMD/Intel), WoW addon,
@@ -49,6 +65,7 @@ kap, így egy jól működő korábbi verzió bármikor elővehető:
 
 | Verzió | Tartalom |
 |---|---|
+| `v2026.11.03-1` | Aktuális SERVER-alapú forrás, REV4 reform, combat/navigáció komponensbontás, quest-mechanika és gólemes itemjavítás; offline ellenőrzések, élő elfogadás külön |
 | `v2026.10.05-1` | vendor questek, leadás-keresés, telepítő + Ollama, változásnapló (a modulbontás előtt) |
 | `v2026.10.05-2` | a nagy Python-fájlok szétbontása (működés változatlan) |
 | `v2026.10.05-3` | quest-lény memória, addon 0.9.56, gödör/barlang és quest-zóna bejárás, minimap szint-nyilak, útvonal a Live Visionben, körbeforgás javítása |
@@ -56,6 +73,9 @@ kap, így egy jól működő korábbi verzió bármikor elővehető:
 | `v2026.10.07-1` | barlangos quest és gubó-javítások |
 | `v2026.10.07-2` | teljes kódaudit és képességterületi mérföldkövek (dokumentáció) |
 | `v2026.10.11-1` | TDB mint világmemória + tanult TDB-fájl, quest-zóna bejárás TDB POI alapján, két pixelcsík (addon 0.9.63) és Hz-javítás, több quest egy ablakban, leadás utáni követő quest, kereskedő/térkép/esés/Re-Sizer javítások |
+
+## Mérföldkövek
+Konkrét építési lépcsők és kapuk képességterületenként, építési sorrenddel (AB1–AB6): [docs/AGENT_MILESTONES.md](docs/AGENT_MILESTONES.md).
 
 ## Ismert hibák és gyenge pontok
 Teljes lista: [KNOWN_ISSUES.md](KNOWN_ISSUES.md) (🔴 hiba · 🟠 gyenge pont · 🧪 javítva, élőben még nem igazolt). A legfontosabbak:
@@ -74,6 +94,180 @@ Naponként lenyitható; ✅ élesben igazolva, 🧪 offline tesztelve. Forrás �
 
 <!-- CHANGES:START -->
 <details open>
+<summary><b>2026-10-14</b> — 5 új funkció, 13 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Egér-lock a megtalált gubón (felhasználói kérés):**
+  - ha meglát egy quest-objektumot (gubót), és az a saját szinten elérhető, rálockol: a kurzor ~7-szer másodpercenként a dobozára igazodik, a fordulást kompenzálva;
+  - futás közben is rajta tartja (a kurzormozgatás nem állítja meg a futást), és odaérve azonnal kattinthat;
+  - amíg tart, más hover vagy kamera-keresés nem veheti el az egeret;
+  - combatnál elengedi (a támadó az első), utána visszaveszi; jóváírásnál, vagy ha a gubó 2 s-nál tovább nem látszik, szintén elengedi;
+  - a SEEK a gubónál nem egyszer HOVER-el és 0,85 s után feladja, hanem követi a dobozt, és 2,5 s-ig várja a „Thick Cocoon” tooltipet (eddig a fordulás elvitte az egeret, mielőtt a tooltip megjött).
+- 🧪 **Odamegy, szembefordul, soft target, interact (felhasználói kérés):**
+  - a sárga pöttyhöz (tárgy-objektívánál), a gubó TDB-helyéhez és a quest-adó „!” helyéhez vezető MOVE érkezéskor helyben szembefordul a ponttal (legfeljebb 2,5 s), csak utána jelez megérkezést; köztes útpontoknál nem fordul;
+  - ha a kliens soft-interact célpontja már a gubó, nem megy közelebb, hanem az interact billentyűvel (F7) használja.
+- 🧪 **Gubó nyitása F7-tel, egér nélkül (a felhasználó kézi próbája alapján):**
+  - a gubó mellett állva, vele szemben az interact billentyű kinyitja; nem működik, ha közel van egy NPC vagy (halott) mob (a soft target arra ugrik), vagy ha háttal áll;
+  - az addon a gubót soft targetként egyszer sem kapta meg (723 minta), ezért a TDB-hely, a szembenállás (±25°) és az „nincs NPC/hulla soft target” dönt;
+  - a gubó TDB-helyén 4 yd-on belül, vele szemben F7 (p97), a jóváírás ellenőrzi; ha nem jön, ott 30 s-ig az egeres út jön.
+- 🧪 **Az egér a gubón legyen kattintás előtt (felhasználói kérés):**
+  - az OBJECT_USE eddig is csak friss, egyező tooltip után kattint;
+  - a lock most nem mozdítja a kurzort, amíg a tooltip a gubót mutatja;
+  - ha a lock közben a gubón belül igazított a kurzoron, és a friss tooltip még a gubóé, onnan folytatja ahelyett, hogy elavultként eldobná.
+- 🧪 **Combat a sárga pöttyös MOVE közben (felhasználói kérdés):** a harc után ugyanaz a pöttyös MOVE folytatódik (teszt); ha közben loot, gubóhasználat vagy a közeli gubó TDB-helye vár, az jön előbb.
+
+#### Bug fixes
+- 🧪 **Óra-eltérés miatt nem volt saját szint (20:15–20:18):**
+  - a Z-resolver a mintáit a futtató órájával bélyegzi, a state addon-mintaideje ~0,2 s-mal régebbi volt, ezért a „friss-e” ellenőrzés eldobta a peremi magasságot;
+  - emiatt megint a gödör alját választotta, és a gubó TDB-helyére menés sem indult (17,6 yd-ról kattintott, „too far away”);
+  - most az eltérést tűri (ugyanazzal a valódi TDB-adattal Z-vel a legfelső gubót választja).
+- 🧪 **A felvétel utáni első mintában megint indult a TDB spawn-MOVE:** az objektívának még nem volt szövege és típusa, így a „többszintű gubók” tiltás nem ismerte fel; most ilyenkor is felismeri (ismert nem-tárgy objektívánál nem).
+- 🧪 **Az 5. gubónál felment a spirálra (20:31, 4/5 után):**
+  - a sárga pötty (a gödör alján, ugyanazon a szinten) célpontjának magasságát a 41 yd-dal fölötte lévő spirálra tette, mert az alsó szint egy kétes „nincs fejtér” jelzést kapott, a „más szint” büntetés pedig kicsi volt;
+  - most a sárga pöttynél egy emeletnyi eltérés erősebben számít (valódi navmeshen: a gödör alja nyer);
+  - ha a fókuszban lévő sárga pöttyön fel/le nyíl jelenik meg, a fókusz elenged, és a bejárás viszi a jelzett szintre (a felhasználó szerint „nem látta a lefelé nyilat”);
+  - a nyíl körüli 2–5 px-es sárga szemcséket nem veszi pöttynek.
+- 🧪 **Az első gubó után megint felment a peremre (20:25):** a „zónán belül” most a gubók befoglaló területe + 25 yd (eddig 25 yd egy gubótól).
+- 🧪 **Futás közben MANUAL-ra esett (20:16:27):** a diagnosztika kétszer olvasta a kamerakép-mezőt, közben a szenzor-szál törölte; most egyszer olvassa.
+- 🧪 **A quest után elsőnek a gödör aljára indult (Who Lurks in the Pit):**
+  - a TDB-gubók magassága ismert, de a játékos magasságát a Retail nem adja, ezért a választás 2D-ben ment;
+  - a gödör alja (z −6) 0,3 yd-dal közelebb volt, mint a legfelső gubó (z 60), pedig a karakter a peremen állt (z 95);
+  - most a választás a navmesh-ből feloldott magasságot használja (ez a 10-13-i, visszavont híd, újra bekapcsolva);
+  - ugyanez minden quest TDB-helyválasztásánál javít.
+- 🧪 **Külön TDB-gubó-MOVE ugrált, elment az első gubó mellett:**
+  - a TDB-spawn MOVE (p100) a sárga pötty és a látott gubó elé került, és a gubók között ugrált (alja, z 33, csak utána a legfelső);
+  - erre a MOVE-ra a „látott gubó” megszakítás csak a cél 10 yd-os körzetében élt, ezért 3 yd-ra elhaladt az első gubó mellett;
+  - most ha a quest gubói több szinten vannak (≥ 15 yd magasságkülönbség), nincs külön spawn-MOVE;
+  - a floor walk viszi le a spirálon a TDB-gubókon át (60 → 33 → 17 → −1 → −6), a sárga pötty és a látott gubó mindig előbb jön, ahogy 10-07-én (5/5);
+  - egyszintű gubóknál a TDB-spawn MOVE marad.
+- 🧪 **Az első gubó után visszament a gödör tetejére:**
+  - a gödörben 27 yd-ra volt a peremen lévő quest-POI-tól (a határ 20 yd), ezért „zónán kívül” volt, és a POI-hoz mászott fel;
+  - most a többszintű gubók 25 yd-os körzete is a zóna, onnan a floor walk és a pöttyök vezetnek.
+- 🧪 **Lefelé nyilas pöttyel a gödör aljára ment, a spirál gubóit kihagyva:**
+  - a fel/le MOVE a 2D-ben legközelebbi nyilas pöttyöt választotta;
+  - többszintű gubóknál a lefelé nyíl most a floor walké, ami útvonal-sorrendben megy le; a felfelé nyíl marad a fel/le MOVE-é.
+- 🧪 **40 s-ig állt egy kanyarnál (útpont 1,6 yd-ra):**
+  - a kanyarpontot csak 1,5 yd-on belül fogadja el; 4,5 yd-on belül a falnak futás figyelése ki van kapcsolva, a pozíció rezgése pedig nullázta a „nincs haladás” számlálót;
+  - most ha egy köztes útpont 4,5 yd-on belül van, és 2 s-ig nem jut 0,3 yd-dal közelebb, továbblép a következőre;
+  - csak akkor, ha a következő szakasz végig járható (a szakaszon és 1 yd-ra két oldalt is van felület a várt magasságban), így szakadék fölött nem vág át.
+- 🧪 **Körbe-körbe fordult és oda-vissza járt (útvonal-cikcakk):**
+  - a szakadéktól elhúzó útvonal-igazítás (10-13) egy szűk kanyarban egy pontot 6 yd-dal visszafelé tolt (70,−2240 → 73,6,−2235 → 70,9,−2241);
+  - most ha egy eltolt pont miatt az útvonal 110°-nál élesebben visszafordul, a pont visszakerül az eredeti navmesh-sarokra;
+  - a szakadék-védelem a többi pontnál megmarad (a kerítés melletti teszt-útvonalakon 7 és 18 eltolt pont).
+- 🧪 **Túl messziről kattintott a gubóra, utána egy percig egy helyben toporgott (14:03–14:08):**
+  - a nagy gubó doboza (0,39 képmagasság) 7,4 és 16 yd-ról is „elég közelinek” tűnt, a jobbklikk nem adott creditet, utána „out of range” jött;
+  - a látott gubó minden bejárás-MOVE-ot azonnal megállított (akkor is, ha másik szinten volt), ezért egy percig SEEK és MOVE váltakozott ugyanott;
+  - most ha a quest TDB-gubói közül egy a saját szinten van (±8 yd magasság), 25 yd-on belül és 4 yd-nál messzebb, előbb odamegy 2,5 yd-ra, csak ott mutat rá és használja;
+  - a jóváírt és a 20 s alatt sem használható (eltűnt) gubó helyét kihagyja, de ha a questet újra felveszi, újra számít;
+  - a látott gubó csak akkor állítja meg a bejárást, ha van ilyen elérhető gubó a saját szinten.
+- 🔎 **Lassú lett a MOVE (14:01–14:05):** nem kódhiba, a pixelcsík FAST sávja 13:35:55-től kiesett, így a mozgás ~1,3 Hz-es pozícióval ment; a felhasználó helyreállította.
+
+</details>
+
+<details>
+<summary><b>2026-10-13</b> — 1 új funkció, 17 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Gödör/barlang bejárása a TDB-gubókon át (felhasználói irány):**
+  - a 10-07-i ChatGPT-s megoldás (5/5 gubó, esés nélkül) a spirálon lefelé haladó bejárás volt, a TDB-integráció óta viszont egy külön TDB-spawn MOVE ugrált spawnról spawnra;
+  - most a bejárás útvonalába kerülnek a quest TDB-gubói, oda, ahol a navmesh-út elhalad mellettük (Hrun gödrében: z 60 → 33 → 17 → −1 → −6), a gubónál 4 yd-ra áll meg;
+  - a sárga pötty továbbra is elsőbbséget kap, és amíg a bejárás fut, a külön TDB-spawn MOVE nem indul;
+  - ⏪ **visszavonva**, mert rontott: a pötty igazítása TDB-gubóhoz, a „saját szint” híd a TDB-rangsorhoz, a próbaszakasz utáni újratervezés, a harc utáni folytatás tiltása, a 3 yd-os gubó-megközelítés.
+
+#### Bug fixes
+- 🧪 **Gyökérnek futott a leadás után (Bjorn Stouthands):**
+  - a leadás után egy régi „túl messze” jel miatt közelítés indult a folytatás-megszólítás helyett, és 30 s-ig
+    nyomta a W-t egy gyökérnek;
+  - most egy megnyílt NPC-ablak bizonyítja, hogy elég közel van, így a régi jel törlődik;
+  - ha a közelítés 3 s alatt 0,8 yd-ot sem halad, leáll, és előbb ugrással, aztán oldalazással kerüli ki az akadályt.
+- 🧪 **A kijelölt quest-felvevő megszólítása (Alaria):**
+  - kijelölte Alariát 10 yd-ra a „!” jelétől, mégis elindult egy 260 yd-ra lévő másik felvevőhöz, és útközben beesett Hrun gödrébe;
+  - most ha a kijelölt NPC a TDB vagy a tanult memória szerint egy közeli „!” quest felvevője, megszólítja.
+- 🧪 **Kint nem lehet a föld alatt (esés a bányába):**
+  - a navigáció a gödör alsó szintjéről tervezett, holott a játék szerint a karakter kint volt;
+  - most kint a felszíni szintet használja, ha a feloldott magasság több mint 8 yd-dal a terep alatt van;
+  - a live-debug összefoglaló mostantól a karakter feloldott szintjét is mutatja (`z_player`).
+- 🧪 **Barlangban minden MOVE átjárókeresés lett (Who Lurks in the Pit, 0/5 gubó):**
+  - a barlangban minden gubóhoz vezető MOVE „Támogatott útvonal-átmenet” keresés lett, utána térkép, majd egy perc várakozás következett;
+  - most a navmesh-útvonalat igénylő MOVE fut, ha nincs útvonal-hiba, portál vagy jármű jel;
+  - az átjárókeresés csak akkor indul, ha az útvonal ténylegesen elbukott.
+- 🧪 **A gödör peremén össze-vissza ment, majd beesett a barlangba:**
+  - a zóna-bejárás következő cellája a gödör fölött volt, ahol csak a gödör alja járható;
+  - az útvonal körbevitte a peremen, és a peremről leesett;
+  - most kint is kihagyja azt a cellát, ahol minden járható felület több mint 20 yd-dal a karakter alatt van (a dombra felfelé eső cellák maradnak).
+- 🧪 **Bjornt jelölte ki Alaria helyett a „!”-nél:**
+  - abban a pillanatban kb. 1 s-ig üres volt a látás jelöltlistája, ezért úgy tűnt, nincs „!” a képen;
+  - ilyenkor a felvevő-pin közelében bármely NPC kiválasztható volt;
+  - most egy 2,5 s-on belül látott „!” még számít;
+  - ha a TDB vagy a tanult memória ismeri a közeli pin felvevőjét, más NPC-t nem jelöl ki.
+- 🧪 **Az első gubó után visszament a barlang tetejére:**
+  - a „zóna elérve” jelölés a pontos haladáshoz (0/5 → 1/5) volt kötve, ezért a credit érvénytelenítette;
+  - a peremen lévő quest-POI 31 yd-ra volt (a határ 20 yd), ezért visszamászott hozzá;
+  - most csak egy teljesült objektíva vagy quest érvényteleníti a jelölést.
+- 🧪 **A gödörben TDB-spawnról TDB-spawnra ugrált, a gubók mellett elment:**
+  - meglátta a gubót a sárga pöttynél, de a TDB-spawnra tartó MOVE (96) nyert, és a gödör aljára vitte;
+  - most ha a questhez élő jel van (sárga pötty, fel/le nyíl vagy látott gubó), a TDB-útvonal csak tartalék;
+  - ez a megbeszélt sorrend: élő jel → pötty → TDB-spawn → TDB-POI bejárás.
+- 🧪 **Pötty és TDB együtt (felhasználói ötlet):** ha a sárga pötty és a quest egy TDB- vagy tanult spawnja 12 yd-on
+  belül egyezik, a MOVE a spawn pontos koordinátájára megy; a pötty szintje (ugyanaz, fel vagy le) megmarad.
+- 🧪 **Nem nyitotta ki az egér alatti gubót, ~40 s-ig várt:**
+  - egy `identity_uncertain` és két `stale_observation` 120 s-ra letiltotta a gubóhasználatot, pedig egyiknél sem kattintott;
+  - most a kattintás előtti leállítás nem számít próbálkozásnak.
+- 🧪 **A TDB-spawnt csak vízszintes távolság szerint választotta:**
+  - a Retail nem ad magasságot, ezért a spirálon (z 37) is a gödör alján lévő gubó (z −5,9) „volt a legközelebbi”;
+  - most a navigáció által feloldott szint is számít, így a saját szinten lévő gubó jön először;
+  - a pötty–TDB igazítás csak a gubókat (az objektíva típusát) és a pötty szintjét (ugyanaz/fel/le) veszi figyelembe.
+- 🧪 **„Megérkezett” egy 58 yd-re lévő gubóhoz 1 s alatt:**
+  - bizonytalan szintnél a navigáció csak egy 12 yd-os próbaszakaszt tesz meg, és ennek végét a teljes MOVE sikerének jelentette;
+  - így a spawn „elértnek” számított, és jött a következő;
+  - most a próbaszakasz végén újratervez a valódi célig (legfeljebb 4 szakasz).
+- 🧪 **Nincs zóna-bejárás, amíg sárga objektíva-pötty mutatja a helyet** (felhasználói szabály):
+  - látható vagy friss memóriából ismert, még át nem kutatott pötty (fel/le nyíl is) mellett a quest zóna-bejárása nem indul;
+  - ha nincs pötty, vagy mindet átkutatta, bejárja a zónát, mert a minimapon kívül még lehet pötty.
+- 🧪 **Leesés a gödör spiráljáról (a kerítésnél):**
+  - az útvonal a széles úton is a gödör felőli kerítés mentén haladt;
+  - most az útpontok a navmesh szerint mért szakadéktól befelé tolódnak (legfeljebb 10 yd-ig, csak járható, hasonló magasságú pontra);
+  - beragadásnál a hátralépés, az oldalazás és a futó ugrás a szakadék felé tilos, ilyenkor fordul;
+  - ha a rövid esés után 3 yd-nál messzebb került az útvonaltól, onnan újratervez ugyanahhoz a célhoz;
+  - az egy helyben ismétlődő apró esés (perem szélén csúszkálás) beragadásnak számít;
+  - a szakaszok közepe is befelé tolódik (4 yd-onként új pont); hosszabb, de bentebb vezető út (felhasználói kérés);
+  - futó ugrás csak akkor, ha előre, átlósan és oldalt sincs szakadék.
+- 🧪 **Az első gubók mellett elment (2026-10-13 18:07):**
+  - a harc előtt megszakított MOVE folytatása (a gödör aljára) felülírta a látott gubót; most élő jel (látott gubó, pötty) mellett a régi MOVE nem folytatódik;
+  - bizonytalan szintnél (a peremen) a TDB-gubók rangsora vízszintes távolság szerint ment, és a legalsó nyert; most a bizonytalan szintbecslés is számít a rangsorban.
+- 🧪 **Lefagyott a MOVE-on a gödör alján:**
+  - a pötty-MOVE parancs nélkül „megérkezett”, a tervező 45 s alatt ~90-szer újraküldte;
+  - most a navigáció érkezése a pöttynél helyi keresést indít.
+- 🧪 **Pötty + TDB gubó:** ha a pötty egy TDB-gubóhoz igazodik, a karakter 3 yd-ra megy a gubó pontos helyéhez (a pötty a játékos-nyíl alatt úgyis eltűnik).
+
+</details>
+
+<details>
+<summary><b>2026-10-12</b> — 1 új funkció, 2 javítás</summary>
+
+#### Új funkciók / implementációk
+- 🧪 **Okosabb helyi LLM nagyobb modell nélkül** (felhasználói kérés):
+  1. **TDB-tények a kérdésben:** minden objektívához megkapja a TDB szerinti típust (lény, objektum, tárgy,
+     beszélgetés) és a pontos neveket, a leadó kérdéshez a TDB-beli leadókat. Ezeket a neveket el is fogadja
+     válaszként (pl. „Thick Cocoon”, ami a quest szövegében nincs benne). A kontextus 2048-ról 4096-ra nőtt.
+  2. **Gondolkodó modell csak a kétes esetekre** (`qwen3:4b-thinking-2507-q4_K_M`, ugyanakkora): ha a gyors
+     válasz UNKNOWN, hiányzik a név, vagy ütközik a TDB-vel, egyszer újrakérdezi. Ha a modell nincs letöltve, az
+     első válasz marad, és nem áll le miatta a többi kérdés. A telepítő ezt is letölti.
+  3. **Tanul a saját sikereiből:** a hasonló, már teljesített objektívák (mi hozta ténylegesen a creditet)
+     példaként mennek a promptba.
+  4. **Mérhető:** `python tools/semantic_benchmark.py --tdb --facts` az Exile's Reach questeken pontoz
+     (37 objektíva arany-címkével + a leadók), TDB-tényekkel és nélkülük is.
+
+#### Bug fixes
+- 🧪 **A sikernapló sosem tudta, melyik skill hozta a quest-creditet:** minden ticken a státuszfrissítés
+  kitörölte a világ kontextusából a futó skillt és az utolsó eredményt, ezért minden `quest_progress` sorban
+  `skill = NULL` volt. Javítva; ez kell a 3. ponthoz is.
+- 🧪 **TDB-ben a szövegben megnevezett lény:** a „rescue”/„transformation” kisbetűs szavak egyeztek a „Rescue” és
+  „Transformation” nevű lénysablonokkal; most csak a pontosan (nagybetűvel) szereplő név számít.
+
+</details>
+
+<details>
 <summary><b>2026-10-11</b> — 1 új funkció, 15 javítás</summary>
 
 #### Új funkciók / implementációk

@@ -21,6 +21,25 @@ def test_legacy_c_map_position_cannot_make_unitposition_zero_z_authoritative():
     assert position["z_source"] == "LEGACY_UNIT_POSITION_Z_REJECTED"
 
 
+@pytest.mark.parametrize("field", ["target", "mouseover", "soft_targets", "visible_units"])
+@pytest.mark.parametrize("z", [0., 123.])
+def test_retail_unitposition_numeric_height_is_unknown_for_every_addon_recipient(field, z):
+    unit = {"guid": "Creature-1", "world_position": {
+        "source": "UNIT_POSITION", "x": 4., "y": 5., "z": z,
+        "z_known": True, "z_observed": True, "instance_id": 0}}
+    state = normalize({field: [unit] if field in {"soft_targets", "visible_units"} else unit})
+    point = (state[field][0] if isinstance(state[field], list) else state[field])["world_position"]
+    assert point["x"] == 4. and point["y"] == 5.
+    assert "z" not in point and point["z_known"] is False and point["z_observed"] is False
+    assert point["z_source"] == "RETAIL_UNIT_POSITION_Z_UNAVAILABLE"
+
+
+def test_unitposition_normalization_does_not_discard_a_real_server_zero_height():
+    point = {"source": "PACKET_CREATE_MOVEMENT", "x": 4., "y": 5., "z": 0.,
+             "z_known": True, "instance_id": 0}
+    assert normalize({"target": {"guid": "Creature-1", "world_position": dict(point)}})["target"]["world_position"] == point
+
+
 @pytest.mark.parametrize("is_open", [False, True])
 def test_fast_map_context_is_projected_to_canonical_top_level_state(is_open):
     state = normalize({
@@ -179,7 +198,8 @@ def test_fast_packet_carries_open_quest_dialog_action_and_click_point():
         quest_ui={open=true,action="ACCEPT",x=.0346,y=.4475,quest_id=55122}}''')
     body = json.loads(lua.eval("ns.NextPacket(data)").split("|", 6)[6])
     assert body["quest_ui"] == {
-        "open": True, "action": "ACCEPT", "x": .0346, "y": .4475, "quest_id": 55122}
+        "open": True, "action": "ACCEPT", "x": .0346, "y": .4475, "quest_id": 55122,
+        "npc_guid": False}
 
 
 def test_fast_packet_preserves_unique_conversation_option_in_compact_profile():

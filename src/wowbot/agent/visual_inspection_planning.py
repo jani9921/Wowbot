@@ -10,8 +10,8 @@ import math
 
 from .models import Proposal, number
 from .planning_types import world_point
-from wowbot.vision.entity_memory import EntityMemory
-from wowbot.vision.world3d.learned_detector import RUNTIME_SUBJECT_CONFIDENCE
+from wowbot.entity_memory import EntityMemory
+from wowbot.vision_contracts import RUNTIME_SUBJECT_CONFIDENCE
 
 
 class VisualInspectionPolicy:

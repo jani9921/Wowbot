@@ -89,7 +89,10 @@ def test_missed_click_hovers_again_instead_of_waiting_for_the_deadline():
 
 def test_direct_click_without_a_target_change_fails_fast():
     skill = TargetSkill()
-    target = _active({"guid": "npc-1", "x": .4, "y": .5})
+    target = _active({"guid": "npc-1", "x": .4, "y": .5,
+                      "ground_truth_handoff": True, "click_current_cursor": True})
+    target.before_snapshot = {"mouseover": {"guid": "npc-1"}, "mouseover_sample_time": 1.,
+        "cursor_position": {"nx": .4, "ny": .5}, "cursor_sample_time": 1.}
     skill.begin(target)
     assert skill.verify(target, {"target": {}, "target_sample_time": 1.5}, 1.5).status is SkillStatus.RUNNING
     failed = skill.verify(target, {"target": {}, "target_sample_time": 1.8}, 1.8)

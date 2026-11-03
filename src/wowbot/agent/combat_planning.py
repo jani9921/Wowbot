@@ -14,6 +14,7 @@ from typing import Any
 
 from .models import Goal, Proposal, number, words
 from .visual_approach import VisualApproachController
+from .server_mode import server_profile
 from .quest_semantics import (combat_subjects, target_matches_objective,
                               target_matches_structured_entity)
 
@@ -21,6 +22,33 @@ from .quest_semantics import (combat_subjects, target_matches_objective,
 def _model(world):
     """The WorldModel behind a planner WorldSnapshot (or the model itself)."""
     return getattr(world, "_model", None) or world
+
+
+def _collect_source_objective_ids(state: dict, target: dict, objectives) -> set[str]:
+    """Reuse discovery's item-source relations for this selected live GUID.
+
+    Keep the relation on the objective, not in target_entity: one item may
+    drop from several creatures, and one creature may serve several quests.
+    The ordinary combat/skill guards still own range, hostility and input.
+    """
+    from wowbot.runtime.entity_identity import check_entity_identity, guid_template, identity_fields
+    from .packet_entity_facts import kill_objective_relations
+    from .quest_semantics import entity_constraints_allow
+
+    objectives = [obj for obj in objectives if obj.type == "COLLECT"]
+    if not objectives:
+        return set()
+    guid = target.get("guid")
+    actual = identity_fields(target)
+    entry = guid_template(guid).get("npc_id")
+    if (not str(guid or "").startswith(("Creature-", "Vehicle-")) or entry is None
+            or "object_id" in actual or "item_id" in actual
+            or not check_entity_identity({"npc_id": entry}, target)):
+        return set()
+    relations = set(kill_objective_relations(state).get(str(entry), ()))
+    return {obj.objective_id for obj in objectives
+            if (obj.objective_id.split(":", 1)[0], obj.objective_id) in relations
+            and entity_constraints_allow(target, obj.target_entity)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +94,8 @@ class CombatPlanningPolicy:
             if (not guid or state_now is None or not soft_interact_corpse(state, guid)
                     or not _model(world).corpse_is_owned(guid, state_now)
                     or world.corpse_was_recently_looted(guid, state_now)
-                    or self._reported_empty(state, guid)):
+                    or self._reported_empty(state, guid)
+                    or self._corpse_needs_world_approach(state, guid)):
                 continue
             objectives = self._active_incomplete_objectives(world)
             return Proposal.make(
@@ -76,6 +105,52 @@ class CombatPlanningPolicy:
                  "objective_ids": [oid for _, oid in objectives]},
                 confidence=1., priority=108)
         return None
+
+    # User 2026-10-21: "több támadó mobnál, ha az első meghal, nem csinál
+    # semmit ... és közben támadnak".  Live 15:24:42-15:24:46 in combat with
+    # nothing selected only WAIT ran (ACQUIRE_TARGET is never available: Tab
+    # names no GUID).  In combat any live enemy Tab selects is a valid
+    # defence target, so Tab is pressed (TARGET.verify accepts any live
+    # attackable unit).  The pin is the nearest live server unit, else the
+    # dead target.
+    # User 2026-10-31: no 1.5 s pause between defence Tabs; 0.25 s is enough.
+    DEFEND_TAB_SECONDS = .25
+    DEFEND_TAB_YARDS = 30.
+    # A ranged attacker can hit from beyond the 30 yd unit pin (Tab reaches
+    # about 40-50 yd); a unit the server shows attacking us is always a pin.
+    DEFEND_ATTACKER_YARDS = 45.
+
+    def _defend_tab(self, state: dict, now: float) -> Proposal | None:
+        last = self.__dict__.get("_defend_tab_at")
+        if last is not None and 0 <= now-last < self.DEFEND_TAB_SECONDS:
+            return None
+        from .packet_entity_facts import UNIT_LOOTABLE, _service_npc, _unit_flags, best_position
+        position = state.get("player_world_position") or {}
+        px, py = number(position.get("x")), number(position.get("y"))
+        nearest = None
+        if px is not None and py is not None:
+            for value in (state.get("packet_entities") or {}).values():
+                if (not isinstance(value, dict) or value.get("kind") not in {"CREATURE", "VEHICLE"}
+                        or value.get("removed") or _unit_flags(value) & UNIT_LOOTABLE or _service_npc(value)):
+                    continue
+                point = best_position(value)
+                if point is None or str(point.get("instance_id")) != str(position.get("instance_id")):
+                    continue
+                distance = math.hypot(point["x"]-px, point["y"]-py)
+                if distance <= self.DEFEND_TAB_YARDS and (nearest is None or distance < nearest[0]):
+                    nearest = (distance, str(value["guid"]))
+        from .packet_entity_facts import attackers
+        engaged = attackers(state)
+        if engaged and engaged[0][0] <= self.DEFEND_ATTACKER_YARDS:
+            nearest = (engaged[0][0], str(engaged[0][1]["guid"]))   # who attacks us, not any unit
+        guid = nearest[1] if nearest else (state.get("target") or {}).get("guid")
+        if not guid:
+            return None
+        self.__dict__["_defend_tab_at"] = now
+        return Proposal.make(
+            "TARGET", "Harcban nincs élő célpont: Tab a legközelebbi ellenfélre (bármelyik támadó jó)",
+            {"guid": guid, "activation_source": "TAB_DEFEND", "purpose": "DEFEND_RETARGET"},
+            confidence=.8, priority=100, evidence=("in_combat_without_live_target",))
 
     def _hidden_corpse_reveal(self, world, state: dict, now: float) -> Proposal | None:
         owned = getattr(_model(world), "owned_corpse_guids", None) or {}
@@ -90,7 +165,8 @@ class CombatPlanningPolicy:
             if (killed is None or not 0. <= state_now-killed <= self.REVEAL_WINDOW_SECONDS
                     or guid in anchored or guid in done
                     or world.corpse_was_recently_looted(guid, state_now)
-                    or self._reported_empty(state, guid)):
+                    or self._reported_empty(state, guid)
+                    or self._corpse_needs_world_approach(state, guid)):
                 continue
             done[guid] = state_now
             return Proposal.make(
@@ -132,7 +208,7 @@ class CombatPlanningPolicy:
                 continue
             unit = {"guid": guid, "name": anchor.get("name") or (semantics.get(guid) or {}).get("name")}
             objectives = [obj for obj in ready_objectives
-                          if target_matches_objective(unit, {**obj.raw, "description": obj.description})]
+                          if target_matches_objective(unit, {**obj.raw, "target_entity": obj.target_entity, "description": obj.description})]
             if objectives:
                 aims.append({"guid": str(guid), "selected": False, "track": track, "anchor": anchor,
                              "objectives": objectives})
@@ -167,12 +243,17 @@ class CombatPlanningPolicy:
         tooltip > range), never from a spell id.
         """
         from .vehicle_abilities import (FORWARD_DASH, TARGETED, ability_mode,
-                                        aim_tolerance)
+                                        aim_tolerance, choose_attack_action, ready)
         learned = _model(world).__dict__.setdefault("vehicle_ability_effects", {})
         advice = _model(world).__dict__.get("vehicle_ability_advice") or {}
         spoken = [hint.get("ability") for hint in _model(world).__dict__.get("npc_instruction_hints") or ()
                   if isinstance(hint, dict)]
         action = vehicle_attack_action(state, learned, advice, spoken)
+        if action is None:
+            # Keep the attack's approach/cooldown context while every attack
+            # button is recharging. A ready speed buff/empty slot is not a
+            # replacement shot, nor a reason to fall into normal combat.
+            action = choose_attack_action(state, learned, advice, spoken, require_ready=False)
         if action is None:
             return []
         mode = ability_mode(action, learned, advice)
@@ -182,7 +263,18 @@ class CombatPlanningPolicy:
             str(action.get("id")))
         clock = number(getattr(_model(world), "last_received", None))
         refractory = max(1.4, (number(action.get("cooldown_duration")) or 0.)+.4)
-        cooling = (pressed_at is not None and clock is not None and 0 <= clock-pressed_at < refractory)
+        cooling = (not ready(action)
+                   or (pressed_at is not None and clock is not None and 0 <= clock-pressed_at < refractory))
+        from .server_mode import server_mode_selected
+        if server_mode_selected(state):
+            # Server mode: no screen aims; the server's unit positions drive
+            # the vehicle (live 2026-10-23, Training Wings: see
+            # vehicle_combat_planning).  No server unit: the old path.
+            from .vehicle_combat_planning import ServerVehicleCombatPolicy
+            policy = self.__dict__.setdefault("_server_vehicle", ServerVehicleCombatPolicy())
+            server = policy.propose(state, action, cooling=cooling, mode=mode)
+            if server:
+                return server
         aims = self._vehicle_aims(state, target, ready_objectives, matching_objectives)
         kill_open = any(str(getattr(obj, "type", "")).upper() == "KILL" for obj in ready_objectives)
 
@@ -260,7 +352,8 @@ class CombatPlanningPolicy:
                 use = ability("Járművel a quest-célpont mellett: a jármű képessége", aim, 104)
                 return [use] if use else []
             purpose, ready_height = "VEHICLE_ATTACK", VEHICLE_ATTACK_READY_HEIGHT
-        if x is not None and number(screen.get("y")) is not None and screen.get("track_id") is not None:
+        if (x is not None and number(screen.get("y")) is not None and screen.get("track_id") is not None
+                and not server_profile(world.state)):
             return [Proposal.make(
                 "VISUAL_APPROACH", "Járművel a quest-célpont felé (képernyőn követve)",
                 {**params, "purpose": purpose, "track_id": screen.get("track_id"),
@@ -297,7 +390,7 @@ class CombatPlanningPolicy:
                             and state_time is not None and 0 <= state_time-anchor_time < 30.
                             and number(anchor.get("x")) is not None
                             and number(anchor.get("y")) is not None)
-            if anchor_fresh:
+            if anchor_fresh and not server_profile(state):
                 proposals.append(Proposal.make(
                     "REACQUIRE_TARGET",
                     "Elvesztett vizuális nyomkövetés visszaszerzése: kamera az utolsó ismert pozíció felé",
@@ -312,10 +405,12 @@ class CombatPlanningPolicy:
             if (not primary_quest_id or obj.objective_id.split(":", 1)[0] == primary_quest_id)
             and (not primary_objective_id or obj.objective_id == primary_objective_id)
         ]
+        source_objective_ids = _collect_source_objective_ids(state, target, ready_objectives)
         matching_objectives = [
             obj for obj in ready_objectives
-            if target_matches_structured_entity(target, obj.target_entity)
-            or target_matches_objective(target, {**obj.raw, "description": obj.description})
+            if obj.objective_id in source_objective_ids
+            or target_matches_structured_entity(target, obj.target_entity)
+            or target_matches_objective(target, {**obj.raw, "target_entity": obj.target_entity, "description": obj.description})
         ]
         matching_quest_ids = list(dict.fromkeys(
             record.quest_id for record in world.quest_model.records.values()
@@ -328,6 +423,31 @@ class CombatPlanningPolicy:
             return CombatPlanningResult(
                 tuple(vehicle_attack), target, tuple(matching_objectives),
                 tuple(matching_quest_ids), tuple(matching_objective_ids))
+
+        from .combat_target_safety import combat_target_allowed
+        explicit_elite_objective = (target.get("npc_id") is not None
+            and target.get("npc_id") in goal.parameters.get("target_npc_ids", [])) or any(
+                obj.type in {"KILL", "KILL_NAMED"}
+                and any(obj.target_entity.get(key) for key in ("guid", "npc_id"))
+                for obj in matching_objectives if isinstance(obj.target_entity, dict))
+        if not explicit_elite_objective:
+            # Live 2026-10-26 (Proto-Fight 66122): "Proto-dragons slain" names
+            # the generic Proto-dragon; its credit creatures (Rumbling /
+            # Galestrike Proto-Dragon, elite) come from the reference rows,
+            # which the server kill planning already hunts.  The agent waited
+            # "Elit target ... nincs explicit ölési cél" at them.
+            from .packet_entity_facts import kill_objective_entries
+            from .vehicle_abilities import entry_of
+            entry = str(target.get("npc_id") or entry_of(target.get("guid")) or "")
+            explicit_elite_objective = bool(entry) and entry in kill_objective_entries(state)
+        if (target.get("attackable", target.get("is_attackable")) is not False
+                and target.get("dead", target.get("is_dead")) is not True
+                and not combat_target_allowed(state, target, explicit_objective=explicit_elite_objective)):
+            alternative = self._defend_tab(state, now) if state.get("is_in_combat") else None
+            return CombatPlanningResult(tuple([alternative] if alternative else [Proposal.make(
+                "WAIT", "Elit target: nincs igazolt támadókapcsolat vagy explicit ölési cél",
+                {"reason": "unverified_elite_target", "guid": target.get("guid")}, priority=101)]),
+                target, tuple(matching_objectives), tuple(matching_quest_ids), tuple(matching_objective_ids))
 
         training_objectives = [
             obj for obj in ready_objectives
@@ -362,10 +482,16 @@ class CombatPlanningPolicy:
         judged_relevant = (judged_at is not None and state_now is not None
                            and 0. <= state_now-judged_at <= 600.
                            and bool(ready_objectives))
+        from .escort_planning import escort_attackers
+        escort_attacker = next((row for row in escort_attackers(state)
+                                if str(row["guid"]) == str(target.get("guid") or "")), None)
         relevant = (target.get("quest_relevant") is True
                     or target_anchor.get("quest_related") is True
                     or judged_relevant
+                    or escort_attacker is not None        # P8.4 E2: it attacks our escort
                     or target.get("npc_id") in goal.parameters.get("target_npc_ids", []))
+        if escort_attacker is not None:
+            matching_quest_ids = list(dict.fromkeys([*matching_quest_ids, escort_attacker["quest_id"]]))
         if target.get("quest_relevant") is True and target.get("quest_id") is not None:
             matching_quest_ids = list(dict.fromkeys([*matching_quest_ids, target["quest_id"]]))
         if target_anchor.get("quest_related") is True and target_anchor.get("quest_id") is not None:
@@ -380,7 +506,7 @@ class CombatPlanningPolicy:
             # mouseover targets retain the strict semantic matching path.
             relevant = any(
                 obj.type == "KILL"
-                or combat_subjects({**obj.raw, "description": obj.description})
+                or combat_subjects({**obj.raw, "target_entity": obj.target_entity, "description": obj.description})
                 for obj in ready_objectives)
 
         item_use_only = bool(
@@ -410,7 +536,8 @@ class CombatPlanningPolicy:
             proposals.append(Proposal.make(
                 "COMBAT", "A quest szövegével/API-val vagy felhasználói céllal egyező target",
                 {"guid": target.get("guid"), "quest_ids": matching_quest_ids,
-                 "objective_ids": matching_objective_ids}, priority=90))
+                 "objective_ids": matching_objective_ids,
+                 "elite_objective_verified": explicit_elite_objective}, priority=90))
 
         if (relevant and not target_locatable and not state.get("is_in_combat")
                 and not state.get("world_map_open")
@@ -426,6 +553,20 @@ class CombatPlanningPolicy:
         ui_error = str(state.get("ui_error") or "").casefold()
         combat_path_blocked = any(token in ui_error for token in (
             "no path", "path not available", "can't reach", "cannot reach"))
+        from .packet_entity_facts import attackers as server_attackers
+        engaged = {str(row[1].get("guid")) for row in server_attackers(state)} if state.get("is_in_combat") else set()
+        if (engaged and not relevant and target.get("guid") and str(target["guid"]) not in engaged
+                and target.get("attackable", target.get("is_attackable")) is True
+                and not target.get("dead", target.get("is_dead"))):
+            # User 2026-10-31: the selected unit does not attack us while the
+            # server names who does: Tab to an attacker before any DEFEND cast.
+            retarget = self._defend_tab(state, now) or Proposal.make(
+                "WAIT", "Tab után a kliens célpontváltására várok (nem a támadó van kijelölve)",
+                {"reason": "defend_tab_settling", "waiting_for": ["TARGET_CHANGED"], "duration": .3},
+                priority=100)
+            return CombatPlanningResult(
+                (retarget,), target, tuple(matching_objectives),
+                tuple(matching_quest_ids), tuple(matching_objective_ids))
         if ((relevant or state.get("is_in_combat"))
                 and target.get("attackable") is True and not target.get("dead")):
             if harmful and (all(a.get("in_range") is False for a in harmful)
@@ -438,7 +579,7 @@ class CombatPlanningPolicy:
                 anchor = (target.get("screen_position") or
                           (state.get("confirmed_mouseover_anchors") or {}).get(
                               str(target.get("guid") or "")))
-                if anchor:
+                if anchor and not server_profile(state):
                     proposals.append(Proposal.make(
                         "VISUAL_APPROACH",
                         "Quest-releváns távoli target folyamatos megközelítése megerősített 3D anchor alapján",
@@ -465,24 +606,32 @@ class CombatPlanningPolicy:
             proposals.append(Proposal.make(
                 skill, "Quest-cél elleni harc" if relevant else "Aktív támadó elleni önvédelem",
                 {"guid": target.get("guid"), "quest_ids": matching_quest_ids,
-                 "objective_ids": matching_objective_ids}, priority=100))
-        elif state.get("is_in_combat") and not target:
-            proposals.append(Proposal.make(
+                 "objective_ids": matching_objective_ids,
+                 "elite_objective_verified": explicit_elite_objective}, priority=100))
+        elif state.get("is_in_combat"):
+            proposals.append(self._defend_tab(state, now) or Proposal.make(
                 "ACQUIRE_TARGET", "Védekezéshez ellenfél kijelölése", priority=100))
 
         if not state.get("is_in_combat"):
+            # User 2026-10-21 (live 10:57:49): in server mode the screen
+            # corpse search (tooltip anchor, hover cells, step-back reveal) is
+            # off; ServerLootPolicy walks to the killed GUID's server x,y,z
+            # and presses Interact.
+            from .server_mode import server_mode_selected
+            screen_loot = not server_mode_selected(state)
             live = near = None
             corpse = next((item for item in reversed(state.get("confirmed_corpse_anchors", []))
-                           if item.get("guid") and number(item.get("x")) is not None
+                           if screen_loot and item.get("guid") and number(item.get("x")) is not None
                            and number(item.get("y")) is not None
                            and item.get("ownership_confirmed") is True
-                           and not self._reported_empty(state, item.get("guid"))), None)
+                           and not self._reported_empty(state, item.get("guid"))
+                           and not self._corpse_needs_world_approach(state, item.get("guid"))), None)
             if corpse and (not target or target.get("guid") == corpse.get("guid")):
                 objectives = self._active_incomplete_objectives(world)
                 live, point, near = self._corpse_view(state, corpse)
                 corpse = {**corpse, "x": point[0], "y": point[1]}
             if (corpse and (not target or target.get("guid") == corpse.get("guid"))
-                    and live is not None and near is False):
+                    and live is not None and near is False and not server_profile(state)):
                 # User 2026-10-01: walk over to the corpse first (same
                 # continuous servo, face it), then click its current box.
                 proposals.append(Proposal.make(
@@ -509,7 +658,7 @@ class CombatPlanningPolicy:
             if soft is not None and not any(p.skill in {"LOOT", "VISUAL_APPROACH"}
                                             for p in proposals):
                 proposals.append(soft)
-            reveal = (None if soft is not None
+            reveal = (None if soft is not None or not screen_loot
                       else self._hidden_corpse_reveal(world, state, now))
             if reveal is not None and not any(p.skill in {"LOOT", "VISUAL_APPROACH"}
                                               for p in proposals):
@@ -531,6 +680,7 @@ class CombatPlanningPolicy:
                         or state.get("loot_pending") is True)
         if (target.get("dead", target.get("is_dead")) and target_owned
                 and not self._reported_empty(state, target_guid)
+                and not self._corpse_needs_world_approach(state, target_guid)
                 and not world.corpse_was_recently_looted(str(target.get("guid") or ""), now)
                 and (state.get("loot_pending") or world.quest_model.ready())):
             objectives = self._active_incomplete_objectives(world)
@@ -592,10 +742,34 @@ class CombatPlanningPolicy:
         corpse turned ``lootable=false`` and LOOT was still tried twice more.
         """
         guid = str(guid or "")
+        entities = state.get("packet_entities") or {}
+        value = entities.get(guid) if isinstance(entities, dict) else None
+        if isinstance(value, dict) and value.get("kind") in {"CREATURE", "VEHICLE"}:
+            from .packet_entity_facts import UNIT_LOOTABLE
+            flags = (value.get("dynamic_flags") or {}).get("value")
+            if value.get("removed") or type(flags) is int and not flags & UNIT_LOOTABLE:
+                return True
         return bool(guid) and any(
             isinstance(unit, dict) and str(unit.get("guid") or "") == guid
             and unit.get("lootable") is False
             for unit in (state.get("mouseover"), state.get("target")))
+
+    @staticmethod
+    def _corpse_needs_world_approach(state: dict, guid) -> bool:
+        """A remembered screen point cannot replace a known corpse route."""
+        from .packet_entity_facts import best_position, entity
+        from .server_loot_planning import FLOOR_YARDS, LOOT_RANGE_YARDS
+        value = entity(state, guid)
+        point = best_position(value) if value is not None else None
+        player = state.get("player_world_position") or {}
+        px, py = number(player.get("x")), number(player.get("y"))
+        if point is None or px is None or py is None:
+            return False                # packet-off path keeps its existing evidence chain
+        if str(point["instance_id"]) != str(player.get("instance_id")):
+            return True
+        pz = number(player.get("z")) if player.get("z_observed") is True else None
+        return (math.hypot(point["x"]-px, point["y"]-py) > LOOT_RANGE_YARDS
+                or pz is not None and abs(point["z"]-pz) > FLOOR_YARDS)
 
     @staticmethod
     def _corpse_view(state: dict, corpse: dict):

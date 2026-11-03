@@ -507,7 +507,7 @@ def _cuda_available() -> bool:
         return bool(torch.cuda.is_available())
     except Exception:
         return False
-RUNTIME_SUBJECT_CONFIDENCE = .15
+from wowbot.vision_contracts import RUNTIME_SUBJECT_CONFIDENCE
 
 
 def default_runtime_model_path() -> Path:

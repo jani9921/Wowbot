@@ -79,4 +79,8 @@ class EscortFollowPolicy:
         if self.handle_combat(state):
             return []
         following = self.follow(objective, record, state)
-        return [following] if following is not None else [self.reacquire(objective, record)]
+        if following is None:
+            from .server_mode import server_profile
+            # SERVER: escort_planning.EscortPolicy follows the server unit.
+            return [] if server_profile(state) else [self.reacquire(objective, record)]
+        return [following]

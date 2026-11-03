@@ -1,0 +1,43 @@
+..FF...F................................                                 [100%]
+================================== FAILURES ===================================
+_ test_only_selected_owned_item_or_container_create_fields_are_normalized[False] _
+
+bag = False
+
+    @pytest.mark.parametrize('bag',[False,True])
+    def test_only_selected_owned_item_or_container_create_fields_are_normalized(bag):
+        _,values=events(item_payload(low=124 if bag else 123,bag=bag))
+>       event=next(e for e in values if e.event_type=='OWN_ITEM_UPDATE')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\test_native_inventory_20261030.py:83: StopIteration
+_ test_only_selected_owned_item_or_container_create_fields_are_normalized[True] _
+
+bag = True
+
+    @pytest.mark.parametrize('bag',[False,True])
+    def test_only_selected_owned_item_or_container_create_fields_are_normalized(bag):
+        _,values=events(item_payload(low=124 if bag else 123,bag=bag))
+>       event=next(e for e in values if e.event_type=='OWN_ITEM_UPDATE')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\test_native_inventory_20261030.py:83: StopIteration
+_ test_unreviewed_item_delta_invalidates_previous_count_without_reading_private_fields _
+
+    def test_unreviewed_item_delta_invalidates_previous_count_without_reading_private_fields():
+        decoder,_=events(item_payload())
+        body=b'\0'+packed(ITEM)+struct.pack('<I',1)+b'\xff'
+        packet=struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(body))+body
+        _,values=events(packet,decoder)
+>       removed=next(e for e in values if e.event_type=='OWN_ITEM_REMOVED')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\test_native_inventory_20261030.py:103: StopIteration
+=========================== short test summary info ===========================
+FAILED tests/test_native_inventory_20261030.py::test_only_selected_owned_item_or_container_create_fields_are_normalized[False]
+FAILED tests/test_native_inventory_20261030.py::test_only_selected_owned_item_or_container_create_fields_are_normalized[True]
+FAILED tests/test_native_inventory_20261030.py::test_unreviewed_item_delta_invalidates_previous_count_without_reading_private_fields
+3 failed, 37 passed in 0.88s

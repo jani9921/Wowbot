@@ -1,0 +1,33 @@
+{
+  "logins": [
+    {
+      "record": 233,
+      "connection": 0,
+      "time": 1793375853.8615048
+    }
+  ],
+  "world_verifications": [
+    {
+      "record": 314,
+      "connection": 1,
+      "time": 1793375854.6370401
+    }
+  ],
+  "own_public_creates": [
+    {
+      "record": 9327,
+      "connection": 1,
+      "time": 1793375854.665075,
+      "object_type": 7,
+      "this_is_you": true,
+      "map_id": 0,
+      "matches_pending_login": true
+    }
+  ],
+  "counts": {
+    "object_records_read": 72
+  },
+  "raw_records_exported": false,
+  "auth_or_keys_decoded": false,
+  "private_player_fields_requested": false
+}

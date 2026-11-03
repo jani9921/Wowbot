@@ -108,7 +108,7 @@ class WorldSnapshotProjection:
         def newest_active_at(entries):
             newest = None
             for item in entries:
-                if item.expires >= now and (newest is None or item.at > newest):
+                if item.is_fresh(now) and (newest is None or item.at > newest):
                     newest = item.at
             return newest
         live_keys = ((newest, key) for key, entries in model.evidence.items()

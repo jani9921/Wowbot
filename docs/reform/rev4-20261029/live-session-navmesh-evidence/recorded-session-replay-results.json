@@ -1,0 +1,34 @@
+{
+  "source_file": "dump_12.1.0.70575_2026-10-30_17-04-33.pkt",
+  "baselines": [
+    {
+      "record": 9308,
+      "world_connection": 1,
+      "layout": "WPP_12_1_SESSION_REVIEWED_V2",
+      "map": 0,
+      "verified_semantics": true,
+      "provider_accepted": true
+    }
+  ],
+  "semantic_counts": {
+    "SESSION_BASELINE": 1,
+    "OWN_INVENTORY_ROOTS": 1,
+    "OWN_QUEST_LOG_UPDATE": 1,
+    "OWN_PROFILE_UPDATE": 1,
+    "OWN_UNIT_UPDATE": 1,
+    "ENTITY_CREATED": 176,
+    "OWN_INVENTORY_INVALIDATED": 8,
+    "OWN_QUEST_LOG_INVALIDATED": 2,
+    "OWN_ITEM_UPDATE": 11,
+    "ENTITY_REMOVED": 33,
+    "OWN_ITEM_REMOVED": 11,
+    "ENTITY_FLAGS": 76,
+    "ENTITY_UNIT_UPDATE": 50
+  },
+  "provider_state": "READY",
+  "collection_decode_failures": 0,
+  "partial_trailing_record_bytes": 0,
+  "raw_payload_exported": false,
+  "auth_or_keys_decoded": false,
+  "new_live_acceptance": false
+}

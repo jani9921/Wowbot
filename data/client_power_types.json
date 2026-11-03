@@ -1,0 +1,157 @@
+{
+  "schema": "aipc.power-reference.v1",
+  "source_sha256": "0674639fc2a69e87c7d2f2b46178a1dc8ed86b0d6cf48d97cfda059814d96703",
+  "definition_sha256": "7ad0174a351fae5b7d896874b6e5ecc3694954ade3fac71f78e7ea757218422a",
+  "layout_hash": "14BBEEA1",
+  "schema_label": "WOWSTATIC_12_1_0_68914",
+  "live_build_verified": false,
+  "rows": [
+    {
+      "id": 1,
+      "power_type": 0,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "MANA"
+    },
+    {
+      "id": 2,
+      "power_type": 1,
+      "display_modifier": 10,
+      "minimum_raw": 0,
+      "token": "RAGE"
+    },
+    {
+      "id": 3,
+      "power_type": 2,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "FOCUS"
+    },
+    {
+      "id": 4,
+      "power_type": 3,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ENERGY"
+    },
+    {
+      "id": 5,
+      "power_type": 4,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "COMBO_POINTS"
+    },
+    {
+      "id": 6,
+      "power_type": 5,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "RUNES"
+    },
+    {
+      "id": 7,
+      "power_type": 6,
+      "display_modifier": 10,
+      "minimum_raw": 0,
+      "token": "RUNIC_POWER"
+    },
+    {
+      "id": 8,
+      "power_type": 7,
+      "display_modifier": 10,
+      "minimum_raw": 0,
+      "token": "SOUL_SHARDS"
+    },
+    {
+      "id": 9,
+      "power_type": 8,
+      "display_modifier": 10,
+      "minimum_raw": 0,
+      "token": "LUNAR_POWER"
+    },
+    {
+      "id": 10,
+      "power_type": 9,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "HOLY_POWER"
+    },
+    {
+      "id": 12,
+      "power_type": 10,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ALTERNATE"
+    },
+    {
+      "id": 13,
+      "power_type": 11,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "MAELSTROM"
+    },
+    {
+      "id": 14,
+      "power_type": 12,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "CHI"
+    },
+    {
+      "id": 19,
+      "power_type": 13,
+      "display_modifier": 100,
+      "minimum_raw": 0,
+      "token": "INSANITY"
+    },
+    {
+      "id": 16,
+      "power_type": 16,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ARCANE_CHARGES"
+    },
+    {
+      "id": 17,
+      "power_type": 17,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "FURY"
+    },
+    {
+      "id": 18,
+      "power_type": 18,
+      "display_modifier": 10,
+      "minimum_raw": 0,
+      "token": "PAIN"
+    },
+    {
+      "id": 130,
+      "power_type": 19,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ESSENCE"
+    },
+    {
+      "id": 143,
+      "power_type": 23,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ALTERNATE"
+    },
+    {
+      "id": 144,
+      "power_type": 24,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ALTERNATE"
+    },
+    {
+      "id": 142,
+      "power_type": 25,
+      "display_modifier": 1,
+      "minimum_raw": 0,
+      "token": "ALTERNATE"
+    }
+  ]
+}

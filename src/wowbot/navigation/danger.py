@@ -18,6 +18,9 @@ class DangerEntry:
     expires_at: float
     source: str
     entity_id: str | None = None
+    world_map_id: int | None = None
+    z: float | None = None
+    observed_at: float | None = None
 
 
 class DangerMap:
@@ -33,10 +36,11 @@ class DangerMap:
 
     def add(self, *, danger_id: str, kind: str, x: float, y: float, radius: float,
             cost: float, confidence: float, now: float, ttl: float, source: str,
-            entity_id: str | None = None) -> DangerEntry:
+            entity_id: str | None = None, world_map_id=None, z=None, observed_at=None) -> DangerEntry:
         entry = DangerEntry(str(danger_id), str(kind), float(x), float(y), max(.01, float(radius)),
                             max(0., float(cost)), max(0., min(1., float(confidence))),
-                            float(now), float(now) + max(.1, float(ttl)), str(source), entity_id)
+                            float(now), float(observed_at if observed_at is not None else now) + max(.1, float(ttl)), str(source), entity_id,
+                            world_map_id, z if type(z) in {int, float} and math.isfinite(z) else None, observed_at)
         prior = self._entries.get(entry.danger_id)
         self._entries[entry.danger_id] = entry
         if (prior is None or prior.kind != entry.kind
@@ -61,13 +65,16 @@ class DangerMap:
             confidence = float(row.get("identity_confidence") or row.get("confidence") or .5)
             self.add(danger_id=f"hostile:{entity_id or round(x, 1), round(y, 1)}", kind="HOSTILE_AGGRO",
                      x=x, y=y, radius=float(row.get("aggro_radius") or 10.), cost=6.,
-                     confidence=confidence, now=now, ttl=8., source="ADDON_TELEMETRY",
-                     entity_id=entity_id)
+                     confidence=confidence, now=now, ttl=8., source=str(row.get('source') or 'ADDON_TELEMETRY'),
+                     entity_id=entity_id, world_map_id=pos.get('instance_id'), z=pos.get('z'),
+                     observed_at=pos.get('sample_time', row.get('sample_time')))
 
-    def cost_at(self, x: float, y: float, now: float, *, exempt_entity_id: str | None = None) -> float:
+    def cost_at(self, x: float, y: float, now: float, *, exempt_entity_id: str | None = None, z=None) -> float:
         self._expire(now)
         total = 0.
         for entry in self._entries.values():
+            if type(z) in {int, float} and entry.z is not None and abs(z-entry.z) > 6.:
+                continue
             if exempt_entity_id and entry.entity_id == exempt_entity_id:
                 continue
             distance = math.hypot(float(x) - entry.x, float(y) - entry.y)
@@ -90,8 +97,32 @@ class DangerMap:
         return tuple(entry for entry in sorted(self._entries.values(), key=lambda row: row.danger_id)
                      if not exempt_entity_id or entry.entity_id != exempt_entity_id)
 
+    HOSTILE_KINDS = frozenset({"HOSTILE_AGGRO", "HOSTILE_SPAWN", "ELITE_SPAWN", "RARE_SPAWN", "HOSTILE_CLUSTER"})
+
+    def corridor_hostiles(self, anchors, now: float, *, exempt_entity_id: str | None = None) -> tuple[DangerEntry, ...]:
+        """Hostile entries whose aggro radius the route crosses on its own floor
+        (design spec 31.2: exposure along the corridor, not a bare mob count)."""
+        hits = []
+        for entry in self.active_entries(now, exempt_entity_id=exempt_entity_id):
+            if entry.kind not in self.HOSTILE_KINDS:
+                continue
+            for start, end in zip(anchors, anchors[1:]):
+                if self._segment_distance(start, end, entry.x, entry.y) >= entry.radius:
+                    continue
+                heights = [p.get('z') for p in (start, end)]
+                if (entry.z is not None and all(type(z) in {int, float} for z in heights)
+                        and (entry.z < min(heights)-6. or entry.z > max(heights)+6.)):
+                    continue
+                hits.append(entry)
+                break
+        return tuple(hits)
+
     def has_navigation_failures(self, now: float) -> bool:
         return any(entry.kind == "NAVIGATION_FAILURE" for entry in self.active_entries(now))
+
+    def has_kinds(self, now: float, kinds, *, exempt_entity_id: str | None = None) -> bool:
+        return any(entry.kind in kinds
+                   for entry in self.active_entries(now, exempt_entity_id=exempt_entity_id))
 
     def route_cost(self, anchors: tuple[dict, ...] | list[dict], now: float, *,
                    exempt_entity_id: str | None = None) -> float:
@@ -113,7 +144,9 @@ class DangerMap:
                 fraction = index/samples
                 x = float(left["x"]) + dx*fraction
                 y = float(left["y"]) + dy*fraction
-                total += self.cost_at(x, y, now, exempt_entity_id=exempt_entity_id) * length/samples
+                z = (left['z']+(right['z']-left['z'])*fraction
+                     if all(type(p.get('z')) in {int, float} for p in (left, right)) else None)
+                total += self.cost_at(x, y, now, exempt_entity_id=exempt_entity_id, z=z) * length/samples
         return total
 
     DETOUR_SCALES = (1.0, 1.6, 2.3)
@@ -133,7 +166,9 @@ class DangerMap:
         for end in anchors[1:]:
             start = result[-1]
             hazards = [entry for entry in active
-                       if self._segment_distance(start, end, entry.x, entry.y) < entry.radius]
+                       if self._segment_distance(start, end, entry.x, entry.y) < entry.radius
+                       and not (entry.z is not None and all(type(p.get('z')) in {int, float} for p in (start, end))
+                                and (entry.z < min(start['z'], end['z'])-6. or entry.z > max(start['z'], end['z'])+6.))]
             for entry in hazards:
                 dx, dy = float(end["x"])-float(start["x"]), float(end["y"])-float(start["y"])
                 length = math.hypot(dx, dy)

@@ -1,0 +1,183 @@
+{
+  "provenance": {
+    "kind": "MINIMIZED_USER_RUN_SNAPSHOT",
+    "source": "telemetry-20261028-155532.2.jsonl",
+    "line": 93,
+    "quest_id": 26389,
+    "item_id": 58361,
+    "entry": 42937,
+    "scope": "selected live target, item-source reference and public range; no execution replay"
+  },
+  "state": {
+    "timestamp": 1793199919,
+    "monotonic_time": 1169343.52,
+    "map_id": 425,
+    "orientation": 2.492395401001,
+    "player_world_position": {
+      "coordinate_space": "WORLD_YARDS",
+      "instance_id": 0,
+      "sample_time": 1169343.52,
+      "source": "C_MAP_PLAYER_WORLD_POS",
+      "ui_map_id": 425,
+      "x": -9017.2451171875,
+      "y": -280.30206298828,
+      "z_known": true,
+      "z_source": "PACKET_CLIENT_MOVEMENT_HELD",
+      "z": 71.7717056274414,
+      "z_observed": true
+    },
+    "is_in_combat": false,
+    "is_casting": false,
+    "player_present": true,
+    "target": {
+      "attackable": true,
+      "dead": false,
+      "guid": "Creature-0-3770-0-39-42937-0000620D30",
+      "name": "Blackrock Invader",
+      "npc_id": 42937,
+      "world_position": false,
+      "interact_near": false
+    },
+    "actionbar": [
+      {
+        "id": 1464,
+        "action": "ACTIONBUTTON1",
+        "kind": "spell",
+        "is_harmful": true,
+        "is_usable": false,
+        "in_range": false,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 100,
+        "action": "ACTIONBUTTON2",
+        "kind": "spell",
+        "is_harmful": true,
+        "is_usable": true,
+        "in_range": true,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 23922,
+        "action": "ACTIONBUTTON3",
+        "kind": "spell",
+        "is_harmful": true,
+        "is_usable": true,
+        "in_range": false,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 1715,
+        "action": "ACTIONBUTTON4",
+        "kind": "spell",
+        "is_harmful": true,
+        "is_usable": false,
+        "in_range": false,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 59752,
+        "action": "ACTIONBUTTON10",
+        "kind": "spell",
+        "is_usable": true,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 1231411,
+        "action": "ACTIONBUTTON11",
+        "kind": "spell",
+        "is_usable": true,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 88163,
+        "kind": "spell",
+        "is_usable": true,
+        "cooldown_remaining": 0
+      },
+      {
+        "id": 59752,
+        "kind": "spell",
+        "is_usable": true,
+        "cooldown_remaining": 0
+      }
+    ],
+    "session_id": "recorded-blackrock-handoff",
+    "active_quests": [
+      {
+        "is_accepted": true,
+        "is_campaign": false,
+        "is_complete": false,
+        "level": 4,
+        "objectives": [
+          {
+            "current": 0,
+            "description": "0/8 Blackrock Orc Weapon",
+            "is_complete": false,
+            "raw_type": "item",
+            "required": 8,
+            "type": "COLLECT",
+            "type_source": "QUEST_API_NORMALIZATION"
+          }
+        ],
+        "quest_id": 26389,
+        "suggested_group": 0,
+        "title": "Blackrock Invasion"
+      }
+    ],
+    "reference_knowledge": {
+      "quests": {
+        "26389": {
+          "quest_id": 26389,
+          "objectives": [
+            {
+              "amount": 8,
+              "credit_kind": "ITEM",
+              "credit_object_id": 58361,
+              "description": "",
+              "item_sources": [
+                {
+                  "confirmed": false,
+                  "entry": 42937,
+                  "item_id": 58361,
+                  "kind": "CREATURE",
+                  "metadata": {
+                    "CreatureEntry": 42937,
+                    "DifficultyID": 0,
+                    "Idx": 0,
+                    "ItemId": 58361,
+                    "VerifiedBuild": 69497
+                  },
+                  "relation": "QUEST_ITEM_ASSOCIATION"
+                },
+                {
+                  "confirmed": false,
+                  "entry": 42937,
+                  "item_id": 58361,
+                  "kind": "CREATURE",
+                  "metadata": {
+                    "CreatureEntry": 42937,
+                    "DifficultyID": 1,
+                    "Idx": 0,
+                    "ItemId": 58361,
+                    "VerifiedBuild": 58187
+                  },
+                  "relation": "QUEST_ITEM_ASSOCIATION"
+                }
+              ],
+              "item_uses": [],
+              "mechanism": "COLLECT_DROP",
+              "mechanism_tags": [],
+              "objective_id": 265960,
+              "order": 0,
+              "parent_objective_id": 0,
+              "raw_type": 1,
+              "storage_index": 0,
+              "verified_build": 69497
+            }
+          ]
+        }
+      }
+    }
+  }
+}

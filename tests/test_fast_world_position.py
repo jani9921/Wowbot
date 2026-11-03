@@ -79,8 +79,9 @@ def test_assembler_restores_sample_times_and_stamps_position_measurements():
         "monotonic_time": 11.5, "map_id": 1409, "mouseover": False, "target": False,
         "player_world_position": {"x": -405.73, "y": -2604.61, "instance_id": 2175,
                                   "coordinate_space": "WORLD_YARDS"}}), 11.5)
-    for key in ("target_sample_time", "mouseover_sample_time", "cursor_sample_time"):
+    for key in ("target_sample_time", "mouseover_sample_time"):
         assert fast[key] == 11.5
+    assert "cursor_sample_time" not in fast  # omitted field was not measured
     assert fast["player_world_position"] == {
         "x": -405.73, "y": -2604.61, "instance_id": 2175, "coordinate_space": "WORLD_YARDS",
         "source": "C_MAP_PLAYER_WORLD_POS", "ui_map_id": 1409, "z_known": False,

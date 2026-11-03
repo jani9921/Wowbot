@@ -39,8 +39,9 @@ class SkillExecutor:
     """
 
     _MOVEMENT = frozenset({"MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"})
+    MAX_EVENT_WAIT_SECONDS = 90.
     _DEFERRED_M0 = frozenset({
-        "COMBAT", "DEFEND", "WAIT_EVENT", "LOOT", "OBJECT_USE", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION",
+        "COMBAT", "DEFEND", "WAIT_EVENT", "REST", "LOOT", "OBJECT_USE", "QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION",
         "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"})
     _EMPTY_START_ALLOWED = _MOVEMENT | _DEFERRED_M0 | frozenset({
         "SEEK_VISUAL_CUE", "VISUAL_APPROACH"})
@@ -92,9 +93,13 @@ class SkillExecutor:
         if self.m0_skills.handles(skill):
             return self.m0_skills.begin(active_state, world_state, now)
         if skill == "SEEK_VISUAL_CUE":
+            if self.search_skill is None:
+                return SkillResult(SkillStatus.FAILURE, metadata={'reason': 'visual_capability_disabled'}, replan_required=True)
             return self.search_skill.begin(
                 active_state, world_state, visual_observation_id, now)
         if skill == "VISUAL_APPROACH":
+            if self.visual_approach_skill is None:
+                return SkillResult(SkillStatus.FAILURE, metadata={'reason': 'visual_capability_disabled'}, replan_required=True)
             return self.visual_approach_skill.begin(
                 active_state, world_state, visual_observation_id, now)
         return SkillResult(SkillStatus.RUNNING, commands=prepared_commands)
@@ -106,8 +111,8 @@ class SkillExecutor:
         contract = self.registry.contracts[proposal.skill]
         base_timeout = (
             self.navigation.max_reach_seconds if proposal.skill in self._MOVEMENT
-            else self.visual_approach_skill.max_seconds if proposal.skill == "VISUAL_APPROACH"
-            else self.search_skill.max_seconds if proposal.skill == "SEEK_VISUAL_CUE"
+            else self.visual_approach_skill.max_seconds if proposal.skill == "VISUAL_APPROACH" and self.visual_approach_skill is not None
+            else self.search_skill.max_seconds if proposal.skill == "SEEK_VISUAL_CUE" and self.search_skill is not None
             else contract.timeout)
         base_timeout = timeouts.resolve(proposal.skill, base_timeout, world.state)
         timing = (memory.verification_window(
@@ -115,6 +120,37 @@ class SkillExecutor:
                   if memory else {"earliest": .05, "likely_start": .1,
                                   "likely_end": base_timeout*.7, "deadline": base_timeout})
         deadline = now + timing["deadline"]
+        response_window = 0.
+        if (proposal.skill == "QUEST_DIALOG"
+                and proposal.parameters.get("action") == "GOSSIP_OPTION_SELECT"
+                and proposal.parameters.get("gossip_transition") == "QUEST_PROGRESS"):
+            # A spoken/scripted conversation may replace its NPC GUID and
+            # award credit only when its dialogue finishes (live: ~24 s).
+            # Input-free wait, not a new interaction after the old 10 s limit.
+            response_window = 45.
+        if (proposal.skill == "QUEST_DIALOG"
+                and proposal.parameters.get("gossip_transition") == "SCENE_START"):
+            response_window = 10.          # the server roots/teleports, then plays the scene
+        if ((proposal.skill == "INTERACT" and proposal.parameters.get("interaction_kind") == "RIDE")
+                or (proposal.skill == "VEHICLE_ABILITY" and proposal.parameters.get("require_objective_progress"))):
+            response_window = 6.
+        if proposal.skill == "DISMOUNT":
+            response_window = 5.
+        if (proposal.skill == "USE_ON_TARGET"
+                and proposal.parameters.get("purpose") == "DIRECTED_QUEST_ITEM"):
+            from wowbot.agent.directed_item_facts import credit_window
+            response_window = credit_window(world.state, proposal.parameters)
+        if response_window and not world.state.get("loading") and not world.state.get("input_blocked"):
+            # Learned short timings must not erase the evidence-assembly
+            # window. Safety transitions still belong to the Supervisor.
+            deadline = max(deadline, now + response_window)
+        wait_seconds = proposal.parameters.get("wait_seconds") if proposal.skill == "WAIT_EVENT" else None
+        if (type(wait_seconds) in {int, float} and not world.state.get("loading")
+                and not world.state.get("input_blocked")):
+            # A known-long stationary event (a scripted ride, live 2026-10-20:
+            # 52 s) asks for its window; a 15 s timeout failed it and the
+            # failure memory let searches/turns run mid-ride.  Bounded.
+            deadline = max(deadline, now + min(self.MAX_EVENT_WAIT_SECONDS, float(wait_seconds)))
         prediction = Prediction(
             uuid.uuid4().hex, action_id, contract.expected, now, deadline,
             world.latest.observation_id, confidence=proposal.confidence,

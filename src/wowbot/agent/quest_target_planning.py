@@ -10,6 +10,7 @@ from .models import Goal, Proposal, number
 from .planning_types import world_point
 from .world import WorldModel
 from .target_planning import interaction_out_of_range, is_player_unit
+from .server_mode import server_profile
 
 
 class QuestSelectedTargetMixin:
@@ -48,9 +49,16 @@ class QuestSelectedTargetMixin:
                                     or (target.get("npc_id") is not None
                                         and guid.startswith(("Creature-", "Vehicle-")))
                                     or bool(target.get("name")))
-            if interaction_out_of_range(state) and guid:
+            range_error = interaction_out_of_range(state)
+            error_at = number(state.get("ui_error_at"))
+            verified_at = number(self.approach_verified_at.get(guid))
+            if error_at is not None and verified_at is not None and error_at <= verified_at:
+                # The old error stays on the strip for 3 s. A NEW approach
+                # already addressed it; don't recreate a zero-motion loop.
+                range_error = False
+            if range_error and guid:
                 self.out_of_range_at[guid] = state_time
-            if (interaction_out_of_range(state) and guid
+            if (range_error and guid
                     and guid not in self.interaction_range_blocks):
                 self.interaction_range_blocks[guid] = {
                     "started_at": state_time,
@@ -150,7 +158,10 @@ class QuestSelectedTargetMixin:
                      "map_id": state.get("map_id"), "stop_distance": stop_distance,
                      "range_block_started_at": block.get("started_at")},
                     priority=100))
-            elif block and distance is None and anchor_fresh:
+            elif block and distance is None and anchor_fresh and self._blocked_approach_recovery(
+                    world, guid, result):
+                return result
+            elif block and distance is None and anchor_fresh and not server_profile(state):
                 # The selected friendly unit has explicitly returned a range
                 # error, while its identity and last 3D anchor are known.  Keep
                 # the target commitment and approach it in screen space before
@@ -224,7 +235,9 @@ class QuestSelectedTargetMixin:
                 seen_before = (number(stale.get("x")) is not None
                                and number(stale.get("y")) is not None
                                and 0 < float(stale["x"]) < 1 and 0 < float(stale["y"]) < 1)
-                if seen_before and str(commitment.get("target_guid") or "") == str(guid):
+                if server_profile(state):
+                    pass                   # no camera reacquisition / look-around
+                elif seen_before and str(commitment.get("target_guid") or "") == str(guid):
                     result.append(Proposal.make(
                         "REACQUIRE_TARGET",
                         "Kijelölt, de képen kívüli target visszahozása a képbe (utolsó ismert irány)",
@@ -312,6 +325,26 @@ class QuestSelectedTargetMixin:
                     {"guid": target.get("guid")},
                     priority=92 if self._turn_in_candidate(state, target) else 70))
         return None
+
+    BLOCKED_APPROACH_STEPS = ("JUMP_FORWARD", "STRAFE")
+
+    def _blocked_approach_recovery(self, world, guid: str, result: list) -> bool:
+        """The last approach to ``guid`` ran on the spot (a root, a fence):
+        jump forward, then sidestep, before approaching it again."""
+        last = (world.runtime_context.get("last_result") or {}) if hasattr(world, "runtime_context") else {}
+        counts = self.__dict__.setdefault("approach_blocked_recoveries", {})
+        if last.get("skill") == "VISUAL_APPROACH" and last.get("outcome") == "SUCCESS":
+            counts.pop(guid, None)
+        attempt = counts.get(guid, 0)
+        if (last.get("skill") != "VISUAL_APPROACH" or last.get("reason") != "visual_approach_blocked"
+                or attempt >= len(self.BLOCKED_APPROACH_STEPS)):
+            return False
+        counts[guid] = attempt + 1
+        result.append(Proposal.make(
+            "RECOVER", "A közelítés elakadt (pl. gyökér): átugrás/kitérés, utána újra közelítés",
+            {"recovery_step": self.BLOCKED_APPROACH_STEPS[attempt], "attempt": attempt, "guid": guid,
+             "reason": "visual_approach_blocked"}, priority=104))
+        return True
 
     def _turn_in_candidate(self, state: dict, target: dict) -> bool:
         """A selected friendly unit that is plausibly a completed quest's ender.

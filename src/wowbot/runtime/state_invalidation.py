@@ -11,6 +11,7 @@ class InvalidationEvent(StrEnum):
     LOADING = "LOADING"
     TELEPORT = "TELEPORT"
     MAP_CONTEXT = "MAP_CONTEXT"
+    UI_MAP = "UI_MAP"
     DEATH = "DEATH"
     PHASE = "PHASE"
     FLOOR = "FLOOR"
@@ -52,6 +53,18 @@ class StateInvalidationPolicy:
         InvalidationEvent.LOADING: _CONTEXT_RESET,
         InvalidationEvent.TELEPORT: _CONTEXT_RESET,
         InvalidationEvent.MAP_CONTEXT: _CONTEXT_RESET,
+        # Live 2026-10-31 02:09-02:12 (Fargodeep Mine entrance): the client's
+        # UI map flipped between Elwynn (37) and the mine (39) every few
+        # seconds while the character stood at one spot of the same world.
+        # Each flip cancelled the MOVE and reset navigation (the tracked own
+        # floor with it); the agent stood still for minutes.  An indoor /
+        # outdoor UI-map step in one world is no world, floor or session
+        # boundary: only the UI-map-derived views are refreshed.
+        InvalidationEvent.UI_MAP: dict(
+            cancel_active=False, reset_navigation=False,
+            clear_visual_context=True, reset_camera=False,
+            reset_commitment=False, reset_map_search=True,
+            invalidate_objective=False),
         InvalidationEvent.DEATH: _CONTEXT_RESET,
         InvalidationEvent.PHASE: _CONTEXT_RESET,
         InvalidationEvent.FLOOR: _CONTEXT_RESET,
@@ -72,10 +85,15 @@ class StateInvalidationPolicy:
             for quest in quests for objective in (quest.get("objectives") or [])))
         position = state.get("player_world_position") or {}
         map_position = state.get("position") or {}
+        sample_time = position.get("sample_time", state.get("monotonic_time"))
         return {
+            "airborne": bool((state.get("movement") or {}).get("flying")
+                             or (state.get("packet_flight") or {}).get("adv_flying")),
+            "position_time": sample_time if type(sample_time) in {int, float} else None,
             "objective_signature": objectives,
             "loading": bool(state.get("loading")),
             "map_id": state.get("map_id"),
+            "instance": position.get("instance_id"),
             "position": (position.get("x"), position.get("y"), position.get("z")),
             "map_position": (map_position.get("x"), map_position.get("y")),
             "dead": bool(state.get("is_dead")),
@@ -110,21 +128,53 @@ class StateInvalidationPolicy:
                            ("vehicle", InvalidationEvent.VEHICLE)):
             before, after = previous[key], current[key]
             if before is not None and after is not None and before != after:
+                if event is InvalidationEvent.MAP_CONTEXT and self._same_world_ui_step(previous, current):
+                    event = InvalidationEvent.UI_MAP
                 events.append(event)
         if (InvalidationEvent.MAP_CONTEXT not in events and not current["loading"]
                 and self._teleported(previous["position"], current["position"],
                                      previous.get("map_position"),
-                                     current.get("map_position"))):
+                                     current.get("map_position"),
+                                     limit=self._jump_limit(previous, current))):
             events.append(InvalidationEvent.TELEPORT)
         return tuple(dict.fromkeys(events))
 
+    @classmethod
+    def _same_world_ui_step(cls, previous: dict, current: dict) -> bool:
+        """A UI-map change inside one known world instance without a jump."""
+        before, after = previous.get("instance"), current.get("instance")
+        if before is None or after is None or str(before) != str(after) or current["loading"]:
+            return False
+        start, end = previous["position"], current["position"]
+        if not start or not end or None in start[:2] or None in end[:2]:
+            return False
+        return not cls._teleported(start, end, limit=cls._jump_limit(previous, current))
+
+    TELEPORT_YARDS = 50.
+    # Live 2026-10-25 (Skyriding, 65-90 yd/s): one medium tick apart a glide
+    # moved more than 50 yd, every such "teleport" cancelled the course MOVE
+    # and reset navigation (the flight controller with it).  In the air the
+    # jump must exceed what flight covers in the elapsed time.
+    FLIGHT_YARDS_PER_SECOND = 100.
+    FLIGHT_MARGIN_YARDS = 30.
+    FLIGHT_UNKNOWN_ELAPSED = 3.
+
+    @classmethod
+    def _jump_limit(cls, previous: dict, current: dict) -> float:
+        if not (previous.get("airborne") or current.get("airborne")):
+            return cls.TELEPORT_YARDS
+        before, after = previous.get("position_time"), current.get("position_time")
+        elapsed = (after-before if before is not None and after is not None and after > before
+                   else cls.FLIGHT_UNKNOWN_ELAPSED)
+        return max(cls.TELEPORT_YARDS, cls.FLIGHT_YARDS_PER_SECOND*elapsed + cls.FLIGHT_MARGIN_YARDS)
+
     @staticmethod
-    def _teleported(before, after, before_map=None, after_map=None) -> bool:
+    def _teleported(before, after, before_map=None, after_map=None, *, limit: float = 50.) -> bool:
         if not before or not after or None in before[:2] or None in after[:2]:
             return False
         world_jump = math.hypot(float(after[0])-float(before[0]),
                                 float(after[1])-float(before[1]))
-        if world_jump < 50.:
+        if world_jump < limit:
             return False
         # Live 2026-09-23: the derived WORLD_YARDS source corrected itself by
         # 119 yd while the independently sampled normalized C_Map position was

@@ -1,0 +1,272 @@
+[
+  {
+    "file": "output/agent/pid-10152/agent_status.json",
+    "source_sha256": "0331d54826134c8cf8987713aeaa0cadd134e22b75d7ab8b759a078ff097dfac",
+    "mode": "STOPPED",
+    "last_result": {
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "facing_failed",
+      "failure_type": "PATH_BLOCKED",
+      "purpose": "APPROACH_SERVER_KILL_TARGET"
+    },
+    "navmesh": {
+      "configured": true,
+      "available": true,
+      "router": "native_detour",
+      "instance_id": 0,
+      "tile_count": 844,
+      "endpoint_layer": "known",
+      "allowed_flags": 19,
+      "max_walkable_slope_degrees": 44.0,
+      "walking_policy": "GEOMETRY_GENTLE_WIDE",
+      "road_labels": false,
+      "native_walking_costs": true,
+      "emitted_segment_grade_checked": true,
+      "step_height_allowance_yards": 0.6,
+      "centered_margin": 2.5,
+      "walking_detour_verified": false,
+      "walking_detour_trials": 0,
+      "liquid_wading": true,
+      "wade_max_depth": 1.6,
+      "wade_pass": "MAPS",
+      "wade_cells_measured": 0,
+      "wade_newly_marked": 0,
+      "wade_marked_total": 105,
+      "wade_deferred": 12,
+      "reason": "route_found",
+      "route_polygon_count": 3,
+      "anchor_count": 3,
+      "cost": 18.645385568546438,
+      "wade_yards": 0.0,
+      "steep_climbs": 0,
+      "maps_configured": true,
+      "vmaps_configured": true,
+      "vmap_query_status": "VERTICAL_SURFACES"
+    },
+    "packet": {
+      "status": "closed",
+      "received": 2372,
+      "rejected": 36,
+      "dropped": 0,
+      "coalesced": 205,
+      "delivery_losses": null,
+      "delivery_loss_reason": null,
+      "delivery": null,
+      "context_status": "ready",
+      "last_error": "invalid_or_out_of_scope_packet"
+    },
+    "provider": {
+      "state": "READY",
+      "source": "ADDON_MIGRATION",
+      "reason": "ready",
+      "capture_epoch": null,
+      "packet_rebaseline_required": null
+    }
+  },
+  {
+    "file": "output/agent/pid-6856/agent_status.json",
+    "source_sha256": "9307006eaac5a69af80e3c8311064255628e584e2f9d54e987254c4c49cd9d3d",
+    "mode": "STOPPED",
+    "last_result": {
+      "skill": "LOOT",
+      "outcome": "SUCCESS",
+      "reason": "loot_verified",
+      "failure_type": null,
+      "purpose": null
+    },
+    "navmesh": {
+      "configured": true,
+      "available": true,
+      "router": "native_detour",
+      "instance_id": 0,
+      "tile_count": 844,
+      "endpoint_layer": "known",
+      "allowed_flags": 19,
+      "max_walkable_slope_degrees": 44.0,
+      "walking_policy": "GEOMETRY_GENTLE_WIDE",
+      "road_labels": false,
+      "native_walking_costs": true,
+      "emitted_segment_grade_checked": true,
+      "step_height_allowance_yards": 0.6,
+      "centered_margin": 2.5,
+      "walking_detour_verified": false,
+      "walking_detour_trials": 0,
+      "liquid_wading": true,
+      "wade_max_depth": 1.6,
+      "wade_pass": "MAPS",
+      "wade_cells_measured": 0,
+      "wade_newly_marked": 0,
+      "wade_marked_total": 105,
+      "wade_deferred": 12,
+      "reason": "route_found",
+      "route_polygon_count": 7,
+      "anchor_count": 7,
+      "cost": 38.474440732200975,
+      "wade_yards": 0.0,
+      "steep_climbs": 0,
+      "maps_configured": true,
+      "vmaps_configured": true,
+      "vmap_query_status": "VERTICAL_SURFACES"
+    },
+    "packet": {
+      "status": "closed",
+      "received": 2538,
+      "rejected": 2,
+      "dropped": 0,
+      "coalesced": 201,
+      "delivery_losses": null,
+      "delivery_loss_reason": null,
+      "delivery": null,
+      "context_status": "ready",
+      "last_error": "invalid_or_out_of_scope_packet"
+    },
+    "provider": {
+      "state": "READY",
+      "source": "ADDON_MIGRATION",
+      "reason": "ready",
+      "capture_epoch": null,
+      "packet_rebaseline_required": null
+    }
+  },
+  {
+    "file": "output/agent/pid-5408/agent_status.json",
+    "source_sha256": "01eab4b5a7178efa6cd7b964af143a01affa94ea4c55032aacdf6e3cdb13ba98",
+    "mode": "STOPPED",
+    "last_result": {
+      "skill": null,
+      "outcome": "CANCELLED",
+      "reason": "character_or_session_changed",
+      "failure_type": null,
+      "purpose": null
+    },
+    "navmesh": {
+      "configured": true,
+      "available": true,
+      "reason": "geometry_sources_ready",
+      "maps_configured": true,
+      "vmaps_configured": true,
+      "mmaps_configured": true,
+      "vmap_query_status": "VERTICAL_SURFACES"
+    },
+    "packet": {
+      "status": "closed",
+      "received": 1,
+      "rejected": 87,
+      "dropped": 0,
+      "coalesced": 0,
+      "delivery_losses": 1,
+      "delivery_loss_reason": "sequence_gap",
+      "delivery": {
+        "state": "UNSEEN",
+        "sender_id": null,
+        "sequence": 0,
+        "loss_generation": 1,
+        "last_loss": "sequence_gap"
+      },
+      "context_status": "ipc_delivery_discontinuity",
+      "last_error": "invalid_or_out_of_scope_packet"
+    },
+    "provider": {
+      "state": "GAP",
+      "source": "ADDON_MIGRATION",
+      "reason": "ipc_delivery_discontinuity",
+      "capture_epoch": null,
+      "packet_rebaseline_required": true
+    }
+  },
+  {
+    "file": "output/agent/pid-7592/agent_status.json",
+    "source_sha256": "436a3559e906598e687eee214a5be7ede2ee765773039b25d0afe440203fd969",
+    "mode": "STOPPED",
+    "last_result": {
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "required_navmesh_route_unavailable",
+      "failure_type": "PATH_BLOCKED",
+      "purpose": "APPROACH_SERVER_CORPSE"
+    },
+    "navmesh": {
+      "configured": true,
+      "geometry_status": "ERROR",
+      "reason": "map_parameters_invalid",
+      "available": false,
+      "instance_id": 0,
+      "maps_configured": true,
+      "vmaps_configured": true,
+      "vmap_query_status": "VERTICAL_SURFACES"
+    },
+    "packet": {
+      "status": "closed",
+      "received": 1371,
+      "rejected": 5,
+      "dropped": 0,
+      "coalesced": 37,
+      "delivery_losses": 0,
+      "delivery_loss_reason": null,
+      "delivery": {
+        "state": "UNSEEN",
+        "sender_id": null,
+        "sequence": 0,
+        "loss_generation": 0,
+        "last_loss": null
+      },
+      "context_status": "ready",
+      "last_error": "invalid_or_out_of_scope_packet"
+    },
+    "provider": {
+      "state": "READY",
+      "source": "ADDON_MIGRATION",
+      "reason": "ready",
+      "capture_epoch": null,
+      "packet_rebaseline_required": false
+    }
+  },
+  {
+    "file": "output/agent/pid-12912/agent_status.json",
+    "source_sha256": "0920d530e236344dd7ede7fd21f27cd48c1903f7631eda1969ea26fec695876b",
+    "mode": "FULL_AI",
+    "last_result": {
+      "skill": "MOVE",
+      "outcome": "FAILURE",
+      "reason": "required_navmesh_route_unavailable",
+      "failure_type": "PATH_BLOCKED",
+      "purpose": "LOCATE_QUEST_OBJECTIVE_REGION"
+    },
+    "navmesh": {
+      "configured": true,
+      "geometry_status": "ERROR",
+      "reason": "map_parameters_invalid",
+      "available": false,
+      "instance_id": 2444,
+      "maps_configured": true,
+      "vmaps_configured": true,
+      "vmap_query_status": "VERTICAL_SURFACES"
+    },
+    "packet": {
+      "status": "listening",
+      "received": 885,
+      "rejected": 0,
+      "dropped": 0,
+      "coalesced": 125,
+      "delivery_losses": 10,
+      "delivery_loss_reason": "queued_sample_expired",
+      "delivery": {
+        "state": "UNSEEN",
+        "sender_id": null,
+        "sequence": 0,
+        "loss_generation": 10,
+        "last_loss": "queued_sample_expired"
+      },
+      "context_status": "ipc_delivery_discontinuity",
+      "last_error": null
+    },
+    "provider": {
+      "state": "GAP",
+      "source": "ADDON_MIGRATION",
+      "reason": "ipc_delivery_discontinuity",
+      "capture_epoch": null,
+      "packet_rebaseline_required": true
+    }
+  }
+]

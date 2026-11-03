@@ -34,8 +34,12 @@ def _tile(flags=1) -> bytes:
     return struct.pack("<5I", MMAP_MAGIC, 7, 16, len(mesh), 1) + mesh
 
 
+def _map_header():
+    return struct.pack('<2I3f2f2iI',MMAP_MAGIC,16,0.,0.,0.,533.3333,533.3333,4096,32768,0)
+
+
 def test_trinity_mmap_routes_verified_world_yards_through_polygon_graph(tmp_path: Path):
-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
+    (tmp_path / "2175.mmap").write_bytes(_map_header())
     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
     navmesh = TrinityMMapNavMesh(tmp_path)
 
@@ -57,7 +61,7 @@ def test_trinity_mmap_routes_verified_world_yards_through_polygon_graph(tmp_path
 
 
 def test_default_walking_filter_does_not_route_over_water(tmp_path: Path):
-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
+    (tmp_path / "2175.mmap").write_bytes(_map_header())
     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile(flags=4))
     start = {"x": -449.7, "y": -2614.0, "z": 0.}
     end = {"x": -448.3, "y": -2614.0, "z": 0.}
@@ -74,7 +78,7 @@ def _graph_poly(key, x, height, z):
 
 
 def test_polygon_astar_avoids_live_unwalkable_45_degree_cliff(tmp_path: Path):
-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
+    (tmp_path / "2175.mmap").write_bytes(_map_header())
     navmesh = TrinityMMapNavMesh(tmp_path)
     start, cliff, detour_a, detour_b, destination = range(5)
     polygons = {
@@ -98,7 +102,7 @@ def test_polygon_astar_avoids_live_unwalkable_45_degree_cliff(tmp_path: Path):
 
 
 def test_player_xy_is_projected_to_a_navmesh_surface_height(tmp_path: Path):
-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
+    (tmp_path / "2175.mmap").write_bytes(_map_header())
     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
     navmesh = TrinityMMapNavMesh(tmp_path)
 
@@ -116,7 +120,7 @@ def test_player_xy_is_projected_to_a_navmesh_surface_height(tmp_path: Path):
 
 
 def test_surface_projection_reuses_bounded_spatial_index(tmp_path: Path):
-    (tmp_path / "2175.mmap").write_bytes(b"header-present")
+    (tmp_path / "2175.mmap").write_bytes(_map_header())
     (tmp_path / "2175_32_36.mmtile").write_bytes(_tile())
     navmesh = TrinityMMapNavMesh(tmp_path)
 

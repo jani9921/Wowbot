@@ -15,8 +15,11 @@ import math
 import os
 from pathlib import Path
 import struct
+import time
 from typing import Iterable
 import zipfile
+
+from .mmap_format import MMapFormatError, map_parameters, tile_mesh
 
 
 MMAP_MAGIC = 0x4D4D4150
@@ -27,6 +30,15 @@ NAV_GROUND = 0x01
 NAV_GROUND_STEEP = 0x02
 NAV_WATER = 0x04
 NAV_MAGMA_SLIME = 0x08
+NAV_LIQUID = NAV_WATER | NAV_MAGMA_SLIME
+# Project flag, never in a TrinityCore tile: a liquid polygon measured as
+# shallow enough to walk through (user 2026-10-22: "where the feet reach the
+# floor, no swimming").  Set only in the native Detour copy of a map.
+NAV_WADE = 0x10
+# Project flag (2026-10-23): a sloped polygon lying above the ADT terrain --
+# a built staircase, ramp or bridge.  The native v3 filter charges it a
+# quarter of the slope cost; terrain slopes keep the full cost.
+NAV_STRUCTURE = 0x20
 GRID_SIZE = 533.3333333333334
 SURFACE_BIN_SIZE = 8.0
 # Live Retail collision rejected a 45-degree mmap transition at the Quilboar
@@ -92,15 +104,25 @@ class TrinityMMapNavMesh:
 
     def __init__(self, source: str | Path, *, tile_padding: int = 1,
                  max_expansions: int = 250_000,
-                 allowed_flags: int = NAV_GROUND | NAV_GROUND_STEEP,
+                 allowed_flags: int = NAV_GROUND | NAV_GROUND_STEEP | NAV_WADE,
                  max_walkable_slope_degrees: float = DEFAULT_MAX_WALKABLE_SLOPE_DEGREES):
         self.source = MMapDataSource(source)
         self.tile_padding = max(0, int(tile_padding))
         self.max_expansions = max(1, int(max_expansions))
         # Player walking uses land/steep-land only. Swimming is a separate
         # capability and must be opted into explicitly; magma/slime is never
-        # silently treated as ordinary walkable terrain.
+        # silently treated as ordinary walkable terrain.  NAV_WADE admits only
+        # liquid polygons measured shallow (``liquid_depth``), at a high cost.
         self.allowed_flags = int(allowed_flags)
+        # (instance_id, world_x, world_y, surface_z) -> floor depth in yards,
+        # or None when unknown; WorldGeometryService supplies MAPS/VMAPS.
+        self.liquid_depth = None
+        # (instance_id, world_x, world_y) -> (terrain_z | None, is_hole); MAPS.
+        self.terrain_height = None
+        # (instance_id, world_x, world_y, z) -> a VMAPS model box holds it.
+        self.structure_box = None
+        # (instance_id, world_x, world_y, z) -> a VMAPS surface within 1 yd.
+        self.structure_surface = None
         self.max_walkable_slope_degrees = max(
             0., min(89., float(max_walkable_slope_degrees)))
         self._max_walkable_slope_ratio = math.tan(
@@ -116,6 +138,7 @@ class TrinityMMapNavMesh:
                                        tuple[NavPolygon, ...]]] = OrderedDict()
         self.last_diagnostics: dict = {"available": True, "source": str(self.source.path)}
         self.last_surface_projection: dict = {}
+        self._tile_errors: OrderedDict[tuple[int, int, int], dict] = OrderedDict()
 
     @classmethod
     def from_environment(cls) -> TrinityMMapNavMesh | None:
@@ -159,6 +182,11 @@ class TrinityMMapNavMesh:
             self.last_surface_projection = {
                 "status": "UNAVAILABLE", "reason": "map_header_missing",
                 "instance_id": instance_id}
+            return None
+        problem = self._map_problem(instance_id)
+        if problem:
+            self.last_surface_projection = {**problem, 'status':problem['geometry_status'],
+                                            'instance_id':instance_id}
             return None
         dt = self._world_to_detour(point)
         grid = self._world_grid(point)
@@ -385,6 +413,10 @@ class TrinityMMapNavMesh:
             self.last_diagnostics = {"available": False, "reason": "map_header_missing",
                                      "instance_id": instance_id}
             return None
+        problem = self._map_problem(instance_id)
+        if problem:
+            self.last_diagnostics = {**problem, 'available':False, 'instance_id':instance_id}
+            return None
         start_dt = self._world_to_detour(start)
         end_dt = self._world_to_detour(destination)
         if start_dt is None or end_dt is None:
@@ -393,7 +425,10 @@ class TrinityMMapNavMesh:
             return None
         native = self._native_map(instance_id)
         if native is not None:
-            return self._native_find_path(native, instance_id, start, destination, start_dt, end_dt)
+            result = self._native_find_path(native, instance_id, start, destination, start_dt, end_dt)
+            if result is None and getattr(native, 'data_errors', ()):
+                self._route_data_error(native.data_errors)
+            return result
         tile_coords = self._corridor_tiles(start, destination)
         graph_key = (instance_id, tile_coords)
         graph = self._graph_cache.get(graph_key)
@@ -413,10 +448,14 @@ class TrinityMMapNavMesh:
             while len(self._graph_cache) > 3:
                 self._graph_cache.popitem(last=False)
         polygons, adjacency, portals, tile_count = graph
+        tile_errors = [self._tile_errors[(instance_id,x,y)] for x,y in tile_coords
+                       if (instance_id,x,y) in self._tile_errors]
         if not polygons:
-            self.last_diagnostics = {"available": True, "reason": "no_route_tiles",
+            self.last_diagnostics = {"available": True,
+                                     "reason": "walking_flags_excluded" if tile_count else "no_route_tiles",
                                      "instance_id": instance_id,
                                      "requested_tiles": len(tile_coords)}
+            self._route_data_error(tile_errors)
             return None
         start_z_known = start.get("z_known") is not False and "z" in start
         end_z_known = destination.get("z_known") is not False and "z" in destination
@@ -427,6 +466,7 @@ class TrinityMMapNavMesh:
         if start_key is None or end_key is None:
             self.last_diagnostics = {"available": True, "reason": "endpoint_not_on_mesh",
                                      "instance_id": instance_id, "tile_count": tile_count}
+            self._route_data_error(tile_errors)
             return None
         # C_Map.GetWorldPosFromMapPos deliberately provides only X/Y. Snap
         # that endpoint onto the selected walkable polygon instead of
@@ -441,6 +481,7 @@ class TrinityMMapNavMesh:
             self.last_diagnostics = {"available": True, "reason": "no_polygon_path",
                                      "instance_id": instance_id, "tile_count": tile_count,
                                      "polygon_count": len(polygons)}
+            self._route_data_error(tile_errors)
             return None
         anchors_dt = self._string_pull(chain, polygons, portals, start_dt, end_dt)
         anchors = tuple(self._detour_to_world(point, instance_id) for point in anchors_dt)
@@ -479,6 +520,10 @@ class TrinityMMapNavMesh:
             if native.tiles == 0:
                 native.close()
                 native = None
+            elif not native.set_walking_policy(self.max_walkable_slope_degrees):
+                native.close()
+                native = None
+                self.__dict__["native_error"] = "native_walking_policy_unavailable"
         except Exception as error:   # missing DLL / ABI: keep the Python router
             self.__dict__["native_error"] = f"{type(error).__name__}: {error}"
             native = None
@@ -555,8 +600,285 @@ class TrinityMMapNavMesh:
         # follow its rim-hugging probe over a drop.
         return centred if centred[0] == 1 and centred[1] else (-3, [], 0, (0, 0))
 
+    # ----- shallow liquid (user 2026-10-22) -----
+    # Live 2026-10-22, Human in Waking Shores lava (MAPS depth = liquid_z -
+    # terrain_z; the player's Z equalled terrain_z): walking at 1.85 yd,
+    # swimming at 2.03 yd.  Keep a margin below that.
+    WADE_MAX_DEPTH = 1.6
+    # Lava and slime hurt, water does not: a crossing, never a walkway.
+    WADE_WATER_COST = 3.
+    WADE_MAGMA_SLIME_COST = 10.
+    WADE_CELL_YARDS = 256.
+    WADE_MARGIN_YARDS = 120.
+    WADE_SLOW_BUDGET_SECONDS = .5
+
+    def _mark_wadeable(self, native, instance_id: int, start_dt: tuple, end_dt: tuple, *,
+                       slow: bool = False) -> dict:
+        """Measure the liquid polygons along a route once and mark shallow ones.
+
+        TrinityCore puts liquid polygons on the liquid surface and drops the
+        ground under them, so a walkable lava ford was no route at all.  Each
+        liquid polygon near the start-end segment is measured once (centre and
+        every vertex); only when every sample has a known floor within
+        WADE_MAX_DEPTH does it get NAV_WADE.  Deep or unknown stays excluded.
+
+        The first pass uses MAPS only (~0.1 s for a new area).  A polygon whose
+        floor only VMAPS can tell (a cave's WMO lava under a hill: ~4 ms per
+        ray, 3.8 s for one Waking Shores corridor) is deferred; ``slow``
+        measures those near the segment, only after a route failed without.
+        """
+        depth = self.liquid_depth
+        if (depth is None or not getattr(native, "has_liquid_wading", False)
+                or os.environ.get("AIPC_LIQUID_WADING", "1").strip().lower() in {"0", "false", "off", "no"}):
+            return {"liquid_wading": False}
+        states = self.__dict__.setdefault("_wade_state", {})
+        state = states.get(instance_id)
+        if state is None:
+            if not native.set_liquid_costs(self.WADE_WATER_COST, self.WADE_MAGMA_SLIME_COST):
+                return {"liquid_wading": False}
+            state = states[instance_id] = {"cells": set(), "decided": set(), "deferred": {},
+                                           "wadeable": 0, "deep": 0}
+        cell, margin = self.WADE_CELL_YARDS, self.WADE_MARGIN_YARDS
+        ax, az, bx, bz = start_dt[0], start_dt[2], end_dt[0], end_dt[2]
+        reach = margin + cell * .7072
+        candidates, cells = [], 0
+        if slow:
+            # Live 2026-10-23 00:47:45: one failed route measured ~1000
+            # deferred polygons by VMAPS for 9 s while the agent stood still.
+            # Nearest to the segment first, within a time budget; the rest
+            # stay deferred for the next failed route.
+            near = []
+            for ref, vertices in state["deferred"].items():
+                centre = (sum(v[0] for v in vertices)/len(vertices), sum(v[2] for v in vertices)/len(vertices))
+                distance = self._segment_distance_2d(centre, (ax, az), (bx, bz))
+                if distance <= margin:
+                    near.append((distance, ref, vertices))
+            near.sort(key=lambda row: row[0])
+            candidates = [(ref, 0, vertices) for _distance, ref, vertices in near]
+        else:
+            for cx in range(math.floor((min(ax, bx)-margin)/cell), math.floor((max(ax, bx)+margin)/cell)+1):
+                for cz in range(math.floor((min(az, bz)-margin)/cell), math.floor((max(az, bz)+margin)/cell)+1):
+                    if ((cx, cz) in state["cells"] or self._segment_distance_2d(
+                            ((cx+.5)*cell, (cz+.5)*cell), (ax, az), (bx, bz)) > reach):
+                        continue
+                    state["cells"].add((cx, cz))
+                    cells += 1
+                    candidates += native.polys_with_flags(
+                        (cx*cell, -1e5, cz*cell), ((cx+1)*cell, 1e5, (cz+1)*cell), NAV_LIQUID)
+        shallow = []
+        started = time.monotonic()
+        for ref, flags, vertices in candidates:
+            if slow and time.monotonic()-started > self.WADE_SLOW_BUDGET_SECONDS:
+                break
+            if slow:
+                state["deferred"].pop(ref, None)
+            if ref in state["decided"]:
+                continue
+            verdict = None if flags & NAV_WADE else self._wadeable(instance_id, vertices, depth, slow=slow)
+            if verdict is None and not flags & NAV_WADE:
+                state["deferred"][ref] = vertices
+                continue
+            state["decided"].add(ref)
+            if verdict:
+                shallow.append(ref)
+            elif verdict is False:
+                state["deep"] += 1
+        marked = native.add_poly_flags(shallow, NAV_WADE) if shallow else 0
+        state["wadeable"] += marked
+        return {"liquid_wading": True, "wade_max_depth": self.WADE_MAX_DEPTH,
+                "wade_pass": "VMAPS" if slow else "MAPS", "wade_cells_measured": cells,
+                "wade_newly_marked": marked, "wade_marked_total": state["wadeable"],
+                "wade_deferred": len(state["deferred"])}
+
+    # User 2026-10-23: "it often struggles up the shortest way on the hillside
+    # while a staircase goes straight up right beside it".  Stairs, ramps and
+    # bridges are polygons above the terrain (the 376944 approach climbed
+    # 3-18 yd above MAPS terrain); hillside polygons lie on it.
+    STRUCTURE_MIN_GRADE = .36          # about 20 degrees; flatter costs alike
+    # Terrain polygons keep their vertices within ~1.5 yd of MAPS terrain
+    # (Life-Binder Conservatory: most sloped ones 0-1.5 yd), so one corner
+    # clearly above it, inside a placed model's box, is a built surface.
+    STRUCTURE_ABOVE_TERRAIN_YARDS = 1.5
+    STRUCTURE_MAX_DEGREES = 60.
+
+    STRUCTURE_CLIMB_GRADE = .45        # a route climbing steeper than ~24 degrees ...
+    STRUCTURE_CLIMB_YARDS = 1.5        # ... by this much in one stretch looks for stairs
+    STRUCTURE_SEARCH_YARDS = 30.       # beside that stretch
+    STRUCTURE_BUDGET_SECONDS = .6
+
+    def _climbs(self, anchors) -> list[tuple]:
+        """Detour points of the route's steep uphill stretches."""
+        result = []
+        for first, second in zip(anchors, anchors[1:]):
+            a = self._world_to_detour(first)
+            b = self._world_to_detour(second)
+            if a is None or b is None:
+                continue
+            rise = b[1]-a[1]
+            horizontal = math.hypot(b[0]-a[0], b[2]-a[2])
+            if rise >= self.STRUCTURE_CLIMB_YARDS and rise > horizontal * self.STRUCTURE_CLIMB_GRADE:
+                result.append((a, b))
+        return result
+
+    def _mark_structures(self, native, instance_id: int, climbs) -> dict:
+        """Mark built stairs/ramps beside the route's steep climbs (user
+        2026-10-23: the route struggled up a hillside next to a staircase).
+
+        A steep polygon is built when one corner is clearly above the MAPS
+        terrain, a placed model's box holds it, and a short VMAPS ray finds a
+        model surface at its height (1612 of 1993 such candidates in the
+        Life-Binder ruins were; ~3 ms a ray, so nearest first in a budget).
+        """
+        height, box = self.terrain_height, self.structure_box
+        rays = self.__dict__.get("structure_surface")
+        if (height is None or not climbs or not getattr(native, "has_structure_costs", False)
+                or os.environ.get("AIPC_STRUCTURE_STAIRS", "1").strip().lower() in {"0", "false", "off", "no"}):
+            return {"structure_costs": False}
+        state = self.__dict__.setdefault("_structure_state", {}).setdefault(
+            instance_id, {"decided": set(), "marked": 0})
+        reach = self.STRUCTURE_SEARCH_YARDS
+        candidates = {}
+        for a, b in climbs:
+            lo = (min(a[0], b[0])-reach, -1e5, min(a[2], b[2])-reach)
+            hi = (max(a[0], b[0])+reach, 1e5, max(a[2], b[2])+reach)
+            for ref, flags, vertices in native.polys_with_flags(lo, hi, NAV_GROUND | NAV_GROUND_STEEP):
+                if ref in state["decided"] or ref in candidates or flags & (NAV_STRUCTURE | NAV_LIQUID):
+                    continue
+                centre = tuple(sum(vertex[axis] for vertex in vertices)/len(vertices) for axis in range(3))
+                distance = self._segment_distance_2d((centre[0], centre[2]), (a[0], a[2]), (b[0], b[2]))
+                candidates[ref] = (distance, vertices, centre)
+        started = time.monotonic()
+        built, measured = [], 0
+        for ref, (distance, vertices, centre) in sorted(candidates.items(), key=lambda row: row[1][0]):
+            if time.monotonic()-started > self.STRUCTURE_BUDGET_SECONDS:
+                break
+            state["decided"].add(ref)
+            if self._polygon_grade(vertices) < self.STRUCTURE_MIN_GRADE:
+                continue
+            if not self._built_surface(instance_id, vertices, height):
+                continue
+            measured += 1
+            if rays is None or rays(instance_id, centre[2], centre[0], centre[1]):
+                built.append(ref)
+        marked = native.add_poly_flags(built, NAV_STRUCTURE) if built else 0
+        state["marked"] += marked
+        return {"structure_costs": True, "structure_newly_marked": marked,
+                "structure_rays": measured, "structure_marked_total": state["marked"]}
+
+    def _built_surface(self, instance_id: int, vertices, height) -> bool:
+        count = len(vertices)
+        centre = tuple(sum(vertex[axis] for vertex in vertices)/count for axis in range(3))
+        above = False
+        for vertex in vertices:
+            terrain, hole = height(instance_id, vertex[2], vertex[0])
+            if hole or (terrain is not None and vertex[1]-terrain >= self.STRUCTURE_ABOVE_TERRAIN_YARDS):
+                above = True
+                break
+        if not above:
+            return False
+        box = self.structure_box
+        return box is None or bool(box(instance_id, centre[2], centre[0], centre[1]))
+
+    @staticmethod
+    def _polygon_grade(vertices) -> float:
+        """Steepest horizontal/vertical normal ratio over the polygon's fan (as the filter)."""
+        if len(vertices) < 3:
+            return 0.
+        a = vertices[0]
+        steepest = 0.
+        for b, c in zip(vertices[1:], vertices[2:]):
+            ab = (b[0]-a[0], b[1]-a[1], b[2]-a[2])
+            ac = (c[0]-a[0], c[1]-a[1], c[2]-a[2])
+            normal = (ab[1]*ac[2]-ab[2]*ac[1], ab[2]*ac[0]-ab[0]*ac[2], ab[0]*ac[1]-ab[1]*ac[0])
+            horizontal = math.hypot(normal[0], normal[2])
+            if abs(normal[1]) < 1e-5:
+                if horizontal > 1e-5:
+                    return math.inf
+                continue
+            steepest = max(steepest, horizontal/abs(normal[1]))
+        return steepest
+
+    def _on_structure(self, first, second) -> bool:
+        """The segment's middle lies on a marked stair/ramp/bridge polygon."""
+        native = self.__dict__.get("_route_native")
+        if native is None or not getattr(native, "has_layer_queries", False):
+            return False
+        middle = tuple((a+b)*.5 for a, b in zip(first, second))
+        return bool(native.layers_at(middle, extents=(.75, 2., .75), include=NAV_STRUCTURE, limit=4))
+
+    def _wadeable(self, instance_id: int, vertices, depth, *, slow: bool = True) -> bool | None:
+        """True: every sample shallow; False: one deep or floorless; None: VMAPS needed."""
+        if not vertices:
+            return False
+        count = len(vertices)
+        centre = tuple(sum(vertex[axis] for vertex in vertices)/count for axis in range(3))
+        deferred = False
+        for point in (centre, *vertices):   # the centre first: deep water fails at once
+            measured = depth(instance_id, point[2], point[0], point[1],
+                             enough=self.WADE_MAX_DEPTH, slow=slow)
+            if measured is not None and math.isnan(measured):
+                deferred = True
+                continue
+            if measured is None or not math.isfinite(measured) or measured > self.WADE_MAX_DEPTH:
+                return False
+        return None if deferred else True
+
+    @staticmethod
+    def _segment_distance_2d(point, first, second) -> float:
+        dx, dz = second[0]-first[0], second[1]-first[1]
+        length = dx*dx + dz*dz
+        t = 0. if length < 1e-9 else max(0., min(1., ((point[0]-first[0])*dx + (point[1]-first[1])*dz)/length))
+        return math.hypot(point[0]-first[0]-t*dx, point[1]-first[1]-t*dz)
+
+    def _wade_yards(self, native, corners) -> float:
+        """Route length over marked shallow liquid (2 yd samples), for logs."""
+        if not self.__dict__.get("_wade_state") or not getattr(native, "has_layer_queries", False):
+            return 0.
+        total = 0.
+        for first, second in zip(corners, corners[1:]):
+            length = math.dist(first, second)
+            steps = max(1, math.ceil(length/2.))
+            for index in range(steps):
+                t = (index+.5)/steps
+                point = tuple(a+(b-a)*t for a, b in zip(first, second))
+                if native.layers_at(point, extents=(.5, 2.5, .5), include=NAV_WADE, limit=4):
+                    total += length/steps
+        return round(total, 1)
+
     def _native_find_path(self, native, instance_id: int, start: dict, destination: dict,
                           start_dt: tuple, end_dt: tuple) -> NavMeshPath | None:
+        self.__dict__["_route_native"] = native
+        try:
+            if not self.allowed_flags & NAV_WADE:
+                result = self._native_route(native, instance_id, start, destination, start_dt, end_dt,
+                                            {"liquid_wading": False})
+            else:
+                wading = self._mark_wadeable(native, instance_id, start_dt, end_dt)
+                result = self._native_route(native, instance_id, start, destination, start_dt, end_dt, wading)
+                if result is None and wading.get("wade_deferred"):
+                    slow = self._mark_wadeable(native, instance_id, start_dt, end_dt, slow=True)
+                    if slow.get("wade_newly_marked"):
+                        result = self._native_route(native, instance_id, start, destination,
+                                                    start_dt, end_dt, slow)
+            if result is not None:
+                # A steep climb on the route: look for built stairs beside it
+                # and route again; the stair now costs less than the hillside.
+                climbs = self._climbs(getattr(result, "anchors", None) or ())
+                structures = self._mark_structures(native, instance_id, climbs) if climbs else {}
+                diagnostics = dict(self.last_diagnostics)
+                if structures.get("structure_newly_marked"):
+                    better = self._native_route(native, instance_id, start, destination,
+                                                start_dt, end_dt, diagnostics)
+                    if better is not None:
+                        result = better
+                        diagnostics = dict(self.last_diagnostics)
+                self.last_diagnostics = {**diagnostics, **structures, "steep_climbs": len(climbs)}
+            return result
+        finally:
+            self.__dict__["_route_native"] = None
+
+    def _native_route(self, native, instance_id: int, start: dict, destination: dict,
+                      start_dt: tuple, end_dt: tuple, wading: dict) -> NavMeshPath | None:
         start_z_known = start.get("z_known") is not False and "z" in start
         end_z_known = destination.get("z_known") is not False and "z" in destination
         layer_note = "known"
@@ -598,24 +920,129 @@ class TrinityMMapNavMesh:
             if probed is not None:
                 result, layer_note = probed, "estimated_z_unreachable_shortest_layer"
         code, corners, poly_count, _refs = result
+        centered_margin = self.PATH_CENTER_MARGIN
+        grade_rejected = False
+        detour_verified, detour_trials = False, 0
+        if code == 1 and corners and not self._walking_segments_supported(corners):
+            # Centering a corner away from one wall can put it on a nearby
+            # rock, making two otherwise valid crossings an impossible ramp.
+            # Try bounded wider clearances in the SAME endpoint layers; do
+            # not quietly fall back to the rim-hugging uncentred shortcut.
+            for margin in (4., 6.):
+                candidate = native.find_path(corners[0], corners[-1], extents=(2., 4., 2.),
+                                             include=include, margin=margin)
+                if (candidate[0] == 1 and candidate[1]
+                        and self._walking_segments_supported(candidate[1])):
+                    code, corners, poly_count, _refs = candidate
+                    centered_margin = margin
+                    break
+            else:
+                alternative, detour_trials = self._gentle_corridor_detour(
+                    native, corners, _refs, include)
+                if alternative is not None:
+                    code, corners, poly_count, _refs = alternative
+                    detour_verified = True
+                else:
+                    code, grade_rejected = -3, True
         base = {"available": True, "router": "native_detour", "instance_id": instance_id,
                 "tile_count": native.tiles, "endpoint_layer": layer_note,
                 "allowed_flags": self.allowed_flags,
-                "max_walkable_slope_degrees": self.max_walkable_slope_degrees}
+                "max_walkable_slope_degrees": self.max_walkable_slope_degrees,
+                "walking_policy": "GEOMETRY_GENTLE_WIDE", "road_labels": False,
+                "native_walking_costs": True, "emitted_segment_grade_checked": True,
+                "step_height_allowance_yards": .6, "centered_margin": centered_margin,
+                "walking_detour_verified": detour_verified,
+                "walking_detour_trials": detour_trials, **wading}
         if code in (-1, -2):
             self.last_diagnostics = {**base, "reason": "endpoint_not_on_mesh",
                                      "endpoint": "start" if code == -1 else "destination"}
             return None
         if code != 1 or len(corners) < 1:
-            self.last_diagnostics = {**base, "reason": "no_polygon_path",
+            self.last_diagnostics = {**base, "reason": ("walking_segment_grade_rejected"
+                                                      if grade_rejected else "no_polygon_path"),
                                      "partial": code == 2, "route_polygon_count": poly_count}
             return None
         anchors = tuple(self._detour_to_world(point, instance_id) for point in corners)
         cost = sum(math.dist((a["x"], a["y"], a["z"]), (b["x"], b["y"], b["z"]))
                    for a, b in zip(anchors, anchors[1:]))
         self.last_diagnostics = {**base, "reason": "route_found", "route_polygon_count": poly_count,
-                                 "anchor_count": len(anchors), "cost": cost}
+                                 "anchor_count": len(anchors), "cost": cost,
+                                 "wade_yards": self._wade_yards(native, corners)}
         return NavMeshPath(anchors, poly_count, native.tiles, cost)
+
+    def _walking_segments_supported(self, points) -> bool:
+        """Check emitted Detour XYZ, with a bounded ordinary step allowance."""
+        if any(not all(math.isfinite(value) for value in point) for point in points):
+            return False
+        for first, second in zip(points, points[1:]):
+            rise = abs(second[1]-first[1])
+            horizontal = math.hypot(second[0]-first[0], second[2]-first[2])
+            if rise > .6 and rise > horizontal * self._max_walkable_slope_ratio + 1e-4:
+                # Live 2026-10-23 00:47:45 (Library of Alexstrasza): a 430 yd
+                # route was rejected for two centred micro-segments that went
+                # DOWN 0.8 and 1.1 yd.  A short drop is a step down; the 44
+                # degree limit is about climbing.
+                if second[1] < first[1] and rise <= self.STEP_DOWN_YARDS:
+                    continue
+                # A staircase is climbed step by step: steeper than terrain.
+                if (rise <= horizontal * math.tan(math.radians(self.STRUCTURE_MAX_DEGREES))
+                        and self._on_structure(first, second)):
+                    continue
+                return False
+        return True
+
+    STEP_DOWN_YARDS = 1.5
+
+    def _gentle_corridor_detour(self, native, corners, endpoint_refs, include):
+        """At most six projected pivots around the first rejected segment.
+
+        Live 2026-10-22: a complete corridor's 2.27-yard descent was too steep
+        after centering. Merely widening its corners could not change that
+        corridor. Route BOTH legs through a nearby same-height mesh point,
+        retaining the original endpoint polygons and all walking safeguards.
+        No direct segment, relaxed slope, partial path or uncentred fallback.
+        """
+        if not callable(getattr(native, "nearest", None)):
+            return None, 0
+        edge = next(((a, b) for a, b in zip(corners, corners[1:])
+                     if not self._walking_segments_supported((a, b))), None)
+        if edge is None:
+            return None, 0
+        a, b = edge
+        dx, dz = b[0]-a[0], b[2]-a[2]
+        length = math.hypot(dx, dz)
+        if length < 1e-5 or not math.isfinite(length):
+            return None, 0
+        middle = tuple((x+y)*.5 for x, y in zip(a, b))
+        original_length = sum(math.dist(a, b) for a, b in zip(corners, corners[1:]))
+        trials = 0
+        for radius in (4., 8., 12.):
+            for side in (-1., 1.):
+                trials += 1
+                wanted = (middle[0]-side*dz/length*radius, middle[1],
+                          middle[2]+side*dx/length*radius)
+                hit = native.nearest(wanted, extents=(2., 4., 2.), include=include)
+                if (hit is None or not all(math.isfinite(v) for v in hit[1])
+                        or abs(hit[1][1]-middle[1]) > 4.):
+                    continue
+                left = native.find_path(corners[0], hit[1], extents=(2., 4., 2.),
+                                        include=include, margin=self.PATH_CENTER_MARGIN)
+                right = native.find_path(hit[1], corners[-1], extents=(2., 4., 2.),
+                                         include=include, margin=self.PATH_CENTER_MARGIN)
+                if (left[0] != 1 or right[0] != 1 or not left[1] or not right[1]
+                        or left[3][0] != endpoint_refs[0] or right[3][1] != endpoint_refs[1]
+                        or left[3][1] != hit[0] or right[3][0] != hit[0]
+                        or math.dist(left[1][-1], right[1][0]) > .05
+                        or math.dist(left[1][0], corners[0]) > .05
+                        or math.dist(right[1][-1], corners[-1]) > .05):
+                    continue
+                points = left[1] + right[1][1:]
+                if (len(points) > 2048 or not self._walking_segments_supported(points)
+                        or sum(math.dist(a, b) for a, b in zip(points, points[1:]))
+                           > 2.*original_length + 2.*radius):
+                    continue
+                return (1, points, left[2]+right[2], endpoint_refs), trials
+        return None, trials
 
     @lru_cache(maxsize=96)
     def _load_tile(self, instance_id: int, grid_x: int,
@@ -626,24 +1053,34 @@ class TrinityMMapNavMesh:
         # Deterministic per-map tile identity; Python's salted hash would make
         # diagnostics and route construction needlessly process-dependent.
         tile_key = instance_id * 10_000 + grid_x * 100 + grid_y
-        return self._parse_tile(self.source.read(name), tile_key)
+        try:
+            return self._parse_tile(self.source.read(name), tile_key)
+        except (MMapFormatError, OSError, zipfile.BadZipFile) as error:
+            diagnostic = (error.diagnostic() if isinstance(error, MMapFormatError)
+                          else {'geometry_status':'ERROR','reason':'tile_read_failed'})
+            self._tile_errors[(instance_id,grid_x,grid_y)] = {**diagnostic, 'tile':name}
+            while len(self._tile_errors) > 128:
+                self._tile_errors.popitem(last=False)
+            return ()
+
+    @lru_cache(maxsize=64)
+    def _map_problem(self, instance_id):
+        try:
+            map_parameters(self.source.read(f'{instance_id:04d}.mmap'))
+        except MMapFormatError as error:
+            return error.diagnostic()
+        except (OSError, zipfile.BadZipFile):
+            return {'geometry_status':'ERROR','reason':'map_read_failed'}
+        return None
+
+    def _route_data_error(self, errors):
+        if errors:
+            chosen = next((e for e in errors if e['geometry_status']=='VERSION_MISMATCH'), errors[0])
+            self.last_diagnostics.update(chosen, invalid_tile_count=len(errors))
 
     @staticmethod
     def _parse_tile(data: bytes, tile_key: int) -> tuple[NavPolygon, ...]:
-        if len(data) < 116:
-            return ()
-        magic, mmap_version, detour_version, data_size, _uses_liquids = struct.unpack_from("<5I", data)
-        if magic != MMAP_MAGIC or data_size + 20 > len(data):
-            return ()
-        mesh = memoryview(data)[20:20 + data_size]
-        # Current TrinityCore tiles use the Detour header variant containing
-        # x, y and layer before userId (15 ints total).
-        header = struct.unpack_from("<15i10f", mesh, 0)
-        # The tile wrapper records both Trinity's mmap serialization version
-        # and the Detour ABI version. dtMeshHeader.version is the serialized
-        # mesh format (the former), not DT_NAVMESH_VERSION from the wrapper.
-        if header[0] != DETOUR_NAVMESH_MAGIC or header[1] != mmap_version:
-            return ()
+        mesh, header = tile_mesh(data)
         poly_count, vert_count = header[6], header[7]
         if poly_count <= 0 or vert_count <= 0 or poly_count > 2_000_000 or vert_count > 4_000_000:
             return ()
@@ -652,6 +1089,8 @@ class TrinityMMapNavMesh:
         if polygon_offset + poly_count * 32 > len(mesh):
             return ()
         raw_vertices = struct.unpack_from(f"<{vert_count * 3}f", mesh, vertex_offset)
+        if not all(math.isfinite(v) for v in raw_vertices):
+            raise MMapFormatError('mesh_vertices_nonfinite')
         vertices = tuple(tuple(raw_vertices[index:index+3])
                          for index in range(0, len(raw_vertices), 3))
         result = []

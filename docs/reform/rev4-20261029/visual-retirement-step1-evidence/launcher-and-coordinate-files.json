@@ -1,0 +1,18 @@
+{
+  "note": "Launcher files are outside the src/tests/addon baseline zip scope; their change is described here and covered by tests/test_packet_launchers.py.",
+  "changes": {
+    "START_AGENT.bat": "adds: if not defined AIPC_RUNTIME_PROFILE set AIPC_RUNTIME_PROFILE=SERVER",
+    "START_AGENT_DXGI.bat": "adds: if not defined AIPC_RUNTIME_PROFILE set AIPC_RUNTIME_PROFILE=SERVER",
+    "tools/wow_auto_start.py": "agent_environment defaults: AIPC_RUNTIME_PROFILE=SERVER, AIPC_PACKET_TELEMETRY=1 (setdefault)"
+  },
+  "sha256": {
+    "START_AGENT.bat": "3f85f183abea4b2fa67ff68d6e2ca50fc67a7e0914a99f11adc98aa32ea66569",
+    "START_AGENT_DXGI.bat": "00ef7a0000e9b4c71fc8fcabc7c22e30567766d086228c6553d9ca37d49b40e0",
+    "tools/wow_auto_start.py": "2715e994f471c8fef36740cabae8808567ae7970f553442ab3205b0318dc48cd",
+    "src/wowbot/coordinates.py": "a56bf2a61573bcda534d56e9ae04a22f962dc353058320e9593eed61bf821ea8",
+    "src/wowbot/vision/models.py": "0aa0ee520c28ada52966aea5ac1061db7b6fc0a30169fc628a95275d8686ef25",
+    "src/wowbot/agent/navigation.py": "d094d508df6999d353dc8e5ada415056e26b1804d343d7f7efe61399bed2383e",
+    "tests/test_packet_launchers.py": "14663000ca5ffe245fb7b84d08fd6ed371c9373ec4ed7295c02fdafb4532d87e",
+    "tests/test_shared_coordinate_values_20261030.py": "96807df4776d287cfe59de6f2100a1b6028cf99b6b95537430148ec8c09cb02e"
+  }
+}

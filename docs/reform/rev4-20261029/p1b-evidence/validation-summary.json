@@ -1,0 +1,79 @@
+{
+  "scope": "REV4 P1-B logical session/world context contracts and packet scope invalidation",
+  "full_P1_status": "PARTIAL",
+  "scoped_status": "IMPLEMENTED_OFFLINE_TESTED",
+  "final": {
+    "modules": 260,
+    "passed": 3292,
+    "failed": 1,
+    "skipped": 1,
+    "deselected": 10,
+    "pytest_seconds": 97.39,
+    "returncode": 1
+  },
+  "new_context_tests": {
+    "cases": 55,
+    "failed": 0
+  },
+  "packet_context_gui_client_subset": {
+    "cases": 276,
+    "failed": 0
+  },
+  "known_preexisting_failures": [
+    "tests.test_quest_drop_combat_handoff_20261028::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index"
+  ],
+  "prechange_reproductions": {
+    "pending_and_phase": "5 failed, 3 passed; red.log",
+    "server_map": "1 failed; prechange-server-map.log",
+    "quest_drop_ambiguity": "1 failed; prechange-drop.log"
+  },
+  "localhost_udp": {
+    "sandbox": "loopback receive timed out, also on baseline",
+    "outside_sandbox": "round-trip passed; included in final regression"
+  },
+  "new_deselections": 0,
+  "addon_baseline_checks": [
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport/Transport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/AIPlayerControllerExport.toc",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Bindings.lua",
+      "unchanged": true
+    },
+    {
+      "path": "addon/AIPlayerControllerExport-12.1.0/Transport.lua",
+      "unchanged": true
+    }
+  ],
+  "live_validation": false,
+  "assistant_started_game_capture_or_full_ai": false,
+  "remaining": [
+    "independent SessionContextProvider/bootstrap",
+    "verified process-start/PID-reuse generation",
+    "capture/world revision and baseline-delta reconciliation",
+    "other geometry/query ports and shared evidence contracts",
+    "field-level source authority migration",
+    "later REV4 phases"
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "declarations": [
+    {
+      "name": "TargetLifecycle",
+      "before": "agent/target_manager.py",
+      "after": "combat/target/system.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "TargetScoringPolicy",
+      "before": "agent/target_manager.py",
+      "after": "combat/target/system.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "TargetCandidate",
+      "before": "agent/target_manager.py",
+      "after": "combat/target/system.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "TargetManager",
+      "before": "agent/target_manager.py",
+      "after": "combat/target/system.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityTag",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityDefinition",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityRuntimeState",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityRule",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityCandidate",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "AbilityRuleEngine",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/evaluator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "_milliseconds",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/evaluator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "_belief",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/evaluator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "_condition_matches",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/evaluator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "_condition_name",
+      "before": "skills/ability_rules.py",
+      "after": "combat/ability/evaluator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "enrich_ability",
+      "before": "skills/combat_ability_catalog.py",
+      "after": "combat/ability/catalog.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "CharacterProfile",
+      "before": "combat_contracts.py",
+      "after": "combat/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "CastReference",
+      "before": "combat_contracts.py",
+      "after": "combat/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "CombatCandidate",
+      "before": "combat_contracts.py",
+      "after": "combat/contracts.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "CombatArbitrator",
+      "before": "combat_contracts.py",
+      "after": "combat/arbitrator.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "WorldEntityId",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "world_entity_id",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "template_id",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "identity_fields",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "guid_template",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "IdentityCheck",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "check_entity_identity",
+      "before": "runtime/entity_identity.py",
+      "after": "entity_identity.py",
+      "ast_body_unchanged": true
+    },
+    {
+      "name": "number",
+      "before": "agent/models.py",
+      "after": "value_helpers.py",
+      "ast_body_unchanged": true
+    }
+  ],
+  "unchanged_ast_declarations": 27,
+  "supplement_bytes_preserved": true,
+  "new_rotation_or_input_policy": false
+}

@@ -5,7 +5,7 @@ boar turned into a "Re-sized Boar" before the credit arrived."""
 from types import SimpleNamespace
 
 from test_item_use_interact_first_20261006 import _state
-from test_item_use_no_combat_20261004 import BOAR, INVENTORY, QUEST, _quest_proposals, _world
+from test_item_use_no_combat_20261004 import BOAR, INVENTORY, ITEM_READY, QUEST, _quest_proposals, _world
 
 from wowbot.agent.engine_runtime_projection import movement_visual_interrupt
 from wowbot.agent.models import Proposal
@@ -44,7 +44,7 @@ def test_far_selected_boar_is_approached_before_interact():
                for p in proposals)
     near = {**BOAR, "world_position": {"x": 124., "y": -2400., "instance_id": 2175,
                                        "coordinate_space": "WORLD_YARDS"}}
-    _, proposals = _quest_proposals(_world(inventory=INVENTORY, target=near))
+    _, proposals = _quest_proposals(_world(inventory=INVENTORY, target=near, quest_item_target=ITEM_READY))
     assert any(p.skill == "USE_ON_TARGET" for p in proposals)
 
 

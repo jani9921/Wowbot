@@ -1,0 +1,169 @@
+{
+  "files": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "status": "MODIFIED",
+      "before_sha256": "9d603ddab3f9b2f58e43152307201ad36bab8a280d64edcb13bda61ddd1325aa",
+      "after_sha256": "1ce9fbe991cd68d4bcd817cb55f77dad30799a2cc5978f56d275b7aea8eb1cc7"
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "0781ec2027c450fdabe24b6c6693e21ad53ca966093d39cb748fd095015d6b2e",
+      "after_sha256": "447d8a80a6d360d1161d7a1511413eedea00efc2ac771355a28592d95672e4bb"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "status": "MODIFIED",
+      "before_sha256": "9f018f53d5cb8b7ac8242b763ef55c388740f5544124459b51452194a77cfd4c",
+      "after_sha256": "13e918211e8606ab9b778610b3b72dfb8ab09f75caed8966f3222ea71e6664d4"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md",
+      "status": "MODIFIED",
+      "before_sha256": "e41852d4a560d00c60f37f1fbbf7087da0b053561c10938d6ad6345ce07a119f",
+      "after_sha256": "a040821a766c9e545e6d2ffec2cb815693ad341dcd09a73fbedf8a39b368d40d"
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P5_DOMAIN_NAVIGATION_HANDOFF.md",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "dcc96f9609d445ffa8823ef616de594238396266d879d1408051184cb3642171"
+    },
+    {
+      "path": "src/wowbot/agent/active_skill_supervision.py",
+      "status": "MODIFIED",
+      "before_sha256": "429381a1147cd3be2c677e75e792097b2b03ff0a64e14ace0e5d0f8bc8a344cf",
+      "after_sha256": "db27f33c809a341685296d22d5ccc4dddb14a64190a315e8585de7d0d96d3161"
+    },
+    {
+      "path": "src/wowbot/agent/engine_control.py",
+      "status": "MODIFIED",
+      "before_sha256": "5c31bfcd40bcbd9e582aa2583a19af66c8ba9d4129bd8d994884a97ec5a3e718",
+      "after_sha256": "65f72d6edc877f51443cc2914d909bf27857ac70c9f1a917fa0c4cf1a01e7791"
+    },
+    {
+      "path": "src/wowbot/agent/fast_movement_lane.py",
+      "status": "MODIFIED",
+      "before_sha256": "4ece2e75d18473034095f3f77dd1f96744bdafc9daa4ab6e4eda5c490d054a0e",
+      "after_sha256": "650636e6144907b9ca5809e1d242cf7b4f575445ffcb0dcb2d547b1703bcad84"
+    },
+    {
+      "path": "src/wowbot/agent/movement_controller.py",
+      "status": "MODIFIED",
+      "before_sha256": "4306424be243bfe1bac230ee1dd56390bc3fb6061eeedb3b4a0c8b40cc85c19f",
+      "after_sha256": "d89cb0ef3e4447bb0dcfc76e9c52841f39e2144ff3a4ab76d4fdf5079fd137e6"
+    },
+    {
+      "path": "src/wowbot/agent/packet_entity_facts.py",
+      "status": "MODIFIED",
+      "before_sha256": "258e9676e351779e3a910eec7781789bd204a1193892152f5fe00098c6dbaa0b",
+      "after_sha256": "cbbf26d1a7913f93a2db335f90a2dcfc9d0561a1b1005dfb38e54cb9e3a2799a"
+    },
+    {
+      "path": "src/wowbot/agent/parallel_control.py",
+      "status": "MODIFIED",
+      "before_sha256": "f94fc71750946037e602e5728282488436b100d6deb5cc08b37ddb937445bf38",
+      "after_sha256": "1e609c97e7716214bbbcb2534037aefda89221ec32d9d20035dcd99a319b34b2"
+    },
+    {
+      "path": "src/wowbot/agent/world_packet_reducer.py",
+      "status": "MODIFIED",
+      "before_sha256": "5c7ec037a368b42c7e1d60d9de9c6bdc63d536ea403d2e44c1ce9bac594995d0",
+      "after_sha256": "7a7f48bd103c18bff527cc520d84727644861ffc7d7e173dfbc965f11b4bb0dc"
+    },
+    {
+      "path": "src/wowbot/navigation/entity_goal.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "34fcf485c00a898fd41955aad83ec8245e3d9c270eabf3524ea248c743a460b0"
+    },
+    {
+      "path": "src/wowbot/navigation/navigation_combat.py",
+      "status": "MODIFIED",
+      "before_sha256": "cd87d93310752035672dc9bfdb743c8ecbc32f107013449f89efc82ea5a38e70",
+      "after_sha256": "e74680ff965c4ba9de27fe07c7ec681e003cc7c732abe8a876e1646d1364c819"
+    },
+    {
+      "path": "src/wowbot/navigation/service.py",
+      "status": "MODIFIED",
+      "before_sha256": "b4230b96c6bfe96b081c9afcccd676121c2665442173f2f2940cc76ecdd6f26c",
+      "after_sha256": "01c1eadf18c063cd5f549cdac4b32b3eda3634c13b57157fce3b4b868699bc56"
+    },
+    {
+      "path": "src/wowbot/navigation/travel.py",
+      "status": "MODIFIED",
+      "before_sha256": "8ff6a93f25fb7987fec290ce46cd471b068e2cc3dd5837e960d5786cbed34bf9",
+      "after_sha256": "d1c5d699218b4a9a0d816cdd6e92315a5d772ae0cc8f249934f3c5e263673c8b"
+    },
+    {
+      "path": "src/wowbot/runtime/contracts.py",
+      "status": "MODIFIED",
+      "before_sha256": "15baf7f8ea4b8063c1b68ca7e59c043ece813715b674c06f04a2587e3343b18b",
+      "after_sha256": "588b8fd63b520f053c79d2d24db3686abe72c8d657ec13491f71113c72f25a7d"
+    },
+    {
+      "path": "src/wowbot/skills/combat_runtime.py",
+      "status": "MODIFIED",
+      "before_sha256": "9a1d36570a26737e5e8e6f15a09410c082893d43d77cfff5121a098abbb92a67",
+      "after_sha256": "6ba65cee385a24fc8504c91b7524c2071db8bc64e672e01444b29d3dc159689f"
+    },
+    {
+      "path": "src/wowbot/skills/interaction_runtime.py",
+      "status": "MODIFIED",
+      "before_sha256": "32be6852e4d0e851352de3af9ed8d979c4ff58abd13f2cd9b2c35db432882b92",
+      "after_sha256": "ef45505c5deb93d1ccaf57cb5779c515c09160f97b6c62cbc81d0cb4aa85e988"
+    },
+    {
+      "path": "src/wowbot/skills/loot.py",
+      "status": "MODIFIED",
+      "before_sha256": "94e66e5ce94ca96b47f9cfdb3fee527ba25201a61e5c30716d1e3982b98203eb",
+      "after_sha256": "aa911f4341ff5aba66b97781e6efcb15641b7b59bf2c60cb5fddd67dc0dbe0b1"
+    },
+    {
+      "path": "src/wowbot/skills/loot_runtime.py",
+      "status": "MODIFIED",
+      "before_sha256": "d400a4b0cdb595792ab4e979a712e093134c0a188aeeac7c4e42bf39a44a487a",
+      "after_sha256": "7f0e6bcce065e90b328b6093815c8d374a8d3780cbcc169f3d34b5a79aacd68e"
+    },
+    {
+      "path": "src/wowbot/skills/navigation_handoff.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "5a4f8b0e11f6a81e92c50d61ad4efedac5a08c1fe84651f63736b67040e15cb4"
+    },
+    {
+      "path": "tests/test_agent_core.py",
+      "status": "MODIFIED",
+      "before_sha256": "6cb1161beae8577f6ab6eda1c00b6510be1a5e6917118696045f41277e4853d4",
+      "after_sha256": "eb22d558bef056cc755f8c386cd501e1fe3d4692d7eef9eee44b411667651943"
+    },
+    {
+      "path": "tests/test_combat_range_handoff_20261030.py",
+      "status": "MODIFIED",
+      "before_sha256": "a8facfd5b66bb81e4e3f21af632677c209dd0d8c326cbb85803bf6ba9c3b0c04",
+      "after_sha256": "024171a7e1eb7915e61cdb0a6d5268ac6e5646828bdc5bb40b662e2d8f63d7b4"
+    },
+    {
+      "path": "tests/test_domain_navigation_handoff_20261030.py",
+      "status": "ADDED",
+      "before_sha256": null,
+      "after_sha256": "a37242cce846394baf5001119ef6daff70fa97288571d4c26c1c035a72b22c53"
+    },
+    {
+      "path": "tests/test_interact_packet_range_20261022.py",
+      "status": "MODIFIED",
+      "before_sha256": "ea8449aca9dc74af5072ebd7ee3856f816880dd07b24f8ff7833a08893f39560",
+      "after_sha256": "bfaf4891476cf8f622f9d1eb994b4366d4bcfe44aaeef996d5818816a4f496fb"
+    },
+    {
+      "path": "tests/test_navigation_service.py",
+      "status": "MODIFIED",
+      "before_sha256": "cfbb0045b77167b1a9d066d9bc7062f7296e83b53cff13f4fbf1daf64108421b",
+      "after_sha256": "300fe44429604286624ff86e909ee768edc4824af89d2e7e646e49ab6c4994df"
+    }
+  ],
+  "modified": 23,
+  "added": 4,
+  "removed": 0
+}

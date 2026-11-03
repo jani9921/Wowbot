@@ -1,0 +1,10 @@
+{
+  "old_path": "src/wowbot/agent/packet_entity_facts.py",
+  "canonical": "src/wowbot/entity_spatial.py",
+  "moved_exact_ast": [
+    "best_position",
+    "entity",
+    "travel_position"
+  ],
+  "same_object_reexports": true
+}

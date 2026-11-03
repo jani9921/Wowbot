@@ -15,6 +15,9 @@ BOAR = {"guid": "Creature-0-3113-2175-63341-160542-0000411A00", "name": "Wanderi
         "attackable": True, "dead": False, "reaction": "neutral",
         "screen_position": {"x": .5, "y": .55, "source": "NAMEPLATE_API", "coordinate_space": "CLIENT_BOTTOM_LEFT",
                             "sample_time": 1.}}
+ITEM_READY = {"guid": BOAR["guid"], "sample_time": 1., "items": [{
+    "quest_id": 56034, "item_id": 170557, "in_range": True,
+    "is_usable": True, "cooldown_remaining": 0.}]}
 
 
 def _world(**extra):
@@ -56,12 +59,12 @@ def _quest_proposals(world):
 def test_selected_boar_gets_the_item_through_the_interact_key():
     # Live 10:50: no action-bar item and no bag coordinate -> no USE_ON_TARGET at
     # all.  The Re-Sizer credit came from INTERACTTARGET on the boar.
-    _, proposals = _quest_proposals(_world(inventory=INVENTORY))
+    _, proposals = _quest_proposals(_world(inventory=INVENTORY, quest_item_target=ITEM_READY))
     use = [p for p in proposals if p.skill == "USE_ON_TARGET"]
     assert use and use[0].parameters["activation_source"] == "INTERACT_KEY"
     assert use[0].parameters["binding"] == "INTERACTTARGET"
     planner = Planner(SkillRegistry())
-    assert planner.registry.available(use[0], _world(inventory=INVENTORY))
+    assert planner.registry.available(use[0], _world(inventory=INVENTORY, quest_item_target=ITEM_READY))
 
 
 def test_too_far_item_target_is_approached_first():
@@ -93,8 +96,9 @@ def test_use_item_skill_presses_interact_for_interact_key_activation():
                                            "objective_ids": ["56034:0"], "binding": "INTERACTTARGET",
                                            "activation_source": "INTERACT_KEY"},
                                target_ref=BOAR["guid"], objective_ref="56034:0"),
-        skill_type="USE_ON_TARGET", skill_context={}, phase=None)
-    result = skill.begin(state, {"target": BOAR, "actionbar": [], "active_quests": [QUEST]})
+        skill_type="USE_ON_TARGET", skill_context={}, phase=None, started_at=1.)
+    result = skill.begin(state, {"target": BOAR, "actionbar": [], "active_quests": [QUEST],
+                                 "quest_item_target": ITEM_READY})
     assert [c.binding for c in result.commands] == ["INTERACTTARGET"]
 
 

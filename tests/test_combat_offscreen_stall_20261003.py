@@ -49,7 +49,9 @@ def test_offscreen_facing_recovery_alternates_turns_and_attack_keys():
     state = active("COMBAT", {"guid": GUID}, _offscreen(), deadline=1000)
     skill.begin(state, _offscreen(), 1.)
     first = skill._local_recovery_request(state, _offscreen(), FailureReason.FACING_WRONG_WAY, 2.)
-    assert [c.binding for c in first.commands] == ["TURNLEFT", "INTERACTTARGET"]
+    # Without a verified F7 recipient/cache, probe with the known harmful
+    # action. A nearby game object must never cancel this facing correction.
+    assert [c.binding for c in first.commands] == ["TURNLEFT", "ACTIONBUTTON1"]
     assert not state.skill_context["combat"].get("await_post_recovery_cast")
 
 

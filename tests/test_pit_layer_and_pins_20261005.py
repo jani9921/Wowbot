@@ -12,6 +12,8 @@
 """
 from types import SimpleNamespace
 
+from wowbot.query_ports import NavigationQueryPorts
+
 from wowbot.agent.map_poi_planning import MapPoiPlanningPolicy
 from wowbot.agent.models import Proposal
 from wowbot.agent.navigation_planning import NavigationProposalAdapter
@@ -27,11 +29,11 @@ BOTTOM = {"x": 85.9, "y": -2208., "z": -21.1, "z_known": True, "layer_z": -21.1,
           "z_source": "NAVMESH_LOWER_LAYER", "drop_yards": 117.}
 
 
-def _world(t=1., texts=None, oracle=lambda state, destination: dict(BOTTOM)):
+def _world(t=1., texts=None):
     state = {"monotonic_time": t, "map_id": 1409, "active_quests": [PIT_QUEST], "quest_locations": [POI],
              "player_world_position": {"x": 93.2, "y": -2249.1, "instance_id": 2175}}
     model = SimpleNamespace(state=state)
-    model.__dict__.update({"layer_oracle": oracle, "quest_texts": texts or {}})
+    model.quest_texts = texts or {}
     return SimpleNamespace(state=state, _model=model, query=SimpleNamespace(remembered_locations=lambda kinds: []),
                            distance=lambda params: None)
 
@@ -40,10 +42,15 @@ def _moves(policy, world):
     return [p for p in policy.propose_known_locations(world) if p.skill == "MOVE"]
 
 
+def _policy(oracle=lambda state, destination: dict(BOTTOM), sweep=None):
+    return QuestLocationPlanningPolicy(navigation_queries=NavigationQueryPorts(
+        lower_layer=oracle, zone_sweep=sweep))
+
+
 def test_quest_text_pointing_down_sends_the_agent_to_the_layer_below():
     texts = {"55639": {"description": "I fear it will be up to you to make the descent and save the survivors."
                                       " With our luck, the last survivor is at the bottom of the pit."}}
-    moves = _moves(QuestLocationPlanningPolicy(), _world(texts=texts))
+    moves = _moves(_policy(), _world(texts=texts))
     assert len(moves) == 1
     move = moves[0]
     assert (move.parameters["z"], move.parameters["z_known"], move.parameters["destination_layer"]) == (-21.1, True, "LOWER")
@@ -54,17 +61,17 @@ def test_zone_exploration_starts_at_the_zone_without_waiting():
     """User: at the zone (edge) the exploration starts at once -- not first a
     rim search, not first the centre.  Without a text cue it ranks below the
     local seek/inspect/yellow-dot moves."""
-    moves = _moves(QuestLocationPlanningPolicy(), _world(t=1.))
+    moves = _moves(_policy(), _world(t=1.))
     assert len(moves) == 1 and moves[0].priority == 62
     assert moves[0].parameters["layer_cue"] == "ZONE_HAS_LOWER_FLOORS"
 
 
 def test_no_lower_floor_or_a_finished_sweep_gives_no_move():
     texts = {"55639": {"description": "the bottom of the pit"}}
-    assert _moves(QuestLocationPlanningPolicy(), _world(texts=texts, oracle=lambda s, d: None)) == []
+    assert _moves(_policy(oracle=lambda s, d: None), _world(texts=texts)) == []
     world = _world(texts=texts)
-    world._model.__dict__["zone_sweep"] = lambda state, destination, key: None     # swept down and up
-    assert _moves(QuestLocationPlanningPolicy(), world) == []
+    # A configured, finished sweep must not restart at the lower-layer hint.
+    assert _moves(_policy(sweep=lambda state, destination, key: None), world) == []
 
 
 def test_game_object_objectives_do_not_make_friendly_npcs_relevant():
@@ -148,10 +155,10 @@ def test_minimap_grey_dot_below_is_a_strong_cue_and_yellow_means_same_space():
     """User 2026-10-05: yellow = same space as the objective; grey = a space we
     are not in; a down/up arrow = lower/higher than us."""
     below = _with_minimap(_world(t=1.), ["quest_objective_dot_like", "other_space_like", "objective_below_like"])
-    moves = _moves(QuestLocationPlanningPolicy(), below)
+    moves = _moves(_policy(), below)
     assert len(moves) == 1 and moves[0].priority == 80
     assert moves[0].parameters["layer_cue"] == "MINIMAP_OBJECTIVE_BELOW"
-    policy = QuestLocationPlanningPolicy()
+    policy = _policy()
     yellow = _with_minimap(_world(t=40.), ["quest_objective_dot_like"], kind="minimap_quest_dot",
                            dots=[{"offset": [.1, .05]}])
     yellow.state["visual_candidates"][0]["view_radius_yards"] = 160.

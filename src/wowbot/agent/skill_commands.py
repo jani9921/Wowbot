@@ -14,12 +14,43 @@ class SkillCommandsMixin:
     """Methods of SkillRegistry (skills.py); moved verbatim."""
 
     def commands(self, proposal: Proposal, world: WorldModel) -> tuple[Command, ...]:
+        from wowbot.runtime.skill_identity import check_command_identity, entity_role, expected_identity
+        commands = self._commands(proposal, world)
+        role = entity_role(proposal.skill, proposal.parameters)
+        if role is not None and commands:
+            wanted = expected_identity(proposal.parameters)
+            if not wanted and role == "target":
+                wanted = expected_identity(world.state.get("target") or {})
+            now = number(world.state.get("monotonic_time"))
+            if now is None and role not in {"quest_ui", "vendor_ui"}:
+                raise ValueError(f"{proposal.skill}: identity sample clock missing")
+            checked = check_command_identity(proposal.skill, proposal.parameters, wanted,
+                                             world.state, commands, now)
+            if not checked:
+                raise ValueError(f"{proposal.skill}: IDENTITY_UNCERTAIN ({checked.reason})")
+        return commands
+
+    def _commands(self, proposal: Proposal, world: WorldModel) -> tuple[Command, ...]:
         name, params = proposal.skill, proposal.parameters
+        from wowbot.runtime.entity_identity import check_entity_identity
+        from wowbot.runtime.skill_identity import entity_role, expected_identity
+        role = entity_role(name, params)
+        if role is not None and role not in {"quest_ui", "vendor_ui"}:
+            wanted = expected_identity(params)
+            from wowbot.runtime.skill_identity import soft_interact
+            observed = (soft_interact(world.state) if params.get("activation_source") == "SOFT_INTERACT"
+                        else world.state.get(role)) or {}
+            if not wanted and role == "target":
+                wanted = expected_identity(observed)
+            if not (name == "TARGET" and params.get("restore_last_target")) and not check_entity_identity(wanted, observed):
+                raise ValueError(f"{name}: IDENTITY_UNCERTAIN; inspect/reacquire before input")
+        if name == "ACQUIRE_TARGET":
+            raise ValueError("ACQUIRE_TARGET cannot guarantee an ID/GUID; use hover-confirmed TARGET")
         # A dialog action is not a generic screen click.  Its preconditions
         # and result verification belong to QuestDialogSkill, dispatched via
         # M0SkillDispatcher.  This fail-closed guard prevents an un-migrated
         # caller from bypassing the normalized action and quest-id checks.
-        if name in {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "OBJECT_USE", "USE", "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
+        if name in {"QUEST_DIALOG", "FIELD_TURN_IN", "EXTRA_ACTION", "ADDON_ACTION", "OBJECT_USE", "USE", "USE_ON_TARGET", "ASSIST", "FOLLOW_INSTRUCTION"}:
             raise ValueError(f"{name} must be executed by its canonical quest skill")
         if name in {"CAMERA_CONTROL", "REACQUIRE_TARGET"}:
             from .camera_controller import view_control_command
@@ -124,6 +155,9 @@ class SkillCommandsMixin:
             # This execution layer merely maps that explicit step to one
             # bounded input request; it never advances the recovery ladder.
             step = str(params.get("recovery_step") or "STRAFE").upper()
+            if step == "DESCEND":
+                # Sit/Move Down descends while flying (a ghost's flying mount).
+                return tuple(Command("BIND", "SITORSTAND", .30) for _ in range(3))
             if step == "BACKWARD_REVEAL":
                 # ~2.5 yd: a corpse under the character model comes into view.
                 return (Command("BIND", "MOVEBACKWARD", .30), Command("BIND", "MOVEBACKWARD", .30))

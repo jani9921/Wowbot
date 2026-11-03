@@ -30,6 +30,7 @@ class FailureReason(StrEnum):
     STUCK = "STUCK"
     PATH_BLOCKED = "PATH_BLOCKED"
     ARRIVAL_NOT_CONFIRMED = "ARRIVAL_NOT_CONFIRMED"
+    POSITION_UNCERTAIN = "POSITION_UNCERTAIN"
     TARGET_MOVED = "TARGET_MOVED"
     WRONG_MAP_CONTEXT = "WRONG_MAP_CONTEXT"
     TRANSITION_REQUIRED = "TRANSITION_REQUIRED"
@@ -67,6 +68,24 @@ class FailureReason(StrEnum):
     CANCELLED = "CANCELLED"
     TIMEOUT = "TIMEOUT"
     CINEMATIC_PLAYING = "CINEMATIC_PLAYING"
+    # Design spec 32.5 diagnostic taxonomy ("quest failed" is no diagnosis).
+    WRONG_FLOOR = "WRONG_FLOOR"
+    MISSING_BINDING = "MISSING_BINDING"
+    MECHANIC_UNKNOWN = "MECHANIC_UNKNOWN"
+    PHASE_MISMATCH = "PHASE_MISMATCH"
+    WAITING_SERVER_STATE = "WAITING_SERVER_STATE"
+    SCENE_NOT_RESOLVED = "SCENE_NOT_RESOLVED"
+    SPELL_NO_EFFECT = "SPELL_NO_EFFECT"
+    LOCATION_UNKNOWN = "LOCATION_UNKNOWN"
+
+
+# Spec 32.5 names that already exist under another canonical member.
+SPEC_FAILURE_ALIASES = {
+    "TARGET_IDENTITY_AMBIGUOUS": "IDENTITY_UNCERTAIN", "ROUTE_UNREACHABLE": "NO_ROUTE",
+    "MISSING_ITEM": "EXPECTED_ITEM_NOT_RECEIVED", "MECHANIC_UNSUPPORTED": "UNSUPPORTED_MECHANIC",
+    "INTERACTION_FAILED": "NO_RESPONSE", "NO_OBJECTIVE_PROGRESS": "OBJECTIVE_NOT_PROGRESSING",
+    "STALE_DATA": "STALE_OBSERVATION",
+}
 
 
 @dataclass(frozen=True)
@@ -138,6 +157,14 @@ def failure_reason_from_legacy(value: object) -> FailureReason:
     normalized = str(value or "").strip().upper().replace("-", "_").replace(" ", "_")
     if normalized in FailureReason.__members__:
         return FailureReason[normalized]
+    if normalized in SPEC_FAILURE_ALIASES:
+        return FailureReason[SPEC_FAILURE_ALIASES[normalized]]
+    if normalized in {"TRIP_FINAL_FLOOR_NOT_VERIFIED", "ROUTE_ENDPOINT_OTHER_LEVEL", "OTHER_FLOOR"}:
+        return FailureReason.WRONG_FLOOR
+    if normalized.startswith("SELECTED_CACHE_MISSING") or normalized.endswith("_BINDING_MISSING"):
+        return FailureReason.MISSING_BINDING
+    if normalized in {"UNKNOWN_MECHANIC", "NO_MECHANIC"}:
+        return FailureReason.MECHANIC_UNKNOWN
     if "OBSERVATION_MISSING" in normalized:
         # The action's expected effect did not appear in fresh telemetry
         # (e.g. a hover over a scenery box named no unit).  Live 2026-10-03:
@@ -146,11 +173,32 @@ def failure_reason_from_legacy(value: object) -> FailureReason:
         return FailureReason.EXPECTED_STATE_NOT_REACHED
     if "STALE" in normalized or "TELEMETRY" in normalized:
         return FailureReason.TELEMETRY_STALE
+    if normalized == "SERVER_POSITION_PROBE_TIMEOUT":
+        return FailureReason.POSITION_UNCERTAIN
+    if normalized=='POST_PLAN_FEEDBACK_TIMEOUT':
+        return FailureReason.STALE_OBSERVATION
+    if normalized=='POST_PLAN_FEEDBACK_CONTEXT_CHANGED':
+        return FailureReason.WRONG_MAP_CONTEXT
+    if normalized == "SERVER_POSITION_PROBE_CONTEXT_CHANGED":
+        return FailureReason.WRONG_MAP_CONTEXT
+    if normalized in {'TARGET_IDENTITY_CHANGED', 'REACH_OBJECT_IDENTITY_OR_POSITION_LOST'}:
+        return FailureReason.IDENTITY_UNCERTAIN
+    if normalized in {"AMBIGUOUS_PLAYER_LAYER", "AMBIGUOUS_PLAYER_LAYER_AFTER_FALL"}:
+        # Missing floor evidence is recoverable when own movement supplies Z.
+        # It is not a software fault (INTERNAL_ERROR permanently blocks the
+        # same object approach in the decision fingerprint guard).
+        return FailureReason.POSITION_UNCERTAIN
     if "STUCK" in normalized or "NO_PROGRESS" in normalized:
         return FailureReason.STUCK
-    if "FALL_IN_PROGRESS" in normalized or "FALL_HAZARD_ON_ROUTE" in normalized:
+    if ("FALL_IN_PROGRESS" in normalized or "FALL_HAZARD_ON_ROUTE" in normalized
+            or normalized in {"ROUTE_ENDPOINT_OUTSIDE_ARRIVAL_ENVELOPE",
+                              "REQUIRED_NAVMESH_ROUTE_UNAVAILABLE"}):
         return FailureReason.PATH_BLOCKED
-    if "OUT_OF_RANGE" in normalized or "CLOSER" in normalized:
+    if "OUT_OF_RANGE" in normalized or "CLOSER" in normalized or normalized == "NO_REACH_INTENT":
+        # Live 2026-11-02 (Jangolode kobolds): COMBAT's approach found the
+        # movement controller without a destination ("no_reach_intent"); as
+        # INTERNAL_ERROR it was banned for good ten times in 20 s.  It is a
+        # re-approach, not a software fault.
         return FailureReason.OUT_OF_RANGE
     if "TARGET_LOST" in normalized:
         return FailureReason.TARGET_LOST

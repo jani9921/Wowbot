@@ -54,6 +54,18 @@ class NavigationTerminalProcessor:
                     self.navigation.cancel_movement()
                     recovery_succeeded = True
         elif outcome == Outcome.FAILURE:
+            if skill in MOVEMENT_SKILLS:
+                snapshotter=getattr(self.navigation,'movement_snapshot',None)
+                movement=snapshotter() if callable(snapshotter) else {}
+                # Preserve a bounded terminal trace even when the live image
+                # ring is full. No entire corridor/entity collection is saved.
+                events.append(('NAVIGATION_FAILURE_DETAIL',{
+                    'action_id':attempt.action_id,'skill':skill,'reason':reason,
+                    'phase':movement.get('phase'),'steering_mode':movement.get('steering_mode'),
+                    'final_facing':movement.get('final_facing'),'latest_sample':movement.get('latest_sample'),
+                    'position_acquisition':movement.get('position_acquisition'),
+                    'route_feedback':movement.get('route_feedback'),
+                    'control_updates':movement.get('control_updates')}))
             if skill in ENTITY_SKILLS and failure_reason in REACHABILITY_FAILURES:
                 self.navigation.report_entity_failure(guid, failure_reason.value, now)
             if skill == "COMBAT" and failure_reason is FailureReason.LINE_OF_SIGHT:

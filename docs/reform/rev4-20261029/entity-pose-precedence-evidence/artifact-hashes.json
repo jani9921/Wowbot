@@ -1,0 +1,144 @@
+{
+  "files": [
+    {
+      "path": "baseline.json",
+      "bytes": 218014,
+      "sha256": "ef0b268d340c24e22d6e0d9a968fd679bc854a7f7e0d0ca809e6af691f921b13"
+    },
+    {
+      "path": "baseline.zip",
+      "bytes": 3704763,
+      "sha256": "7659ac1962aac37df6465d3bae0e21875f628cc3130a1e71b4529e4e3152ee0c"
+    },
+    {
+      "path": "changes.json",
+      "bytes": 3119,
+      "sha256": "13c8b728a393328691b6973595483d693a1aad56992105ac0c9da04e0998dc5b"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 18553,
+      "sha256": "612a6c26fdb794501d2d57a32b1129b7cca3e323246fe06d21e450d1f2c85648"
+    },
+    {
+      "path": "combined-entity-pose-1-command.json",
+      "bytes": 32286,
+      "sha256": "6b53f5b289788f6854c66bc7ac9d916784a1926bcf97bc0855c1735a494f4b0b"
+    },
+    {
+      "path": "combined-entity-pose-1-junit.xml",
+      "bytes": 633834,
+      "sha256": "5f54fc95a0d130f5f4f4a691adf1a07f02fcf9bf1a7f413e4442fdf7def5c77f"
+    },
+    {
+      "path": "combined-entity-pose-1-result.json",
+      "bytes": 82,
+      "sha256": "cb827a375b6deaa436301ea52becf186a886f1ae0261f1fa4fb7b8ce795ffd2c"
+    },
+    {
+      "path": "combined-entity-pose-1.log",
+      "bytes": 4596,
+      "sha256": "a9bfd7bc9af8f3a5cd53431c7f65af607cd62a45ada7923c6a45bdec309d1124"
+    },
+    {
+      "path": "current-files.json",
+      "bytes": 218209,
+      "sha256": "5e84eb7002cfde19c6cccdd9a62200603951ecc8a0797d9b280daecbaec8905a"
+    },
+    {
+      "path": "current-source.zip",
+      "bytes": 3708516,
+      "sha256": "e2369dddd862214d3d5b9f79fad76eec21e39c99679ed09945f5516d9ef8e232"
+    },
+    {
+      "path": "finish_pose.py",
+      "bytes": 7467,
+      "sha256": "d92dca3982c90d4f80ccc14803f20206b94039c4c74563af6cec8d934402c627"
+    },
+    {
+      "path": "pose-policy.json",
+      "bytes": 446,
+      "sha256": "6c03fe246d8d4954538506ce2ca4140092e5f5938843779a7cf857badc88f701"
+    },
+    {
+      "path": "pose-test-1-result.json",
+      "bytes": 66,
+      "sha256": "b0dc8715efa6cbf4a33ffc0f86088680f6d45d9b491faaa6aeb6a8feebbc7e01"
+    },
+    {
+      "path": "pose-test-1.log",
+      "bytes": 109,
+      "sha256": "2219f9d91a0e3e3db8aea26ea2c1702925314c563e049d3fc997ad266af8f0c8"
+    },
+    {
+      "path": "pose-test-2-command.json",
+      "bytes": 760,
+      "sha256": "31bcf6a69e411af41da833a176268867fecc9c8f708ccc85fe108b71941f3831"
+    },
+    {
+      "path": "pose-test-2-junit.xml",
+      "bytes": 11976,
+      "sha256": "c4f5aaee31bb5b4e3a192e10440998a5f3e6b4173ee2c321653214b13ab41579"
+    },
+    {
+      "path": "pose-test-2-result.json",
+      "bytes": 65,
+      "sha256": "53ca87efc5ad1074d18ae8b352d8801391615ed9e022a04b81988ac9b602d4e9"
+    },
+    {
+      "path": "pose-test-2.log",
+      "bytes": 182,
+      "sha256": "4ef4f1ca223a16a13c6e34eb883a0b18a7b92b5369206f47fd5d16f0c10e2e3f"
+    },
+    {
+      "path": "pose-test-3-command.json",
+      "bytes": 892,
+      "sha256": "94b93a3ff671d597c8f889c73c50712ef10548abe089e84f4816044e49847fbd"
+    },
+    {
+      "path": "pose-test-3-junit.xml",
+      "bytes": 21259,
+      "sha256": "05ac3cf3bafbf5a618ce42b5d1a428cdadbd44d51bc18bea2b301832311eefde"
+    },
+    {
+      "path": "pose-test-3-result.json",
+      "bytes": 66,
+      "sha256": "f0d53ca3f4c81172d09225f9b8b02721435f1331ad5e88daf55cbb5ef078bbce"
+    },
+    {
+      "path": "pose-test-3.log",
+      "bytes": 183,
+      "sha256": "0c796bd63ddb36c39909fb49058b071800bce66543371e8d3c34389bb98eb2a0"
+    },
+    {
+      "path": "run_combined.py",
+      "bytes": 2037,
+      "sha256": "9a80f8dde800fce4dff92c3f87a8f4d63064d299a0928ef2d79ae4c3eff80f91"
+    },
+    {
+      "path": "run_targeted.py",
+      "bytes": 1161,
+      "sha256": "74b3f2f3b58d5235ce7bd1a2c4ee21ec5c77af0c2859a85daec2a09818b2d3c3"
+    },
+    {
+      "path": "save_pose_checkpoint.py",
+      "bytes": 5606,
+      "sha256": "3636daac61ed01df4fb811d0d2cbe5616a13fb9824354177f9196fea7f8d144b"
+    },
+    {
+      "path": "source-verification.json",
+      "bytes": 242,
+      "sha256": "4480778755f984f1939d3b493423ede3629e7e55c9b0195d4aa85e512f4a7553"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 698,
+      "sha256": "7fbc47752ec8cdae6337c239ca5e4d000f8de19ca2ed91b698f3ba4c63c5a39e"
+    },
+    {
+      "path": "verify_closure.py",
+      "bytes": 1675,
+      "sha256": "8a6c8097883f9bc325d0b8dc2eeb8a12bc06d5c9430b42ffb77e655ac9c384bf"
+    }
+  ]
+}

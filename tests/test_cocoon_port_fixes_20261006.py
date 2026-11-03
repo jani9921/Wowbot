@@ -20,14 +20,14 @@ from wowbot.skills import ObjectUseSkill
 # -- OBJECT_USE: the credit arrives with the next complete STATE ------------
 
 def _cocoon(**extra):
-    return {"mouseover": {"tooltip": "Thick Cocoon"}, "cursor_position": {"nx": .4, "ny": .6},
+    return {"mouseover": {"tooltip": "Thick Cocoon", "object_id": 339568}, "cursor_position": {"nx": .4, "ny": .6},
             "active_quests": [{"quest_id": 55639, "objectives": [
                 {"objective_id": "0", "current": 0, "required": 5, "is_complete": False}]}],
             **extra}
 
 
 def _use():
-    params = {"x": .4, "y": .6, "mouseover_tooltip": "Thick Cocoon",
+    params = {"x": .4, "y": .6, "object_id": 339568, "mouseover_tooltip": "Thick Cocoon",
               "quest_ids": [55639], "objective_ids": ["55639:0"]}
     before = _cocoon()
     attempt = Attempt("action", Proposal.make("OBJECT_USE", "test", params), before,

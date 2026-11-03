@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Optional
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 
 
 class DestinationKind(StrEnum):

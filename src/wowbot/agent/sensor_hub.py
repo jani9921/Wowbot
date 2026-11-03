@@ -39,6 +39,7 @@ class SensorHub:
         self._last_published_at: dict[str, float] = {}
         self._failures: dict[str, str] = {}
         self._started = False
+        self._closed = False
 
     @classmethod
     def for_primary(cls, sensor: Any, **kwargs) -> "SensorHub":
@@ -56,6 +57,32 @@ class SensorHub:
     @property
     def frame(self) -> Any:
         return getattr(self._sensors[self.primary], "frame", None)
+
+    @property
+    def supports_peek_latest(self) -> bool:
+        source = self._sensors[self.primary]
+        return (callable(getattr(source, "peek_latest", None))
+                and bool(getattr(source, "supports_peek_latest", True)))
+
+    def peek_latest(self, now: float) -> Any:
+        """Non-consuming primary snapshot for the shared fast control lane.
+
+        Delegate to the producer, never poll/drain the medium mailbox or
+        re-stamp its receipt. A stalled medium reader must not starve fast
+        control, nor may repeated peeks make a stalled producer look fresh.
+        """
+        if not self.supports_peek_latest:
+            return None
+        with self._lock:
+            if self._closed or self.primary in self._failures:
+                return None
+        latest = self._sensors[self.primary].peek_latest(now)
+        if latest is None or not 0 <= now-latest[1] <= self.freshness_seconds:
+            return None
+        with self._lock:
+            if self._closed or self.primary in self._failures:
+                return None
+        return latest
 
     def add_frame_listener(self, callback) -> bool:
         """Register a new-frame wake-up callback on the primary sensor."""
@@ -101,9 +128,13 @@ class SensorHub:
                 if hasattr(sensor, "close"):
                     sensor.close()
             raise
-        self._started = True
+        with self._lock:
+            self._closed = False
+            self._started = True
 
     def stop(self) -> None:
+        with self._lock:
+            self._closed = True
         for sensor in self._sensors.values():
             if hasattr(sensor, "close"):
                 sensor.close()

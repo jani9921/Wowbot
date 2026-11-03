@@ -28,13 +28,14 @@ def test_minimap_quest_probe_precedes_unrelated_friendly_interaction():
     assert planner.candidates(Goal.parse("Questelj", 1.), state, 2.)[0].skill == "OPEN_MAP"
 
 
-def test_bounded_world3d_inspection_precedes_world_map_fallback():
+def test_bounded_marked_world3d_inspection_precedes_world_map_fallback():
     planner = Planner(SkillRegistry())
     goal = Goal.parse("Questelj", 1.)
     state = world(visual_candidates=[{
         "kind": "unknown_subject_candidate", "detector_kind": "unknown_subject_candidate",
         "source": "WORLD3D", "track_id": "subject-1", "x": .58, "y": .60,
         "confidence": .9, "stable_frames": 5, "lifecycle": "STABLE",
+        "candidate_labels": ["quest_badge_like"],
         "appearance": {"foreground_contrast": .7, "screen_center_relevance": .8},
     }])
     assert planner.candidates(goal, state, 1.)[0].skill == "INSPECT"
@@ -305,15 +306,15 @@ def test_disappeared_minimap_marker_at_objective_area_replans_to_local_search():
     assert proposal.skill != "OPEN_MAP"
 
 
-def test_bounded_world3d_seek_precedes_world_map_when_no_candidate_is_visible():
+def test_missing_local_quest_cue_queries_map_before_blind_camera_search():
     planner = Planner(SkillRegistry())
     goal = Goal.parse("Questelj", 1.)
     state = world(visual_candidates=[])
     proposal = planner.candidates(goal, state, 1.)[0]
-    assert proposal.skill == "SEEK_VISUAL_CUE"
-    assert proposal.parameters["purpose"] == "FIND_LOCAL_QUEST_RELEVANT_SUBJECT"
-    # The persistent skill owns all four sectors; only its terminal result
-    # advances this planner fallback gate.
+    assert proposal.skill == "OPEN_MAP"
+    assert proposal.parameters["purpose"] == "DISCOVER_AVAILABLE_QUESTS"
+    # User 2026-10-19: with no quest and no local cue, fetch available quest
+    # locations first, not an ungrounded camera sweep / random NPC inspect.
     planner.camera_search_step = 4
     assert planner.candidates(goal, state, 6.)[0].skill == "OPEN_MAP"
 

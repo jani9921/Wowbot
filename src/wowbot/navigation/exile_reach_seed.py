@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wowbot.vision.models import WorldPosition
+from wowbot.coordinates import WorldPosition
 from .graph import NavGraph, NavGraphNode
 
 # First calibrated exemplar only. Coordinates are normalized map-space (0..1),

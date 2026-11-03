@@ -5,7 +5,7 @@ targeting cursor; a later left click on a boar fired it (1/3), the user did
 interact target megfelelő yardon belül, vagy jobb klikk"."""
 from types import SimpleNamespace
 
-from test_item_use_no_combat_20261004 import BOAR, INVENTORY, QUEST, _quest_proposals, _world
+from test_item_use_no_combat_20261004 import BOAR, INVENTORY, ITEM_READY, QUEST, _quest_proposals, _world
 
 from wowbot.runtime import SkillStatus
 from wowbot.skills.quest_item import UseItemSkill
@@ -17,13 +17,13 @@ BOX = {"source": "WORLD3D", "track_id": "WORLD3D:9", "x": .52, "y": .48, "observ
 
 
 def test_selected_target_gets_interact_even_with_the_bag_open():
-    _, proposals = _quest_proposals(_world(inventory=BAG, bags_open=True))
+    _, proposals = _quest_proposals(_world(inventory=BAG, bags_open=True, quest_item_target=ITEM_READY))
     use = [p for p in proposals if p.skill == "USE_ON_TARGET"]
     assert use and use[0].parameters["activation_source"] == "INTERACT_KEY"
 
 
 def test_no_bag_opening_for_a_special_item_on_a_selected_target():
-    _, proposals = _quest_proposals(_world(inventory=INVENTORY))
+    _, proposals = _quest_proposals(_world(inventory=INVENTORY, quest_item_target=ITEM_READY))
     assert not any(p.skill == "OPEN_BAGS" for p in proposals)
 
 
@@ -37,6 +37,9 @@ def test_failed_item_use_out_of_range_approaches_the_target():
 
 def _state(source, *, started=10., bindings_context=None):
     return SimpleNamespace(
+        intent=SimpleNamespace(parameters={"guid": BOAR["guid"], "activation_source": source},
+                               target_ref=BOAR["guid"]),
+        skill_type="USE_ON_TARGET",
         skill_context={"quest_item": {"guid": BOAR["guid"], "quest_ids": [56034],
                                       "objective_ids": ["56034:0"], "activation_source": source,
                                       **(bindings_context or {})}},
@@ -75,7 +78,8 @@ def test_right_click_on_the_target_without_an_interact_binding():
         intent=SimpleNamespace(parameters=params, target_ref=BOAR["guid"], objective_ref="56034:0"),
         skill_type="USE_ON_TARGET", skill_context={}, phase=None, started_at=10.,
         before_snapshot={"active_quests": [QUEST]}, attempt=SimpleNamespace(deadline=16.))
-    world = {"target": TRACKED_BOAR, "actionbar": [], "active_quests": [QUEST], "visual_candidates": [BOX]}
+    world = {"target": TRACKED_BOAR, "actionbar": [], "active_quests": [QUEST], "visual_candidates": [BOX],
+             "quest_item_target": {**ITEM_READY, "sample_time": 10.}}
     begun = skill.begin(state, world)
     assert begun.commands[0].kind == "HOVER"
     click = skill.verify(state, {**world, "mouseover": {"guid": BOAR["guid"]},

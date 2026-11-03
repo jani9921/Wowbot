@@ -1,0 +1,29 @@
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+.................................................................F...... [ 94%]
+............                                                             [100%]
+================================== FAILURES ===================================
+___ test_move_to_entity_refreshes_the_same_reach_when_selected_target_moves ___
+
+    def test_move_to_entity_refreshes_the_same_reach_when_selected_target_moves():
+        service = NavigationService()
+        live = {
+            "target": {"guid": "npc-1", "world_position": {"x": 19., "y": 11., "instance_id": 4}},
+            "player_world_position": {"x": 2., "y": 3., "instance_id": 4}, "orientation": 0.,
+        }
+        assert service.move_to_entity(live, "npc-1", "obs-1", 1.) is not None
+        moved = {**live, "target": {"guid": "npc-1",
+                                     "world_position": {"x": 23., "y": 16., "instance_id": 4}}}
+        assessment = service.observe(moved, "obs-2", 1.2)
+        assert not assessment.terminal
+        destination = service.movement_snapshot()["destination"]
+>       assert (destination["x"], destination["y"]) == (23., 16.)
+E       assert (19.0, 11.0) == (23.0, 16.0)
+E         
+E         At index 0 diff: 19.0 != 23.0
+E         Use -v to get more diff
+
+tests\test_navigation_service.py:104: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_navigation_service.py::test_move_to_entity_refreshes_the_same_reach_when_selected_target_moves
+1 failed, 227 passed in 8.74s

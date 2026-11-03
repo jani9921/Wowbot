@@ -106,13 +106,21 @@ class AttemptOutcomeBookkeeper:
             failure_decision.backoff_seconds
             if failure_decision is not None and failure_decision.retry_allowed
             else retries.max_backoff_seconds)
+        backoff = min(backoff, retries.max_backoff_seconds, 20.)
+        if skill == 'MOVE' and reason in {'skyriding_not_mounted', 'flight_not_mounted'}:
+            # A missing mount does not refute the destination. MOUNT fixes
+            # this precondition; admission still blocks flight until then.
+            backoff = min(backoff, .5)
         live = getattr(world, "state", None) or {}
         target = live.get("target") or {}
-        if (skill in {"COMBAT", "DEFEND"} and "facing" in str(reason).casefold()
+        if (skill in {"COMBAT", "DEFEND"}
                 and live.get("is_in_combat")
                 and target.get("attackable", target.get("is_attackable")) is True
                 and not target.get("dead", target.get("is_dead"))):
             # Live 2026-10-02: after facing_failed the agent WAITed ~14 s
-            # while the murloc kept hitting it.  Retry the fight at once.
+            # while the murloc kept hitting it.  Live 2026-10-21 15:24:50-58:
+            # after identity_uncertain it WAITed 8 s with a live whelp
+            # selected and hitting it.  Any failed fight against a live
+            # attacker is retried at once.
             backoff = min(backoff, .5)
         planner.blocked_until[key] = now + backoff

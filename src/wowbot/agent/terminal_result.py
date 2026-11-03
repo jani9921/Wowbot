@@ -59,7 +59,7 @@ class TerminalResultProcessor:
         # policies.  The complete parameters remain on the durable Attempt;
         # copying them into every result would recreate the former status-JSON
         # growth problem.
-        for field in ("purpose", "transition_kind", "navigation_context"):
+        for field in ("purpose", "transition_kind", "navigation_context", "object_guid"):
             if attempt.proposal.parameters.get(field) is not None:
                 result[field] = attempt.proposal.parameters[field]
         if failure_decision is not None:

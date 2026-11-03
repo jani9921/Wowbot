@@ -26,6 +26,7 @@ visual evidence only; it never asserts entity identity.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections import deque
 import math
 
 _LIVE = frozenset({"ACTIVE", "STABLE", "TENTATIVE", "REACQUIRE_CANDIDATE"})
@@ -62,7 +63,15 @@ def _overlap(a: dict, b: dict) -> tuple[float, float]:
 
 
 def _family(item: dict) -> str:
-    kind = str(item.get("detector_kind") or item.get("kind") or "")
+    semantic_kind = str(item.get("kind") or "")
+    kind = str(item.get("detector_kind") or semantic_kind)
+    # Live PID 1296: one V3 subject kept its upstream ID while the canonical
+    # detector label alternated between obstacle_candidate and subject.  The
+    # semantic subject candidate is still the same visual object; splitting
+    # these families made its displayed WORLD3D ID jump despite feed continuity.
+    if (kind == "obstacle_candidate" and "subject" in semantic_kind
+            and str(item.get("upstream_track_id") or "").startswith("WORLD3D_V3:")):
+        return "subject"
     if "symbol" in kind:
         return "symbol"
     if "subject" in kind:
@@ -114,6 +123,7 @@ class StableObjectLayer:
         self.upstream_to_object: dict[str, tuple[str, float]] = {}
         self.upstream_rebinds = 0
         self.merges = 0
+        self.identity_events: deque[dict] = deque(maxlen=96)
 
     def reset(self) -> None:
         self.objects.clear()
@@ -121,6 +131,7 @@ class StableObjectLayer:
         self.raw_last_seen.clear()
         self.upstream_to_object.clear()
         self.merges = 0
+        self.identity_events.clear()
 
     # -- association -------------------------------------------------------
     @staticmethod
@@ -213,8 +224,13 @@ class StableObjectLayer:
             else:
                 order.append((index, item))
         # Live boxes claim objects first; coasting predictions join afterwards.
-        positioned.sort(key=lambda entry: (_lifecycle(entry[1]) not in _LIVE,
-                                           -float(entry[1].get("confidence") or 0.)))
+        positioned.sort(key=lambda entry: (
+            _lifecycle(entry[1]) not in _LIVE,
+            # Existing live raw owners claim their object before a newcomer
+            # tries an upstream/spatial rebind. Otherwise input order lets a
+            # speculative alias steal the object as its real owner returns.
+            self.raw_to_object.get(str(entry[1]["track_id"])) not in self.objects,
+            -float(entry[1].get("confidence") or 0.)))
         members: dict[str, list[dict]] = {}
         first_index: dict[str, int] = {}
         live_this_update: dict[str, list[dict]] = {}
@@ -242,6 +258,18 @@ class StableObjectLayer:
                     identity = f"{identity}.1"
                 obj = _Object(identity, _family(item), observed_at, observed_at, observed_at)
                 self.objects[identity] = obj
+                event = "new"
+            elif raw_id not in obj.raw_ids:
+                event = "raw_rebind"
+            else:
+                event = None
+            if event is not None:
+                self.identity_events.append({
+                    "at": round(float(observed_at), 3), "event": event,
+                    "track_id": (obj.identity if ":" in obj.identity
+                                 else f"WORLD3D:{obj.identity}"),
+                    "raw_track_id": raw_id, "upstream_track_id": upstream,
+                    "bbox": dict(box or {})})
             obj.raw_ids.add(raw_id)
             self.raw_to_object[raw_id] = obj.identity
             if upstream:
@@ -347,4 +375,5 @@ class StableObjectLayer:
 
     def diagnostics(self) -> dict:
         return {"objects": len(self.objects), "raw_bindings": len(self.raw_to_object),
-                "duplicate_merges": self.merges, "upstream_rebinds": self.upstream_rebinds}
+                "duplicate_merges": self.merges, "upstream_rebinds": self.upstream_rebinds,
+                "identity_events": list(self.identity_events)[-32:]}

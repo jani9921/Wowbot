@@ -1,0 +1,675 @@
+--- before/docs/CURRENT_SOURCE_COVERAGE.md
++++ after/docs/CURRENT_SOURCE_COVERAGE.md
+@@ -1,4 +1,19 @@
+ # Current-source coverage ledger
++
++2026-10-30 REV4 P3 owned item/container VALUES — **OFFLINE_TESTED / full
++inventory parity PARTIAL**. Reviewed V2 delta masks now update quantity,
++containment, durability/capacity and changed container GUID slots. Every value
++retains its own source clock; unrelated fields cannot rejuvenate it, reordered
++different-field updates can apply independently, and older removals cannot
++erase newer state. Unknown dynamic/fragment layouts also drop capture ownership
++until CREATE. Transient contradictory slot identities are UNKNOWN. Identity
++binding and counter evidence/time stay separate; UI bag/action authority is
++unchanged. Selected regression: **3866 passed, 2 skipped, 10 unchanged
++deselections, 315 modules, exit 0**, 164.24 s pytest. All 536 source and
++624 test Python files parse; 203 numbered rows unchanged. Active root VALUES,
++carried/client-slot and complete retained-state/consumer parity remain open.
++No game/capture/input/new live acceptance; addon/Ymir unchanged. See
++[item delta checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md).
+ 
+ 2026-10-30 REV4 P3 native inventory CREATE — **OFFLINE_TESTED / inventory
+ parity PARTIAL**. Selected-own PlayerData remainder → ActivePlayerData root
+--- before/docs/LIVE_VALIDATION.md
++++ after/docs/LIVE_VALIDATION.md
+@@ -1,4 +1,19 @@
+ # Live validation evidence and unresolved issues
++
++## 2026-10-30 — owned item/container delta clocks (offline only)
++
++Reviewed V2 ItemData/ContainerData VALUES now reach the same native inventory
++owner. Quantity, durability and individual positions retain their own clocks;
++unrelated updates do not rejuvenate samples. Unknown ownership/layout needs a
++new CREATE; transient slot contradictions are UNKNOWN; old removal cannot erase
++newer state. Identity reference origin remains separate from live quantity.
++
++Final selected regression: **3866 passed, 2 skipped, 10 unchanged deselections**,
++315 modules, 164.24 s pytest / 167.08 s runner, exit 0. All 536 source and
++624 test Python files parse. All 203 numbered rows persist. No assistant game/
++capture/FULL_AI/input, no new live acceptance; addon/Ymir unchanged. Active
++root VALUES, carried/UI-slot and complete inventory consumer parity remain
++code gaps. [Details/checkpoint](reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md).
+ 
+ ## 2026-10-30 — native owned inventory CREATE (offline only)
+ 
+--- before/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
++++ after/docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md
+@@ -5,7 +5,7 @@
+ Állapot 2026-10-30: **P0 részben ellenőrizve; P1-A/B/C/D és a P1-E–P9 integrációs kör offline tesztelve; a teljes REV4 elfogadása PARTIAL**.
+ 
+ Aktuális eredmény: [P1-E–P9 bekötés, hiányzó képességek és élő kapuk](P1E_P9_IMPLEMENTATION.md).
+-Végső kijelölt regresszió: 3857 passed, 2 skipped, 10 változatlan deselection, 314 modul, exit 0.
++Végső kijelölt regresszió: 3866 passed, 2 skipped, 10 változatlan deselection, 315 modul, exit 0.
+ Mind a 203 számozott coverage-sor megmaradt. A teljes packet baseline-/consumer-paritás,
+ cast/hazard/talent és role-lefedettség, történeti import-lineage és élő kalibráció nincs
+ teljesnek jelölve. A felhasználói 0.9.79 betöltési hiba Lua 5.1 upvalue-limit volt;
+@@ -15,6 +15,8 @@
+ tartós natív állapot és teljes objective-progress továbbra is külön nyitott kapu.
+ Inventory CREATE saját item/count/container/root adatút és read-only fogyasztó
+ [elkészült](P3_NATIVE_INVENTORY.md); a teljes inventory VALUES-/UI-slot-paritás még nem.
++A [gyakori item-/container-delták](P3_NATIVE_INVENTORY_DELTAS.md) elkészültek;
++friss darabszám, durability és táskaslot külön órával, ismeretlen maszkra érvénytelenítés.
+ Közös Python/natív formátumellenőrzés és pontos geometriai hibakódok:
+ [P1-E MMAP/Detour](P1E_MMAP_FORMATS.md). Verzió-/adathiba nem bizonyít NO_ROUTE-ot.
+ A saját HP CREATE-baseline, resource/profile prefix és a valódi dekóderrel végzett
+--- before/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
++++ after/docs/reform/rev4-20261029/P1E_P9_IMPLEMENTATION.md
+@@ -29,6 +29,9 @@
+ Saját inventory CREATE és bounded read-only fogyasztó:
+ [P3 native inventory](P3_NATIVE_INVENTORY.md). Az ismeretlen VALUES minta
+ érvénytelenít; carried/UI-slot, retained state és teljes paritás továbbra is nyitott.
++[A gyakori item-/container VALUES](P3_NATIVE_INVENTORY_DELTAS.md) most már
++olvasható; a mezők külön eredetidőt tartanak, az ismeretlen maszk továbbra is
++érvénytelenít. Active root VALUES/carried/UI-slot és teljes paritás még nyitott.
+ 
+ P3 folytatás: a korrelált saját loginhoz és ismert UnitData-fragmenthez kötött HP/max-HP
+ delta is eljut a közös mezőfeloldóba. Frissebb FAST felülírhat régebbi packetet,
+@@ -71,14 +74,14 @@
+ 
+ | Ellenőrzés | Eredmény |
+ |---|---|
+-| Végső kijelölt regresszió | **3857 passed, 2 skipped, 10 deselected; 314 modul; 175.75 s; exit 0** |
++| Végső kijelölt regresszió | **3866 passed, 2 skipped, 10 deselected; 315 modul; 164.24 s; exit 0** |
+ | Natív slot/session/sajátállapot/policy célzott kör | **117 passed, 2.25 s**, átfed a végső körrel; nem összeadandó |
+-| Teljes Python AST | 535 source + 623 tests Python-fájl; 622 test_*.py és egy teszthelper; 0 szintaktikai hiba |
++| Teljes Python AST | 536 source + 624 tests Python-fájl; 623 test_*.py és egy teszthelper; 0 szintaktikai hiba |
+ | Lua | Mindkét csomag teljes Lua-fájljai compile-only zöldek; két csomag byte-egyezése külön ellenőrizve |
+ | IPC | A kijelölt regresszió valós localhost UDP-próbái zöldek |
+ | Élő kliensinput | 0; nem indult WoW/Ymir/FULL_AI |
+ 
+-A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **314 kijelölt modul eredménye**, nem a teljes 622 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
++A 10 kizárás az előző P1-D release pontos változatlan szűrője; új kizárás nincs. Két skip: hiányzó opcionális Garrick-detektor és Exile's Reach raster kép. Ez **315 kijelölt modul eredménye**, nem a teljes 623 modulos teszttár hibamentességének állítása. Az új tesztmodulok mind benne vannak.
+ 
+ Korábbi, a resource-/profil-kiegészítés ELŐTTI mérés: három váltakozó szintetikus futás, 220 mért ingest/belief ciklus/futás, minden tizedikben snapshot, azonos kicsi legacy workload. Az új provider-körrel nem lett újramérve:
+ 
+--- before/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md
++++ after/docs/reform/rev4-20261029/P3_NATIVE_INVENTORY_DELTAS.md
+@@ -0,0 +1,74 @@
++# REV4 P3 — saját item-/container-delták és mezőnkénti eredetidő
++
++2026-10-30. A kijelölt `projekt`; **offline tesztelt, részleges VALUES adatút**.
++Ez a [CREATE checkpoint](P3_NATIVE_INVENTORY.md) folytatása. Nem teljes inventory-
++vagy input-paritás, és nem új élő validáció.
++
++## Tényleges változás
++
++A capture kapcsolaton már igazolt saját item GUID-jához a 70340-es WPP szerinti
++ItemData/ContainerData VALUES mezők is olvashatók:
++
++- StackCount, ContainedIn, Durability/MaxDurability, a ténylegesen változó
++  ObjectData EntryID; Container NumSlots és változó slot-GUID-ok.
++- A megelőző ismert skalármezők, charge-/enchantment-frissítések és bonus-key
++  mezők pontosan átugorhatók. Root nélküli mask, hibás hossz vagy ismeretlen
++  dynamic artifact/gem/modifier/fragment struktúra nem jelent tippelt offsetet.
++- Új `WPP_12_1_OWN_INVENTORY_REVIEWED_V2` layout kell a VALUES mintához.
++  A korábbi V1 nem állíthat ilyen deltát. Másik buildcsalád nincs engedélyezve.
++- Tulajdonosváltásnál az új tulajdonos private mezői már nem kerülnek olvasásra.
++  Ismeretlen itemfrissítés után a capture ownership-kapcsolata is megszűnik:
++  új saját CREATE kell az ismételt private olvasáshoz. A modellben baseline
++  nélküli delta nem gyárt új itemidentitást.
++
++A szerveres tárolóindex továbbra sem kliensoldali bag/slot/kattintási hely.
++ActivePlayerData InvSlots VALUES még nem teljes; az eddigi érvénytelenítési
++ág megmaradt. Nincs új executor, UI-kattintás vagy binding-fallback.
++
++## Órák, sorrend és bizonyíték
++
++A WorldModel az item mezőinek eredeti sample-idejét és observation ID-ját külön
++tartja. Egy durability- vagy táskaslot-frissítés nem fiatalítja meg a StackCountot,
++egy számlálófrissítés nem fiatalítja meg a NumSlotsot vagy mind a 98 táskahelyet.
++Eltérő mezők késve érkező, de az adott mezőnél újabb mintái külön alkalmazhatók.
++Régi CREATE vagy törlési jel nem dobja el a nála frissebb saját mintát.
++
++Az ItemGUID → entry kötés csak ismert lifecycle/scope-on belül marad referencia;
++az eredeti identitásidejét nem írjuk át a darabszám órájára. Törlés, ismeretlen
++ownership/layout vagy GAP újra érvénytelenít. A query és a read-only tanácsadói
++adat külön közli az identity- és a counter-bizonyítékot/időt. A mennyiség továbbra
++is csak friss, megfigyelt alsó korlát, nem teljes hiánybizonyíték.
++
++A friss táskaslotok coverage-je külön COMPLETE/PARTIAL/UNKNOWN. Átmeneti duplikált
++item-GUID vagy kapacitáson túli nemüres slot ellentmondás; abból nem lesz teljes,
++használható tárolókép. Későbbi igazolt áthelyezési minta feloldhatja ezt.
++Mindez read-only állapot: `carried` még UNKNOWN, inputjog nem keletkezik.
++
++## Ellenőrzés
++
++A célzott kezdeti kör **66 pass** (átfed a végsővel). A további duplikált-slot
++és régi törlési próba is benne van a végső kijelölt regresszióban. Tesztek:
++V1/V2 kapu, friss darabszám, másik mező nem fiatalít, mezőnként átrendezett
++minták, részlegesen öregedő táskakép, ownership-váltás, ismeretlen/tail hiba,
++új CREATE igénye és átmeneti slotellentmondás feloldása.
++
++Forrás-ZIP, diff, parancs/JUnit/eredmény és a pinnelt primary WPP-fájlok hash-je:
++[checkpoint](native-inventory-deltas-evidence/verification.json). A korábbi
++checkpoint és mind a 203 számozott coverage-sor megmarad.
++
++Végső kijelölt regresszió: **3866 passed, 2 skipped, 10 változatlan deselection,
++315 modul, exit 0**, pytest 164.24 s / runner 167.08 s. Az összes 536 source és
++624 test Python-fájl AST-je érvényes; a teljes 623 testmodul közül a kijelölt
++315 futott. A végső kör tartalmazza a késői törlési barrier javítását is.
++
++## Továbbra is nyitott
++
++Aktív root-slot delták teljes feldolgozása, unsupported ItemData dynamic tömbök,
++carried/bank/equipment elkülönítés és bizonyított kliens bag-slot kapcsolat;
++folyamatosan igazolt natív collection baseline és warm-replay; minden inventory-
++consumer és az addon karcsúsítása. A mostani részadatút nem jelenti ezek készségét.
++Quest-progress, teljes P7 provider/role és történeti lineage korábbi kódhiányai
++nem oldódtak meg ettől automatikusan.
++
++Nem indult játék/capture/Ymir/FULL_AI, nem ment kliensinput. Addon és pinned
++Ymir byte-változatlan, új LIVE_VALIDATED állítás nincs.
+--- before/src/wowbot/agent/advisory_tools.py
++++ after/src/wowbot/agent/advisory_tools.py
+@@ -41,10 +41,13 @@
+                 item = str(row['item_id'])
+                 if item not in owned and len(owned)>=32:continue
+                 fact = owned.setdefault(item,{'count_lower_bound':0,'sample_times':[],
+-                    'evidence':[],'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY'})
++                    'evidence':[],'identity_evidence':[],'identity_sample_times':[],
++                    'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY'})
+                 fact['count_lower_bound'] += row['stack_count']
+                 if len(fact['evidence'])<4:
+                     fact['evidence'].append(row['observation_id']);fact['sample_times'].append(row['sample_time'])
++                    fact['identity_evidence'].append(row['identity_evidence'])
++                    fact['identity_sample_times'].append(row['identity_sample_time'])
+             for item,fact in owned.items():
+                 row = self.data.setdefault(('item',item),{'item_id':int(item)})
+                 row['native_ownership'] = fact
+--- before/src/wowbot/agent/packet_inventory.py
++++ after/src/wowbot/agent/packet_inventory.py
+@@ -27,7 +27,8 @@
+         guid = body['item_guid']
+         previous = record['items'].get(guid)
+         barrier = record['invalidated'].get(guid,float('-inf'))
+-        if sampled < max(barrier,(previous or {}).get('observed_at',float('-inf'))):
++        if sampled < barrier or ((body.get('sample_kind')=='CREATE' or kind=='OWN_ITEM_REMOVED')
++                                and previous and sampled < previous['observed_at']):
+             return
+         if kind == 'OWN_ITEM_REMOVED':
+             record['items'].pop(guid,None)
+@@ -35,8 +36,22 @@
+             while len(record['invalidated']) > MAX_ITEMS:
+                 record['invalidated'].pop(next(iter(record['invalidated'])))
+         else:
+-            record['items'][guid] = fact({k:body[k] for k in ('item_guid','item_id','container_guid',
+-                'stack_count','durability','max_durability','container_slots','num_slots') if k in body})
++            if body.get('sample_kind')=='VALUES' and previous is None:
++                return  # a delta cannot manufacture its missing CREATE identity
++            value = json_copy(previous['value']) if previous else {}
++            clocks = json_copy(previous.get('fields',{})) if previous else {}
++            positions = json_copy(previous.get('positions',{})) if previous else {}
++            for key in ('item_guid','item_id','container_guid','stack_count','durability','max_durability','num_slots'):
++                if key in body and sampled >= clocks.get(key,{}).get('observed_at',float('-inf')):
++                    value[key]=body[key]
++                    clocks[key]={'observed_at':sampled,'observation_id':observation.observation_id}
++            for index,item_guid in body.get('container_slots',body.get('container_slots_delta',())):
++                key=str(index)
++                if sampled >= positions.get(key,{}).get('observed_at',float('-inf')):
++                    positions[key]={'value':item_guid,'observed_at':sampled,
++                                    'observation_id':observation.observation_id}
++            record['items'][guid] = {**fact(value), 'fields':clocks,'positions':positions,
++                                    'observed_at':max(sampled,(previous or {}).get('observed_at',sampled))}
+             if len(record['items'])>MAX_ITEMS:
+                 oldest=min(record['items'],key=lambda key:record['items'][key]['observed_at'])
+                 del record['items'][oldest]
+@@ -63,12 +78,32 @@
+             result['root_slots'] = json_copy(roots['value'])
+             result['root_observation_id'] = roots['observation_id']
+     for row in record['items'].values():
+-        if not 0 <= now-row['observed_at'] <= MAX_AGE:continue
++        count_clock=row['fields'].get('stack_count')
++        if count_clock is None or not 0 <= now-count_clock['observed_at'] <= MAX_AGE:continue
+         result['coverage']='PARTIAL'
+         result['known_items']+=1
+         if include_items and (item_id is None or row['value']['item_id']==item_id):
+-            result['items'].append({**json_copy(row['value']),'sample_time':row['observed_at'],
+-                                    'observation_id':row['observation_id'],'carried':None})
++            # ItemGUID -> entry binding is retained only within this known
++            # lifecycle/scope. It is not resampled by quantity/durability.
++            entry=row['fields']['item_id']
++            item={k:row['value'][k] for k in ('item_guid','item_id','stack_count')}
++            for key in ('container_guid','durability','max_durability','num_slots'):
++                clock=row['fields'].get(key)
++                if clock is not None and 0 <= now-clock['observed_at'] <= MAX_AGE:
++                    item[key]=row['value'][key]
++            positions=[[int(index),position['value']] for index,position in row['positions'].items()
++                       if 0 <= now-position['observed_at'] <= MAX_AGE]
++            if positions:
++                from wowbot.packetio.own_inventory_codec import ZERO
++                known_guids=[g for _,g in positions if g!=ZERO]
++                contradiction=(len(set(known_guids))!=len(known_guids)
++                    or 'num_slots' in item and any(i>=item['num_slots'] and g!=ZERO for i,g in positions))
++                item['container_slots_coverage']=('UNKNOWN' if contradiction else
++                    'COMPLETE' if len(positions)==98 and 'num_slots' in item else 'PARTIAL')
++                if not contradiction:item['container_slots']=positions
++            result['items'].append({**item,'sample_time':count_clock['observed_at'],
++                'observation_id':count_clock['observation_id'],'identity_sample_time':entry['observed_at'],
++                'identity_evidence':entry['observation_id'],'carried':None})
+     return result
+ 
+ 
+--- before/src/wowbot/agent/world_query.py
++++ after/src/wowbot/agent/world_query.py
+@@ -151,7 +151,9 @@
+                 'count':sum(r['stack_count'] for r in rows) if rows else None,
+                 'carried':None,'complete':False,'source':'PACKET_OWN_INVENTORY',
+                 'evidence':[r['observation_id'] for r in rows],
+-                'sample_times':[r['sample_time'] for r in rows]}
++                'sample_times':[r['sample_time'] for r in rows],
++                'identity_evidence':[r['identity_evidence'] for r in rows],
++                'identity_sample_times':[r['identity_sample_time'] for r in rows]}
+ 
+     def quest_definition(self, quest_id, now: float | None = None) -> dict:
+         """Observed, scoped quest structure; not an active/reward/actor fact."""
+--- before/src/wowbot/packetio/own_inventory_codec.py
++++ after/src/wowbot/packetio/own_inventory_codec.py
+@@ -105,8 +105,9 @@
+     return {'container_slots':slots,'num_slots':size}
+ 
+ 
+-def normalize_guid_slots(rows, limit):
+-    if not isinstance(rows,list) or len(rows) != limit:
++def normalize_guid_slots(rows, limit, *, partial=False):
++    if (not isinstance(rows,list) or not 1 <= len(rows) <= limit
++            or not partial and len(rows) != limit):
+         raise ValueError('complete native slot list required')
+     result,seen = [],set()
+     for row in rows:
+@@ -150,20 +151,34 @@
+         if body.get('removal') not in {'DESTROYED','OUT_OF_RANGE','OWNER_CHANGED','UNREVIEWED_UPDATE'}:
+             raise ValueError('invalid item removal')
+         return {**result,'removal':body['removal']}
+-    if body.get('sample_kind') != 'CREATE':raise ValueError('reviewed item create required')
++    sample = body.get('sample_kind')
++    if sample not in {'CREATE','VALUES'}:raise ValueError('reviewed item sample required')
+     for key in ('item_id','stack_count','durability','max_durability'):
++        if sample == 'VALUES' and key not in body:continue
+         value = body.get(key)
+         if type(value) is not int or not 0 <= value < 2**32 or key=='item_id' and not value:
+             raise ValueError('invalid own item number')
+         result[key] = value
+-    parent = body.get('container_guid')
+-    if not isinstance(parent,str) or parent.upper() != result['mover_guid']:
+-        _guid(parent,item=True,zero=True)
+-    result.update(container_guid=parent.upper(),sample_kind='CREATE')
+-    if 'container_slots' in body or 'num_slots' in body:
++    if sample=='CREATE' or 'container_guid' in body:
++        parent = body.get('container_guid')
++        if not isinstance(parent,str) or parent.upper() != result['mover_guid']:
++            _guid(parent,item=True,zero=True)
++        result['container_guid'] = parent.upper()
++    result['sample_kind'] = sample
++    if sample=='CREATE' and ('container_slots' in body or 'num_slots' in body):
+         slots=normalize_guid_slots(body.get('container_slots'),CONTAINER_COUNT)
+         size=body.get('num_slots')
+         if type(size) is not int or not 0 <= size <= CONTAINER_COUNT or any(g != ZERO for i,g in slots if i >= size):
+             raise ValueError('invalid own container size')
+         result.update(container_slots=slots,num_slots=size)
++    if sample=='VALUES':
++        if 'num_slots' in body:
++            size=body['num_slots']
++            if type(size) is not int or not 0 <= size <= CONTAINER_COUNT:
++                raise ValueError('invalid container capacity')
++            result['num_slots']=size
++        if 'container_slots_delta' in body:
++            result['container_slots_delta']=normalize_guid_slots(body['container_slots_delta'],CONTAINER_COUNT,partial=True)
++        if not set(result)-{'mover_guid','world_map_id','item_guid','sample_kind'}:
++            raise ValueError('empty inventory delta')
+     return result
+--- before/src/wowbot/packetio/own_item_delta.py
++++ after/src/wowbot/packetio/own_item_delta.py
+@@ -0,0 +1,108 @@
++"""Reviewed ItemData/ContainerData VALUES for already confirmed owned GUIDs.
++
++Unsupported masks invalidate ownership until another verified CREATE; no
++unreviewed dynamic-array offset or another player's private fields are guessed.
++"""
++from .own_inventory_codec import _guid, count
++
++LAYOUT = 'WPP_12_1_OWN_INVENTORY_REVIEWED_V2'
++
++
++def _mask(cursor, words):
++    cursor.reset()
++    presence=cursor.bits(words)
++    value=sum((cursor.bits(32) if presence>>i&1 else 0) << (32*i) for i in range(words))
++    cursor.reset()
++    return value
++
++
++def _item(cursor, own_guid):
++    from .context import same_player
++    mask=_mask(cursor,2)
++    if mask>>41 or mask & (1<<1 | 1<<2 | 1<<17):
++        raise ValueError('unreviewed own item dynamic fields')
++    if (mask & sum(1<<i for i in range(3,21)) and not mask&1
++            or mask & sum(1<<i for i in range(22,27)) and not mask>>21&1
++            or mask & sum(1<<i for i in range(28,41)) and not mask>>27&1):
++        raise ValueError('unrooted own item change mask')
++    result={}
++    if mask&1:
++        if mask>>3&1:
++            owner=cursor.guid()
++            if not same_player(owner,own_guid):return {'foreign_owner':True}
++        if mask>>4&1:result['container_guid']=cursor.guid()
++        for i in (5,6):
++            if mask>>i&1:
++                from .player_quest_log import _skip_guid
++                _skip_guid(cursor)
++        for i,key,reader in ((7,'stack_count','u32'),(8,None,'u32'),(9,None,'u32'),
++            (10,'durability','u32'),(11,'max_durability','u32'),(12,None,'u32'),(13,None,'u8'),
++            (14,None,'i64'),(15,None,'u64'),(16,None,'u8')):
++            if mask>>i&1:
++                value=getattr(cursor,reader)()
++                if key:result[key]=value
++        if mask>>18&1:cursor.take(4)
++        if mask>>19&1:
++            cursor.take(4)
++            bonuses,modifiers=count(cursor),count(cursor)
++            cursor.take(bonuses*4+modifiers*5)
++        if mask>>20&1:cursor.take(2)
++    if mask>>21&1:
++        cursor.take(sum(4 for i in range(22,27) if mask>>i&1))
++    if mask>>27&1:
++        for i in range(28,41):
++            if not mask>>i&1:continue
++            cursor.reset();enchant=cursor.bits(5);cursor.reset()
++            if enchant&0x1e and not enchant&1:raise ValueError('unrooted enchantment mask')
++            if enchant&1:
++                cursor.take(sum(size for bit,size in ((1,4),(2,4),(3,2),(4,2)) if enchant>>bit&1))
++    return result
++
++
++def _container(cursor):
++    mask=_mask(cursor,4)
++    if mask>>101 or mask&2 and not mask&1 or mask>>3 and not mask&4:
++        raise ValueError('unreviewed container change mask')
++    result={}
++    if mask&1 and mask&2:
++        size=cursor.u32()
++        if size>98:raise ValueError('invalid container capacity')
++        result['num_slots']=size
++    if mask&4:
++        rows=[]
++        for i in range(98):
++            if mask>>(3+i)&1:
++                guid=cursor.guid();_guid(guid,item=True,zero=True);rows.append([i,guid])
++        if rows:result['container_slots_delta']=rows
++    return result
++
++
++def read_values(blob, fragments, own_guid):
++    from .update_object import _Bits, _UPDATEABLE, _INDIRECT, _CG_OBJECT
++    c=_Bits(blob)
++    c.u8()
++    if c.u8():raise ValueError('unreviewed item fragment changes')
++    bits=sum(1+(f in _INDIRECT) for f in fragments if f in _UPDATEABLE)
++    changes=c.take((bits+7)//8)
++    first=next((f for f in fragments if f in _UPDATEABLE),None)
++    if first!=_CG_OBJECT or not changes or changes[0]&3!=3:
++        raise ValueError('unreviewed item fragment order')
++    kinds=c.u32()
++    if not kinds or kinds&~7:raise ValueError('unreviewed item data types')
++    result={}
++    if kinds&1:
++        c.reset();mask=c.bits(4);c.reset()
++        if mask&0xe and not mask&1:raise ValueError('unrooted object mask')
++        if mask&1:
++            if mask&2:
++                entry=c.i32()
++                if entry<=0:raise ValueError('invalid item entry')
++                result['item_id']=entry
++            if mask&4:c.take(4)
++            if mask&8:c.take(4)
++    if kinds&2:
++        result.update(_item(c,own_guid))
++        if result.get('foreign_owner'):return result
++    if kinds&4:result.update(_container(c))
++    if c.offset!=len(blob):raise ValueError('unreviewed item tail')
++    return result
+--- before/src/wowbot/packetio/pkt.py
++++ after/src/wowbot/packetio/pkt.py
+@@ -398,7 +398,8 @@
+                 "opcode_source_revision": WPP_REVISION,
+                 'capture_epoch': self.capture_epoch,
+                 "payload_layout": ("WPP_12_1_QUEST_DEFINITION_REVIEWED_V1" if event_type in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'} else
+-                                   "WPP_12_1_OWN_INVENTORY_REVIEWED_V1" if event_type in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'} else
++                                   ("WPP_12_1_OWN_INVENTORY_REVIEWED_V2" if payload.get('sample_kind')=='VALUES'
++                                    else "WPP_12_1_OWN_INVENTORY_REVIEWED_V1") if event_type in {'OWN_INVENTORY_ROOTS','OWN_INVENTORY_INVALIDATED','OWN_ITEM_UPDATE','OWN_ITEM_REMOVED'} else
+                                    ("WPP_12_1_QUEST_LOG_REVIEWED_V2" if payload.get('sample_kind') == 'CREATE'
+                                     else "WPP_12_1_QUEST_LOG_REVIEWED_V1") if event_type == 'OWN_QUEST_LOG_UPDATE' else
+                                    "WPP_12_1_OWN_PROFILE_REVIEWED_V1" if event_type == 'OWN_PROFILE_UPDATE' else
+@@ -614,11 +615,15 @@
+             continue
+         previous = owned_items.get(guid)
+         if previous is not None and own_character_guid is not None and same_player(previous,own_character_guid):
++            if row.get('own_item_delta'):
++                events.append(('OWN_ITEM_UPDATE',{'mover_guid':previous,'item_guid':guid,
++                    'world_map_id':world_map,'sample_kind':'VALUES',**row['own_item_delta']}))
++                continue
+             reason = (row.get('reason') if row['kind']=='REMOVED' else
+                       'OWNER_CHANGED' if row.get('foreign_item_owner') else 'UNREVIEWED_UPDATE')
+             events.append(('OWN_ITEM_REMOVED',{'mover_guid':previous,'item_guid':guid,
+                           'world_map_id':world_map,'removal':reason}))
+-            if row['kind']!='VALUES':owned_items.pop(guid,None)
++            owned_items.pop(guid,None)  # unknown ownership/layout must be re-established by CREATE
+             continue
+         if own_character_guid is not None:
+             from .context import same_player
+--- before/src/wowbot/packetio/update_object.py
++++ after/src/wowbot/packetio/update_object.py
+@@ -562,8 +562,18 @@
+         if update_type == 0:
+             blob = c.take(_bounded(c.u32(), len(data), "values size"))
+             if guid in known_own_items:
+-                rows.append({'kind':'VALUES','guid':guid,'own_item_invalidated':True})
+-                continue  # unreviewed item deltas invalidate; no private item fields guessed
++                from .own_item_delta import read_values
++                try:
++                    delta=read_values(blob,pending.get(guid,fragments_by_guid.get(guid,())),own_character_guid)
++                    if delta.get('foreign_owner'):
++                        rows.append({'kind':'VALUES','guid':guid,'foreign_item_owner':True})
++                        known_own_items.discard(guid)
++                    elif delta:
++                        rows.append({'kind':'VALUES','guid':guid,'own_item_delta':delta})
++                except ValueError:
++                    rows.append({'kind':'VALUES','guid':guid,'own_item_invalidated':True})
++                    known_own_items.discard(guid)
++                continue  # only reviewed fields of a previously confirmed owned GUID
+             known = pending.get(guid, fragments_by_guid.get(guid))
+             if int(guid[:16], 16) >> 58 == 2:
+                 from .context import same_player
+--- before/src/wowbot/packetio/validation.py
++++ after/src/wowbot/packetio/validation.py
+@@ -10,7 +10,7 @@
+     'OWN_INVENTORY_ROOTS': {'mover_guid','world_map_id','sample_kind','root_slots'},
+     'OWN_INVENTORY_INVALIDATED': {'mover_guid','world_map_id'},
+     'OWN_ITEM_UPDATE': {'mover_guid','world_map_id','sample_kind','item_guid','item_id','stack_count',
+-                        'container_guid','durability','max_durability','container_slots','num_slots'},
++                        'container_guid','durability','max_durability','container_slots','num_slots','container_slots_delta'},
+     'OWN_ITEM_REMOVED': {'mover_guid','world_map_id','item_guid','removal'},
+     "SESSION_BASELINE": {"character_guid", "capture_epoch", "sequence", "world_map_id", "process_generation"},
+     "OWN_UNIT_UPDATE": {"mover_guid", "world_map_id", "health", "max_health", "sample_kind"},
+@@ -68,6 +68,7 @@
+ _LAYOUT_EVENTS = {
+     "WPP_12_1_REVIEWED_PREFIX_V1": frozenset(ALLOWED_EVENTS-ENTITY_EVENTS-CAPTURE_70575_EVENTS-CAST_EVENTS-INVENTORY_EVENTS-{"SESSION_BASELINE", "OWN_UNIT_UPDATE", 'OWN_POWER_UPDATE', 'OWN_PROFILE_UPDATE', 'OWN_QUEST_LOG_UPDATE', 'QUEST_DEFINITION', 'QUEST_DEFINITION_UNAVAILABLE'}),
+     INVENTORY_LAYOUT: INVENTORY_EVENTS,
++    'WPP_12_1_OWN_INVENTORY_REVIEWED_V2': INVENTORY_EVENTS,
+     "WPP_12_1_SESSION_REVIEWED_V1": frozenset({"SESSION_BASELINE"}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V1": frozenset({'OWN_UNIT_UPDATE'}),
+     "WPP_12_1_OWN_UNIT_REVIEWED_V2": frozenset({'OWN_UNIT_UPDATE'}),
+@@ -123,6 +124,9 @@
+             raise ValueError('own inventory requires a server observation')
+         from .own_inventory_codec import normalize_body
+         safe_body = normalize_body(kind,body)
++        if (safe_body.get('sample_kind')=='VALUES'
++                and provenance.get('payload_layout')!='WPP_12_1_OWN_INVENTORY_REVIEWED_V2'):
++            raise ValueError('inventory deltas require reviewed V2 layout')
+     if kind in {'QUEST_DEFINITION','QUEST_DEFINITION_UNAVAILABLE'}:
+         if type(body.get('quest_id')) is not int or not 0 < body['quest_id'] < 2**31:
+             raise ValueError('quest definition response requires a quest ID')
+--- before/tests/test_native_inventory_20261030.py
++++ after/tests/test_native_inventory_20261030.py
+@@ -61,10 +61,10 @@
+     return struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
+ 
+ 
+-def events(payload, decoder=None):
++def events(payload, decoder=None, *, at=10.):
+     if decoder is None:decoder,record=own_event()
+     else:_,record=own_event()
+-    return decoder,decoder.decode_all(replace(record,payload=payload))
++    return decoder,decoder.decode_all(replace(record,payload=payload,timestamp=1000.+at-10.))
+ 
+ 
+ @pytest.mark.parametrize('optional',[False,True])
+@@ -114,10 +114,10 @@
+ def deliver_native(bridge,payload,*,decoder=None,at=10.):
+     bridge.inbox._clock=lambda:at
+     bridge.inbox._wall_clock=lambda:1000.+at-10.
+-    decoder,values=events(payload,decoder)
++    decoder,values=events(payload,decoder,at=at)
+     for value in values:
+         if value.event_type.startswith('OWN_'):
+-            deliver(bridge,replace(value,timestamp=1000.+at-10.),at=at)
++            deliver(bridge,value,at=at)
+     return decoder
+ 
+ 
+--- before/tests/test_native_inventory_delta_20261030.py
++++ after/tests/test_native_inventory_delta_20261030.py
+@@ -0,0 +1,123 @@
++"""Owned item VALUES preserve each field's original observation clock."""
++import struct
++
++import pytest
++
++from wowbot.packetio.validation import normalize_event,verified_semantics
++from test_packet_agent_bridge import bridge
++from test_unit_fields_20261027 import bits
++from test_native_inventory_20261030 import (RAW_ME,ITEM,BAG,ZERO,packed,events,item_payload,
++                                           deliver_native,ready)
++
++
++def mask_bytes(changed,words):
++    values=[sum(1<<(i%32) for i in changed if i//32==j) for j in range(words)]
++    presence=sum(1<<j for j,w in enumerate(values) if w)
++    return bits([(presence,words),*((w,32) for w in values if w)])
++
++
++def delta_payload(*, quantity=None, durability=None, parent=None, owner=None, unsupported=False,
++                  slots=None, capacity=None, guid=ITEM, tail=b''):
++    kinds=0
++    value=b''
++    changed={0}
++    if quantity is not None:changed.add(7)
++    if durability is not None:changed.add(10)
++    if parent is not None:changed.add(4)
++    if owner is not None:changed.add(3)
++    if unsupported:changed.add(17)
++    if len(changed)>1:
++        kinds|=2;value+=mask_bytes(changed,2)
++        if owner is not None:value+=packed(owner)
++        if parent is not None:value+=packed(parent)
++        if quantity is not None:value+=struct.pack('<I',quantity)
++        if durability is not None:value+=struct.pack('<I',durability)
++    if slots is not None or capacity is not None:
++        kinds|=4;changed=set()
++        if slots:changed.update({2,*(3+i for i,_ in slots)})
++        if capacity is not None:changed.update({0,1})
++        value+=mask_bytes(changed,4)
++        if capacity is not None:value+=struct.pack('<I',capacity)
++        for _,item in sorted(slots or ()):value+=packed(item)
++    blob=bytes((1,0,3))+struct.pack('<I',kinds)+value+tail
++    block=b'\0'+packed(guid)+struct.pack('<I',len(blob))+blob
++    return struct.pack('<HI',2175,1)+b'\0'+struct.pack('<I',len(block))+block
++
++
++def test_owned_quantity_delta_is_reviewed_v2_and_v1_cannot_claim_it():
++    decoder,_=events(item_payload())
++    _,values=events(delta_payload(quantity=9),decoder,at=10.1)
++    value=next(e for e in values if e.event_type=='OWN_ITEM_UPDATE').to_dict()
++    assert value['payload']['sample_kind']=='VALUES' and value['payload']['stack_count']==9
++    assert 'item_id' not in value['payload']  # no resampling cached metadata as a wire value
++    assert verified_semantics(normalize_event(value))
++    value['provenance']['payload_layout']='WPP_12_1_OWN_INVENTORY_REVIEWED_V1'
++    with pytest.raises(ValueError):normalize_event(value)
++
++
++def test_counter_change_updates_count_but_durability_does_not_rejuvenate_it(bridge):
++    ready(bridge)
++    decoder=deliver_native(bridge,item_payload())
++    deliver_native(bridge,delta_payload(quantity=11),decoder=decoder,at=10.1)
++    row=bridge.world.query.native_inventory(10.1)['items'][0]
++    assert row['stack_count']==11 and row['sample_time']==10.1 and row['identity_sample_time']==10.
++    deliver_native(bridge,delta_payload(durability=17),decoder=decoder,at=11.9)
++    row=bridge.world.query.native_inventory(11.9)['items'][0]
++    assert row['durability']==17 and row['sample_time']==10.1
++    assert bridge.world.query.owned_item_count(12345,12.2)['status']=='UNKNOWN'
++    assert bridge.world.state['inventory']['items'][0]['count']==99
++
++
++def test_reordered_different_field_deltas_keep_independent_clocks(bridge):
++    ready(bridge);decoder=deliver_native(bridge,item_payload())
++    deliver_native(bridge,delta_payload(durability=17),decoder=decoder,at=10.2)
++    deliver_native(bridge,delta_payload(quantity=11),decoder=decoder,at=10.1)
++    row=bridge.world.query.native_inventory(10.2)['items'][0]
++    assert row['durability']==17 and row['stack_count']==11 and row['sample_time']==10.1
++
++
++def test_container_slot_delta_does_not_rejuvenate_all_98_slots_or_quantity(bridge):
++    ready(bridge);decoder=deliver_native(bridge,item_payload(low=124,bag=True))
++    deliver_native(bridge,delta_payload(guid=BAG,slots=[(0,'0'*32),(1,ITEM)]),decoder=decoder,at=10.1)
++    row=bridge.world.query.native_inventory(10.1)['items'][0]
++    assert [0,'0'*32] in row['container_slots'] and [1,ITEM] in row['container_slots']
++    assert row['sample_time']==10. and row['container_slots_coverage']=='COMPLETE'
++    deliver_native(bridge,delta_payload(guid=BAG,quantity=1),decoder=decoder,at=12.05)
++    row=bridge.world.query.native_inventory(12.05)['items'][0]
++    assert row['identity_sample_time']==10. and len(row['container_slots'])==2
++    assert row['container_slots_coverage']=='PARTIAL' and 'num_slots' not in row
++
++
++@pytest.mark.parametrize('change',[{'unsupported':True},{'quantity':5,'tail':b'unknown-tail'}])
++def test_unreviewed_delta_loses_ownership_until_another_create(bridge,change,monkeypatch):
++    ready(bridge);decoder=deliver_native(bridge,item_payload())
++    deliver_native(bridge,delta_payload(**change),decoder=decoder,at=10.1)
++    assert bridge.world.query.owned_item_count(12345,10.1)['status']=='UNKNOWN'
++    from wowbot.packetio import own_item_delta
++    def forbidden(*args):pytest.fail('private item reader used after ownership was invalidated')
++    monkeypatch.setattr(own_item_delta,'read_values',forbidden)
++    _,values=events(delta_payload(quantity=9),decoder,at=10.2)
++    assert all(e.event_type!='OWN_ITEM_UPDATE' for e in values)
++
++
++def test_owner_change_drops_item_before_reading_any_foreign_private_tail():
++    decoder,_=events(item_payload())
++    _,values=events(delta_payload(owner=f'{2<<58:016X}{999:016X}',tail=b'private-not-read'),decoder,at=10.1)
++    assert values[-1].event_type=='OWN_ITEM_REMOVED' and values[-1].payload['removal']=='OWNER_CHANGED'
++
++
++def test_transient_duplicate_slot_identity_is_not_advertised_as_complete_container(bridge):
++    ready(bridge);decoder=deliver_native(bridge,item_payload(low=124,bag=True))
++    deliver_native(bridge,delta_payload(guid=BAG,slots=[(1,ITEM)]),decoder=decoder,at=10.1)
++    row=bridge.world.query.native_inventory(10.1)['items'][0]
++    assert row['container_slots_coverage']=='UNKNOWN' and 'container_slots' not in row
++    deliver_native(bridge,delta_payload(guid=BAG,slots=[(0,'0'*32)]),decoder=decoder,at=10.2)
++    row=bridge.world.query.native_inventory(10.2)['items'][0]
++    assert row['container_slots_coverage']=='COMPLETE'
++
++
++def test_old_removal_cannot_erase_a_fresher_create_or_quantity_sample(bridge):
++    ready(bridge);decoder=deliver_native(bridge,item_payload())
++    deliver_native(bridge,delta_payload(quantity=11),decoder=decoder,at=10.2)
++    deliver_native(bridge,delta_payload(unsupported=True),decoder=decoder,at=10.1)
++    assert bridge.world.query.owned_item_count(12345,10.2)['count']==11

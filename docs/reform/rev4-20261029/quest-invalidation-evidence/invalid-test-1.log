@@ -1,0 +1,100 @@
+..........F............................................................. [ 72%]
+....FFFF...................                                              [100%]
+================================== FAILURES ===================================
+_____ test_unknown_unit_tail_or_player_prefix_never_guesses_quest_offsets _____
+
+    def test_unknown_unit_tail_or_player_prefix_never_guesses_quest_offsets():
+        decoder,record = quest_event(unit_tail=True)
+        assert not any(e.event_type == 'OWN_QUEST_LOG_UPDATE' for e in decoder.decode_all(record))
+        for extra in ((0,3),(0,25),(32,36),(32,47)):
+            decoder,record = quest_event(extra_bits=extra)
+>           assert len(decoder.decode_all(record)) == 1
+E           AssertionError: assert 2 == 1
+E            +  where 2 = len([AgentPacketEvent(event_id='9b9c22a4fec7809a2dbab591', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17...', 'semantic_ground_truth': True, 'file_offset': 0, 'semantic_record_id': '6e60426c6fc2433df48df7a7'}, confidence=1.0)])
+E            +    where [AgentPacketEvent(event_id='9b9c22a4fec7809a2dbab591', schema='aipc.packet-event.v1', timestamp=1000.0, received_at=17...', 'semantic_ground_truth': True, 'file_offset': 0, 'semantic_record_id': '6e60426c6fc2433df48df7a7'}, confidence=1.0)] = decode_all(PktRecord(record_number=2, direction='SERVER_TO_CLIENT', connection_index=1, tick_count=3, timestamp=1000.0, opcode=60...x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', optional_data=b'', file_offset=0))
+E            +      where decode_all = <wowbot.packetio.pkt.PktEventDecoder object at 0x0000027F3823FA70>.decode_all
+
+tests\test_native_quest_log_20261030.py:154: AssertionError
+_ test_selected_own_create_establishes_hp_without_waiting_for_a_delta[False-6] _
+
+kind = 6, owner = False
+
+    @pytest.mark.parametrize('kind', [6, 7])
+    @pytest.mark.parametrize('owner', [False, True])
+    def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+        rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
+        assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
+        rows = rows[1:]
+>       assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                          'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                          'power_type': 1, 'level': 70})
+E       AssertionError: assert ('OWN_QUEST_L...ap_id': 2175}) == ('OWN_PROFILE..._id': 1, ...})
+E         
+E         At index 0 diff: 'OWN_QUEST_LOG_INVALIDATED' != 'OWN_PROFILE_UPDATE'
+E         Use -v to get more diff
+
+tests\test_own_baseline_20261030.py:33: AssertionError
+_ test_selected_own_create_establishes_hp_without_waiting_for_a_delta[False-7] _
+
+kind = 7, owner = False
+
+    @pytest.mark.parametrize('kind', [6, 7])
+    @pytest.mark.parametrize('owner', [False, True])
+    def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+        rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
+        assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
+        rows = rows[1:]
+>       assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                          'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                          'power_type': 1, 'level': 70})
+E       AssertionError: assert ('OWN_QUEST_L...ap_id': 2175}) == ('OWN_PROFILE..._id': 1, ...})
+E         
+E         At index 0 diff: 'OWN_QUEST_LOG_INVALIDATED' != 'OWN_PROFILE_UPDATE'
+E         Use -v to get more diff
+
+tests\test_own_baseline_20261030.py:33: AssertionError
+_ test_selected_own_create_establishes_hp_without_waiting_for_a_delta[True-6] _
+
+kind = 6, owner = True
+
+    @pytest.mark.parametrize('kind', [6, 7])
+    @pytest.mark.parametrize('owner', [False, True])
+    def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+        rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
+        assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
+        rows = rows[1:]
+>       assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                          'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                          'power_type': 1, 'level': 70})
+E       AssertionError: assert ('OWN_QUEST_L...ap_id': 2175}) == ('OWN_PROFILE..._id': 1, ...})
+E         
+E         At index 0 diff: 'OWN_QUEST_LOG_INVALIDATED' != 'OWN_PROFILE_UPDATE'
+E         Use -v to get more diff
+
+tests\test_own_baseline_20261030.py:33: AssertionError
+_ test_selected_own_create_establishes_hp_without_waiting_for_a_delta[True-7] _
+
+kind = 7, owner = True
+
+    @pytest.mark.parametrize('kind', [6, 7])
+    @pytest.mark.parametrize('owner', [False, True])
+    def test_selected_own_create_establishes_hp_without_waiting_for_a_delta(kind, owner):
+        rows = _decode_update_object(create_payload(object_type=kind, owner=owner), {}, own_character_guid='Player-1602-00001234')
+        assert rows[0][0] == 'OWN_INVENTORY_INVALIDATED'  # this fixture ends before the inventory prefix
+        rows = rows[1:]
+>       assert rows[0] == ('OWN_PROFILE_UPDATE', {'mover_guid': RAW_ME, 'world_map_id': 2175,
+                          'sample_kind': 'CREATE', 'race_id': 1, 'class_id': 1, 'player_class_id': 1,
+                          'power_type': 1, 'level': 70})
+E       AssertionError: assert ('OWN_QUEST_L...ap_id': 2175}) == ('OWN_PROFILE..._id': 1, ...})
+E         
+E         At index 0 diff: 'OWN_QUEST_LOG_INVALIDATED' != 'OWN_PROFILE_UPDATE'
+E         Use -v to get more diff
+
+tests\test_own_baseline_20261030.py:33: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_native_quest_log_20261030.py::test_unknown_unit_tail_or_player_prefix_never_guesses_quest_offsets
+FAILED tests/test_own_baseline_20261030.py::test_selected_own_create_establishes_hp_without_waiting_for_a_delta[False-6]
+FAILED tests/test_own_baseline_20261030.py::test_selected_own_create_establishes_hp_without_waiting_for_a_delta[False-7]
+FAILED tests/test_own_baseline_20261030.py::test_selected_own_create_establishes_hp_without_waiting_for_a_delta[True-6]
+FAILED tests/test_own_baseline_20261030.py::test_selected_own_create_establishes_hp_without_waiting_for_a_delta[True-7]
+5 failed, 94 passed in 1.83s

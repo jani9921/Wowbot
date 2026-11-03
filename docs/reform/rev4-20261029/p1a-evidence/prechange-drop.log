@@ -1,0 +1,20 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index _
+
+    def test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index():
+        value = state()
+        other = deepcopy(value["active_quests"][0]["objectives"][0])
+        other["description"] = "0/3 Silver Dust"
+        value["active_quests"][0]["objectives"].append(other)
+>       assert kill_objective_entries(value) == {}
+E       AssertionError: assert {'990401': ('..., '990201:0')} == {}
+E         
+E         Left contains 1 more item:
+E         {'990401': ('990201', '990201:0')}
+E         Use -v to get more diff
+
+tests\test_quest_drop_combat_handoff_20261028.py:185: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_quest_drop_combat_handoff_20261028.py::test_ambiguous_blank_reference_rows_do_not_pick_a_collect_objective_by_index
+1 failed in 2.12s

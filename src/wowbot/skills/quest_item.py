@@ -1,9 +1,12 @@
 """Canonical targeted quest-item activation with credit-only verification."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
 
 from wowbot.agent.models import Command, number
+from wowbot.agent.quest_tool_resolver import QuestToolResolver
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus
 from wowbot.verification import QuestProgressVerifier
 
@@ -63,6 +66,9 @@ class UseItemSkill:
     @staticmethod
     def resolve_inventory_item(world_state: dict, parameters: dict) -> dict | None:
         """Revalidate an addon-reported visible bag button before clicking."""
+        from wowbot.agent.collection_coverage import inventory_ready
+        if not inventory_ready(world_state):
+            return None
         if parameters.get("activation_source") != "INVENTORY_COORDINATE":
             return None
         item_id = parameters.get("item_id")
@@ -71,6 +77,9 @@ class UseItemSkill:
             str(quest.get("quest_id")) in quest_ids
             and str((quest.get("special_item") or {}).get("item_id")) == str(item_id)
             for quest in world_state.get("active_quests", ()))
+        if not authorized:
+            from wowbot.agent.quest_item_knowledge import authorized_item
+            authorized = authorized_item(world_state, item_id, quest_ids)
         if not authorized or world_state.get("bags_open") is not True:
             return None
         item = next((candidate for candidate in (world_state.get("inventory") or {}).get("items", ())
@@ -101,6 +110,7 @@ class UseItemSkill:
             baseline, world_state, quest_ids=quest_ids,
             objective_ids=objective_ids)
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         params, target = state.intent.parameters, world_state.get("target") or {}
         expected_guid = state.intent.target_ref or str(params.get("guid") or "")
@@ -110,6 +120,30 @@ class UseItemSkill:
         objective_ids = tuple(params.get("objective_ids") or
                               ((state.intent.objective_ref,) if state.intent.objective_ref else ()))
         state.phase = UseItemPhase.VALIDATE_CONTEXT.value
+        if params.get("item_spell_id") is not None:
+            from wowbot.agent.quest_item_knowledge import authorized_item, current_use
+            profile = current_use(world_state, item_id, quest_ids)
+            if (not profile or profile.get("status") != "RESOLVED"
+                    or profile["spell_id"] != params["item_spell_id"]
+                    or profile["target_mode"] != params.get("item_target_mode")
+                    or profile["target_mode"] not in {"UNIT", "SELF"}
+                    or not authorized_item(world_state, item_id, quest_ids)):
+                return SkillResult(SkillStatus.BLOCKED, FailureReason.UNSUPPORTED_MECHANIC,
+                                   replan_required=True, metadata={"reason": "item_effect_context_changed_or_unsupported"})
+            if profile["target_mode"] == "UNIT":
+                relation = profile.get("target_relation")
+                attackable = target.get("attackable", target.get("is_attackable"))
+                if (not self.target_required(params) or not expected_guid
+                        or (relation == "HOSTILE" and attackable is not True)
+                        or (relation == "FRIENDLY" and attackable is not False)):
+                    return SkillResult(SkillStatus.FAILURE, FailureReason.INVALID_TARGET, replan_required=True)
+            elif self.target_required(params) or params.get("activation_source") == "INTERACT_KEY":
+                return SkillResult(SkillStatus.BLOCKED, FailureReason.INVALID_TARGET, replan_required=True)
+            if (profile.get("delivery") or {}).get("mode") == "FORWARD_CONE":
+                from wowbot.agent.directed_item_facts import ready_for_use
+                if not ready_for_use(world_state, params, state.started_at):
+                    return SkillResult(SkillStatus.BLOCKED, FailureReason.UNSUPPORTED_MECHANIC,
+                                       replan_required=True, metadata={"reason":"directed_item_not_ready"})
         if (item_id is None or (not quest_ids and not objective_ids)
                 or (self.target_required(params) and not expected_guid)):
             return SkillResult(SkillStatus.BLOCKED, FailureReason.OBJECTIVE_UNKNOWN,
@@ -118,7 +152,11 @@ class UseItemSkill:
         if self.target_required(params) and target.get("guid") != expected_guid:
             return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN,
                                retryable=True, replan_required=True)
-        if target.get("dead", target.get("is_dead")):
+        from wowbot.agent.packet_entity_facts import server_feign_death
+        from wowbot.agent.quest_item_knowledge import item_allows_dead_target
+        if (self.target_required(params) and target.get("dead", target.get("is_dead"))
+                and not server_feign_death(world_state, target.get("guid"))
+                and not item_allows_dead_target(world_state, item_id, quest_ids)):
             return SkillResult(SkillStatus.FAILURE, FailureReason.TARGET_DEAD,
                                replan_required=True)
         if (state.skill_type == "ASSIST"
@@ -135,8 +173,18 @@ class UseItemSkill:
             command = self.activate_inventory(params)
             binding = ""
         elif interact_key:
-            # Retail's Interact key uses an active quest's special item on
-            # its objective target (live 2026-10-04, Re-Sizer v9.0.1).
+            # User 2026-10-18: far F7 attacks the boar; near/usable F7 uses
+            # the Re-Sizer. Recheck the exact public item evidence at dispatch,
+            # not the proposal's geometry or a generic "approach succeeded".
+            readiness = QuestToolResolver.item_state(
+                world_state, item_id, expected_guid, quest_ids, now=state.started_at)
+            if not QuestToolResolver.ready(readiness):
+                known_far = readiness is not None and readiness.get("in_range") is False
+                state.phase = UseItemPhase.APPROACH.value if known_far else UseItemPhase.RESOLVE_ITEM_ACTION.value
+                return SkillResult(SkillStatus.FAILURE if known_far else SkillStatus.BLOCKED,
+                                   FailureReason.OUT_OF_RANGE if known_far else FailureReason.SPELL_NOT_READY,
+                                   retryable=True, replan_required=True,
+                                   metadata={"detail": "exact_quest_item_readiness_required"})
             if self.bindings is not None and not self.bindings.contains("INTERACTTARGET"):
                 # User 2026-10-06: "...vagy jobb klikk" -- right-click the
                 # target's own box instead.
@@ -169,27 +217,66 @@ class UseItemSkill:
             command = self.activate_actionbar(binding)
         state.skill_context["quest_item"] = {
             "guid": expected_guid, "item_id": item_id, "binding": binding,
+            "target_required": self.target_required(params),
             "activation_source": ("INVENTORY_COORDINATE" if using_inventory
                                   else "INTERACT_KEY" if interact_key else "ACTIONBAR"),
             "quest_ids": quest_ids, "objective_ids": objective_ids,
+            "directed": params.get("purpose") == "DIRECTED_QUEST_ITEM",
+            "item_aim_guid": params.get("item_aim_guid"),
         }
         state.phase = UseItemPhase.FACE.value
         state.phase = UseItemPhase.USE.value
         return SkillResult(SkillStatus.RUNNING, commands=(command,))
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         context = state.skill_context.get("quest_item") or {}
         state.phase = UseItemPhase.VERIFY.value
         target = world_state.get("target") or {}
+        if (context.get("directed") and world_state.get("session_id")
+                != (state.before_snapshot or {}).get("session_id")):
+            return SkillResult(SkillStatus.FAILURE, FailureReason.IDENTITY_UNCERTAIN, replan_required=True)
         result = self.verify_credit(
             state.before_snapshot, world_state,
             quest_ids=context.get("quest_ids", ()),
             objective_ids=context.get("objective_ids", ()))
-        if result.success:
-            return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence)
+        if (getattr(getattr(state, "intent", None), "parameters", None) or {}).get("purpose") == "OPEN_QUEST_CONTAINER":
+            # P8.4: an opened container either credits at once (autoloot) or
+            # opens the loot window, which the shared LOOT step empties.
+            if result.success or (world_state.get("loot_ui") or {}).get("open") is True:
+                return SkillResult(SkillStatus.SUCCESS, evidence=result.evidence or ("container_loot_window",))
+            if now >= state.attempt.deadline:
+                return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,
+                                   retryable=True, replan_required=True)
+            return SkillResult(SkillStatus.RUNNING)
+        evidence = result.evidence
+        if context.get("directed"):
+            evidence = tuple(e for e in evidence
+                             if e.startswith(("objective_changed:", "quest_digest_progress:")))
+        if result.success and evidence:
+            return SkillResult(SkillStatus.SUCCESS, evidence=evidence)
+        if context.get("directed"):
+            from wowbot.verification.interaction import classify_ui_error, new_ui_errors
+            kinds = {classify_ui_error(error.get("message"), error.get("error_code"))
+                     for error in new_ui_errors(state.before_snapshot or {}, world_state)}
+            for kind, reason in (("RANGE", FailureReason.OUT_OF_RANGE),
+                                 ("FACING", FailureReason.FACING_FAILED),
+                                 ("LINE_OF_SIGHT", FailureReason.LINE_OF_SIGHT)):
+                if kind in kinds:
+                    return SkillResult(SkillStatus.FAILURE, reason, retryable=True, replan_required=True)
+            from wowbot.agent.quest_item_knowledge import current_use
+            profile = current_use(world_state, state.intent.parameters.get("item_id"), context.get("quest_ids")) or {}
+            duration = number((profile.get("delivery") or {}).get("duration_ms"))
+            budget = min(15., duration/1000.+3.) if duration is not None and duration > 0 else 12.
+            if now >= min(state.attempt.deadline, state.started_at+budget):
+                return SkillResult(SkillStatus.FAILURE, FailureReason.QUEST_CREDIT_NOT_RECEIVED,
+                                   retryable=True, replan_required=True)
+            # One activation only. A cast, cooldown or disappearing trigger
+            # cannot stand in for the exact objective's credit.
+            return SkillResult(SkillStatus.RUNNING, metadata={"directed_item_waiting_for_credit":True})
         if world_state.get("is_casting") is True or world_state.get("is_channeling") is True:
             context["cast_seen"] = True
-        if target.get("guid") != context.get("guid"):
+        if context.get("target_required", True) and target.get("guid") != context.get("guid"):
             # Live 2026-10-11 15:44: the Re-Sizer turned the Wandering Boar
             # into a "Re-sized Boar" (target changed) and the credit came a
             # moment later -- the use was booked as IDENTITY_UNCERTAIN.  After
@@ -213,7 +300,17 @@ class UseItemSkill:
         if world_state.get("is_casting") is True or world_state.get("is_channeling") is True:
             context["cast_seen"] = True
         source = context.get("activation_source")
+        if world_state.get("is_casting") or world_state.get("is_channeling"):
+            state.phase = UseItemPhase.WAIT.value
+            return SkillResult(SkillStatus.RUNNING)
         if source == "UNIT_RIGHT_CLICK" and not (context.get("target_click") or {}).get("done"):
+            readiness = QuestToolResolver.item_state(
+                world_state, context.get("item_id"), context.get("guid"),
+                context.get("quest_ids"), now=now)
+            if not QuestToolResolver.ready(readiness):
+                return SkillResult(SkillStatus.FAILURE, FailureReason.OUT_OF_RANGE,
+                                   retryable=True, replan_required=True,
+                                   metadata={"detail": "quest_item_readiness_lost_before_right_click"})
             from .hover_confirm import hover_confirm_step
             click = context["target_click"]
             outcome, commands = hover_confirm_step(click, world_state, now,
@@ -237,6 +334,7 @@ class UseItemSkill:
                                retryable=True, replan_required=True,
                                metadata={"detail": "interact_no_effect"})
         if (source in {"INVENTORY_COORDINATE", "ACTIONBAR"} and not context.get("cast_seen")
+                and context.get("target_required", True)
                 and elapsed >= self.ARMED_CURSOR_CLICK_SECONDS):
             click = self._target_click(context, world_state, now)
             if click is not None:

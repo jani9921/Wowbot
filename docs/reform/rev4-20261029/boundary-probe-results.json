@@ -1,0 +1,26 @@
+{
+  "scope": "synthetic offline probes, same Python process, no live input",
+  "global_oracle": {
+    "first_owned_before_second_constructor": true,
+    "first_owned_after_second_constructor": false,
+    "second_owned_after_second_constructor": true
+  },
+  "objective_location": {
+    "both_sources_available": true,
+    "selected_source": "TDB_SPAWN",
+    "selected_coordinates": {
+      "map_id": 2023,
+      "x": 0.1,
+      "y": 0.1,
+      "source": "TDB_SPAWN"
+    }
+  },
+  "missing_packet_bootstrap_context": "waiting_for_addon_context",
+  "danger_provenance": {
+    "input_source": "PACKET_ENTITY",
+    "recorded_sources": [
+      "ADDON_TELEMETRY"
+    ]
+  },
+  "input_command_groups": 0
+}

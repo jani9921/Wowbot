@@ -1,0 +1,60 @@
+................................................FF..........F........... [ 48%]
+........................................................................ [ 97%]
+...                                                                      [100%]
+================================== FAILURES ===================================
+___ test_no_server_height_leaves_addon_target_xy_without_a_fake_zero_layer ____
+
+    def test_no_server_height_leaves_addon_target_xy_without_a_fake_zero_layer():
+        world=state();world['packet_entities']={}
+        world['target']['world_position']={'x':5.,'y':1.,'z':0.,'z_known':True,
+            'source':'UNIT_POSITION','instance_id':0,'sample_time':10.}
+        nav=NavigationService()
+        destination=nav.move_to_entity(world,GUID,'no-server-height',10.)
+        assert destination['z_known'] is False and 'layer_z' not in destination and 'z' not in destination
+        assert nav._movement.destination['z_known'] is False
+>       assert 'z' not in nav._movement.destination and 'layer_z' not in nav._movement.destination
+E       AssertionError: assert ('z' not in {'target_guid': 'Creature-0-1469-0-29720-50039-000064C1B0', 'purpose': 'INTERACT', 'face_on_arrival': True, 'coordinate_space': 'WORLD_YARDS', ...} and 'layer_z' not in {'target_guid': 'Creature-0-1469-0-29720-50039-000064C1B0', 'purpose': 'INTERACT', 'face_on_arrival': True, 'coordinate_space': 'WORLD_YARDS', ...})
+E        +  where {'target_guid': 'Creature-0-1469-0-29720-50039-000064C1B0', 'purpose': 'INTERACT', 'face_on_arrival': True, 'coordinate_space': 'WORLD_YARDS', ...} = <wowbot.agent.movement_controller.ReachMovementController object at 0x000001EEFCA6D310>.destination
+E        +    where <wowbot.agent.movement_controller.ReachMovementController object at 0x000001EEFCA6D310> = <wowbot.navigation.service.NavigationService object at 0x000001EEFCA6D1D0>._movement
+E        +  and   {'target_guid': 'Creature-0-1469-0-29720-50039-000064C1B0', 'purpose': 'INTERACT', 'face_on_arrival': True, 'coordinate_space': 'WORLD_YARDS', ...} = <wowbot.agent.movement_controller.ReachMovementController object at 0x000001EEFCA6D310>.destination
+E        +    where <wowbot.agent.movement_controller.ReachMovementController object at 0x000001EEFCA6D310> = <wowbot.navigation.service.NavigationService object at 0x000001EEFCA6D1D0>._movement
+
+tests\test_combat_range_handoff_20261030.py:163: AssertionError
+_ test_server_recipient_reach_refreshes_the_same_guid_instead_of_freezing_its_start_pose _
+
+    def test_server_recipient_reach_refreshes_the_same_guid_instead_of_freezing_its_start_pose():
+        world=state();nav=NavigationService()
+        nav.move_to_entity(world,GUID,'moving',10.)
+        moved=deepcopy(world)
+        moved['packet_entities'][GUID]['position'].update(x=12.,y=3.,z=11.)
+        assert nav._movement._refresh_object_destination(moved)
+        point=nav._movement.destination
+>       assert (point['x'],point['y'],point['z'],point['layer_z'])==(12.,3.,11.,11.)
+                ^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests\test_combat_range_handoff_20261030.py:173: TypeError
+_ test_soft_approach_routes_through_navigation_and_rechecks_recipient_before_f7 _
+
+    def test_soft_approach_routes_through_navigation_and_rechecks_recipient_before_f7():
+        before = state()
+        running, skill = active(before), InteractSkill()
+        skill.begin(running, before)
+        after = range_error()
+        result = skill.verify(running, after, 100.3)
+        nav = NavigationService()
+        starts = []
+        nav.start = lambda destination, *args: starts.append(destination)
+        nav.command = lambda *args: ()
+        step = InteractionRuntimeRunner(nav, skill).step_verification(
+            running, after, result, world_observation_id="range", visual_observation_id="v", now=100.3)
+>       destination, = starts
+        ^^^^^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\test_interact_packet_range_20261022.py:91: ValueError
+=========================== short test summary info ===========================
+FAILED tests/test_combat_range_handoff_20261030.py::test_no_server_height_leaves_addon_target_xy_without_a_fake_zero_layer
+FAILED tests/test_combat_range_handoff_20261030.py::test_server_recipient_reach_refreshes_the_same_guid_instead_of_freezing_its_start_pose
+FAILED tests/test_interact_packet_range_20261022.py::test_soft_approach_routes_through_navigation_and_rechecks_recipient_before_f7
+3 failed, 144 passed in 2.98s

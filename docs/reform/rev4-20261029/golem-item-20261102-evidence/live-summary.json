@@ -1,0 +1,26 @@
+{
+  "pid": 25640,
+  "capture": "output\\agent\\pid-25640\\live-captures\\20261102-174259-474-002\\manifest.jsonl",
+  "manifest_sha256": "9d1f796b8936d46eceaaa25442664e82896c1a6c27524890a729ccea89a19153",
+  "first": "2026-11-02T17:43:01.562+01:00",
+  "last": "2026-11-02T17:45:39.432+01:00",
+  "frames": 180,
+  "decisions": {
+    "MOVE": 49,
+    "COMBAT": 113,
+    "TARGET": 8,
+    "WAIT": 10
+  },
+  "final_quest_progress": [
+    [
+      "26257:0",
+      0.0,
+      1.0
+    ],
+    [
+      "26257:1",
+      25.0,
+      25.0
+    ]
+  ]
+}

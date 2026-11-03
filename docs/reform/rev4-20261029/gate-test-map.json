@@ -1,0 +1,223 @@
+[
+  {
+    "gate": "session",
+    "test_module": "test_packet_agent_bridge.py",
+    "exists": true,
+    "functions": [
+      "test_confirmed_same_player_movement_preserves_addon_map_instance_and_health",
+      "test_other_mover_vehicle_transport_or_inbound_teleport_cannot_move_player",
+      "test_newer_addon_world_sample_wins_and_packet_expires_back_to_addon",
+      "test_packet_ttl_expires_on_perception_without_relabeling_addon_freshness",
+      "test_packet_completion_updates_real_quest_but_does_not_turn_in_or_accept",
+      "test_unknown_unverified_or_wrong_build_event_stays_only_weak_diagnostic",
+      "test_context_change_discards_queued_data_instead_of_rebinding_it",
+      "test_discrete_attack_stop_death_does_not_grant_our_loot_or_corpse_anchor",
+      "test_packet_observations_do_not_enter_hot_loop_sqlite_but_events_remain",
+      "test_invalid_guid_never_becomes_self",
+      "test_optional_sensor_failure_does_not_block_observations_or_expose_endpoint_key",
+      "test_runtime_integrates_injected_sensor_without_starting_game_capture",
+      "test_12_1_5_build_configures_endpoint_and_reaches_existing_world_reducer",
+      "test_unreviewed_build_reports_real_blocker_not_generic_context_wait",
+      "test_reconnect_context_does_not_show_old_receipt_as_new_data",
+      "test_12_1_5_cannot_reuse_old_family_provenance"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "input",
+    "test_module": "test_parallel_control.py",
+    "exists": true,
+    "functions": [
+      "test_fast_servo_and_pointer_advance_without_medium_observation_builds",
+      "test_move_discovers_a_quest_npc_with_mouseover_without_stopping_navigation",
+      "test_target_verifies_a_moving_box_without_waiting_for_a_medium_tick",
+      "test_combat_rotation_and_its_target_pointer_share_fast_control",
+      "test_object_use_gets_fresh_hover_and_sends_only_one_right_click_in_fast_lane",
+      "test_fast_safety_preempts_pointer_and_movement",
+      "test_vision_epoch_reset_cannot_reuse_an_old_track_identity",
+      "test_repeated_or_old_sensor_data_is_not_an_unlimited_movement_lease",
+      "test_fast_control_does_not_wait_for_the_canonical_lock",
+      "test_fast_terminal_is_staged_once_for_the_same_attempt_not_a_second_skill",
+      "test_fast_view_preserves_identity_only_for_exact_same_guid_and_track",
+      "test_fast_view_never_restamps_delayed_or_omitted_hover_as_a_new_sample",
+      "test_cast_blocks_forward_and_turn_but_can_keep_the_cursor_on_its_target",
+      "test_cast_still_runs_the_existing_object_verifier_without_sending_a_new_key",
+      "test_real_object_verifier_does_not_mark_an_undispatched_click_sent_during_cast",
+      "test_item_use_hover_confirm_commands_are_not_lost_at_the_supervisor_boundary",
+      "test_fast_owner_does_not_hide_inspection_verification_or_an_expired_deadline",
+      "test_medium_fuses_observations_without_repeating_the_fast_owned_fsm",
+      "test_unrelated_modal_ui_stops_an_approach",
+      "test_sensor_peek_never_consumes_medium_transition_mailbox",
+      "test_atomic_resources_allow_legs_plus_attention_but_not_two_mouse_owners",
+      "test_slow_advisory_recognition_never_blocks_lookup_or_returns_a_previous_epoch",
+      "test_control_pump_keeps_advancing_while_medium_observation_work_is_blocked",
+      "test_independent_pump_respects_safety_even_when_medium_does_not_run"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "freshness",
+    "test_module": "test_fast_lane_freshness_20261004.py",
+    "exists": true,
+    "functions": [
+      "test_streaming_fast_packets_keep_an_active_reach_live",
+      "test_reach_resumes_after_a_real_telemetry_gap"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "target",
+    "test_module": "test_target_manager.py",
+    "exists": true,
+    "functions": [
+      "test_target_manager_keeps_current_target_until_margin_is_exceeded",
+      "test_target_switch_requires_strictly_more_than_the_configured_margin",
+      "test_target_manager_keeps_scores_as_evidence_and_requires_a_live_guid",
+      "test_candidate_contract_exposes_normalized_scores_and_weighted_penalties",
+      "test_target_lifecycle_is_driven_by_selected_target_telemetry",
+      "test_selected_guid_change_reacquires_instead_of_promoting_a_new_entity",
+      "test_committed_target_survives_occlusion_and_requires_selected_guid_to_confirm_reacquisition",
+      "test_committed_target_occlusion_budget_terminates_as_lost"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "ground",
+    "test_module": "test_navigation_contracts.py",
+    "exists": true,
+    "functions": [
+      "test_navigation_request_validates_mode_safety_and_timeout",
+      "test_navigation_service_keeps_typed_request_without_creating_another_input_owner",
+      "test_canonical_move_skill_enters_the_typed_navigation_boundary_once",
+      "test_global_route_replans_only_on_bounded_replan_events",
+      "test_local_planner_consumes_confirmed_traversability_without_semantic_labels"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "flight",
+    "test_module": "test_flight_travel_integration_20261029.py",
+    "exists": true,
+    "functions": [
+      "test_generic_global_route_chooses_lateral_air_bends_and_existing_steady_control_follows_them",
+      "test_shared_plan_is_consumable_by_both_flight_styles_without_cutting_away_the_bends",
+      "test_roof_exit_stays_grounded_and_cannot_complete_the_original_goal",
+      "test_actual_touchdown_outside_the_roof_transfers_to_mmap_for_the_original_indoor_goal",
+      "test_clipped_walks_do_not_authorize_takeoff_or_landing_on_the_other_side_of_a_wall",
+      "test_unknown_ground_never_becomes_a_lateral_shortcut",
+      "test_planning_horizon_continues_same_owned_move_without_descending_or_claiming_arrival",
+      "test_agent_travel_policy_requests_a_proven_exit_walk_before_an_indoor_mount",
+      "test_unproven_or_missing_exit_keeps_the_existing_ground_route_and_no_mount_input",
+      "test_public_outdoor_flag_alone_cannot_skip_a_geometry_proven_roof_exit",
+      "test_unflyable_outdoor_context_continues_on_ground_after_exit_without_claiming_goal_arrival",
+      "test_flight_planning_runs_at_request_boundaries_and_cancellation_removes_control",
+      "test_air_planning_deadline_returns_an_explicit_unavailable_route",
+      "test_vertical_steady_approach_climbs_when_below_the_known_landing",
+      "test_supplied_departure_anchors_cannot_bypass_current_mmap_reachability",
+      "test_known_off_mesh_rooftop_preserves_touchdown_arrival_instead_of_an_impossible_walk"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "mixed_trip",
+    "test_module": "test_flight_travel_integration_20261029.py",
+    "exists": true,
+    "functions": [
+      "test_generic_global_route_chooses_lateral_air_bends_and_existing_steady_control_follows_them",
+      "test_shared_plan_is_consumable_by_both_flight_styles_without_cutting_away_the_bends",
+      "test_roof_exit_stays_grounded_and_cannot_complete_the_original_goal",
+      "test_actual_touchdown_outside_the_roof_transfers_to_mmap_for_the_original_indoor_goal",
+      "test_clipped_walks_do_not_authorize_takeoff_or_landing_on_the_other_side_of_a_wall",
+      "test_unknown_ground_never_becomes_a_lateral_shortcut",
+      "test_planning_horizon_continues_same_owned_move_without_descending_or_claiming_arrival",
+      "test_agent_travel_policy_requests_a_proven_exit_walk_before_an_indoor_mount",
+      "test_unproven_or_missing_exit_keeps_the_existing_ground_route_and_no_mount_input",
+      "test_public_outdoor_flag_alone_cannot_skip_a_geometry_proven_roof_exit",
+      "test_unflyable_outdoor_context_continues_on_ground_after_exit_without_claiming_goal_arrival",
+      "test_flight_planning_runs_at_request_boundaries_and_cancellation_removes_control",
+      "test_air_planning_deadline_returns_an_explicit_unavailable_route",
+      "test_vertical_steady_approach_climbs_when_below_the_known_landing",
+      "test_supplied_departure_anchors_cannot_bypass_current_mmap_reachability",
+      "test_known_off_mesh_rooftop_preserves_touchdown_arrival_instead_of_an_impossible_walk"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "risk",
+    "test_module": "test_navigation_danger_reachability.py",
+    "exists": true,
+    "functions": [
+      "test_danger_map_is_expiring_and_respects_intended_hostile_exemption",
+      "test_reachability_cools_only_after_repeated_entity_failures_and_success_clears_it"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "combat",
+    "test_module": "test_m0_combat_loot_skills.py",
+    "exists": true,
+    "functions": [
+      "test_combat_requires_exact_live_target_then_emits_bounded_action",
+      "test_canonical_combat_rotation_uses_fast_state_and_per_attempt_usage_history",
+      "test_combat_does_not_repeat_charge_from_the_same_fast_sample",
+      "test_combat_starts_auto_attack_when_melee_ability_lacks_rage",
+      "test_combat_visual_follow_centres_fresh_track_then_reacquires_last_bearing",
+      "test_combat_visually_approaches_out_of_range_target_on_each_fresh_track_sample",
+      "test_combat_fsm_exposes_every_required_m2_state_and_real_phase_transitions",
+      "test_combat_verifies_death_and_reports_typed_range_failure",
+      "test_combat_keeps_same_active_attempt_for_bounded_los_reposition_then_recast",
+      "test_los_recovery_has_two_lateral_probes_then_one_world_geometry_replan",
+      "test_los_local_replan_fails_closed_without_world_geometry",
+      "test_combat_uses_one_same_attempt_canonical_world_approach_for_range",
+      "test_range_recovery_derives_desired_range_and_has_finite_escalation_budget",
+      "test_range_recovery_timeout_marks_target_unreachable_without_more_input",
+      "test_combat_reports_facing_target_loss_player_death_and_timeout_as_typed_results",
+      "test_facing_recovery_sweeps_toward_an_off_screen_attacker_then_gives_up",
+      "test_facing_sweep_ends_when_the_client_stops_complaining",
+      "test_facing_recovery_turns_toward_the_last_seen_side",
+      "test_loot_accepts_confirmed_corpse_anchor_and_requires_evidence",
+      "test_loot_rejects_living_or_unmatched_target",
+      "test_loot_window_is_not_completion_and_declared_item_must_be_received",
+      "test_loot_fuses_corpse_state_evidence_but_never_treats_click_as_success",
+      "test_loot_ui_plus_corpse_interaction_state_can_confirm_without_inventory_delta",
+      "test_loot_reports_expected_item_not_received_at_attempt_deadline",
+      "test_loot_accepts_quest_objective_delta_when_no_explicit_item_id_is_required",
+      "test_loot_requests_one_same_attempt_world_corpse_approach_after_range_error",
+      "test_combat_follow_turns_toward_a_target_that_left_the_screen_edge",
+      "test_combat_follow_turns_left_toward_a_target_that_left_the_left_edge",
+      "test_corpse_view_clicks_the_live_box_bottom_and_decides_approach",
+      "test_leaving_combat_after_our_casts_with_the_selection_gone_ends_the_fight",
+      "test_combat_waits_for_the_combat_drop_after_the_target_vanishes",
+      "test_combat_leaves_at_once_when_another_attacker_hits_after_the_kill",
+      "test_an_already_answered_facing_error_does_not_fail_combat",
+      "test_kill_credit_during_loot_is_not_loot_evidence"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "cast_hazard",
+    "test_module": null,
+    "exists": false,
+    "functions": [],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "quest",
+    "test_module": "test_sparring_gossip_20261026.py",
+    "exists": true,
+    "functions": [
+      "test_a_friendly_gossip_kill_credit_is_a_sparring_partner",
+      "test_talk_to_it_then_pick_the_fight_option",
+      "test_after_the_option_the_attackable_partner_is_hunted_even_with_its_gossip_flag",
+      "test_a_sparring_duel_starts_no_wave_hold"
+    ],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  },
+  {
+    "gate": "multi_pid",
+    "test_module": null,
+    "exists": false,
+    "functions": [],
+    "coverage_note": "Selected existing reference only; presence does not prove full gate coverage."
+  }
+]

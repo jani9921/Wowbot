@@ -180,7 +180,13 @@ class LiveVisionMonitor:
         lifecycle = str(track.get("lifecycle") or "UNKNOWN")
         display_name = str(track.get("display_name") or "").strip()
         track_id = str(track.get("track_id") or "").strip()
-        identity = f"{track_id} " if track_id else ""
+        upstream_id = str(track.get("upstream_track_id") or "").strip()
+        # WORLD3D is the presentation ID; WORLD3D_V3 is the detector-rate
+        # tracker ID. Showing both prevents an overlay jump from being
+        # mistaken for a feed ReID failure (or vice versa).
+        upstream = (f" [V3:{upstream_id.rsplit(':', 1)[-1]}]"
+                    if upstream_id.startswith("WORLD3D_V3:") else "")
+        identity = f"{track_id}{upstream} " if track_id else ""
         subject = f"{display_name} [SELF]" if display_name else learned_label
         return f"{identity}{subject} {confidence:.2f} {lifecycle}"
 

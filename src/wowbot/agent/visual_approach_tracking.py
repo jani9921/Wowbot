@@ -124,6 +124,8 @@ class VisualApproachTrackingMixin:
 
     def _track(self, state: dict, now: float) -> dict | None:
         track_id = (self.intent or {}).get("track_id")
+        if str(track_id) in self.rejected_reacquire_track_ids:
+            return None
         if track_id and (self.intent or {}).get("purpose") in {"VEHICLE_AIM", "VEHICLE_ATTACK"}:
             present = any(item.get("track_id") == track_id
                           and item.get("lifecycle") != "TERMINATED"
@@ -275,6 +277,8 @@ class VisualApproachTrackingMixin:
                   or ((state.get("target") or {}).get("screen_position")
                       if str((state.get("target") or {}).get("guid") or "") == guid else None)
                   or (self.intent or {}).get("screen_position") or {})
+        if str(anchor.get("track_id")) in self.rejected_reacquire_track_ids:
+            return None       # fresh GUID hover must revalidate a rejected box first
         return (anchor if number(anchor.get("x")) is not None
                 and self._anchor_scene_valid(anchor, state, now) else None)
 

@@ -1,6 +1,8 @@
 """Mode-guarded field quest completion under the canonical dialog executor."""
 from __future__ import annotations
 
+from wowbot.runtime.skill_identity import identity_guarded
+
 from enum import StrEnum
 
 from wowbot.runtime import ActiveSkillState, FailureReason, SkillResult, SkillStatus
@@ -50,6 +52,7 @@ class FieldTurnInSkill:
         state.phase = FieldTurnInPhase.VERIFY_COMPLETED.value
         return result
 
+    @identity_guarded
     def begin(self, state: ActiveSkillState, world_state: dict) -> SkillResult:
         state.phase = FieldTurnInPhase.DETECT_PROMPT.value
         params = state.intent.parameters
@@ -70,6 +73,7 @@ class FieldTurnInSkill:
         state.phase = FieldTurnInPhase.COMPLETE.value
         return self.complete(state, world_state)
 
+    @identity_guarded
     def verify(self, state: ActiveSkillState, world_state: dict, now: float) -> SkillResult:
         state.phase = FieldTurnInPhase.VERIFY_COMPLETED.value
         return self.verify_completed(state, world_state, now)

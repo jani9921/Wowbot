@@ -83,6 +83,36 @@ def test_world3d_upstream_tracker_id_prevents_second_identity_assignment():
     assert next(item for item in tracks.snapshot() if item["track_id"] == first["track_id"])["upstream_track_id"] == "WORLD3D_V3:17"
 
 
+def test_v3_subject_keeps_raw_track_when_canonical_detector_kind_flips():
+    """PID 20864: a steady V3 subject must not birth a raw track on every label flip."""
+    tracks = VisualTrackManager()
+
+    def sample(upstream: str, x: float, detector_kind: str) -> dict:
+        left = round(x * 961 - 23)
+        return {"kind": "unknown_subject_candidate", "detector_kind": detector_kind,
+                "upstream_track_id": upstream, "x": x, "y": .55, "confidence": .8,
+                "bbox": {"left": left, "top": 195, "right": left + 46, "bottom": 295},
+                "bbox_width_fraction": 46 / 961, "bbox_height_fraction": 100 / 541}
+
+    subject = "WORLD3D_V3:1657"
+    neighbour = "WORLD3D_V3:1567"
+    first = tracks.update("WORLD3D", [sample(subject, .46, "obstacle_candidate"),
+                                      sample(neighbour, .49, "unknown_subject_candidate")], 1.)
+    subject_id = next(item["track_id"] for item in first if item["upstream_track_id"] == subject)
+    neighbour_id = next(item["track_id"] for item in first if item["upstream_track_id"] == neighbour)
+    for at, label in [(1.04, "unknown_subject_candidate"),
+                      (1.08, "obstacle_candidate"),
+                      (1.12, "unknown_subject_candidate")]:
+        observed = tracks.update("WORLD3D", [sample(neighbour, .49, "unknown_subject_candidate"),
+                                              sample(subject, .46, label)], at)
+        assert next(item["track_id"] for item in observed
+                    if item["upstream_track_id"] == subject) == subject_id
+        assert next(item["track_id"] for item in observed
+                    if item["upstream_track_id"] == neighbour) == neighbour_id
+    assert len(tracks.tracks["WORLD3D"]) == 2
+    assert len([event for event in tracks.identity_events if event["event"] == "new"]) == 2
+
+
 def test_world3d_nearby_refresh_id_is_reidentified_without_new_track():
     tracks = VisualTrackManager()
     first = tracks.update("WORLD3D", [{
@@ -100,6 +130,35 @@ def test_world3d_nearby_refresh_id_is_reidentified_without_new_track():
     assert second["track_id"] == first["track_id"]
     assert second["upstream_association"] == "UPSTREAM_REIDENTIFIED"
     assert {"WORLD3D_V3:17", "WORLD3D_V3:99"} <= set(second["upstream_track_aliases"])
+    assert tracks.identity_events[-1]["event"] == "upstream_rebind"
+    assert tracks.identity_events[-1]["previous_upstream_track_id"] == "WORLD3D_V3:17"
+    assert tracks.identity_events[-1]["upstream_track_id"] == "WORLD3D_V3:99"
+
+
+def test_returning_upstream_keeps_its_id_when_speculative_alias_is_also_visible():
+    """14:21 run: V3:923 must not keep V3:830's id after both reappear."""
+    tracks = VisualTrackManager()
+
+    def subject(upstream, x):
+        center = round(x * 961)
+        return {"kind": "unknown_subject_candidate", "upstream_track_id": upstream,
+                "x": x, "y": .5, "confidence": .8,
+                "bbox": {"left": center - 16, "top": 170,
+                         "right": center + 16, "bottom": 213},
+                "bbox_width_fraction": 32 / 961, "bbox_height_fraction": 43 / 541}
+
+    original = tracks.update("WORLD3D", [subject("WORLD3D_V3:830", .50)], 1.)[0]
+    alias = tracks.update("WORLD3D", [subject("WORLD3D_V3:923", .51)], 1.04)[0]
+    assert alias["track_id"] == original["track_id"]
+
+    for at, detections in [(1.08, [subject("WORLD3D_V3:923", .58),
+                                   subject("WORLD3D_V3:830", .50)]),
+                            (1.12, [subject("WORLD3D_V3:830", .50),
+                                    subject("WORLD3D_V3:923", .58)])]:
+        observed = tracks.update("WORLD3D", detections, at)
+        by_upstream = {item["upstream_track_id"]: item for item in observed}
+        assert by_upstream["WORLD3D_V3:830"]["track_id"] == original["track_id"]
+        assert by_upstream["WORLD3D_V3:923"]["track_id"] != original["track_id"]
 
 
 def test_world3d_new_upstream_id_does_not_merge_distant_subject():

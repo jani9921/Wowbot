@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from wowbot.navigation.local_world_bridge import NavigationLocalWorldView
-from wowbot.vision.models import MapPoint, MarkerObservation, NavigationVisionObservation
+from wowbot.coordinates import MapPoint
+from wowbot.vision.models import MarkerObservation, NavigationVisionObservation
 
 
 @dataclass(frozen=True, slots=True)

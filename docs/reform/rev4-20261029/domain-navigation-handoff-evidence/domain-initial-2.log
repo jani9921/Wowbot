@@ -1,0 +1,31 @@
+.................F...................................................... [ 43%]
+........................................................................ [ 86%]
+.......................                                                  [100%]
+================================== FAILURES ===================================
+____ test_parallel_control_requests_medium_without_input_or_a_new_attempt _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002095EEF6650>
+
+    def test_parallel_control_requests_medium_without_input_or_a_new_attempt(monkeypatch):
+        from test_parallel_control import setup, control_sample
+        from wowbot.agent.active_skill_supervision import ActiveSkillSupervisionStep
+        agent,executor=setup('COMBAT');action=agent.pending.action_id;calls=[]
+        def step(*args,**kwargs):
+            calls.append(kwargs['allow_route_queries'])
+            return ActiveSkillSupervisionStep(yield_tick=True,stop_movement=True,reason='skill_navigation_plan_pending')
+        monkeypatch.setattr(agent.active_skill_supervisor,'step',step)
+        payload,vision=control_sample(agent,10.04,1)
+        result=agent.parallel_control.tick(payload,10.04,vision,10.04)
+        assert result['force_medium'] and result['reason']=='skill_navigation_plan_pending'
+        assert calls==[False] and not agent.parallel_control.drives(agent.pending,10.04)
+>       assert agent.pending.action_id==action and executor.stops and not executor.commands
+E       AssertionError: assert ('a' == 'a'
+E         
+E           a and 1 and not [Command(kind='POINTER', binding=None, duration=0.001, x=0.55, y=0.6, button='LEFT', simultaneous=(), forward_duration=None)])
+E        +  where 1 = <wowbot.agent.executor.RecordingExecutor object at 0x000002095D3E2120>.stops
+E        +  and   [Command(kind='POINTER', binding=None, duration=0.001, x=0.55, y=0.6, button='LEFT', simultaneous=(), forward_duration=None)] = <wowbot.agent.executor.RecordingExecutor object at 0x000002095D3E2120>.commands
+
+tests\test_domain_navigation_handoff_20261030.py:210: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_domain_navigation_handoff_20261030.py::test_parallel_control_requests_medium_without_input_or_a_new_attempt
+1 failed, 166 passed in 4.49s

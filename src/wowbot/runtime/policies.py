@@ -37,7 +37,7 @@ class TimeoutPolicy:
 
 @dataclass(frozen=True)
 class RetryPolicy:
-    max_backoff_seconds: float = 120.
+    max_backoff_seconds: float = 20.
     base_backoff_seconds: float = 4.
     exponent_cap: int = 5
     max_attempts: int = 3
@@ -45,6 +45,11 @@ class RetryPolicy:
     non_backoff_reasons: frozenset[FailureReason] = frozenset({
         FailureReason.CANCELLED, FailureReason.PLAYER_DEAD, FailureReason.INTERRUPTED,
     })
+
+    def __post_init__(self):
+        # User 2026-10-29: temporary retry bans may never exceed 20 s,
+        # including older/custom configurations carried into a new run.
+        object.__setattr__(self, 'max_backoff_seconds', min(20., max(0., self.max_backoff_seconds)))
 
     def backoff(self, failures: int, reason: FailureReason | None) -> float:
         if reason in self.non_backoff_reasons:

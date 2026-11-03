@@ -35,14 +35,14 @@ def test_hover_points_rank_learned_then_upper_torso_and_are_bounded_to_four():
     assert len(points) == 4
 
 
-def test_hover_verification_rejects_low_confidence_or_wrong_track():
+def test_hover_verification_rejects_low_confidence_but_track_change_is_not_identity_loss():
     base = {
         "monotonic_time": 2., "mouseover_sample_time": 2.,
         "target": {"guid": "npc-1", "visual_track_id": "track-a"},
         "mouseover": {"guid": "npc-1", "identity_confidence": .9,
                       "visual_track_id": "track-b"},
     }
-    assert not InteractSkill._fresh_hover(base, "npc-1", 1.8)
+    assert InteractSkill._fresh_hover(base, "npc-1", 1.8)
     base["mouseover"]["visual_track_id"] = "track-a"
     base["mouseover"]["identity_confidence"] = .6
     assert not InteractSkill._fresh_hover(base, "npc-1", 1.8)
@@ -106,7 +106,7 @@ def test_los_ui_wait_and_expected_reacquire_are_bounded_recovery_actions():
         "target": {"guid": "wrong"}, "monotonic_time": 2.6,
         "confirmed_mouseover_anchors": {
             "npc-1": {"x": .4, "y": .5, "sample_time": 2.6}}}, 2.6)
-    assert wrong.commands[0].kind == "CLICK"
+    assert wrong.commands[0].kind == "HOVER"
     assert wrong.metadata["interaction_recovery"] == "REACQUIRE_EXPECTED"
 
 

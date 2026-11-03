@@ -62,6 +62,10 @@ def _strip(width=WIDTH, height=HEIGHT, minimap_left_px=1435):
                 return t
           end
           function frame:SetSize(w, h) self.w, self.h = w, h end
+          function frame:SetFrameStrata(value) self.strata = value end
+          function frame:SetFrameLevel(value) self.level = value end
+          function frame:EnableMouse(value) self.mouseEnabled = value end
+          function frame:EnableMouseMotion(value) self.mouseMotionEnabled = value end
           function frame:ClearAllPoints() end
           function frame:SetPoint(anchor, _, _, x, y)
               self.anchor, self.x, self.y = anchor, x, y
@@ -80,7 +84,7 @@ def _strip(width=WIDTH, height=HEIGHT, minimap_left_px=1435):
     return lua, api
 
 
-def _raster(lua, width=WIDTH, height=HEIGHT, quest_tracker=False) -> bytes:
+def _raster(lua, width=WIDTH, height=HEIGHT, quest_tracker=False, tooltip=False) -> bytes:
     scale = height / 768                       # physical pixels per scale-1 unit
     image = bytearray(width * height * 4)
     if quest_tracker:
@@ -101,6 +105,13 @@ def _raster(lua, width=WIDTH, height=HEIGHT, quest_tracker=False) -> bytes:
         for y in range(top, min(height, top + size)):
             for x in range(left, min(width, left + size)):
                 image[(y*width + x)*4:(y*width + x)*4 + 4] = bytes(COLORS[palette])
+    # The live tooltip's font regions were ABOVE the FAST textures despite
+    # both parents using TOOLTIP strata. Model that independent frame level,
+    # rather than always painting every overlay below the telemetry lane.
+    if tooltip and (lua.eval("fastPixelFrame.level") or 0) <= 100:
+        for y in range(height - 130, height - 90):
+            for x in range(width - 150, width - 15):
+                image[(y*width+x)*4:(y*width+x)*4+4] = bytes((220, 220, 220, 255))
     return bytes(image)
 
 
@@ -121,20 +132,18 @@ def _fresh_geometry_cache():
         cache.clear()
 
 
-def test_state_is_flush_and_12px_shorter_fast_is_under_minimap():
+def test_state_is_flush_thin_and_wide_fast_is_under_minimap():
     lua, api = _strip()
     layout = api.get()
     assert layout.mode == "LANES"
     fast, state = layout.lanes[1].columns, layout.lanes[2].columns
-    # 0.9.63: a 128-column, 33-row STATE lane (512x132 px, the legacy
-    # strip's footprint) carries the same 1024-byte page as the former
-    # 356-column lane along the whole top edge.
-    assert (fast, state) == (64, 128) and layout.lanes[2].rows == 33
-    assert abs(layout.cell * HEIGHT / 768 - 4) < 1e-9
+    assert (fast, state) == (64, 384) and layout.lanes[2].rows == 11
+    assert abs(layout.cell * HEIGHT / 768 - 3) < 1e-9
     assert abs(layout.fastCell * HEIGHT / 768 - 3) < 1e-9
     assert lua.eval("pixelFrame.x") == 0 and lua.eval("pixelFrame.y") == 0
-    assert round(lua.eval("pixelFrame.h") * HEIGHT / 768) == 132
-    assert round(lua.eval("pixelFrame.w") * HEIGHT / 768) == 512
+    assert round(lua.eval("pixelFrame.h") * HEIGHT / 768) == 33
+    assert round(lua.eval("pixelFrame.w") * HEIGHT / 768) == 1152
+    assert 1152*33 < .57 * 512*132
     assert round(lua.eval("fastPixelFrame.w") * HEIGHT / 768) == 192
     assert round(lua.eval("fastPixelFrame.h") * HEIGHT / 768) == 336
     assert round(-lua.eval("fastPixelFrame.y") * HEIGHT / 768) == 300
@@ -151,6 +160,42 @@ def test_screenshot_sized_quest_tracker_does_not_corrupt_fast():
     payload = decode_payload_from_bgra(_raster(lua, width, height, quest_tracker=True), width, height)
     fast, state = split_lane_payload(payload)
     assert "|FAST|" in fast and "|STATE" in state
+
+
+def test_hover_tooltip_text_cannot_cover_the_fast_lane_or_intercept_the_mouse():
+    # Exact client dimensions of the user's second 2026-10-18 test. The
+    # saved 0031/0032 images show the corpse tooltip over the FAST colours.
+    width, height = 1293, 670
+    lua, api = _strip(width, height)
+    _snapshot(lua)
+    api.update(lua.eval("data"), lua.eval("fast"))
+    payload = decode_payload_from_bgra(_raster(lua, width, height, tooltip=True), width, height)
+    assert len(split_lane_payload(payload)) == 2
+    assert "|FAST|" in split_lane_payload(payload)[0]
+    for name in ("pixelFrame", "fastPixelFrame"):
+        assert lua.eval(name + ".strata") == "TOOLTIP"
+        assert lua.eval(name + ".level") > 100
+        assert lua.eval(name + ".mouseEnabled") is False
+        assert lua.eval(name + ".mouseMotionEnabled") is False
+
+
+@pytest.mark.parametrize("width,height", [(1280, 720), (1366, 768), (1466, 756),
+                                          (1600, 829), (1920, 1080), (2560, 1440)])
+def test_thin_state_and_vertical_fast_round_trip_across_resolutions(width, height):
+    lua, api = _strip(width, height, minimap_left_px=width-220*height/768)
+    _snapshot(lua)
+    api.update(lua.eval("data"), lua.eval("fast"))
+    payload = decode_payload_from_bgra(_raster(lua, width, height), width, height)
+    fast, page = split_lane_payload(payload)
+    assert "|FAST|" in fast and "|STATE" in page
+    layout = api.get()
+    columns, rows = layout.lanes[2].columns, layout.lanes[2].rows
+    assert columns <= 384 and columns*rows >= (1024+8)*4
+    # The world mask covers the rendered strip but opens the quest pane below it.
+    roi = build_scene_roi(width, height)
+    strip_mask = next(rect for rect in roi.hard_excluded_rects if rect.left == 0 and rect.top == 0)
+    assert strip_mask.right >= columns*3 and strip_mask.bottom >= rows*3
+    assert strip_mask.bottom <= 45
 
 
 def test_one_frame_carries_a_complete_fast_sample_and_a_state_page():
@@ -195,9 +240,9 @@ def test_a_torn_state_lane_keeps_the_fast_packet_of_the_frame():
     _snapshot(lua)
     api.update(lua.eval("data"), lua.eval("fast"))
     image = bytearray(_raster(lua))
-    left, top = 50*4, 6*4                                      # one STATE lane body cell
-    for y in range(top, top + 4):
-        for x in range(left, left + 4):
+    left, top = 50*3, 2*3                                      # one STATE lane body cell
+    for y in range(top, top + 3):
+        for x in range(left, left + 3):
             image[(y*WIDTH + x)*4:(y*WIDTH + x)*4 + 4] = bytes((128, 128, 128, 255))
     payload = decode_payload_from_bgra(bytes(image), WIDTH, HEIGHT)
     assert payload is not None and len(split_lane_payload(payload)) == 1 and "|FAST|" in payload
@@ -229,18 +274,18 @@ def test_lane_assembly_survives_one_bad_lane():
     assert result["transport_kind"] == "FAST" and result["mouseover"]["name"] == "Thick Cocoon"
 
 
-def test_yolo_masks_only_the_top_left_strip_island():
-    """Live 2026-10-08: masking the whole top band (0.9.62's wide lane) hid
-    close NPC heads and their "!"/"?" from the detector: VISUAL_APPROACH
-    overshot and INSPECT hovers failed.  The 0.9.63 strip is 512x132 px."""
+def test_yolo_masks_the_thin_strip_and_exposes_the_world_below_it():
     scene = build_scene_roi(WIDTH, HEIGHT)
     strip = next(rect for rect in scene.hard_excluded_rects if rect.left == 0 and rect.top == 0)
-    assert 12 + 128*4 <= strip.right <= 600 and strip.bottom >= 132
+    assert 1152 <= strip.right <= 1164 and 33 <= strip.bottom <= 45
     assert not any(rect.left <= WIDTH//2 <= rect.right and rect.top <= 60 <= rect.bottom
                    for rect in scene.hard_excluded_rects)
     small = build_scene_roi(1280, 720)
     strip = next(rect for rect in small.hard_excluded_rects if rect.left == 0 and rect.top == 0)
-    assert strip.bottom >= 140 and strip.right <= 600
+    assert strip.bottom <= 45 and strip.right <= 1164
+    legacy = build_scene_roi(961, 541)
+    strip = next(rect for rect in legacy.hard_excluded_rects if rect.left == 0 and rect.top == 0)
+    assert strip.bottom >= 128 and strip.right >= 512
 
 
 def test_yolo_masks_the_displaced_fast_strip_below_minimap():
@@ -317,11 +362,51 @@ def test_the_state_strip_is_found_again_after_the_world_map_covered_it():
     image = _raster(lua)
     assert len(split_lane_payload(decode_payload_from_bgra(image, WIDTH, HEIGHT))) == 2
     covered = bytearray(image)
-    for y in range(0, 140):
-        for x in range(0, 540):
+    for y in range(0, 45):
+        for x in range(0, 1160):
             covered[(y*WIDTH+x)*4:(y*WIDTH+x)*4+4] = bytes((40, 30, 20, 255))
     for _ in range(3):
         lanes = split_lane_payload(decode_payload_from_bgra(bytes(covered), WIDTH, HEIGHT))
         assert [packet.split("|", 6)[5] for packet in lanes] == ["FAST"]
     lanes = split_lane_payload(decode_payload_from_bgra(image, WIDTH, HEIGHT))
     assert len(lanes) == 2 and any("|STATE" in packet for packet in lanes)
+
+
+@pytest.mark.parametrize("initial_state_visible", [True, False])
+def test_long_fast_only_period_never_replaces_primary_state_geometry(initial_state_visible):
+    """A periodic rediscovery must not promote vertical FAST to STATE's cache."""
+    width, height = 1345, 697  # the client size of the 2026-10-15 WAIT run
+    lua, api = _strip(width, height, minimap_left_px=width-220*height/768)
+    _snapshot(lua)
+    api.update(lua.eval("data"), lua.eval("fast"))
+    image = _raster(lua, width, height)
+    if initial_state_visible:
+        assert len(split_lane_payload(decode_payload_from_bgra(image, width, height))) == 2
+    covered = bytes(width*60*4) + image[width*60*4:]
+    for _ in range(62):
+        payload = decode_payload_from_bgra(covered, width, height)
+        assert [packet.split("|", 6)[5] for packet in split_lane_payload(payload)] == ["FAST"]
+        primary = _GRID_CACHE.get((width, height))
+        assert primary is None or primary[1] < 60
+    # An existing origin recovers on the very next frame. At startup without
+    # STATE, discovery is bounded but must eventually find the returned strip.
+    for _ in range(1 if initial_state_visible else 60):
+        payload = decode_payload_from_bgra(image, width, height)
+        if any("|STATE" in packet for packet in split_lane_payload(payload)):
+            break
+    assert len(split_lane_payload(payload)) == 2
+    assert _GRID_CACHE[(width, height)][1] < 60
+
+
+def test_old_polluted_primary_fast_cache_is_repaired_without_losing_state_origin():
+    width, height = 1345, 697
+    lua, api = _strip(width, height, minimap_left_px=width-220*height/768)
+    _snapshot(lua)
+    api.update(lua.eval("data"), lua.eval("fast"))
+    image = _raster(lua, width, height)
+    decode_payload_from_bgra(image, width, height)
+    _LOST_GRID[(width, height)] = _GRID_CACHE[(width, height)]
+    _GRID_CACHE[(width, height)] = _VERTICAL_FAST_CACHE[(width, height)]
+    lanes = split_lane_payload(decode_payload_from_bgra(image, width, height))
+    assert len(lanes) == 2
+    assert _GRID_CACHE[(width, height)] == (0, 0, 3.0)

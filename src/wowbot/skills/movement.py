@@ -22,6 +22,11 @@ class MovementSkillRunner:
 
     def step(self, attempt, world_state: dict, observation_id: str, now: float,
              segment_baseline: dict | None) -> MovementStep:
+        resume_position = getattr(self.navigation, 'resume_owned_route', None)
+        if not callable(resume_position):
+            resume_position = getattr(self.navigation, 'resume_position_request', None)
+        if callable(resume_position):
+            resume_position(world_state, now)
         assessment = self.navigation.observe(world_state, observation_id, now, commanded=True)
         if (attempt.proposal.skill == "MOVE"
                 and assessment.reason == "reach_progress_observed"

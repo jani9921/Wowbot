@@ -1,0 +1,230 @@
+{
+  "project": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight claude\\ai_visual_bot_midnight 1.2\\projekt",
+  "changed": [
+    {
+      "path": "docs/CURRENT_SOURCE_COVERAGE.md",
+      "old_sha256": "3dc4f32a1ae49520af18dde0f538b15173ef798ed919bd58fc95cb8ac712afd2",
+      "new_sha256": "d9330af24d48177f46e84cef8e8e1ca4f0f29781098c37dafb82b2083ad399a3",
+      "backup": "baseline.zip",
+      "added_lines": 16,
+      "removed_lines": 0
+    },
+    {
+      "path": "docs/LIVE_VALIDATION.md",
+      "old_sha256": "75003e77cd24a96a51702e1e34e08add6dc7385488761cc929c3bf39db0983d7",
+      "new_sha256": "315b433267045108df4353c65744d6124f80b0a733c272de42f243094abb984a",
+      "backup": "baseline.zip",
+      "added_lines": 35,
+      "removed_lines": 0
+    },
+    {
+      "path": "docs/reform/rev4-20261029/ATVETEL_ES_ATALLASI_TERV.md",
+      "old_sha256": "5158302cd6602f0310307291efcc3bcaca337df9b8e7959aee9eab3f3fb38493",
+      "new_sha256": "39e61e763999e9f6c9aa4a833f6673a0b2d2e138a998ac3b3179e43dfa898fd9",
+      "backup": "intake-report-before.md",
+      "added_lines": 4,
+      "removed_lines": 1
+    },
+    {
+      "path": "docs/reform/rev4-20261029/P1A_QUERY_ISOLATION.md",
+      "old_sha256": null,
+      "new_sha256": "d8a48ba02dd08b4e2d83ffee4b235fb58a395eba911d6d1a49743ca8820a2285",
+      "backup": null,
+      "added_lines": 61,
+      "removed_lines": 0
+    },
+    {
+      "path": "src/wowbot/agent/agenda_sources.py",
+      "old_sha256": "75d5c790f6f53a6cf85ea58054100003d6d8f243a8fb51c0c5d3fcf63e19d09f",
+      "new_sha256": "a85c7d7fea8aa645f3204cec99a61b9da32fe1b81bbe75915f99496ec876e860",
+      "backup": "baseline.zip",
+      "added_lines": 15,
+      "removed_lines": 9
+    },
+    {
+      "path": "src/wowbot/agent/conversation_actors.py",
+      "old_sha256": "959054e6f17008acb1e23fabfe0b9367bb1a16137f2d25e96e1f1182ba74c4af",
+      "new_sha256": "8af2b557cc8e6894ccc3025608a9728ae19a1e091cc617c61b695cc4aeb7c370",
+      "backup": "baseline.zip",
+      "added_lines": 5,
+      "removed_lines": 2
+    },
+    {
+      "path": "src/wowbot/agent/engine.py",
+      "old_sha256": "e0436b995fb19dbf92e03ea3d3339e9a8d3f653009a7fd4336e0f0046a0d78ed",
+      "new_sha256": "5813de3d5458179d17857db1dd0ce2bbc23c9a7e4b22bfa87e2685a77a19e146",
+      "backup": "baseline.zip",
+      "added_lines": 9,
+      "removed_lines": 6
+    },
+    {
+      "path": "src/wowbot/agent/engine_runtime_projection.py",
+      "old_sha256": "025dc19bc95559cbbd0e9f49a284313e4289a3fdd3ae77504cab18980ddfd032",
+      "new_sha256": "ff233f83fe53f56228b1621300d26c4d7bbacb70d4657abe20bbd64ab75721af",
+      "backup": "baseline.zip",
+      "added_lines": 5,
+      "removed_lines": 2
+    },
+    {
+      "path": "src/wowbot/agent/fast_movement_lane.py",
+      "old_sha256": "8cd815f1b2e8cbbfa1997d90654247db2fd18d70a8e097c32c097382aceef25e",
+      "new_sha256": "996ccffb69f21adc4c18c3fe19969120381afa1113245cdd256a6f87268be141",
+      "backup": "baseline.zip",
+      "added_lines": 2,
+      "removed_lines": 1
+    },
+    {
+      "path": "src/wowbot/agent/map_poi_planning.py",
+      "old_sha256": "26cc2f735bdefc19cf12b11fb8ea7f8a90700ad8798ee389a74e35fd9c1d5d51",
+      "new_sha256": "81b98e8788d0acb155f35952724e277e59d405f98f73d33088c42c1db81928c9",
+      "backup": "baseline.zip",
+      "added_lines": 12,
+      "removed_lines": 6
+    },
+    {
+      "path": "src/wowbot/agent/objective_locator.py",
+      "old_sha256": "3f0cce91f52ae6ff2950bcaf6fbcd9f2365ed8db157659510249dc2db997bf4e",
+      "new_sha256": "b67d43690dcc26550772f6c2d37262c98a6ad64a4255b709d8588dce55f7b63b",
+      "backup": "baseline.zip",
+      "added_lines": 6,
+      "removed_lines": 1
+    },
+    {
+      "path": "src/wowbot/agent/planner.py",
+      "old_sha256": "ee14ab421ba6609d3ebd9ca51d374d3cb37a1b3fb398335da093a0aae2cc3a34",
+      "new_sha256": "390fd18712486a7202fc3d64b8c9a26240cfe23557b148f41f825a6ece53cef9",
+      "backup": "baseline.zip",
+      "added_lines": 10,
+      "removed_lines": 6
+    },
+    {
+      "path": "src/wowbot/agent/quest_agenda.py",
+      "old_sha256": "9ce2a4231fd02c798c5744c38d6f6e0606b91845a50d813de7cbb35aa4f36ca3",
+      "new_sha256": "58b2cacce062b6b3a313fb285e96773faf0f5610bb9c8e0e8b780973b1ee178d",
+      "backup": "baseline.zip",
+      "added_lines": 6,
+      "removed_lines": 3
+    },
+    {
+      "path": "src/wowbot/agent/quest_contextual_talk.py",
+      "old_sha256": "fbddcab98cb9f0e74c807f2650b6b9c8d99c9ea33026d81df057410b18bc0b79",
+      "new_sha256": "5d6454dd181b93b561064226c62041c8a316648dd2a66f371aa207520adfbe31",
+      "backup": "baseline.zip",
+      "added_lines": 7,
+      "removed_lines": 4
+    },
+    {
+      "path": "src/wowbot/agent/quest_dialog_planning.py",
+      "old_sha256": "8b845576fbe69b4d1fc289100162e8810c8999e7565a806d032eb1272ad6305f",
+      "new_sha256": "d94c3ab0396f77aab82b24827453f57dfe916c638ef7ff6ed253474489f9241a",
+      "backup": "baseline.zip",
+      "added_lines": 8,
+      "removed_lines": 4
+    },
+    {
+      "path": "src/wowbot/agent/quest_location_planning.py",
+      "old_sha256": "172de83708d286e21e0f13a82431782cd636d6038ca530ac1d3ef84f018a6ac0",
+      "new_sha256": "9371b3139ffff5270a6f701bbc212ea5d6d3588aca6dfa0ca5ae30d090e572bf",
+      "backup": "baseline.zip",
+      "added_lines": 5,
+      "removed_lines": 4
+    },
+    {
+      "path": "src/wowbot/agent/quest_planning.py",
+      "old_sha256": "60eaa15bee4c910f15d4431a1b749845a130882e35bd37ea72d72f3a841a7dab",
+      "new_sha256": "de3b8eb217353895c60a498b1d08b91e5d6a1ff2c3e4811916519bb924a52fd6",
+      "backup": "baseline.zip",
+      "added_lines": 8,
+      "removed_lines": 5
+    },
+    {
+      "path": "src/wowbot/agent/quest_runtime.py",
+      "old_sha256": "f89a9209f1a9a3330cb0b17112dd5a11d2c180b12d5e6998707b042c2c9862e5",
+      "new_sha256": "9eaf563844868dbe6c6e6833699490d2c4e4502ac2eee6a1c00fa7c4ed614bb5",
+      "backup": "baseline.zip",
+      "added_lines": 3,
+      "removed_lines": 2
+    },
+    {
+      "path": "src/wowbot/agent/server_npc_planning.py",
+      "old_sha256": "d3e778ab26ded3243be3fca51c323eeed720020d50675c56735c99ae7d19d82f",
+      "new_sha256": "d3e3186a61df09728a6846ed0424ccd2f9abc4a6cb42c1c4ba3b5e45f2a946d3",
+      "backup": "baseline.zip",
+      "added_lines": 11,
+      "removed_lines": 6
+    },
+    {
+      "path": "src/wowbot/agent/tdb_locations.py",
+      "old_sha256": "3072d41305a803787edfa2b0e167a2d5bf27750e12af2ae67614d7badd8fb3ee",
+      "new_sha256": "c1a130ad8ef4969b9b7dbb19a7c1ae1cf63931b36dfdedb83b7dc4428406590d",
+      "backup": "baseline.zip",
+      "added_lines": 13,
+      "removed_lines": 13
+    },
+    {
+      "path": "src/wowbot/agent/turnin_resolver.py",
+      "old_sha256": "51d0425bbf0af0eae83adb42a9c6dcea8a13583b388f15cb6e36309717f3f045",
+      "new_sha256": "765f43533d8e66d8c6f2074c19d9e11d053f1517cd048175492db8c5b6e04a7b",
+      "backup": "baseline.zip",
+      "added_lines": 6,
+      "removed_lines": 2
+    },
+    {
+      "path": "src/wowbot/agent/vehicle_prerequisites.py",
+      "old_sha256": "80494046f50df1eb1338a802cb9936e75c9ccaaa75fd5382936df2909c36e73b",
+      "new_sha256": "4853980a1c2c9aa08f3dad99971e99cab4336346a37df3be72a0327131e251af",
+      "backup": "baseline.zip",
+      "added_lines": 7,
+      "removed_lines": 4
+    },
+    {
+      "path": "src/wowbot/query_ports.py",
+      "old_sha256": null,
+      "new_sha256": "6afa207af1630d21f0bac462e881ef2e402d952ca82c49f3c9a932d4745e051b",
+      "backup": null,
+      "added_lines": 14,
+      "removed_lines": 0
+    },
+    {
+      "path": "tests/test_batch_paths_safe_resurrection_20261021.py",
+      "old_sha256": "276a24fc2a70e4bfc296bda9375e4807306e79b91c35d1b695d8f097d0a6bd37",
+      "new_sha256": "96454d4d4cefaf5fe548ffd1c25ae47c541c6c23d80683e4c228cc480a99ef7c",
+      "backup": "baseline.zip",
+      "added_lines": 7,
+      "removed_lines": 16
+    },
+    {
+      "path": "tests/test_credit_spell_object_20261026.py",
+      "old_sha256": "5b94991bbec35e785b90518feed9b468012d06596004d19d4f96b0b5412a498a",
+      "new_sha256": "b54ac0e3bb7398e0051330a3373ec86dddf2ca50ddbb605000cabe1329f3e467",
+      "backup": "baseline.zip",
+      "added_lines": 1,
+      "removed_lines": 1
+    },
+    {
+      "path": "tests/test_current_turnin_poi_20261029.py",
+      "old_sha256": "bc16f49af1e9046d3949c14ca30de589c6bb2324aa2da133b7cac1b5cf054d7a",
+      "new_sha256": "85534036c14139447e8f012b609e0e31aba404ba23d0c0e71fa9d4129d146bfe",
+      "backup": "baseline.zip",
+      "added_lines": 3,
+      "removed_lines": 4
+    },
+    {
+      "path": "tests/test_linked_quest_object_20261026.py",
+      "old_sha256": "85ee3046d57416cb7b61562a3b0bb48aab238291c65232e83265b8d026d82420",
+      "new_sha256": "683035b8037aa578f33367b6143d164f7788293247c1c8ff2f2c4ac80a0f2768",
+      "backup": "baseline.zip",
+      "added_lines": 1,
+      "removed_lines": 1
+    },
+    {
+      "path": "tests/test_reference_cost_isolation_20261029.py",
+      "old_sha256": null,
+      "new_sha256": "a92fc21e2f9dd389f4cf80388bc9f4b4913180663eb5092a5d3acbb3120918fa",
+      "backup": null,
+      "added_lines": 159,
+      "removed_lines": 0
+    }
+  ],
+  "baseline_archive": "C:\\Users\\<user>\\Documents\\ChatGPT\\ai_visual_bot_midnight 1.2\\_work\\rev4-p1a-20261029\\baseline.zip"
+}

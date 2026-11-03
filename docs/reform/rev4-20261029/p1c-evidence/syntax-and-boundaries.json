@@ -1,0 +1,67 @@
+{
+  "counts": {
+    "src": 500,
+    "tests": 597
+  },
+  "errors": [],
+  "query_port_imports": [
+    "__future__",
+    "collections.abc",
+    "dataclasses",
+    "typing"
+  ],
+  "protected_boundaries": [
+    {
+      "path": "src/wowbot/navigation/service.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/world.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/session_transition.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/context_contracts.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/ipc.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/inbox.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/builds.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "unchanged": true
+    }
+  ],
+  "modified_before_documentation": [
+    "src/wowbot/agent/engine.py",
+    "src/wowbot/agent/packet_entity_facts.py",
+    "src/wowbot/agent/planner.py",
+    "src/wowbot/agent/quest_location_planning.py",
+    "src/wowbot/agent/quest_objective_planning.py",
+    "src/wowbot/agent/quest_planning.py",
+    "src/wowbot/agent/quest_reference_matching.py",
+    "src/wowbot/agent/travel_mode.py",
+    "src/wowbot/query_ports.py",
+    "tests/test_cave_quest_layer_flow_20261006.py",
+    "tests/test_ghost_navigation_handoff_20261028.py",
+    "tests/test_pit_layer_and_pins_20261005.py",
+    "tests/test_pit_run_20261014.py",
+    "tests/test_quest_object_lock_20261014.py"
+  ]
+}

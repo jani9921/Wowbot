@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 import math
-from wowbot.vision.models import FeatureType, MapPoint, NavigationVisionObservation
+from wowbot.coordinates import MapPoint
+from wowbot.vision.models import FeatureType, NavigationVisionObservation
 from .graph import NavGraph, NavGraphNode
 
 
@@ -45,7 +46,7 @@ class WorldMapGraphBuilder:
 
     @staticmethod
     def _to_world(point: MapPoint, width: int, height: int):
-        from wowbot.vision.models import WorldPosition
+        from wowbot.coordinates import WorldPosition
         return WorldPosition(point.x / max(width, 1), point.y / max(height, 1), 0.0)
 
 

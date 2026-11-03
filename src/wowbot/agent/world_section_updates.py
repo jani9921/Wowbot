@@ -22,6 +22,7 @@ class WorldSectionUpdateTracker:
         "orientation": ("NavigationState",), "movement": ("NavigationState",),
         "active_quests": ("QuestState",), "quest_digest": ("QuestState",),
         "quest_state_revision": ("QuestState",), "events": ("QuestState",),
+        "quest_turn_in_receipts": ("QuestState",),
         "quest_ui": ("QuestState", "InteractionState", "UIState"),
         "quest_ui_open": ("QuestState", "InteractionState", "UIState"),
         "gossip_ui": ("InteractionState", "UIState"),

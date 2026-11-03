@@ -6,6 +6,7 @@ from pathlib import Path
 import threading
 import time
 from collections import deque
+from contextlib import nullcontext
 from .bindings import BindingsCache
 from .engine import AutonomousAgent
 from .executor import InputExecutor
@@ -46,7 +47,10 @@ class AgentRuntime(RuntimeLifecycleMixin):
 
     def __init__(self, pid: int, cache: Path, output: Path, *, ollama=None, sensor=None,
                  executor=None, vision=True, mmap_path=None, replay_path=None,
-                 world3d_model=None):
+                 world3d_model=None, packet_source=None, runtime_profile=None):
+        from wowbot.runtime_profile import RuntimeProfile
+        self.runtime_profile = RuntimeProfile.resolve(runtime_profile)
+        vision = bool(vision and self.runtime_profile.visual)
         from .bindings import NoBindingsCache
         self.bindings = BindingsCache(cache) if cache else NoBindingsCache()
         self.executor = executor or InputExecutor(pid, self.bindings)
@@ -70,10 +74,17 @@ class AgentRuntime(RuntimeLifecycleMixin):
         self.binding_inventory = BindingInventory(output, self.bindings, pid)
         from .spatial_memory import SpatialMemory
         self.spatial = SpatialMemory(self.profile)
+        import atexit
+        # Rows still queued for the learned TDB are written on exit.
+        atexit.register(lambda learner=self.spatial.experience.packet_spawns:
+                        learner.flush(time.monotonic(), wait=True))
         self._visual_recognition_stabilizer = _VisualRecognitionStabilizer()
         self.reasoner = OllamaReasoner(ollama or {"enabled": False})
         self.agent = AutonomousAgent(self.executor, self.bindings, self.memory, self.reasoner,
-                                     entity_memory=self.spatial.entities, navmesh=mmap_path)
+                                     entity_memory=self.spatial.entities, navmesh=mmap_path,
+                                     runtime_profile=self.runtime_profile)
+        # Route danger also reads the learned TDB (Ymir-filled, user 2026-10-21).
+        self.agent.navigation.learned_world_path = self.spatial.experience.learned.path
         # Local-LLM text interpretation (quest text, ability tooltips, NPC
         # speech); asynchronous, cached per user, advisory only.
         from .semantic_advisor import SemanticAdvisor, load_semantic_config
@@ -86,9 +97,10 @@ class AgentRuntime(RuntimeLifecycleMixin):
         self.semantic = SemanticAdvisor(semantic_config, self.profile / "semantic_cache.json")
         self.agent.semantic_advisor = self.semantic
         # Per-quest visual prototypes survive restarts (per user profile).
-        from .visual_prototypes import VisualPrototypeMemory
-        self.agent.world.__dict__["visual_prototypes"] = VisualPrototypeMemory(
-            self.profile / "visual_prototypes.json")
+        if self.runtime_profile.visual:
+            from .visual_prototypes import VisualPrototypeMemory
+            self.agent.world.__dict__["visual_prototypes"] = VisualPrototypeMemory(
+                self.profile / "visual_prototypes.json")
         # Quest givers/enders, objective creatures, how objectives advanced and
         # learned vehicle ability effects survive restarts (user 2026-10-05).
         from .quest_creature_memory import QuestCreatureMemory
@@ -130,57 +142,11 @@ class AgentRuntime(RuntimeLifecycleMixin):
             from .capture_selection import build_default_sensor
             sensor, self._capture_process_handle = build_default_sensor(pid, self.executor.backend)
         self.sensor = sensor
-        self.perception = None
-        if vision:
-            from .perception import PerceptionWorker
-            from wowbot.vision.world3d.learned_detector import build_runtime_learned_detector
-            learned_detector = build_runtime_learned_detector(
-                world3d_model, capture_handle=self._capture_process_handle)
-            if (callable(getattr(learned_detector, "set_trace_path", None))
-                    and os.environ.get("AIPC_FEED_TRACE", "1").strip() != "0"):
-                # Per-frame detector association record for offline replay.
-                learned_detector.set_trace_path(output / "feed_association_trace.jsonl")
-            live_vision_monitor = None
-            if os.environ.get("AIPC_LIVE_VISION", "").strip().lower() in {
-                    "1", "true", "yes", "on"}:
-                from wowbot.diagnostics.live_vision_monitor import LiveVisionMonitor
-                live_vision_monitor = LiveVisionMonitor(
-                    maximum_hz=float(os.environ.get("AIPC_LIVE_VISION_HZ", "60")))
-            self._live_vision_monitor = live_vision_monitor
-            proposal_mode = os.environ.get("AIPC_WORLD3D_PROPOSAL_MODE", "YOLO_ONLY")
-            if (os.environ.get("AIPC_WORLD3D_PROCESS", "1").strip() != "0"
-                    and self._capture_process_handle is not None
-                    and getattr(learned_detector, "capture_driven", False)):
-                # World3D perception in its own process (own GIL): see
-                # perception_process.py.  The feed pipeline is started here
-                # because that process only holds a client endpoint.
-                from .perception_process import ProcessPerceptionWorker
-                learned_detector.start_pipeline(
-                    proposal_mode=str(proposal_mode).strip().upper(),
-                    tracker_mode=str(os.getenv("AIPC_WORLD3D_TRACKER", "AUTO"))
-                    .strip().lower().replace("-", ""))
-                self.perception = ProcessPerceptionWorker(
-                    capture_ring=self._capture_process_handle.client.ring_name,
-                    feed=learned_detector, live_vision_monitor=live_vision_monitor,
-                    hard_example_directory=output / "vision-hard-examples",
-                    proposal_mode=proposal_mode)
-            else:
-                self.perception = PerceptionWorker(
-                    hard_example_directory=output / "vision-hard-examples",
-                    scheduler=self.agent.brain_scheduler,
-                    learned_detector=learned_detector,
-                    live_vision_monitor=live_vision_monitor,
-                    world3d_proposal_mode=proposal_mode)
-        from .vision_dataset import AutoLabeledExampleCollector
-        self.vision_dataset = AutoLabeledExampleCollector(output / "vision-dataset")
-        from .map_marker_dataset import MapMarkerCropCollector
-        # Map-marker YOLO dataset (World Map + minimap crops with addon facts).
-        # AIPC_MAP_DATASET=0 disables it; writing happens off the agent step.
-        self.map_marker_dataset = MapMarkerCropCollector(
-            output / "map-marker-dataset"
-            if os.environ.get("AIPC_MAP_DATASET", "1").strip().lower()
-            not in {"0", "false", "no", "off"} else None)
+        from .runtime_vision_composition import configure_vision
+        configure_vision(self, output, world3d_model, vision)
         self.pid = pid
+        from .runtime_packet_source import RuntimePacketSource
+        self.packet_telemetry = RuntimePacketSource(pid, output, source=packet_source, independent_context=True)
         self.stopped = threading.Event()
         self.thread = None
         self.status = {"mode": "MANUAL", "sensor": "waiting", "pid": pid}
@@ -250,6 +216,8 @@ class AgentRuntime(RuntimeLifecycleMixin):
         # interval before the next FAST movement sample can run.
         self.medium_hz = 3.0
         self._next_medium_at = 0.0
+        self.parallel_pump = None
+        self.visual_memory_worker = None
         configured_replay = str(replay_path or os.environ.get("AIPC_REPLAY_PATH", "")).strip()
         if configured_replay:
             from wowbot.diagnostics import RuntimeReplayBridge
@@ -277,13 +245,17 @@ class AgentRuntime(RuntimeLifecycleMixin):
         base = str(running).split("-")[0]
         return None if base == expected else str(running)
 
-    def _binding_preflight(self):
+    def _binding_preflight(self, state=None):
+        from .actionbar_context import binding_context
         domain = self.agent.goal.domain if self.agent.goal else "UNKNOWN"
-        actionbar = self.agent.world.state.get("actionbar", [])
-        static = self.bindings.preflight(domain, actionbar)
+        state = self.agent.world.state if state is None else state
+        actionbar = state.get("actionbar", [])
+        context = binding_context(state)
+        static = self.bindings.preflight(domain, actionbar, context=context)
         live = self.binding_inventory.validate_actions(
-            self.bindings.required_actions(domain, actionbar))
+            self.bindings.required_actions(domain, actionbar, context=context))
         return {**static, "ready": static["ready"] and live["ready"],
+                "actionbar_context": context,
                 "client_validation": live,
                 "binding_mismatches": live["mismatches"],
                 "unverified_bindings": live["unverified"]}
@@ -304,6 +276,9 @@ class AgentRuntime(RuntimeLifecycleMixin):
         backend = getattr(self.executor, "backend", None)
         enforce_runtime_safety(self, backend, now)
         payload = self.sensor.poll(now)
+        context_provider = self.packet_telemetry.session_provider
+        if context_provider is not None:
+            payload = context_provider.normalize_addon(payload)
         if payload is not None:
             payload = self._compact_fast_payload(payload)
             self._payload_rate.mark(now)
@@ -344,10 +319,21 @@ class AgentRuntime(RuntimeLifecycleMixin):
         # the 3 Hz medium planner cadence.  This call only schedules/harvests
         # bounded latest-frame vision; no input or planning authority moves
         # into perception.
-        visual_candidates = update_runtime_perception(self, payload, current)
+        visual_candidates = (update_runtime_perception(self, payload, current)
+                             if self.runtime_profile.visual else [])
         perception_ms = (time.perf_counter()-phase_started)*1000
+        parallel_live = self.parallel_pump is not None and self.parallel_pump.active
+        parallel_urgent = parallel_live and self.parallel_pump.wake_medium.is_set()
+        if parallel_urgent:
+            self.parallel_pump.wake_medium.clear()
+        if (parallel_live and not parallel_urgent and self.agent.mode == Mode.FULL_AI
+                and self.agent.pending is not None and current < self._next_medium_at
+                and (payload is None or payload.get("transport_kind") == "FAST")):
+            # Compatible activities run on their own latest-only control
+            # pump, not by entering memory/projection/planning on every poll.
+            return self.status
         fast_control = None
-        if (payload is not None and payload.get("transport_kind") == "FAST"
+        if (not parallel_live and payload is not None and payload.get("transport_kind") == "FAST"
                 and self.agent.mode == Mode.FULL_AI and self.agent.pending is not None
                 and self.agent.pending.proposal.skill in {
                     "MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"}):
@@ -380,7 +366,7 @@ class AgentRuntime(RuntimeLifecycleMixin):
                 # bounds every lease and the same selected-PID executor checks
                 # focus immediately before each refresh.
                 return self.status
-        elif (payload is None and self.agent.mode == Mode.FULL_AI
+        elif (not parallel_live and payload is None and self.agent.mode == Mode.FULL_AI
                 and self.agent.pending is not None
                 and self.agent.pending.proposal.skill in {
                     "MOVE", "FOLLOW", "REACH_OBJECT", "REACH_LOCATION"}
@@ -400,7 +386,9 @@ class AgentRuntime(RuntimeLifecycleMixin):
         phase_started = time.perf_counter()
         if payload and payload.get("transport_kind") != "FAST":
             self.binding_inventory.ingest(payload, current)
-            live_bindings = self._binding_preflight()
+            # The incoming full snapshot may have just replaced the primary
+            # bar. Do not cancel flight using the preceding ground snapshot.
+            live_bindings = self._binding_preflight(payload)
             if (self.agent.mode == Mode.FULL_AI
                     and live_bindings["binding_mismatches"]):
                 self.mode("MANUAL")
@@ -419,6 +407,10 @@ class AgentRuntime(RuntimeLifecycleMixin):
                 self.replay_bridge.record_observation(base_observation)
             for observation in supplemental:
                 self.replay_bridge.record_observation(observation)
+        # Observation/memory work can outlive several fast control samples.
+        # Refresh the decision clock, NEVER the packet/box sampling times.
+        # Otherwise the medium FSM sees time move backwards after the pump.
+        current = time.monotonic() if self.started else current
         phase_started = time.perf_counter()
         if self.arm_at is not None and current >= self.arm_at:
             # Use the newly received observation, not the stale pre-focus state.
@@ -522,11 +514,18 @@ class AgentRuntime(RuntimeLifecycleMixin):
             else:
                 self.mode("MANUAL")
                 self.agent.last_result = {"outcome": "CANCELLED", "reason": "bounded_live_test_timeout"}
-        # Perf fix (live-confirmed 2026-09-22): tick() can call AgentMemory
-        # many times (one _record() per queued event/skill-lifecycle
-        # transition). Batch them into one commit instead of one per call.
-        with self.memory.batch():
+        # One memory commit per tick (live 2026-09-22).  Engine lock first,
+        # then the memory batch: the reverse order deadlocked against the
+        # GUI's MANUAL (set_mode) live 2026-10-25 11:00:47.
+        with getattr(self.agent, "lock", None) or nullcontext(), self.memory.batch():
             result = self.agent.tick(payload, current, tuple(supplemental))
+        stop = self.agent.__dict__.pop("safety_stop", None)
+        if stop is not None and self.agent.mode == Mode.FULL_AI:
+            self.mode("MANUAL")
+            self.agent.last_result = {"outcome": "CANCELLED", **stop}
+            result["mode"] = "MANUAL"
+        if parallel_live and self.perception is not None:
+            self.agent.parallel_control.expected_epoch = self.perception.epoch
         try:
             from .semantic_advisor import update_world
             update_world(self.semantic, self.agent.world, current)

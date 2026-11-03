@@ -1,0 +1,44 @@
+{
+  "counts": {
+    "src": 500,
+    "tests": 595
+  },
+  "errors": [],
+  "common_context_imports": [
+    "__future__",
+    "collections.abc",
+    "dataclasses",
+    "enum",
+    "typing"
+  ],
+  "protected_boundaries": [
+    {
+      "path": "src/wowbot/packetio/ipc.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/inbox.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/builds.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/pkt.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/forwarder.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/packetio/validation.py",
+      "unchanged": true
+    },
+    {
+      "path": "src/wowbot/agent/session_transition.py",
+      "unchanged": true
+    }
+  ]
+}

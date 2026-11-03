@@ -146,6 +146,14 @@ class NavigationRecoveryMixin:
             x += math.cos(orientation) * self.OBSTACLE_AHEAD_YARDS
             y += math.sin(orientation) * self.OBSTACLE_AHEAD_YARDS
             radius = 3.0
+            # Live 2026-10-25 10:55:09-10:55:38 (A Warrior's End): a camp tent
+            # missing from the vmaps/mmaps stopped three walks on the same
+            # spot; each 3 yd mark's detour still clipped it.  Every repeated
+            # stuck on the same obstacle widens the avoided circle.
+            repeats = sum(1 for entry in self._danger.active_entries(now)
+                          if entry.source == "SUPPORTED_STUCK"
+                          and math.hypot(entry.x-x, entry.y-y) <= entry.radius + 2.)
+            radius = min(7.5, radius + 1.75*repeats)
         key = correlation_id or request.correlation_id
         self._danger.add(
             danger_id=f"navigation-failure:{key}", kind=kind,
